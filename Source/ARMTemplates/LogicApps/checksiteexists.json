@@ -1,0 +1,647 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "defaultvalue": "",
+            "type": "string"
+        },
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "tenantId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "spoTenantName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "certName": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "Singlequote": "'"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "CheckSiteExists",
+            "location": "[parameters('location')]",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "properties": {
+                                        "siteUrl": {
+                                            "type": "string"
+                                        },
+                                        "tenantId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Check_if_a_list_item_was_returned_from_the_aggregated_site_collections_list": {
+                            "actions": {
+                                "Set_Exists_variable_-_site_exists": {
+                                    "runAfter": {},
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "Exists",
+                                        "value": "@true"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Parse_site_item_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@empty(body('Parse_site_item_JSON')?['value'])",
+                                            "@false"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Get_Certificate": {
+                            "runAfter": {
+                                "Get_Client_ID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "[concat('/secrets/@{encodeURIComponent(',variables('singlequote'),parameters('certName'),variables('singlequote'),')}/value')]"
+                            },
+                            "runtimeConfiguration": {
+                                "secureData": {
+                                    "properties": [
+                                        "inputs",
+                                        "outputs"
+                                    ]
+                                }
+                            }
+                        },
+                        "Get_Client_ID": {
+                            "runAfter": {
+                                "Initialize_TenantID_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/secrets/@{encodeURIComponent('appid')}/value"
+                            },
+                            "description": "Get Azure ad app client id from key vault.",
+                            "runtimeConfiguration": {
+                                "secureData": {
+                                    "properties": [
+                                        "outputs"
+                                    ]
+                                }
+                            }
+                        },
+                        "Get_aggregated_site_collections_list_from_SPO_admin_center": {
+                            "runAfter": {
+                                "Get_Certificate": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "audience": "https://graph.microsoft.com",
+                                    "clientId": "@body('Get_Client_ID')?['value']",
+                                    "password": "@null",
+                                    "pfx": "@body('Get_Certificate')?['value']",
+                                    "tenant": "@variables('TenantID')",
+                                    "type": "ActiveDirectoryOAuth"
+                                },
+                                "method": "GET",
+                                "uri": "@{variables('GraphURL')}/sites/@{variables('SPOTenantName')}-admin.sharepoint.com/lists?$filter=displayName eq 'DO_NOT_DELETE_SPLIST_TENANTADMIN_ALL_SITES_AGGREGATED_SITECOLLECTIONS'"
+                            }
+                        },
+                        "Get_site_from_aggregated_site_collections_list": {
+                            "runAfter": {
+                                "Parse_aggregated_site_collections_list_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "audience": "https://graph.microsoft.com",
+                                    "clientId": "@body('Get_Client_ID')?['value']",
+                                    "password": "@null",
+                                    "pfx": "@body('Get_Certificate')?['value']",
+                                    "tenant": "@variables('TenantID')",
+                                    "type": "ActiveDirectoryOAuth"
+                                },
+                                "method": "GET",
+                                "uri": "@{variables('GraphURL')}/sites/@{variables('SPOTenantName')}-admin.sharepoint.com/lists/@{first(body('Parse_aggregated_site_collections_list_JSON')?['value'])?['id']}/items?$expand=fields&$filter=fields/SiteUrl eq '@{triggerBody()?['siteUrl']}'"
+                            }
+                        },
+                        "Initialize_Exists_variable": {
+                            "runAfter": {
+                                "Initialize_SPOTenantName_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "Exists",
+                                        "type": "boolean",
+                                        "value": "@false"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_GraphURL_variable": {
+                            "runAfter": {
+                                "Initialize_Exists_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "GraphURL",
+                                        "type": "string",
+                                        "value": "https://graph.microsoft.com/v1.0"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_SPOTenantName_variable": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "SPOTenantName",
+                                        "type": "string",
+                                        "value": "[parameters('spoTenantName')]"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_TenantID_variable": {
+                            "runAfter": {
+                                "Initialize_GraphURL_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "TenantID",
+                                        "type": "string",
+                                        "value": "[parameters('tenantId')]"
+                                    }
+                                ]
+                            }
+                        },
+                        "Parse_aggregated_site_collections_list_JSON": {
+                            "runAfter": {
+                                "Get_aggregated_site_collections_list_from_SPO_admin_center": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Get_aggregated_site_collections_list_from_SPO_admin_center')",
+                                "schema": {
+                                    "properties": {
+                                        "@@microsoft.graph.tips": {
+                                            "type": "string"
+                                        },
+                                        "@@odata.context": {
+                                            "type": "string"
+                                        },
+                                        "value": {
+                                            "items": {
+                                                "properties": {
+                                                    "@@odata.etag": {
+                                                        "type": "string"
+                                                    },
+                                                    "createdBy": {
+                                                        "properties": {
+                                                            "user": {
+                                                                "properties": {
+                                                                    "displayName": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "createdDateTime": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "displayName": {
+                                                        "type": "string"
+                                                    },
+                                                    "eTag": {
+                                                        "type": "string"
+                                                    },
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "lastModifiedBy": {
+                                                        "properties": {
+                                                            "user": {
+                                                                "properties": {
+                                                                    "displayName": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "lastModifiedDateTime": {
+                                                        "type": "string"
+                                                    },
+                                                    "list": {
+                                                        "properties": {
+                                                            "contentTypesEnabled": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hidden": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "template": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "parentReference": {
+                                                        "properties": {
+                                                            "siteId": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "webUrl": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "@@odata.etag",
+                                                    "createdDateTime",
+                                                    "description",
+                                                    "eTag",
+                                                    "id",
+                                                    "lastModifiedDateTime",
+                                                    "name",
+                                                    "webUrl",
+                                                    "displayName",
+                                                    "createdBy",
+                                                    "lastModifiedBy",
+                                                    "parentReference",
+                                                    "list"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Parse_site_item_JSON": {
+                            "runAfter": {
+                                "Get_site_from_aggregated_site_collections_list": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Get_site_from_aggregated_site_collections_list')",
+                                "schema": {
+                                    "properties": {
+                                        "@@odata.context": {
+                                            "type": "string"
+                                        },
+                                        "value": {
+                                            "items": {
+                                                "properties": {
+                                                    "@@odata.etag": {
+                                                        "type": "string"
+                                                    },
+                                                    "contentType": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "createdBy": {
+                                                        "properties": {
+                                                            "user": {
+                                                                "properties": {
+                                                                    "displayName": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "createdDateTime": {
+                                                        "type": "string"
+                                                    },
+                                                    "eTag": {
+                                                        "type": "string"
+                                                    },
+                                                    "fields": {
+                                                        "properties": {
+                                                            "@@odata.etag": {
+                                                                "type": "string"
+                                                            },
+                                                            "AnonymousLinkCount": {
+                                                                "type": "integer"
+                                                            },
+                                                            "ArchiveStatus": {
+                                                                "type": "string"
+                                                            },
+                                                            "Attachments": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "AuthorLookupId": {
+                                                                "type": "string"
+                                                            },
+                                                            "ConditionalAccessPolicy": {
+                                                                "type": "integer"
+                                                            },
+                                                            "ContentType": {
+                                                                "type": "string"
+                                                            },
+                                                            "Created": {
+                                                                "type": "string"
+                                                            },
+                                                            "CreatedBy": {
+                                                                "type": "string"
+                                                            },
+                                                            "CreatedByEmail": {
+                                                                "type": "string"
+                                                            },
+                                                            "Edit": {
+                                                                "type": "string"
+                                                            },
+                                                            "EditorLookupId": {
+                                                                "type": "string"
+                                                            },
+                                                            "FolderChildCount": {
+                                                                "type": "string"
+                                                            },
+                                                            "IBMode": {
+                                                                "type": "string"
+                                                            },
+                                                            "ItemChildCount": {
+                                                                "type": "string"
+                                                            },
+                                                            "LinkTitle": {
+                                                                "type": "string"
+                                                            },
+                                                            "LinkTitleNoMenu": {
+                                                                "type": "string"
+                                                            },
+                                                            "Modified": {
+                                                                "type": "string"
+                                                            },
+                                                            "NumOfFiles": {
+                                                                "type": "integer"
+                                                            },
+                                                            "RootWebId": {
+                                                                "type": "string"
+                                                            },
+                                                            "ShareByEmailEnabled": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "ShareByLinkEnabled": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "SiteFlags": {
+                                                                "type": "integer"
+                                                            },
+                                                            "SiteId": {
+                                                                "type": "string"
+                                                            },
+                                                            "SiteOwnerEmail": {
+                                                                "type": "string"
+                                                            },
+                                                            "SiteOwnerName": {
+                                                                "type": "string"
+                                                            },
+                                                            "SiteUrl": {
+                                                                "type": "string"
+                                                            },
+                                                            "StorageQuota": {
+                                                                "type": "integer"
+                                                            },
+                                                            "StorageUsed": {
+                                                                "type": "integer"
+                                                            },
+                                                            "StorageUsedPercentage": {
+                                                                "type": "string"
+                                                            },
+                                                            "TemplateId": {
+                                                                "type": "integer"
+                                                            },
+                                                            "TemplateName": {
+                                                                "type": "string"
+                                                            },
+                                                            "TimeCreated": {
+                                                                "type": "string"
+                                                            },
+                                                            "Title": {
+                                                                "type": "string"
+                                                            },
+                                                            "WasSegmentApplied": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "_ComplianceFlags": {
+                                                                "type": "string"
+                                                            },
+                                                            "_ComplianceTag": {
+                                                                "type": "string"
+                                                            },
+                                                            "_ComplianceTagUserId": {
+                                                                "type": "string"
+                                                            },
+                                                            "_ComplianceTagWrittenTime": {
+                                                                "type": "string"
+                                                            },
+                                                            "_UIVersionString": {
+                                                                "type": "string"
+                                                            },
+                                                            "id": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "fields@odata.context": {
+                                                        "type": "string"
+                                                    },
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "lastModifiedBy": {
+                                                        "properties": {
+                                                            "user": {
+                                                                "properties": {
+                                                                    "displayName": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "lastModifiedDateTime": {
+                                                        "type": "string"
+                                                    },
+                                                    "parentReference": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "siteId": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "webUrl": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "@@odata.etag",
+                                                    "createdDateTime",
+                                                    "eTag",
+                                                    "id",
+                                                    "lastModifiedDateTime",
+                                                    "webUrl",
+                                                    "createdBy",
+                                                    "lastModifiedBy",
+                                                    "parentReference",
+                                                    "contentType",
+                                                    "fields@odata.context",
+                                                    "fields"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Check_if_a_list_item_was_returned_from_the_aggregated_site_collections_list": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": {
+                                    "exists": "@variables('Exists')"
+                                },
+                                "headers": {
+                                    "Accept": "application/json",
+                                    "Content-Type": "application/json"
+                                },
+                                "statusCode": 200
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "keyvault": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/provisionassist-kv')]",
+                                "connectionName": "provisionassist-kv",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
