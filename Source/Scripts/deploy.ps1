@@ -64,6 +64,8 @@ $settingsPath = "Settings\SharePoint List items.xlsx"
 # Required PS modules
 $preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "WriteAscii", "Microsoft.Graph"
 
+$preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Microsoft.Graph" = "2.9.1"}
+
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
 $provTypesWorksheetName = "Provisioning Types"
@@ -224,6 +226,26 @@ function VerifyModules {
         }
     }
     
+}
+
+function VerifyModuleVersions {
+    foreach ($key in $preReqModuleVersions.Keys) {
+        $verified = $false
+        Get-Module $key -All -ListAvailable | Foreach-Object {
+            if ($_.Version.ToString() -eq $preReqModuleVersions[$key]) {
+                Write-Host "$key version is correct" -ForegroundColor Green
+                $verified = $true
+                continue
+            }
+        }
+        if (-not $verified) {
+            Write-Host "Missing required version for $key" -ForegroundColor Yellow
+            Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
+            Install-Module -Name $key -RequiredVersion $preReqModuleVersions[$key] -Force
+            Write-Host "Installed $key version: $($preReqModuleVersions[$key])" -ForegroundColor Green
+            $verified = $true
+        }
+    }
 }
 
 # Test for availability of Azure resources
@@ -967,6 +989,17 @@ Write-Host "###  DEPLOYMENT SCRIPT STARTED `n(c) Microsoft Corporation ###" -For
 Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
 VerifyModules
 Write-Host "Required modules are installed" -ForegroundColor Green
+
+Write-Host "Verifying module versions..." -ForegroundColor Yellow
+VerifyModuleVersions
+
+Write-Host "Loading required modules..." -ForegroundColor Yellow
+Import-Module Az.Accounts -RequiredVersion 2.12.1
+Import-Module Az.Resources -RequiredVersion 6.6.0
+Import-Module Microsoft.Graph.Authentication -RequiredVersion 2.9.1
+Import-Module Microsoft.Graph.Applications -RequiredVersion 2.9.1
+Import-Module PnP.PowerShell -RequiredVersion 1.12.0
+Write-Host "Modules loaded" -ForegroundColor Green
 
 # Load Parameters from json file
 $parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop
