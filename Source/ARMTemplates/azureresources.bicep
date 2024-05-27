@@ -100,7 +100,7 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2022-08-08' 
 }
 
 // Modules
-resource Az_Accounts 'Microsoft.Automation/automationAccounts/modules@2022-08-08' = {
+resource Az_Accounts 'Microsoft.Automation/automationAccounts/modules@2023-11-01' = {
   name: 'Az.Accounts'
   location: location
   parent: automationAccount
@@ -112,20 +112,20 @@ resource Az_Accounts 'Microsoft.Automation/automationAccounts/modules@2022-08-08
   }
 }
 
-resource PnP_PowerShell 'Microsoft.Automation/automationAccounts/modules@2022-08-08' = {
+resource PnP_PowerShell 'Microsoft.Automation/automationAccounts/modules@2023-11-01' = {
   name: 'PnP.PowerShell'
   location: location
   parent: automationAccount
   properties: {
     contentLink: {
-      uri: 'https://devopsgallerystorage.blob.core.windows.net/packages/pnp.powershell.1.12.0.nupkg'
-      version: '1.12.0'
+      uri: 'https://devopsgallerystorage.blob.core.windows.net/packages/pnp.powershell.2.4.0.nupkg'
+      version: '2.4.0'
     }
   }
 }
 
 // Runbooks
-resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
   parent: automationAccount
   name: 'GetSiteTemplates'
   location: location
@@ -140,7 +140,7 @@ resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runboo
   }
 }
 
-resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
   parent: automationAccount
   name: 'ConfigureSpace'
   location: location
