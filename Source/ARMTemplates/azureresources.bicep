@@ -132,7 +132,7 @@ resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runboo
   properties: {
     logVerbose: true
     logProgress: true
-    runbookType: 'PowerShell'
+    runbookType: 'PowerShell72'
     publishContentLink: {
       uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/GetSiteTemplates.ps1'
       version: '1.0.0.0'
@@ -147,7 +147,7 @@ resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks
   properties: {
     logVerbose: true
     logProgress: true
-    runbookType: 'PowerShell'
+    runbookType: 'PowerShell72'
     publishContentLink: {
       uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/ConfigureSpace.ps1'
       version: '1.0.0.0'

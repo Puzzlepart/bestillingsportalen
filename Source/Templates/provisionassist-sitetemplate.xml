@@ -270,6 +270,7 @@
                 <FieldRef Name="HubSiteId" />
                 <FieldRef Name="Owner" />
                 <FieldRef Name="SecondOwner" />
+                <FieldRef Name="isPP365" />
                 <FieldRef Name="Enabled" />
               </ViewFields>
               <RowLimit Paged="TRUE">30</RowLimit>
@@ -281,6 +282,9 @@
             <Field DisplayName="HubSiteId" Format="Dropdown" MaxLength="255" Name="HubSiteId" Title="HubSiteId" Type="Text" ID="{7ed5817d-9434-4910-a4b7-406c61e11d3b}" SourceID="{{listid:Hub Sites}}" StaticName="HubSiteId" ColName="nvarchar7" RowOrdinal="0" />
             <Field DisplayName="Owner" Format="Dropdown" MaxLength="255" Name="Owner" Title="Owner" Type="Text" ID="{2210e750-936c-4eb6-b43b-9bdbc75aabe2}" SourceID="{{listid:Hub Sites}}" StaticName="Owner" ColName="nvarchar8" RowOrdinal="0" />
             <Field DisplayName="SecondOwner" Format="Dropdown" MaxLength="255" Name="SecondOwner" Title="SecondOwner" Type="Text" ID="{fcd883a1-ccd6-4322-9e39-c3643a0828c8}" SourceID="{{listid:Hub Sites}}" StaticName="SecondOwner" ColName="nvarchar9" RowOrdinal="0" />
+            <Field DisplayName="isPP365" Format="Dropdown" IsModern="TRUE" Name="isPP365" Title="isPP365" Type="Boolean" ID="{0fa2ceaf-e868-4844-863c-35e60d1279e2}" SourceID="{{listid:Hub Sites}}" StaticName="isPP365" ColName="bit2" RowOrdinal="0">
+              <Default>0</Default>
+            </Field>
             <Field DisplayName="Enabled" Format="Dropdown" IsModern="TRUE" Name="Enabled" Title="Enabled" Type="Boolean" ID="{4156fe87-10ca-43fb-a016-f6a1ad3fc2e8}" SourceID="{{listid:Hub Sites}}" StaticName="Enabled" ColName="bit1" RowOrdinal="0">
               <Default>0</Default>
             </Field>
@@ -404,6 +408,7 @@
                 <FieldRef Name="SuffixUseAttribute" />
                 <FieldRef Name="ExternalSharingSetting" />
                 <FieldRef Name="BlockedWordsValue" />
+                <FieldRef Name="LogoImage" />
               </ViewFields>
               <RowLimit Paged="TRUE">30</RowLimit>
               <JSLink>clienttemplates.js</JSLink>
@@ -418,6 +423,7 @@
             <Field DisplayName="Prefix Use Attribute" Format="Dropdown" IsModern="TRUE" Name="PrefixUseAttribute" Title="Prefix Use Attribute" Type="Boolean" ID="{0d25412b-923f-493f-923c-7417d2360950}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixUseAttribute" ColName="bit1" RowOrdinal="0">
               <Default>0</Default>
             </Field>
+            <Field ClientSideComponentId="00000000-0000-0000-0000-000000000000" DisplayName="LogoImage" Format="Thumbnail" Name="LogoImage" Title="Logo Image" Type="Thumbnail" ID="{fe0b1490-b6bf-476a-b2d9-b11c01dd5f08}" Version="2" StaticName="LogoImage" SourceID="{{listid:Provisioning Request Settings}}" ColName="ntext5" RowOrdinal="0" />
             <Field Type="Choice" DisplayName="Prefix Attribute" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Dropdown" Direction="None" FillInChoice="FALSE" ID="{4dc6cea7-8613-4bef-b274-6cbac9511576}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixAttribute" Name="PrefixAttribute" ColName="nvarchar8" RowOrdinal="0" CustomFormatter="" Version="1">
               <CHOICES>
                 <CHOICE>Department</CHOICE>
@@ -480,8 +486,7 @@
                 <FieldRef Name="ExternalSharingRequired" />
                 <FieldRef Name="ExternalSharingJustification" />
                 <FieldRef Name="SiteURL" />
-                <FieldRef Name="SiteTemplateTitle" />
-                <FieldRef Name="TeamsTemplateTitle" />
+                <FieldRef Name="Teamify" />
                 <FieldRef Name="JoinHub" />
                 <FieldRef Name="HubSiteTitle" />
                 <FieldRef Name="Status" />
@@ -535,6 +540,9 @@
             <Field Type="Text" DisplayName="Teams Template" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{6db7f98e-cace-4954-8dc3-ae830a194162}" SourceID="{{listid:Provisioning Requests}}" StaticName="TeamsTemplate" Name="TeamsTemplate" ColName="nvarchar16" RowOrdinal="0" CustomFormatter="" Version="1" />
             <Field Type="Text" DisplayName="Teams Template Title" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{72b2b19c-b593-4798-bcdb-fec27b4ab7c4}" SourceID="{{listid:Provisioning Requests}}" StaticName="TeamsTemplateTitle" Name="TeamsTemplateTitle" ColName="nvarchar17" RowOrdinal="0" CustomFormatter="" Version="1" />
             <Field Type="Boolean" DisplayName="Join Hub" EnforceUniqueValues="FALSE" Indexed="FALSE" ID="{6d759eb2-439f-4706-8da4-6d564a671e01}" SourceID="{{listid:Provisioning Requests}}" StaticName="JoinHub" Name="JoinHub" ColName="bit3" RowOrdinal="0" CustomFormatter="" Required="FALSE" Direction="none" Version="1">
+              <Default>0</Default>
+            </Field>
+            <Field DisplayName="Teamify" Format="Dropdown" IsModern="TRUE" Name="Teamify" Required="TRUE" Title="Teamify" Type="Boolean" ID="{1f5bc578-b6c5-4581-89e6-be178ab8b939}" SourceID="{{listid:Provisioning Requests}}" StaticName="Teamify" ColName="bit6" RowOrdinal="0">
               <Default>0</Default>
             </Field>
             <Field Type="Text" DisplayName="Hub Site" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{b7836a8f-d3ac-4534-a983-ab95dcf7362a}" SourceID="{{listid:Provisioning Requests}}" StaticName="HubSite" Name="HubSite" ColName="nvarchar18" RowOrdinal="0" CustomFormatter="" Version="1" />
@@ -613,6 +621,7 @@
             <View Name="{58219997-C705-4E34-B4F6-84A388E1AA32}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/ProvisioningTypes/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
               <Query />
               <ViewFields>
+                <FieldRef Name="SortOrder" />
                 <FieldRef Name="LinkTitle" />
                 <FieldRef Name="Description" />
                 <FieldRef Name="Allowed" />
@@ -688,6 +697,7 @@
             <Field DisplayName="Default Confidential Data" Format="Dropdown" IsModern="TRUE" Name="DefaultConfidentialData" Title="Default Confidential Data" Type="Boolean" ID="{b1e84208-0b64-49d6-82b3-551d9e8d2537}" SourceID="{{listid:Provisioning Types}}" StaticName="DefaultConfidentialData" ColName="bit4" RowOrdinal="0">
               <Default>0</Default>
             </Field>
+            <Field CommaSeparator="FALSE" CustomUnitOnRight="TRUE" DisplayName="SortOrder" Format="Dropdown" IsModern="TRUE" Name="SortOrder" Percentage="FALSE" Title="SortOrder" Type="Number" Unit="None" ID="{6822a643-3dec-492b-8b1d-31029cdcd163}" SourceID="{{listid:Provisioning Types}}" StaticName="SortOrder" ColName="float1" RowOrdinal="0" />
           </pnp:Fields>
           <pnp:FieldRefs>
             <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
