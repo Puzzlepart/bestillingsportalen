@@ -1,5 +1,5 @@
 #Runbook to configure collaboration spaces post provisioning - for use with the Provision Assist solution
-[CmdletBinding()]
+[CmdletBinding()] 
 Param
 (
     [Parameter (Mandatory = $false)]
@@ -45,9 +45,10 @@ function SetSiteLogo {
 function AddOwners {
     if ($spaceType -ne "Office 365 Group") {
         Write-Output "Updating SP owners group"
-		$group = Get-PnPGroup | Where-Object { $_.Title -like "*Owners" }
+		$group = Get-PnPGroup -AssociatedOwnerGroup
         ForEach ($owner in $owners -split ",") {
             #Get the group
+            Write-Output("Adding '$owner' to Owners")
             Add-PnPGroupMember -LoginName $owner -Identity $group
         }
 
@@ -55,11 +56,12 @@ function AddOwners {
 }
 
 function AddMembers {
+    Write-Output("Running 'AddMembers'")
     If ($members -ne "" -and $spaceType -ne "Office 365 Group") {
         Write-Output "Updating SP members group"
         ForEach ($member in $members -split ",") {
             #Get the group
-            $group = Get-PnPGroup | Where-Object { $_.Title -like "*Members" }
+            $group = Get-PnPGroup -AssociatedMemberGroup
             Add-PnPGroupMember -LoginName $member -Identity $group
         }
 
@@ -68,11 +70,12 @@ function AddMembers {
 }
 
 function AddVisitors {
+    Write-Output("Running 'AddVisitors'")
     If ($visitors -ne "") {
         Write-Output "Updating SP visitors group"
         ForEach ($visitor in $visitors -split ",") {
             #Get the group
-            $group = Get-PnPGroup | Where-Object { $_.Title -like "*Visitors" }
+            $group = Get-PnPGroup -AssociatedVisitorGroup
             Add-PnPUserToGroup -LoginName $visitor -Identity $group
         }
 
@@ -81,6 +84,7 @@ function AddVisitors {
 }
 
 function AddSiteCollectionAdmins {
+    Write-Output("Running 'AddSiteCollectionAdmins'")
     if ($spaceType -ne "Office 365 Group") {
         Write-Output "Adding Site Collection Administrators"
         ForEach ($sca in $siteCollectionAdmins -split ",") {
@@ -92,6 +96,7 @@ function AddSiteCollectionAdmins {
 }
 
 function SetExternalSharing {
+    Write-Output("Running 'SetExternalSharing'")
     If ($externalSharing) {
 
         Write-Output "External sharing is required - configuring sharing settings"
@@ -118,6 +123,7 @@ function SetExternalSharing {
 }
 
 function SetAccessRequestSettings {
+    Write-Output("Running 'SetAccessRequestSettings'")
     #Disable access requests if visibility set to private
     If ($visibility -eq "Private" -and $enableAllowAccessRequests -eq $false) {
         Write-Output "Disabling access requests"
@@ -130,13 +136,17 @@ function SetAccessRequestSettings {
 
 function SetSiteClassification {
     If ($spaceType -ne "Office 365 Group") {
-        If ($null -ne $classification) {
+        Write-Output $classification
+        If ($classification -ne "") {
+            Write-Output "Setting classification"
             Set-PnPSite -Classification $classification
+            Write-Output "Finished setting classification"
         }
     }
 }
 
 function JoinOrRegisterHubSite {
+    Write-Output "Checking if joining a hub site"
     #Join hub site if space type is not a hub
     if ($joinHub -eq $true -and $spaceType -ne "Hub Site") {
         Write-Output "Joining hub site"
@@ -149,7 +159,7 @@ function JoinOrRegisterHubSite {
         Write-Output "Finished joining hub site"
     }
     else {
-        
+        Write-Output "Checking if provisioning a hub site"
         #Register as a hub site
         if ($spaceType -eq "Hub Site") {
         
