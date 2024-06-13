@@ -66,10 +66,6 @@ $preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "Write
 
 $preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Microsoft.Graph" = "2.9.1"}
 
-Install-Module PowershellGet -Force
-Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
-Set-PSResourceRepository -Name PSGallery -Trusted
-
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
 $provTypesWorksheetName = "Provisioning Types"
@@ -250,7 +246,7 @@ function VerifyModuleVersions {
             Write-Host "Missing required version for $key" -ForegroundColor Yellow
             Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
             if ($key -eq "Microsoft.Graph") {
-                Install-PSResource -Name Microsoft.Graph -Version $preReqModuleVersions[$key] -Force 
+                Install-PSResource Microsoft.Graph -Version $preReqModuleVersions[$key] -TrustRepository
             } else {
                 Install-Module -Name $key -RequiredVersion $preReqModuleVersions[$key] -Force
             }
@@ -996,6 +992,11 @@ function GenerateSelfSignedCertificate {
 $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED `n(c) Microsoft Corporation ###" -ForegroundColor Magenta
+
+Write-Host "Preparing powershell modules..." -ForegroundColor Yellow
+Install-Module PowershellGet -Force
+Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
+Set-PSResourceRepository -Name PSGallery -Trusted
 
 # Verify required PS Modules
 Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
