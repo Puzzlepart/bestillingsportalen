@@ -66,6 +66,10 @@ $preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "Write
 
 $preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Microsoft.Graph" = "2.9.1"}
 
+Install-Module PowershellGet -Force
+Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
+Set-PSResourceRepository -Name PSGallery -Trusted
+
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
 $provTypesWorksheetName = "Provisioning Types"
@@ -222,7 +226,11 @@ function VerifyModules {
     foreach ($module in $preReqModules) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
-            throw('{0} module not installed. Please install all required modules.' -f $module)
+            if ($module -eq "Microsoft.Graph"){
+                Install-PSResource -Name Microsoft.Graph -Force
+            } else {
+                throw('{0} module not installed. Please install all required modules.' -f $module)
+            }
         }
     }
     
@@ -241,7 +249,11 @@ function VerifyModuleVersions {
         if (-not $verified) {
             Write-Host "Missing required version for $key" -ForegroundColor Yellow
             Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
-            Install-Module -Name $key -RequiredVersion $preReqModuleVersions[$key] -Force
+            if ($key -eq "Microsoft.Graph") {
+                Install-PSResource -Name Microsoft.Graph -Version $preReqModuleVersions[$key] -Force 
+            } else {
+                Install-Module -Name $key -RequiredVersion $preReqModuleVersions[$key] -Force
+            }
             Write-Host "Installed $key version: $($preReqModuleVersions[$key])" -ForegroundColor Green
             $verified = $true
         }
