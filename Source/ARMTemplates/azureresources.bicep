@@ -1,5 +1,5 @@
 param location string = resourceGroup().location
-param automationAccountName string = 'provisionassist-auto'
+param automationAccountName string = 'bestillingsportalen-auto'
 param tenantId string
 param appClientId string
 @secure()
@@ -100,7 +100,7 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2022-08-08' 
 }
 
 // Modules
-resource Az_Accounts 'Microsoft.Automation/automationAccounts/modules@2023-11-01' = {
+resource Az_Accounts 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
   name: 'Az.Accounts'
   location: location
   parent: automationAccount
@@ -112,7 +112,7 @@ resource Az_Accounts 'Microsoft.Automation/automationAccounts/modules@2023-11-01
   }
 }
 
-resource PnP_PowerShell 'Microsoft.Automation/automationAccounts/modules@2023-11-01' = {
+resource PnP_PowerShell 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
   name: 'PnP.PowerShell'
   location: location
   parent: automationAccount

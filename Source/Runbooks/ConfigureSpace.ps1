@@ -1,4 +1,4 @@
-#Runbook to configure collaboration spaces post provisioning - for use with the Provision Assist solution
+#Runbook to configure collaboration spaces post provisioning - for use with the Bestillingsportalen solution
 [CmdletBinding()] 
 Param
 (

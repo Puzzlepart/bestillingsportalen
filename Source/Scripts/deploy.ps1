@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Deploys the following assets of the Provision Assist solution - 
+    Deploys the following assets of the Bestillingsportalen solution - 
 
         -SharePoint Site & Assets 
         -Azure AD App - Creates sectet
@@ -8,7 +8,7 @@
         -Logic App
 
 .DESCRIPTION
-    Deploys the Provision Assist solution (excluding the PowerApp and Flows).
+    Deploys the Bestillingsportalen solution (excluding the PowerApp and Flows).
     This script uses the Azure CLI, Azure Az PowerShell, SharePoint PnP PowerShell and the Microsoft Graph PowerShell Modules to perform the deployment.
 
     As part of the deployment, the script will generate a secet for the Azure AD App created by the 'createadapp.ps1' script. 
@@ -46,6 +46,12 @@ DISCLAIMER
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
 
+param
+(
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipVerifyModules
+)
+
 Add-Type -AssemblyName System.Web
 
 # Check for presence of Azure CLI
@@ -58,13 +64,13 @@ If (-not (Test-Path -Path "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2") -a
 $packageRootPath = "..\"
 $imagesDir = "Assets\ProvTypesImages"
 $iconsDir = "Assets\ProvTypesIcons"
-$templatePath = "Templates\provisionassist-sitetemplate.xml"
+$templatePath = "Templates\bestillingsportalen-sitetemplate.xml"
 $settingsPath = "Settings\SharePoint List items.xlsx"
 
 # Required PS modules
 $preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "WriteAscii", "Microsoft.Graph"
 
-$preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Microsoft.Graph" = "2.9.1"}
+$preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Az.KeyVault" = "4.9.2"; "Microsoft.Graph" = "2.9.1"}
 
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
@@ -103,7 +109,7 @@ $iconFolderUpload = "$siteAssetsListURL/$provRequestsFolderName/$provTypesIconFo
 $saUsername = ""
 $saPassword = ""
 
-$automationAccountName = "provisionassist-auto"
+$automationAccountName = "bestillingsportalen-auto"
 
 # Global variables
 $global:context = $null
@@ -217,13 +223,23 @@ function ValidateParameters {
     return $isValid
 }
 
+function PreparePoshModules {
+    $module = Get-InstalledModule -Name Microsoft.PowerShell.PSResourceGet -ErrorAction:SilentlyContinue
+    if ($null -eq $module) {
+        Install-Module PowershellGet -Force
+        Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
+        Set-PSResourceRepository -Name PSGallery -Trusted
+    }
+}
+
 # Verifies installation of required PowerShell modules - throws error if a module is not installed
 function VerifyModules {
     foreach ($module in $preReqModules) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
+            # This module in particular is very large and can take a long time to install. Installing with PSResourceGet is way faster
             if ($module -eq "Microsoft.Graph"){
-                Install-PSResource -Name Microsoft.Graph -Force
+                Install-PSResource -Name Microsoft.Graph -TrustRepository
             } else {
                 throw('{0} module not installed. Please install all required modules.' -f $module)
             }
@@ -235,6 +251,7 @@ function VerifyModules {
 function VerifyModuleVersions {
     foreach ($key in $preReqModuleVersions.Keys) {
         $verified = $false
+        Write-Host "Verifying $key version..." -ForegroundColor Yellow
         Get-Module $key -All -ListAvailable | Foreach-Object {
             if ($_.Version.ToString() -eq $preReqModuleVersions[$key]) {
                 Write-Host "$key version is correct" -ForegroundColor Green
@@ -245,11 +262,7 @@ function VerifyModuleVersions {
         if (-not $verified) {
             Write-Host "Missing required version for $key" -ForegroundColor Yellow
             Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
-            if ($key -eq "Microsoft.Graph") {
-                Install-PSResource Microsoft.Graph -Version $preReqModuleVersions[$key] -TrustRepository
-            } else {
-                Install-Module -Name $key -RequiredVersion $preReqModuleVersions[$key] -Force
-            }
+            Install-PSResource $key -Version $preReqModuleVersions[$key] -TrustRepository
             Write-Host "Installed $key version: $($preReqModuleVersions[$key])" -ForegroundColor Green
             $verified = $true
         }
@@ -305,7 +318,7 @@ function Get-AccessTokenFromCurrentUser {
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
-        Write-Host "### PROVISION ASSIST SPO SITE CREATION ###`nCreating Provision Assist SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### Bestillingsportalen SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
 
         $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
 
@@ -316,7 +329,7 @@ function CreateRequestsSharePointSite {
             Write-Host "Waiting for site to finish creating..." -ForegroundColor Yellow
             
             Start-sleep -Seconds 60
-            Write-Host "Site created`n**PROVISION ASSIST SITE CREATION COMPLETE**" -ForegroundColor Green
+            Write-Host "Site created`n**Bestillingsportalen SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
             Write-Host "Site already exists! Do you wish to overwrite?" -ForegroundColor Red
@@ -336,7 +349,7 @@ function ConfigureSharePointSite {
 
     try {
 
-        Write-Host "### PROVISION ASSIST SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### Bestillingsportalen SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
 
         If ($parameters.skipApplySPOTemplate.Value) { 
 
@@ -714,7 +727,7 @@ function UploadAssets {
         UploadFiles $context $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
         UploadFiles $context $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
 
-        Write-Host "Uploaded files to Site Assets`n**PROVISION ASSIST SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
+        Write-Host "Uploaded files to Site Assets`n**Bestillingsportalen SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
         throw('Failed to upload assets {0}', $_.Exception.Message)
@@ -993,25 +1006,27 @@ $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED `n(c) Microsoft Corporation ###" -ForegroundColor Magenta
 
-Write-Host "Preparing powershell modules..." -ForegroundColor Yellow
-Install-Module PowershellGet -Force
-Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
-Set-PSResourceRepository -Name PSGallery -Trusted
+if (-not $SkipVerifyModules) {
+    Write-Host "Preparing PowerShell modules..." -ForegroundColor Yellow
+    PreparePoshModules
 
-# Verify required PS Modules
-Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
-VerifyModules
-Write-Host "Required modules are installed" -ForegroundColor Green
+    # Verify required PS Modules
+    Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
+    VerifyModules
+    Write-Host "Required modules are installed" -ForegroundColor Green
 
-Write-Host "Verifying module versions..." -ForegroundColor Yellow
-VerifyModuleVersions
+    Write-Host "Verifying module versions..." -ForegroundColor Yellow
+    VerifyModuleVersions
+}
 
+# Due to conflicts between Az and Microsoft.Graph modules, we need to load the modules in a specific order
 Write-Host "Loading required modules..." -ForegroundColor Yellow
-Import-Module Az.Accounts -RequiredVersion 2.12.1
-Import-Module Az.Resources -RequiredVersion 6.6.0
-Import-Module Microsoft.Graph.Authentication -RequiredVersion 2.9.1
-Import-Module Microsoft.Graph.Applications -RequiredVersion 2.9.1
-Import-Module PnP.PowerShell -RequiredVersion 1.12.0
+Import-Module Az.Accounts -RequiredVersion $preReqModuleVersions["Az.Accounts"]
+Import-Module Az.Resources -RequiredVersion $preReqModuleVersions["Az.Resources"]
+Import-Module Az.KeyVault -RequiredVersion $preReqModuleVersions["Az.KeyVault"]
+Import-Module Microsoft.Graph.Authentication -RequiredVersion $preReqModuleVersions["Microsoft.Graph.Authentication"]
+Import-Module Microsoft.Graph.Applications -RequiredVersion $preReqModuleVersions["Microsoft.Graph.Applications"]
+Import-Module PnP.PowerShell -RequiredVersion $preReqModuleVersions["PnP.PowerShell"]
 Write-Host "Modules loaded" -ForegroundColor Green
 
 # Load Parameters from json file
@@ -1027,7 +1042,7 @@ if (-not(ValidateParameters)) {
 
 Write-Host "Parameters are valid" -ForegroundColor Green
 
-Write-Ascii -InputObject "Provision Assist" -ForegroundColor Green
+Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
 $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 $requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')

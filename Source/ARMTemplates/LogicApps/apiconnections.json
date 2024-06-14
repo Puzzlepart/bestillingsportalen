@@ -32,10 +32,10 @@
             "comments": "Provision the API connections before the logic apps.",
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-spo",
+            "name": "bestillingsportalen-spo",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - SharePoint Online",
+                "displayName": "Bestillingsportalen - SharePoint Online",
                 "customParameterValues": {
                 },
                 "api": {
@@ -46,10 +46,10 @@
         {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-o365",
+            "name": "bestillingsportalen-o365",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - Office 365 Outlook",
+                "displayName": "Bestillingsportalen - Office 365 Outlook",
                 "customParameterValues": {
                 },
                 "api": {
@@ -60,10 +60,10 @@
         {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-o365users",
+            "name": "bestillingsportalen-o365users",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - Office 365 Users",
+                "displayName": "Bestillingsportalen - Office 365 Users",
                 "customParameterValues": {
                 },
                 "api": {
@@ -74,10 +74,10 @@
         {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-automation",
+            "name": "bestillingsportalen-automation",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - Azure Automation",
+                "displayName": "Bestillingsportalen - Azure Automation",
                 "parameterValues": {
                     "token:clientId": "[parameters('appId')]",
                     "token:clientSecret": "[parameters('appSecret')]",
@@ -92,10 +92,10 @@
         {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-teams",
+            "name": "bestillingsportalen-teams",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - Microsoft Teams",
+                "displayName": "Bestillingsportalen - Microsoft Teams",
                  "customParameterValues": {
                 },
                 "api": {
@@ -106,10 +106,10 @@
          {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
-            "name": "provisionassist-kv",
+            "name": "bestillingsportalen-kv",
             "location": "[parameters('location')]",
             "properties": {
-                "displayName": "Provision Assist - Key Vault",
+                "displayName": "Bestillingsportalen - Key Vault",
                 "parameterValues": {
                     "vaultName": "[parameters('keyvaultName')]",
                     "token:clientId": "[parameters('appId')]",
