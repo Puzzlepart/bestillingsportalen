@@ -4632,7 +4632,7 @@
                                                     "inputs": {
                                                         "body": {
                                                             "body": {
-                                                                "content": "<p>Welcome to your new Team<br>\n<br>\nThank you for using Bestillingsportalen.<br>\n<br>\nYour team is now ready for use, you can now start adding Members, Owners, posting channel messages and lots more.<br>\n<br>\nFor helpful tips on getting started with Microsoft Teams please visit the <a href=\"https://support.office.com/en-sg/teams\">help center</a> .</p>",
+                                                                "content": "<p>@{variables('TeamsWelcomeMessage')}</p>",
                                                                 "contentType": "html"
                                                             }
                                                         },

@@ -523,7 +523,7 @@
                                                 "method": "get",
                                                 "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('hubSitesListId'),variables('singlequote'),'))}/items')]",
                                                 "queries": {
-                                                    "$filter": "HubSiteId eq '@{items('Loop_through_hub_sites')?['SiteId']}' or Title eq '@{items('Loop_through_hub_sites')?['Title']}'"
+                                                    "$filter": "HubSiteId eq '@{items('Loop_through_hub_sites')?['SiteId']}'"
                                                 }
                                             }
                                         }
