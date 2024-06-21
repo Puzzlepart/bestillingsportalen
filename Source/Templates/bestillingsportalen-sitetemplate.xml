@@ -423,7 +423,7 @@
             <Field DisplayName="Prefix Use Attribute" Format="Dropdown" IsModern="TRUE" Name="PrefixUseAttribute" Title="Prefix Use Attribute" Type="Boolean" ID="{0d25412b-923f-493f-923c-7417d2360950}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixUseAttribute" ColName="bit1" RowOrdinal="0">
               <Default>0</Default>
             </Field>
-            <Field ClientSideComponentId="00000000-0000-0000-0000-000000000000" DisplayName="LogoImage" Format="Thumbnail" Name="LogoImage" Title="Logo Image" Type="Thumbnail" ID="{fe0b1490-b6bf-476a-b2d9-b11c01dd5f08}" Version="2" StaticName="LogoImage" SourceID="{{listid:Provisioning Request Settings}}" ColName="ntext5" RowOrdinal="0" />
+            <Field ClientSideComponentId="00000000-0000-0000-0000-000000000000" DisplayName="Logo Image" Format="Thumbnail" Name="LogoImage" Title="Logo Image" Type="Thumbnail" ID="{fe0b1490-b6bf-476a-b2d9-b11c01dd5f08}" Version="2" StaticName="LogoImage" SourceID="{{listid:Provisioning Request Settings}}" ColName="ntext5" RowOrdinal="0" />
             <Field Type="Choice" DisplayName="Prefix Attribute" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Dropdown" Direction="None" FillInChoice="FALSE" ID="{4dc6cea7-8613-4bef-b274-6cbac9511576}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixAttribute" Name="PrefixAttribute" ColName="nvarchar8" RowOrdinal="0" CustomFormatter="" Version="1">
               <CHOICES>
                 <CHOICE>Department</CHOICE>
