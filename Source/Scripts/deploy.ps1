@@ -49,7 +49,14 @@ DISCLAIMER
 param
 (
     [Parameter(Mandatory = $false)]
-    [switch]$SkipVerifyModules
+    [switch]$SkipVerifyModules,
+    [switch]$SkipSharepointSite,
+    [switch]$SkipBicepDeploy,
+    [switch]$SkipCreateAureADAppSecret,
+    [switch]$SkipCreateResourceGroup,
+    [switch]$SkipDeployARMTemplates,
+    [switch]$SkipGenerateCertificate,
+    [switch]$SkipDeployAPIConnections
 )
 
 Add-Type -AssemblyName System.Web
@@ -847,11 +854,15 @@ function AssignManagedIdentityPermissions {
 function DeployARMTemplates {
     try { 
         # Deploy ARM templates
-        Write-Host "Deploying api connections..." -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
-
-        Write-Host "Finished deploying api connections..." -ForegroundColor Green
+        if(-not $SkipDeployAPIConnections) {
+            Write-Host "Deploying api connections..." -ForegroundColor Yellow
+            
+            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
+            
+            Write-Host "Finished deploying api connections..." -ForegroundColor Green
+        } else {
+            Write-Host "Skipping deployment of api connections..." -ForegroundColor Yellow
+        }
        
         Write-Host "Deploying logic apps..." -ForegroundColor Yellow
 
@@ -1024,8 +1035,8 @@ Write-Host "Loading required modules..." -ForegroundColor Yellow
 Import-Module Az.Accounts -RequiredVersion $preReqModuleVersions["Az.Accounts"]
 Import-Module Az.Resources -RequiredVersion $preReqModuleVersions["Az.Resources"]
 Import-Module Az.KeyVault -RequiredVersion $preReqModuleVersions["Az.KeyVault"]
-Import-Module Microsoft.Graph.Authentication -RequiredVersion $preReqModuleVersions["Microsoft.Graph.Authentication"]
-Import-Module Microsoft.Graph.Applications -RequiredVersion $preReqModuleVersions["Microsoft.Graph.Applications"]
+Import-Module Microsoft.Graph.Authentication -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
+Import-Module Microsoft.Graph.Applications -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
 Import-Module PnP.PowerShell -RequiredVersion $preReqModuleVersions["PnP.PowerShell"]
 Write-Host "Modules loaded" -ForegroundColor Green
 
@@ -1053,7 +1064,9 @@ Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
 # Clear the az context before we login
 #Clear-AzContext -Force
 $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
-ValidateKeyVault
+if (-not $SkipBicepDeploy){
+    ValidateKeyVault
+}
 ValidateAzureLocation
 Write-Host "Launching Azure AD sign-in..." -ForegroundColor Yellow
 AzureADPreview\Connect-AzureAD
@@ -1077,22 +1090,83 @@ Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepo
 Write-Host "Connected to SPO" -ForegroundColor Green
 
 $currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
-CreateAzureADAppSecret
+if (-not $SkipCreateAureADAppSecret) {
+    CreateAzureADAppSecret
+} else {
+    $app = GetAzureADApp $parameters.appName.Value
+
+    if (-not ([string]::IsNullOrEmpty($app))) {
+
+        $global:appId = $app.appId
+    }
+}
+
 GetSiteClassifications
-CreateRequestsSharePointSite
-# Connect to the new site
-Connect-PnPOnline $requestsSiteUrl -Interactive
-ConfigureSharePointSite
-UploadAssets
+
+if (-not $SkipSharepointSite) {
+    CreateRequestsSharePointSite
+    # Connect to the new site
+    Connect-PnPOnline $requestsSiteUrl -Interactive
+    ConfigureSharePointSite
+    UploadAssets
+} else {
+    # If we're skipping site creation/configuration, we need to get the list ids
+    Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
+    Connect-PnPOnline $requestsSiteUrl -Interactive
+    $context = Get-PnPContext
+    
+    $siteRequestsList = Get-PnPList $requestsListName
+    $context.Load($siteRequestsList)
+    $context.ExecuteQuery()
+    
+    $global:requestsListId = $siteRequestsList.Id
+    
+    $siteRequestsSettingsList = Get-PnPList $requestSettingsListName
+    $context.Load($siteRequestsSettingsList)
+    $context.ExecuteQuery()
+    
+    # Get request settings list id
+    $global:requestsSettingsListId = $siteRequestsSettingsList.Id
+    
+    # Get site templates List id
+    $siteTemplatesList = Get-PnPList $siteTemplatesListName
+    $context.Load($siteTemplatesList)
+    $context.ExecuteQuery()
+    
+    $global:siteTemplatesListId = $siteTemplatesList.Id
+    
+    # Get hub sites List id
+    $hubSitesList = Get-PnPList $hubSitesListName
+    $context.Load($hubSitesList)
+    $context.ExecuteQuery()
+    
+    $global:hubSitesListId = $hubSitesList.Id
+    
+    $teamsTemplatesList = Get-PnPList $teamsTemplatesListName
+    $context.Load($teamsTemplatesList)
+    $context.ExecuteQuery()
+    
+    $global:teamsTemplatesListId = $teamsTemplatesList.Id
+    
+    $ipLabelsList = Get-PnPList $ipLabelsListName
+    $context.Load($ipLabelsList)
+    $context.ExecuteQuery()
+    $global:ipLabelsListId = $ipLabelsList.Id
+}
 
 Write-Host "### AZURE RESOURCES DEPLOYMENT ###`nStarting Azure resources deployment..." -ForegroundColor Yellow
 
-# Create resource group
-# Handle spaces in resource group name
-$parameters.resourceGroupName.Value = $parameters.resourceGroupName.Value.Replace(" ", "")
-Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
-New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
-Write-Host "Created resource group" -ForegroundColor Green
+if (-not $SkipCreateResourceGroup) {
+    # Create resource group
+    # Handle spaces in resource group name
+    $parameters.resourceGroupName.Value = $parameters.resourceGroupName.Value.Replace(" ", "")
+    Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
+    New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
+    Write-Host "Created resource group" -ForegroundColor Green
+} else {
+    Write-Host "Skipping resource group creation" -ForegroundColor Yellow
+}
+
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
 
 If ($parameters.enableSensitivity.Value) {
@@ -1104,15 +1178,26 @@ If ($parameters.enableSensitivity.Value) {
     $saPassword = $saCreds.GetNetworkCredential().password
 }
 
-Write-Host "Deploying key vault and automation account..." -ForegroundColor Yellow
-az deployment group create --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
-CreateAutomationRoleAssignments
-AssignManagedIdentityPermissions
-Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
+if (-not $SkipBicepDeploy) {
+    Write-Host "Deploying key vault and automation account..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
+    CreateAutomationRoleAssignments
+    AssignManagedIdentityPermissions
+    Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
+} else {
+    Write-Host "Skipping Bicep deployment" -ForegroundColor Yellow
+}
+if(-not $SkipGenerateCertificate) {
+    GenerateSelfSignedCertificate
+} else {
+    Write-Host "Skipping certificate generation" -ForegroundColor Yellow
+}
 
-GenerateSelfSignedCertificate
-
-DeployARMTemplates
+if (-not $SkipDeployARMTemplates) {
+    DeployARMTemplates
+} else {
+    Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow
+}
 
 Write-Host "Azure resources deployed`n### AZURE RESOURCES DEPLOYMENT COMPLETE ###" -ForegroundColor Green
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
