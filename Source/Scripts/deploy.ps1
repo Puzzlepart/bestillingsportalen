@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Deploys the following assets of the Provision Assist solution - 
+    Deploys the following assets of the Bestillingsportalen solution - 
 
         -SharePoint Site & Assets 
         -Azure AD App - Creates sectet
@@ -8,7 +8,7 @@
         -Logic App
 
 .DESCRIPTION
-    Deploys the Provision Assist solution (excluding the PowerApp and Flows).
+    Deploys the Bestillingsportalen solution (excluding the PowerApp and Flows).
     This script uses the Azure CLI, Azure Az PowerShell, SharePoint PnP PowerShell and the Microsoft Graph PowerShell Modules to perform the deployment.
 
     As part of the deployment, the script will generate a secet for the Azure AD App created by the 'createadapp.ps1' script. 
@@ -46,6 +46,19 @@ DISCLAIMER
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
 
+param
+(
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipVerifyModules,
+    [switch]$SkipSharepointSite,
+    [switch]$SkipBicepDeploy,
+    [switch]$SkipCreateAureADAppSecret,
+    [switch]$SkipCreateResourceGroup,
+    [switch]$SkipDeployARMTemplates,
+    [switch]$SkipGenerateCertificate,
+    [switch]$SkipDeployAPIConnections
+)
+
 Add-Type -AssemblyName System.Web
 
 # Check for presence of Azure CLI
@@ -58,11 +71,13 @@ If (-not (Test-Path -Path "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2") -a
 $packageRootPath = "..\"
 $imagesDir = "Assets\ProvTypesImages"
 $iconsDir = "Assets\ProvTypesIcons"
-$templatePath = "Templates\provisionassist-sitetemplate.xml"
+$templatePath = "Templates\bestillingsportalen-sitetemplate.xml"
 $settingsPath = "Settings\SharePoint List items.xlsx"
 
 # Required PS modules
 $preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "WriteAscii", "Microsoft.Graph"
+
+$preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Az.KeyVault" = "4.9.2"; "Microsoft.Graph" = "2.9.1"}
 
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
@@ -101,7 +116,7 @@ $iconFolderUpload = "$siteAssetsListURL/$provRequestsFolderName/$provTypesIconFo
 $saUsername = ""
 $saPassword = ""
 
-$automationAccountName = "provisionassist-auto"
+$automationAccountName = "bestillingsportalen-auto"
 
 # Global variables
 $global:context = $null
@@ -215,15 +230,50 @@ function ValidateParameters {
     return $isValid
 }
 
+function PreparePoshModules {
+    $module = Get-InstalledModule -Name Microsoft.PowerShell.PSResourceGet -ErrorAction:SilentlyContinue
+    if ($null -eq $module) {
+        Install-Module PowershellGet -Force
+        Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
+        Set-PSResourceRepository -Name PSGallery -Trusted
+    }
+}
+
 # Verifies installation of required PowerShell modules - throws error if a module is not installed
 function VerifyModules {
     foreach ($module in $preReqModules) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
-            throw('{0} module not installed. Please install all required modules.' -f $module)
+            # This module in particular is very large and can take a long time to install. Installing with PSResourceGet is way faster
+            if ($module -eq "Microsoft.Graph"){
+                Install-PSResource -Name Microsoft.Graph -TrustRepository
+            } else {
+                throw('{0} module not installed. Please install all required modules.' -f $module)
+            }
         }
     }
     
+}
+
+function VerifyModuleVersions {
+    foreach ($key in $preReqModuleVersions.Keys) {
+        $verified = $false
+        Write-Host "Verifying $key version..." -ForegroundColor Yellow
+        Get-Module $key -All -ListAvailable | Foreach-Object {
+            if ($_.Version.ToString() -eq $preReqModuleVersions[$key]) {
+                Write-Host "$key version is correct" -ForegroundColor Green
+                $verified = $true
+                continue
+            }
+        }
+        if (-not $verified) {
+            Write-Host "Missing required version for $key" -ForegroundColor Yellow
+            Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
+            Install-PSResource $key -Version $preReqModuleVersions[$key] -TrustRepository
+            Write-Host "Installed $key version: $($preReqModuleVersions[$key])" -ForegroundColor Green
+            $verified = $true
+        }
+    }
 }
 
 # Test for availability of Azure resources
@@ -275,7 +325,7 @@ function Get-AccessTokenFromCurrentUser {
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
-        Write-Host "### PROVISION ASSIST SPO SITE CREATION ###`nCreating Provision Assist SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### Bestillingsportalen SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
 
         $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
 
@@ -286,7 +336,7 @@ function CreateRequestsSharePointSite {
             Write-Host "Waiting for site to finish creating..." -ForegroundColor Yellow
             
             Start-sleep -Seconds 60
-            Write-Host "Site created`n**PROVISION ASSIST SITE CREATION COMPLETE**" -ForegroundColor Green
+            Write-Host "Site created`n**Bestillingsportalen SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
             Write-Host "Site already exists! Do you wish to overwrite?" -ForegroundColor Red
@@ -306,7 +356,7 @@ function ConfigureSharePointSite {
 
     try {
 
-        Write-Host "### PROVISION ASSIST SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### Bestillingsportalen SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
 
         If ($parameters.skipApplySPOTemplate.Value) { 
 
@@ -684,7 +734,7 @@ function UploadAssets {
         UploadFiles $context $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
         UploadFiles $context $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
 
-        Write-Host "Uploaded files to Site Assets`n**PROVISION ASSIST SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
+        Write-Host "Uploaded files to Site Assets`n**Bestillingsportalen SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
         throw('Failed to upload assets {0}', $_.Exception.Message)
@@ -804,11 +854,15 @@ function AssignManagedIdentityPermissions {
 function DeployARMTemplates {
     try { 
         # Deploy ARM templates
-        Write-Host "Deploying api connections..." -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
-
-        Write-Host "Finished deploying api connections..." -ForegroundColor Green
+        if(-not $SkipDeployAPIConnections) {
+            Write-Host "Deploying api connections..." -ForegroundColor Yellow
+            
+            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
+            
+            Write-Host "Finished deploying api connections..." -ForegroundColor Green
+        } else {
+            Write-Host "Skipping deployment of api connections..." -ForegroundColor Yellow
+        }
        
         Write-Host "Deploying logic apps..." -ForegroundColor Yellow
 
@@ -963,10 +1017,28 @@ $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED `n(c) Microsoft Corporation ###" -ForegroundColor Magenta
 
-# Verify required PS Modules
-Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
-VerifyModules
-Write-Host "Required modules are installed" -ForegroundColor Green
+if (-not $SkipVerifyModules) {
+    Write-Host "Preparing PowerShell modules..." -ForegroundColor Yellow
+    PreparePoshModules
+
+    # Verify required PS Modules
+    Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
+    VerifyModules
+    Write-Host "Required modules are installed" -ForegroundColor Green
+
+    Write-Host "Verifying module versions..." -ForegroundColor Yellow
+    VerifyModuleVersions
+}
+
+# Due to conflicts between Az and Microsoft.Graph modules, we need to load the modules in a specific order
+Write-Host "Loading required modules..." -ForegroundColor Yellow
+Import-Module Az.Accounts -RequiredVersion $preReqModuleVersions["Az.Accounts"]
+Import-Module Az.Resources -RequiredVersion $preReqModuleVersions["Az.Resources"]
+Import-Module Az.KeyVault -RequiredVersion $preReqModuleVersions["Az.KeyVault"]
+Import-Module Microsoft.Graph.Authentication -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
+Import-Module Microsoft.Graph.Applications -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
+Import-Module PnP.PowerShell -RequiredVersion $preReqModuleVersions["PnP.PowerShell"]
+Write-Host "Modules loaded" -ForegroundColor Green
 
 # Load Parameters from json file
 $parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop
@@ -981,7 +1053,7 @@ if (-not(ValidateParameters)) {
 
 Write-Host "Parameters are valid" -ForegroundColor Green
 
-Write-Ascii -InputObject "Provision Assist" -ForegroundColor Green
+Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
 $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 $requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')
@@ -992,7 +1064,9 @@ Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
 # Clear the az context before we login
 #Clear-AzContext -Force
 $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
-ValidateKeyVault
+if (-not $SkipBicepDeploy){
+    ValidateKeyVault
+}
 ValidateAzureLocation
 Write-Host "Launching Azure AD sign-in..." -ForegroundColor Yellow
 AzureADPreview\Connect-AzureAD
@@ -1016,22 +1090,83 @@ Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepo
 Write-Host "Connected to SPO" -ForegroundColor Green
 
 $currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
-CreateAzureADAppSecret
+if (-not $SkipCreateAureADAppSecret) {
+    CreateAzureADAppSecret
+} else {
+    $app = GetAzureADApp $parameters.appName.Value
+
+    if (-not ([string]::IsNullOrEmpty($app))) {
+
+        $global:appId = $app.appId
+    }
+}
+
 GetSiteClassifications
-CreateRequestsSharePointSite
-# Connect to the new site
-Connect-PnPOnline $requestsSiteUrl -Interactive
-ConfigureSharePointSite
-UploadAssets
+
+if (-not $SkipSharepointSite) {
+    CreateRequestsSharePointSite
+    # Connect to the new site
+    Connect-PnPOnline $requestsSiteUrl -Interactive
+    ConfigureSharePointSite
+    UploadAssets
+} else {
+    # If we're skipping site creation/configuration, we need to get the list ids
+    Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
+    Connect-PnPOnline $requestsSiteUrl -Interactive
+    $context = Get-PnPContext
+    
+    $siteRequestsList = Get-PnPList $requestsListName
+    $context.Load($siteRequestsList)
+    $context.ExecuteQuery()
+    
+    $global:requestsListId = $siteRequestsList.Id
+    
+    $siteRequestsSettingsList = Get-PnPList $requestSettingsListName
+    $context.Load($siteRequestsSettingsList)
+    $context.ExecuteQuery()
+    
+    # Get request settings list id
+    $global:requestsSettingsListId = $siteRequestsSettingsList.Id
+    
+    # Get site templates List id
+    $siteTemplatesList = Get-PnPList $siteTemplatesListName
+    $context.Load($siteTemplatesList)
+    $context.ExecuteQuery()
+    
+    $global:siteTemplatesListId = $siteTemplatesList.Id
+    
+    # Get hub sites List id
+    $hubSitesList = Get-PnPList $hubSitesListName
+    $context.Load($hubSitesList)
+    $context.ExecuteQuery()
+    
+    $global:hubSitesListId = $hubSitesList.Id
+    
+    $teamsTemplatesList = Get-PnPList $teamsTemplatesListName
+    $context.Load($teamsTemplatesList)
+    $context.ExecuteQuery()
+    
+    $global:teamsTemplatesListId = $teamsTemplatesList.Id
+    
+    $ipLabelsList = Get-PnPList $ipLabelsListName
+    $context.Load($ipLabelsList)
+    $context.ExecuteQuery()
+    $global:ipLabelsListId = $ipLabelsList.Id
+}
 
 Write-Host "### AZURE RESOURCES DEPLOYMENT ###`nStarting Azure resources deployment..." -ForegroundColor Yellow
 
-# Create resource group
-# Handle spaces in resource group name
-$parameters.resourceGroupName.Value = $parameters.resourceGroupName.Value.Replace(" ", "")
-Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
-New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
-Write-Host "Created resource group" -ForegroundColor Green
+if (-not $SkipCreateResourceGroup) {
+    # Create resource group
+    # Handle spaces in resource group name
+    $parameters.resourceGroupName.Value = $parameters.resourceGroupName.Value.Replace(" ", "")
+    Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
+    New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
+    Write-Host "Created resource group" -ForegroundColor Green
+} else {
+    Write-Host "Skipping resource group creation" -ForegroundColor Yellow
+}
+
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
 
 If ($parameters.enableSensitivity.Value) {
@@ -1043,15 +1178,26 @@ If ($parameters.enableSensitivity.Value) {
     $saPassword = $saCreds.GetNetworkCredential().password
 }
 
-Write-Host "Deploying key vault and automation account..." -ForegroundColor Yellow
-az deployment group create --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
-CreateAutomationRoleAssignments
-AssignManagedIdentityPermissions
-Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
+if (-not $SkipBicepDeploy) {
+    Write-Host "Deploying key vault and automation account..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
+    CreateAutomationRoleAssignments
+    AssignManagedIdentityPermissions
+    Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
+} else {
+    Write-Host "Skipping Bicep deployment" -ForegroundColor Yellow
+}
+if(-not $SkipGenerateCertificate) {
+    GenerateSelfSignedCertificate
+} else {
+    Write-Host "Skipping certificate generation" -ForegroundColor Yellow
+}
 
-GenerateSelfSignedCertificate
-
-DeployARMTemplates
+if (-not $SkipDeployARMTemplates) {
+    DeployARMTemplates
+} else {
+    Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow
+}
 
 Write-Host "Azure resources deployed`n### AZURE RESOURCES DEPLOYMENT COMPLETE ###" -ForegroundColor Green
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
