@@ -3,7 +3,7 @@
     Deploys the following assets of the Bestillingsportalen solution - 
 
         -SharePoint Site & Assets 
-        -Azure AD App - Creates sectet
+        -Entra ID App - Creates sectet
         -Azure Automation Account & Runbooks
         -Logic App
 
@@ -11,9 +11,9 @@
     Deploys the Bestillingsportalen solution (excluding the PowerApp and Flows).
     This script uses the Azure CLI, Azure Az PowerShell, SharePoint PnP PowerShell and the Microsoft Graph PowerShell Modules to perform the deployment.
 
-    As part of the deployment, the script will generate a secet for the Azure AD App created by the 'createadapp.ps1' script. 
+    As part of the deployment, the script will generate a secet for the Entra ID App created by the 'createadapp.ps1' script. 
 
-    The account running this script must be able to create secrets for Azure AD Applications. The 'Cloud Application Administrator' role will suffice.
+    The account running this script must be able to create secrets for Entra ID Applications. The 'Cloud Application Administrator' role will suffice.
 
     The script requires input during execution, requires sign-in to a number of services and therefore should be monitored.
 
@@ -52,7 +52,7 @@ param
     [switch]$SkipVerifyModules,
     [switch]$SkipSharepointSite,
     [switch]$SkipBicepDeploy,
-    [switch]$SkipCreateAureADAppSecret,
+    [switch]$SkipCreateEntraIDAppSecret,
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipGenerateCertificate,
@@ -75,9 +75,7 @@ $templatePath = "Templates\bestillingsportalen-sitetemplate.xml"
 $settingsPath = "Settings\SharePoint List items.xlsx"
 
 # Required PS modules
-$preReqModules = "PnP.PowerShell", "Az", "AzureADPreview", "ImportExcel", "WriteAscii", "Microsoft.Graph"
-
-$preReqModuleVersions = @{"PnP.PowerShell" = "1.12.0"; "Az.Accounts" = "2.12.1"; "Az.Resources" = "6.6.0"; "Az.KeyVault" = "4.9.2"; "Microsoft.Graph" = "2.9.1"}
+$preReqModules = "PnP.PowerShell", "Az", "ImportExcel", "WriteAscii"
 
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
@@ -128,7 +126,6 @@ $global:teamsTemplatesListId = $null
 $global:appId = $null
 $global:appSecret = $null
 $global:appServicePrincipalId = $null
-$global:siteClassifications = $null
 $global:tenantUrl = $null
 
 # Validates if a parameter in the json file is valid
@@ -227,16 +224,17 @@ function ValidateParameters {
         $isValid = $false;
     }
 
-    return $isValid
-}
-
-function PreparePoshModules {
-    $module = Get-InstalledModule -Name Microsoft.PowerShell.PSResourceGet -ErrorAction:SilentlyContinue
-    if ($null -eq $module) {
-        Install-Module PowershellGet -Force
-        Install-Module -Name Microsoft.PowerShell.PSResourceGet -Force
-        Set-PSResourceRepository -Name PSGallery -Trusted
+    if (-not (IsValidParam($parameters.pnpAppId))) {
+        Write-Host "Invalid pnpAppId" -ForegroundColor Red
+        $isValid = $false;
     }
+
+    if (-not (IsValidParam($parameters.fullTenantName))) {
+        Write-Host "Invalid fullTenantName" -ForegroundColor Red
+        $isValid = $false;
+    }
+
+    return $isValid
 }
 
 # Verifies installation of required PowerShell modules - throws error if a module is not installed
@@ -244,36 +242,9 @@ function VerifyModules {
     foreach ($module in $preReqModules) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
-            # This module in particular is very large and can take a long time to install. Installing with PSResourceGet is way faster
-            if ($module -eq "Microsoft.Graph"){
-                Install-PSResource -Name Microsoft.Graph -TrustRepository
-            } else {
-                throw('{0} module not installed. Please install all required modules.' -f $module)
-            }
+            throw('{0} module not installed. Please install all required modules.' -f $module)
         }
-    }
-    
-}
-
-function VerifyModuleVersions {
-    foreach ($key in $preReqModuleVersions.Keys) {
-        $verified = $false
-        Write-Host "Verifying $key version..." -ForegroundColor Yellow
-        Get-Module $key -All -ListAvailable | Foreach-Object {
-            if ($_.Version.ToString() -eq $preReqModuleVersions[$key]) {
-                Write-Host "$key version is correct" -ForegroundColor Green
-                $verified = $true
-                continue
-            }
-        }
-        if (-not $verified) {
-            Write-Host "Missing required version for $key" -ForegroundColor Yellow
-            Write-Host "Installing $key version: $($preReqModuleVersions[$key])..." -ForegroundColor Yellow
-            Install-PSResource $key -Version $preReqModuleVersions[$key] -TrustRepository
-            Write-Host "Installed $key version: $($preReqModuleVersions[$key])" -ForegroundColor Green
-            $verified = $true
-        }
-    }
+    } 
 }
 
 # Test for availability of Azure resources
@@ -450,9 +421,6 @@ function ConfigureSharePointSite {
             }
             if ($setting.Title -eq "SPOManagedPath") {
                 $setting.Value = $parameters.managedPath.Value
-            }
-            if ($setting.Title -eq "SiteClassifications") {
-                $setting.Value = $global:siteClassifications
             }
             if ($setting.Title -eq "EnableSensitivityLabels") {
                 If ($parameters.enableSensitivity.Value) {
@@ -689,36 +657,13 @@ function ConfigureSharePointSite {
     }
 }
 
-# Get configured site classifications
-function GetSiteClassifications {
-    try {
-        $groupDirectorySetting = AzureADPreview\Get-AzureADDirectorySetting | Where-Object DisplayName -eq "Group.Unified"
-        $classifications = $groupDirectorySetting.Values | Where-Object Name -eq "ClassificationList" | Select-Object Value
-
-        $global:siteClassifications = $classifications.Value
-    }
-    catch {
-        throw('Failed to retrieve site classifications {0}', $_.Exception.Message)
-    }
-}
-
-function UploadFiles ($context, $targetFolder, $sourcePath, $sourceFolder, $libraryName) {
+function UploadFiles ($targetFolder, $sourcePath, $sourceFolder, $libraryName) {
     # Upload files into the folder
-    $folder = $Web.GetFolderByServerRelativeUrl($targetFolder)
-    $context.Load($folder)
-    $context.ExecuteQuery() 
-
     Get-ChildItem (Join-Path $sourcePath $sourceFolder) | 
     Foreach-Object {
-        $FileStream = New-Object IO.FileStream($_.FullName, [System.IO.FileMode]::Open)
-        $FileCreationInfo = New-Object Microsoft.SharePoint.Client.FileCreationInformation
-        $FileCreationInfo.Overwrite = $true
-        $FileCreationInfo.ContentStream = $FileStream
-        $FileCreationInfo.URL = $_
-        $Upload = $folder.Files.Add($FileCreationInfo)
-        $context.Load($Upload)
-        $context.ExecuteQuery()
-        Write-Host "Uploaded $($_.FullName) to $libraryName" -ForegroundColor Green
+        $file = $_.FullName
+        Add-PnPFile -Path $file -Folder $targetFolder
+        Write-Host "Uploaded $($_.Name) to $libraryName" -ForegroundColor Green
     }
 }
 
@@ -727,45 +672,39 @@ function UploadFiles ($context, $targetFolder, $sourcePath, $sourceFolder, $libr
 function UploadAssets {
     try {
         Write-Host "Uploading assets" -ForegroundColor Yellow
-        $context = Get-PnPContext
-        $web = $context.Web
-        $context.ExecuteQuery()
 
-        UploadFiles $context $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
-        UploadFiles $context $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
+        UploadFiles  $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
+        UploadFiles  $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
 
-        Write-Host "Uploaded files to Site Assets`n**Bestillingsportalen SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
+        Write-Host "Uploaded files to Site Assets`n**PROVISION ASSIST SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
         throw('Failed to upload assets {0}', $_.Exception.Message)
     }
 }
 
-# Gets the azure ad app
-function GetAzureADApp {
+# Gets the Entra ID app
+function GetEntraIDApp {
     param ($appName)
-
     $app = az ad app list --filter "displayName eq '$appName'" | ConvertFrom-Json
-
     return $app
-
 }
 
-function CreateAzureADAppSecret {
+function CreateEntraIDAppSecret {
     try {
-        Write-Host "### AZURE AD APP SECRET CREATION ###" -ForegroundColor Yellow
+        Write-Host "### Entra ID APP SECRET CREATION ###" -ForegroundColor Yellow
 
         # Check if the app already exists - script has been previously executed
-        $app = GetAzureADApp $parameters.appName.Value
+        $app = GetEntraIDApp $parameters.appName.Value
 
         if (-not ([string]::IsNullOrEmpty($app))) {
 
             $global:appId = $app.appId
 
             # Create a secret - this will autogenerate a password
-            Write-Host "Azure AD App $($parameters.appName.Value) found..." -ForegroundColor Yellow
+            Write-Host "Entra ID App $($parameters.appName.Value) found..." -ForegroundColor Yellow
 
-            Write-Host "Creating secret for Azure AD App - $($parameters.appName.Value)..." -ForegroundColor Yellow
+            Write-Host "Creating secret for Entra ID App - $($parameters.appName.Value)..." -ForegroundColor Yellow
 
             $secret = az ad app credential reset --id $global:appId
     
@@ -780,14 +719,14 @@ function CreateAzureADAppSecret {
         } 
         else {
 
-            throw("Azure AD App $($parameters.appName.Value)' does not exist. Please run the createadapp script first.")
+            throw("Entra ID App $($parameters.appName.Value)' does not exist. Please run the createentraidapp.ps1 script first.")
 
         }
 
-        Write-Host "### AZURE AD APP SECRET CREATION FINISHED ###" -ForegroundColor Green
+        Write-Host "### Entra ID APP SECRET CREATION FINISHED ###" -ForegroundColor Green
     }
     catch {
-        throw('Failed to create the secret for the Azure AD App {0}', $_.Exception.Message)
+        throw('Failed to create the secret for the Entra ID App {0}', $_.Exception.Message)
     }
 }
 
@@ -816,22 +755,15 @@ function AssignManagedIdentityPermissions {
         Write-Host "Assigning SharePoint app role to managed identity" -ForegroundColor Yellow
 
         # Get service principal for the automation account
-        $paAutoServicePrincipal = Get-MgServicePrincipal -Filter "DisplayName eq '$($automationAccountName)'"
+        $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
 
-        $spoResource = Get-MgServicePrincipal -Filter "DisplayName eq 'Office 365 SharePoint Online'"
+        $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
 
         # Get the app role we need to assign
-        $spoFullControlAppRole = $spoResource.AppRoles | Where-Object { $_.value -eq 'Sites.FullControl.All' }
+        $spoFullControlAppRole = $spoResource.AppRole | Where-Object DisplayName -eq 'Have full control of all site collections'
 
         # Get existing role assignments
-        $roles = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
-
-        # Build the params
-        $spoParams = @{
-            "PrincipalId" = $paAutoServicePrincipal.Id 
-            "ResourceId"  = $spoResource.Id
-            "AppRoleId"   = $spoFullControlAppRole.Id
-        }
+        $roles = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
 
         # Check that the role assigments do not already exist
 
@@ -839,7 +771,7 @@ function AssignManagedIdentityPermissions {
 
         if ($null -eq $existingRoleAssignment) {
             # Assign SharePoint app roles to the service principal
-            New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -BodyParameter $spoParams
+            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $spoFullControlAppRole.Id -ResourceId $spoResource.Id
         }
 
         Write-Host "Finished assigning SharePoint app role to managed identity" -ForegroundColor Green
@@ -854,13 +786,14 @@ function AssignManagedIdentityPermissions {
 function DeployARMTemplates {
     try { 
         # Deploy ARM templates
-        if(-not $SkipDeployAPIConnections) {
+        if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
             
             az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
             
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
-        } else {
+        }
+        else {
             Write-Host "Skipping deployment of api connections..." -ForegroundColor Yellow
         }
        
@@ -1015,30 +948,14 @@ function GenerateSelfSignedCertificate {
 
 $ErrorActionPreference = "stop"
 
-Write-Host "###  DEPLOYMENT SCRIPT STARTED `n(c) Microsoft Corporation ###" -ForegroundColor Magenta
+Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
 
 if (-not $SkipVerifyModules) {
-    Write-Host "Preparing PowerShell modules..." -ForegroundColor Yellow
-    PreparePoshModules
-
     # Verify required PS Modules
     Write-Host "Verifying installation of required PowerShell Modules..." -ForegroundColor Yellow
     VerifyModules
     Write-Host "Required modules are installed" -ForegroundColor Green
-
-    Write-Host "Verifying module versions..." -ForegroundColor Yellow
-    VerifyModuleVersions
 }
-
-# Due to conflicts between Az and Microsoft.Graph modules, we need to load the modules in a specific order
-Write-Host "Loading required modules..." -ForegroundColor Yellow
-Import-Module Az.Accounts -RequiredVersion $preReqModuleVersions["Az.Accounts"]
-Import-Module Az.Resources -RequiredVersion $preReqModuleVersions["Az.Resources"]
-Import-Module Az.KeyVault -RequiredVersion $preReqModuleVersions["Az.KeyVault"]
-Import-Module Microsoft.Graph.Authentication -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
-Import-Module Microsoft.Graph.Applications -RequiredVersion $preReqModuleVersions["Microsoft.Graph"]
-Import-Module PnP.PowerShell -RequiredVersion $preReqModuleVersions["PnP.PowerShell"]
-Write-Host "Modules loaded" -ForegroundColor Green
 
 # Load Parameters from json file
 $parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop
@@ -1064,36 +981,40 @@ Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
 # Clear the az context before we login
 #Clear-AzContext -Force
 $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
-if (-not $SkipBicepDeploy){
+if (-not $SkipBicepDeploy) {
     ValidateKeyVault
 }
 ValidateAzureLocation
-Write-Host "Launching Azure AD sign-in..." -ForegroundColor Yellow
-AzureADPreview\Connect-AzureAD
 Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
-$cliLogin = az login
+az login
 Write-Host "Connected to Azure" -ForegroundColor Green
 
-# Connect to Microsfot Graph
-
-# Define the scopes to use
-$scopes = @("AppRoleAssignment.ReadWrite.All", "Application.Read.All", "Directory.Read.All")
-
-# Connect to Microsoft Graph using the specified scopes
-Write-Host "Launching Microsoft Graph sign-in...please consent"
-Connect-MgGraph -Scopes $scopes
-Write-Host "Connected to Microsoft Graph" -ForegroundColor Green
+# Change the subscription
+az account set --subscription $parameters.subscriptionId.Value
 
 # Connect to PnP
 Write-Host "Launching PnP sign-in..." -ForegroundColor Yellow
-Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -Interactive
+$pnpCertPassword = Read-Host -Prompt "Enter password for PnP certificate (leave blank if your certficate is not secured with a password)" -AsSecureString
+
+if ($pnpCertPassword.Length -eq 0) {
+    if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+    }
+    else {
+        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -Interactive
+    }
+}
+else {
+    Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+}
 Write-Host "Connected to SPO" -ForegroundColor Green
 
 $currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
-if (-not $SkipCreateAureADAppSecret) {
-    CreateAzureADAppSecret
-} else {
-    $app = GetAzureADApp $parameters.appName.Value
+if (-not $SkipCreateEntraIDAppSecret) {
+    CreateEntraIDAppSecret
+}
+else {
+    $app = GetEntraIDApp $parameters.appName.Value
 
     if (-not ([string]::IsNullOrEmpty($app))) {
 
@@ -1101,15 +1022,24 @@ if (-not $SkipCreateAureADAppSecret) {
     }
 }
 
-GetSiteClassifications
-
 if (-not $SkipSharepointSite) {
     CreateRequestsSharePointSite
     # Connect to the new site
-    Connect-PnPOnline $requestsSiteUrl -Interactive
+    if ($pnpCertPassword.Length -eq 0) {
+        if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+        }
+        else {
+            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive
+        }
+    }
+    else {
+        Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+    }
     ConfigureSharePointSite
     UploadAssets
-} else {
+}
+else {
     # If we're skipping site creation/configuration, we need to get the list ids
     Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
     Connect-PnPOnline $requestsSiteUrl -Interactive
@@ -1163,7 +1093,8 @@ if (-not $SkipCreateResourceGroup) {
     Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
     New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
     Write-Host "Created resource group" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "Skipping resource group creation" -ForegroundColor Yellow
 }
 
@@ -1184,18 +1115,21 @@ if (-not $SkipBicepDeploy) {
     CreateAutomationRoleAssignments
     AssignManagedIdentityPermissions
     Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "Skipping Bicep deployment" -ForegroundColor Yellow
 }
-if(-not $SkipGenerateCertificate) {
+if (-not $SkipGenerateCertificate) {
     GenerateSelfSignedCertificate
-} else {
+}
+else {
     Write-Host "Skipping certificate generation" -ForegroundColor Yellow
 }
 
 if (-not $SkipDeployARMTemplates) {
     DeployARMTemplates
-} else {
+}
+else {
     Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow
 }
 
