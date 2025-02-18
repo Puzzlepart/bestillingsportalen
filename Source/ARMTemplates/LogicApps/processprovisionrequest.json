@@ -3478,46 +3478,29 @@
                                         }
                                     }
                                 },
-                                "Check_if_space_is_a_Team_-_add_owners_as_members": {
-                                    "actions": {
-                                        "Append_Owners_to_MembersGraph_variable": {
-                                            "runAfter": {
-                                                "Append_Owners_to_Members_variable": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "AppendToArrayVariable",
-                                            "inputs": {
-                                                "name": "MembersGraph",
-                                                "value": "https://graph.microsoft.com/v1.0/users/@{body('Get_owner_user_profile')?['id']}"
-                                            }
-                                        },
-                                        "Append_Owners_to_Members_variable": {
-                                            "runAfter": {},
-                                            "type": "AppendToArrayVariable",
-                                            "inputs": {
-                                                "name": "Members",
-                                                "value": "https://graph.microsoft.com/v1.0/users/@{body('Get_owner_user_profile')?['id']}"
-                                            }
-                                        }
-                                    },
+                                "Append_Owners_to_Members_variable": {
                                     "runAfter": {
                                         "Append_to_OwnerIDs_variable": [
                                             "Succeeded"
                                         ]
                                     },
-                                    "expression": {
-                                        "and": [
-                                            {
-                                                "equals": [
-                                                    "@triggerBody()?['Teamify']",
-                                                    "@true"
-                                                ]
-                                            }
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "Members",
+                                        "value": "https://graph.microsoft.com/v1.0/users/@{body('Get_owner_user_profile')?['id']}"
+                                    }
+                                },
+                                "Append_Owners_to_MembersGraph_variable": {
+                                    "runAfter": {
+                                        "Append_Owners_to_Members_variable": [
+                                            "Succeeded"
                                         ]
                                     },
-                                    "type": "If",
-                                    "description": "Due to a bug when provisioning Teams via the MS Graph (owners cannot create Planner plans), owners must be added as members first."
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "MembersGraph",
+                                        "value": "https://graph.microsoft.com/v1.0/users/@{body('Get_owner_user_profile')?['id']}"
+                                    }
                                 },
                                 "Get_owner_user_profile": {
                                     "runAfter": {},
