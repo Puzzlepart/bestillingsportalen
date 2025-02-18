@@ -1042,7 +1042,7 @@ if (-not $SkipSharepointSite) {
 else {
     # If we're skipping site creation/configuration, we need to get the list ids
     Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
-    Connect-PnPOnline $requestsSiteUrl -Interactive
+    Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive
     $context = Get-PnPContext
     
     $siteRequestsList = Get-PnPList $requestsListName
