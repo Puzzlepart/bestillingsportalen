@@ -71,7 +71,7 @@ If (-not (Test-Path -Path "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2") -a
 $packageRootPath = "..\"
 $imagesDir = "Assets\ProvTypesImages"
 $iconsDir = "Assets\ProvTypesIcons"
-$templatePath = "Templates\bestillingsportalen-sitetemplate.xml"
+$templatePath = "Templates\Bestillingsportalen.xml"
 $settingsPath = "Settings\SharePoint List items.xlsx"
 
 # Required PS modules
