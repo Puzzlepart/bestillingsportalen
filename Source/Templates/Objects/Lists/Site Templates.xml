@@ -1,0 +1,48 @@
+<pnp:ListInstance Title="Site Templates" Description=" " DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/SiteTemplates" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/SiteTemplates/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/SiteTemplates/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/SiteTemplates/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+    <pnp:ContentTypeBindings>
+        <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+        <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+    </pnp:ContentTypeBindings>
+    <pnp:Views>
+        <View Name="{E7E06587-FDCE-4EAC-8CF6-B6F73650E6F6}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/SiteTemplates/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+            <Query />
+            <ViewFields>
+                <FieldRef Name="LinkTitle" />
+                <FieldRef Name="Description" />
+                <FieldRef Name="SiteTemplateId" />
+                <FieldRef Name="PreviewImage" />
+                <FieldRef Name="WebTemplate" />
+                <FieldRef Name="Store" />
+                <FieldRef Name="Enabled" />
+                <FieldRef Name="ApplyPnPTemplate" />
+                <FieldRef Name="PnPTemplateURL" />
+                <FieldRef Name="ThemeName" />
+                <FieldRef Name="VisibleTo" />
+            </ViewFields>
+            <RowLimit Paged="TRUE">30</RowLimit>
+            <JSLink>clienttemplates.js</JSLink>
+        </View>
+    </pnp:Views>
+    <pnp:Fields>
+        <Field Type="Note" DisplayName="Description" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" NumLines="6" RichText="FALSE" Direction="None" Sortable="FALSE" ID="{5fe244c7-5422-4fba-8e37-cbedb67253b1}" SourceID="{{listid:Site Templates}}" StaticName="Description" Name="Description" ColName="ntext2" RowOrdinal="0" />
+        <Field Type="Text" DisplayName="SiteTemplateId" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{6688ba30-e361-4f5d-b7d5-db5ba59933b5}" SourceID="{{listid:Site Templates}}" StaticName="SiteTemplateId" Name="SiteTemplateId" ColName="nvarchar7" RowOrdinal="0" />
+        <Field Type="URL" DisplayName="PreviewImage" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Image" Direction="None" ID="{d300fed5-7776-4c56-8d32-8dd73d8158c2}" SourceID="{{listid:Site Templates}}" StaticName="PreviewImage" Name="PreviewImage" ColName="nvarchar8" RowOrdinal="0" ColName2="nvarchar9" RowOrdinal2="0" />
+        <Field Type="Text" DisplayName="WebTemplate" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{77c99b5f-2fad-4c69-b4ba-c334e84d2e46}" SourceID="{{listid:Site Templates}}" StaticName="WebTemplate" Name="WebTemplate" ColName="nvarchar10" RowOrdinal="0" />
+        <Field Type="Text" DisplayName="Store" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{52f63b17-afb9-4dc2-9261-7d784168392b}" SourceID="{{listid:Site Templates}}" StaticName="Store" Name="Store" ColName="nvarchar11" RowOrdinal="0" ShowInEditForm="FALSE" ShowInNewForm="FALSE" ShowInDisplayForm="FALSE" Version="128" />
+        <Field Type="Boolean" DisplayName="Enabled" EnforceUniqueValues="FALSE" Indexed="FALSE" ID="{e3fa72b4-ab5b-4f4c-a229-ca65234b1a9b}" SourceID="{{listid:Site Templates}}" StaticName="Enabled" Name="Enabled" ColName="bit1" RowOrdinal="0">
+            <Default>0</Default>
+        </Field>
+        <Field Type="Boolean" DisplayName="ApplyPnPTemplate" EnforceUniqueValues="FALSE" Indexed="FALSE" ID="{15336e54-6278-4bd2-a2fd-be4ae311e287}" SourceID="{{listid:Site Templates}}" StaticName="ApplyPnPTemplate" Name="ApplyPnPTemplate" ColName="bit2" RowOrdinal="0">
+            <Default>0</Default>
+        </Field>
+        <Field Type="URL" DisplayName="PnPTemplateURL" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Hyperlink" Direction="None" ID="{72fec803-5694-4d8d-9d59-0fafc21471e2}" SourceID="{{listid:Site Templates}}" StaticName="PnPTemplateURL" Name="PnPTemplateURL" ColName="nvarchar12" RowOrdinal="0" ColName2="nvarchar13" RowOrdinal2="0" />
+        <Field Type="Text" DisplayName="ThemeName" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{64c3e6cb-3194-4faf-a42c-34f312c0d6e7}" SourceID="{{listid:Site Templates}}" StaticName="ThemeName" Name="ThemeName" ColName="nvarchar14" RowOrdinal="0" />
+        <Field Type="User" DisplayName="VisibleTo" List="UserInfo" Required="FALSE" EnforceUniqueValues="FALSE" Direction="None" ShowField="ImnName" UserSelectionMode="PeopleAndGroups" UserSelectionScope="0" ID="{2f639515-0228-486c-b628-c3b7c24c92b8}" SourceID="{{listid:Site Templates}}" StaticName="VisibleTo" Name="VisibleTo" ColName="int1" RowOrdinal="0" />
+    </pnp:Fields>
+    <pnp:FieldRefs>
+        <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+        <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+    </pnp:FieldRefs>
+</pnp:ListInstance>
+    

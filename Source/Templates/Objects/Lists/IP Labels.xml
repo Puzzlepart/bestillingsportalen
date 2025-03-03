@@ -1,0 +1,33 @@
+<pnp:ListInstance Title="IP Labels" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/IPLabels" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/IPLabels/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/IPLabels/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/IPLabels/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+    <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{33C2199B-791B-4A75-98C4-4877941FAEA8}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/IPLabels/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query />
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="LabelName" />
+        <FieldRef Name="LabelId" />
+        <FieldRef Name="LabelDescription" />
+        <FieldRef Name="Enabled" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field Type="Text" DisplayName="Label Name" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{0a75288f-b51a-4561-9c2f-ec64437ac22e}" SourceID="{{listid:IP Labels}}" StaticName="LabelName" Name="LabelName" ColName="nvarchar7" RowOrdinal="0" CustomFormatter="" Version="1" />
+    <Field Type="Text" DisplayName="Label Id" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" MaxLength="255" Direction="None" ID="{ca381da2-a503-4d09-8b8d-2a6eb1d0536e}" SourceID="{{listid:IP Labels}}" StaticName="LabelId" Name="LabelId" ColName="nvarchar8" RowOrdinal="0" CustomFormatter="" Version="1" />
+    <Field Type="Note" DisplayName="Label Description" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" NumLines="6" RichText="FALSE" Direction="None" Sortable="FALSE" ID="{9b6e614c-539c-4032-869d-f9b74fd5dbb8}" SourceID="{{listid:IP Labels}}" StaticName="LabelDescription" Name="LabelDescription" ColName="ntext2" RowOrdinal="0" CustomFormatter="" RestrictedMode="TRUE" RichTextMode="Compatible" IsolateStyles="FALSE" AppendOnly="FALSE" Version="1" />
+    <Field Type="Boolean" DisplayName="Enabled" EnforceUniqueValues="FALSE" Indexed="FALSE" ID="{65bd9ad8-d1d9-4d05-b3f8-b90bde062207}" SourceID="{{listid:IP Labels}}" StaticName="Enabled" Name="Enabled" ColName="bit1" RowOrdinal="0">
+      <Default>0</Default>
+    </Field>
+  </pnp:Fields>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+    <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+  </pnp:FieldRefs>
+</pnp:ListInstance>

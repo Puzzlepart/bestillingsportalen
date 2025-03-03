@@ -1,0 +1,28 @@
+<pnp:ListInstance Title="Retention Labels" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/RetentionLabels" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/RetentionLabels/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/RetentionLabels/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/RetentionLabels/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+    <pnp:ContentTypeBindings>
+        <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+        <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+    </pnp:ContentTypeBindings>
+    <pnp:Views>
+        <View Name="{C648B67C-8752-460F-A4E0-8CB6B256DDC0}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/RetentionLabels/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+            <Query />
+            <ViewFields>
+                <FieldRef Name="LinkTitle" />
+                <FieldRef Name="LabelName" />
+                <FieldRef Name="LabelDescription" />
+            </ViewFields>
+            <RowLimit Paged="TRUE">30</RowLimit>
+            <JSLink>clienttemplates.js</JSLink>
+            <CustomFormatter />
+        </View>
+    </pnp:Views>
+    <pnp:Fields>
+        <Field DisplayName="Label Name" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="LabelName" Title="Label Name" Type="Text" ID="{98c15772-99ee-4b7d-9e61-a7aa18699bc4}" SourceID="{{listid:Retention Labels}}" StaticName="LabelName" ColName="nvarchar7" RowOrdinal="0" />
+        <Field DisplayName="Label Description" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="LabelDescription" Title="Label Description" Type="Text" ID="{6cd39f84-309c-4437-96de-ec25702bb96f}" SourceID="{{listid:Retention Labels}}" StaticName="LabelDescription" ColName="nvarchar8" RowOrdinal="0" />
+    </pnp:Fields>
+    <pnp:FieldRefs>
+        <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+        <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+    </pnp:FieldRefs>
+</pnp:ListInstance>

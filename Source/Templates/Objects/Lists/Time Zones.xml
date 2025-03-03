@@ -1,0 +1,26 @@
+<pnp:ListInstance Title="Time Zones" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/TimeZones" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/TimeZones/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/TimeZones/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/TimeZones/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+    <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{6000C5EC-DEDE-40CA-8AD6-30E996149476}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/TimeZones/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query />
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="TimeZoneId" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field ClientSideComponentId="00000000-0000-0000-0000-000000000000" CommaSeparator="FALSE" DisplayName="Time Zone Id" Format="Dropdown" Name="TimeZoneId" Percentage="FALSE" Title="Time Zone Id" Type="Number" ID="{96b4e26d-1e4b-49e9-bcb5-fd1822406e24}" Version="5" StaticName="TimeZoneId" SourceID="{{listid:Time Zones}}" ColName="float1" RowOrdinal="0" />
+  </pnp:Fields>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+    <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+  </pnp:FieldRefs>
+</pnp:ListInstance>

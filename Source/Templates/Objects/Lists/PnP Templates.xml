@@ -1,0 +1,38 @@
+<pnp:ListInstance Title="PnP Templates" Description="" DocumentTemplate="{site}/PnPTemplates/Forms/template.dotx" OnQuickLaunch="true" TemplateType="101" Url="PnPTemplates" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="500" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-e717-4e80-aa17-d0c71b360101" EnableAttachments="false" DefaultDisplayFormUrl="{site}/PnPTemplates/Forms/DispForm.aspx" DefaultEditFormUrl="{site}/PnPTemplates/Forms/EditForm.aspx" DefaultNewFormUrl="{site}/PnPTemplates/Forms/Upload.aspx" ImageUrl="/_layouts/15/images/itdl.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x0101" Default="true" />
+    <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{DEEE7413-6E98-44FC-8031-78D50BCAC3CA}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Documents" Url="{site}/PnPTemplates/Forms/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/dlicon.png?rev=47">
+      <Query>
+        <OrderBy>
+          <FieldRef Name="FileLeafRef" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="DocIcon" />
+        <FieldRef Name="LinkFilename" />
+        <FieldRef Name="Modified" />
+        <FieldRef Name="Editor" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+    </View>
+  </pnp:Views>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="d307dff3-340f-44a2-9f4b-fbfe1ba07459" Name="_CommentCount" DisplayName="Comment count" />
+    <pnp:FieldRef ID="db8d9d6d-dc9a-4fbd-85f3-4a753bfdc58c" Name="_LikeCount" DisplayName="Like count" />
+    <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" DisplayName="Title" />
+    <pnp:FieldRef ID="cb19284a-cde7-4570-a980-1dab8bd74470" Name="_ExtendedDescription" DisplayName="Description" />
+  </pnp:FieldRefs>
+  <pnp:Security>
+    <pnp:BreakRoleInheritance CopyRoleAssignments="false" ClearSubscopes="false">
+      <pnp:RoleAssignment Principal="{associatedownergroupid}" RoleDefinition="Full Control" />
+      <pnp:RoleAssignment Principal="{associatedvisitorgroupid}" RoleDefinition="Read" />
+      <pnp:RoleAssignment Principal="{associatedmembergroupid}" RoleDefinition="Edit" />
+    </pnp:BreakRoleInheritance>
+  </pnp:Security>
+</pnp:ListInstance>

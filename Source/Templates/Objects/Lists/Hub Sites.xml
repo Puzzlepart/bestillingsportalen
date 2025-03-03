@@ -1,0 +1,43 @@
+<pnp:ListInstance Title="Hub Sites" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/HubSites" MinorVersionLimit="0" MaxVersionLimit="0" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/HubSites/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/HubSites/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/HubSites/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+    <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{25560414-7C47-45E0-B785-8834508B0BB0}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/HubSites/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <OrderBy>
+          <FieldRef Name="ID" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="HubSiteId" />
+        <FieldRef Name="Owner" />
+        <FieldRef Name="SecondOwner" />
+        <FieldRef Name="isPP365" />
+        <FieldRef Name="Enabled" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field DisplayName="HubSiteId" Format="Dropdown" MaxLength="255" Name="HubSiteId" Title="HubSiteId" Type="Text" ID="{7ed5817d-9434-4910-a4b7-406c61e11d3b}" SourceID="{{listid:Hub Sites}}" StaticName="HubSiteId" ColName="nvarchar7" RowOrdinal="0" />
+    <Field DisplayName="Owner" Format="Dropdown" MaxLength="255" Name="Owner" Title="Owner" Type="Text" ID="{2210e750-936c-4eb6-b43b-9bdbc75aabe2}" SourceID="{{listid:Hub Sites}}" StaticName="Owner" ColName="nvarchar8" RowOrdinal="0" />
+    <Field DisplayName="SecondOwner" Format="Dropdown" MaxLength="255" Name="SecondOwner" Title="SecondOwner" Type="Text" ID="{fcd883a1-ccd6-4322-9e39-c3643a0828c8}" SourceID="{{listid:Hub Sites}}" StaticName="SecondOwner" ColName="nvarchar9" RowOrdinal="0" />
+    <Field DisplayName="isPP365" Format="Dropdown" IsModern="TRUE" Name="isPP365" Title="isPP365" Type="Boolean" ID="{0fa2ceaf-e868-4844-863c-35e60d1279e2}" SourceID="{{listid:Hub Sites}}" StaticName="isPP365" ColName="bit2" RowOrdinal="0">
+      <Default>0</Default>
+    </Field>
+    <Field DisplayName="Enabled" Format="Dropdown" IsModern="TRUE" Name="Enabled" Title="Enabled" Type="Boolean" ID="{4156fe87-10ca-43fb-a016-f6a1ad3fc2e8}" SourceID="{{listid:Hub Sites}}" StaticName="Enabled" ColName="bit1" RowOrdinal="0">
+      <Default>0</Default>
+    </Field>
+  </pnp:Fields>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+    <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+  </pnp:FieldRefs>
+</pnp:ListInstance>
+  

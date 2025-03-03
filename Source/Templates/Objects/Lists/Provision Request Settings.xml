@@ -1,0 +1,77 @@
+<pnp:ListInstance Title="Provisioning Request Settings" Description=" " DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/ProvisioningRequestSettings" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/ProvisioningRequestSettings/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/ProvisioningRequestSettings/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/ProvisioningRequestSettings/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+    <pnp:ContentTypeBinding ContentTypeID="0x0120" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{DC512A90-0730-4CA5-91A4-58DFB6A8043B}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/ProvisioningRequestSettings/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query />
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="Description" />
+        <FieldRef Name="Value" />
+        <FieldRef Name="PrefixAttribute" />
+        <FieldRef Name="SuffixAttribute" />
+        <FieldRef Name="PrefixText" />
+        <FieldRef Name="SuffixText" />
+        <FieldRef Name="PrefixUseAttribute" />
+        <FieldRef Name="SuffixUseAttribute" />
+        <FieldRef Name="ExternalSharingSetting" />
+        <FieldRef Name="BlockedWordsValue" />
+        <FieldRef Name="LogoImage" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field AppendOnly="FALSE" DisplayName="Description" Format="Dropdown" IsolateStyles="FALSE" Name="Description" RichText="FALSE" RichTextMode="Compatible" Title="Description" Type="Note" ID="{d51b8439-8b98-4ac6-a99a-f89bd152b9e3}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="Description" ColName="ntext2" RowOrdinal="0" CustomFormatter="" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Direction="None" NumLines="6" RestrictedMode="TRUE" Version="3" />
+    <Field AppendOnly="FALSE" DisplayName="Value" Format="Dropdown" IsModern="TRUE" IsolateStyles="FALSE" Name="Value" RichText="FALSE" RichTextMode="Compatible" Title="Value" Type="Note" ID="{801fd2fd-0bbc-40db-ba65-343226d44a99}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="Value" ColName="ntext3" RowOrdinal="0" CustomFormatter="" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Direction="None" NumLines="6" RestrictedMode="TRUE" Version="2" />
+    <Field AppendOnly="FALSE" ClientSideComponentId="00000000-0000-0000-0000-000000000000" DisplayName="Blocked Words Value" Format="Dropdown" IsolateStyles="FALSE" Name="BlockedWordsValue" RichText="FALSE" RichTextMode="Compatible" Title="Blocked Words Value" Type="Note" ID="{07d6bab4-a5bb-4603-87be-d1384d4637eb}" StaticName="BlockedWordsValue" SourceID="{{listid:Provisioning Request Settings}}" ColName="ntext4" RowOrdinal="0" ShowInEditForm="FALSE" ShowInNewForm="FALSE" ShowInDisplayForm="FALSE" Version="154" />
+    <Field DisplayName="Prefix Text" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="PrefixText" Title="Prefix Text" Type="Text" ID="{4a447fc2-5812-4823-bda9-430fcec956e8}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixText" ColName="nvarchar7" RowOrdinal="0" />
+    <Field DisplayName="Prefix Use Attribute" Format="Dropdown" IsModern="TRUE" Name="PrefixUseAttribute" Title="Prefix Use Attribute" Type="Boolean" ID="{0d25412b-923f-493f-923c-7417d2360950}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixUseAttribute" ColName="bit1" RowOrdinal="0">
+      <Default>0</Default>
+    </Field>
+    <Field ClientSideComponentId="00000000-0000-0000-0000-000000000000" DisplayName="Logo Image" Format="Thumbnail" Name="LogoImage" Title="Logo Image" Type="Thumbnail" ID="{fe0b1490-b6bf-476a-b2d9-b11c01dd5f08}" Version="2" StaticName="LogoImage" SourceID="{{listid:Provisioning Request Settings}}" ColName="ntext5" RowOrdinal="0" />
+    <Field Type="Choice" DisplayName="Prefix Attribute" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Dropdown" Direction="None" FillInChoice="FALSE" ID="{4dc6cea7-8613-4bef-b274-6cbac9511576}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="PrefixAttribute" Name="PrefixAttribute" ColName="nvarchar8" RowOrdinal="0" CustomFormatter="" Version="1">
+      <CHOICES>
+        <CHOICE>Department</CHOICE>
+        <CHOICE>Company</CHOICE>
+        <CHOICE>Office</CHOICE>
+        <CHOICE>StateOrProvince</CHOICE>
+        <CHOICE>CountryOrRegion</CHOICE>
+        <CHOICE>JobTitle</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field DisplayName="Suffix Text" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="SuffixText" Title="Suffix Text" Type="Text" ID="{30752d81-a448-4642-aa51-bb9c62503c35}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="SuffixText" ColName="nvarchar9" RowOrdinal="0" />
+    <Field DisplayName="Suffix Use Attribute" Format="Dropdown" IsModern="TRUE" Name="SuffixUseAttribute" Title="Suffix Use Attribute" Type="Boolean" ID="{9e642a68-ce85-4bb8-bb68-0779e3c04b65}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="SuffixUseAttribute" ColName="bit2" RowOrdinal="0">
+      <Default>0</Default>
+    </Field>
+    <Field Type="Choice" DisplayName="Suffix Attribute" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Dropdown" Direction="None" FillInChoice="FALSE" ID="{01872c1b-fb4d-43ac-8d50-358cd67f21fc}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="SuffixAttribute" Name="SuffixAttribute" ColName="nvarchar10" RowOrdinal="0" CustomFormatter="" Version="1">
+      <CHOICES>
+        <CHOICE>Department</CHOICE>
+        <CHOICE>Company</CHOICE>
+        <CHOICE>Office</CHOICE>
+        <CHOICE>StateOrProvince</CHOICE>
+        <CHOICE>CountryOrRegion</CHOICE>
+        <CHOICE>JobTitle</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Choice" DisplayName="External Sharing Setting" Required="FALSE" EnforceUniqueValues="FALSE" Indexed="FALSE" Format="Dropdown" Direction="None" FillInChoice="FALSE" ID="{4d1c89a8-9264-40aa-91e9-17fcf824f701}" SourceID="{{listid:Provisioning Request Settings}}" StaticName="ExternalSharingSetting" Name="ExternalSharingSetting" ColName="nvarchar11" RowOrdinal="0" CustomFormatter="" Version="1">
+      <CHOICES>
+        <CHOICE>Anyone</CHOICE>
+        <CHOICE>NewExistingGuests</CHOICE>
+        <CHOICE>ExistingGuests</CHOICE>
+      </CHOICES>
+    </Field>
+  </pnp:Fields>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" Required="true" DisplayName="Title" />
+    <pnp:FieldRef ID="76d13cd2-1bae-45a5-8b74-545b87b65037" Name="_ColorTag" DisplayName="Color Tag" />
+  </pnp:FieldRefs>
+  <pnp:Webhooks>
+    <pnp:Webhook ServerNotificationUrl="https://ukwest1-0.pushnp.svc.ms/notifications?token=fb8ee5ad-ed4d-46bb-a2fd-66fbdb931d52" ExpiresInDays="1" />
+  </pnp:Webhooks>
+</pnp:ListInstance>

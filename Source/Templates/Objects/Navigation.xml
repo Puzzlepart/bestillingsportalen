@@ -1,7 +1,6 @@
 <pnp:Navigation xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
     <pnp:GlobalNavigation NavigationType="Structural">
         <pnp:StructuralNavigation RemoveExistingNodes="true">
-            <pnp:NavigationNode Title="Hjem" Url="{site}" />
             <pnp:NavigationNode Title="Teams Templates" Url="{site}/Lists/TeamsTemplates/AllItems.aspx" />
             <pnp:NavigationNode Title="PnP Templates" Url="{site}/PnPTemplates/Forms/AllItems.aspx" />
             <pnp:NavigationNode Title="Site Templates" Url="{site}/Lists/SiteTemplates/AllItems.aspx" />
