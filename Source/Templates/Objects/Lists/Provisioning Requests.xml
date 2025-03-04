@@ -134,5 +134,15 @@
     <Field Type="URL" DisplayName="Viva Engage Community URL" Format="Hyperlink" ID="{dd032545-477a-4451-badc-c346bf73d2d7}" StaticName="VivaEngageCommunityURL" Name="VivaEngageCommunityURL" />
     <Field Type="Text" DisplayName="Space Type Internal" MaxLength="255" ID="{a5104a84-554a-4c7e-9bf1-a4664dda07e4}" StaticName="SpaceTypeInternal" Name="SpaceTypeInternal" ShowInEditForm="FALSE" ShowInNewForm="FALSE" ShowInDisplayForm="FALSE" />
     <Field Type="Note" DisplayName="Status Reason" NumLines="6" RichText="FALSE" ID="{21090e30-411b-4034-adeb-2737f33703a3}" StaticName="StatusReason" Name="StatusReason" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="Note" DisplayName="Metadata" NumLines="6" RichText="FALSE" ID="{0197869f-7a9c-4d52-aa2b-68bf0eade933}" StaticName="Metadata" Name="Metadata" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{08360167-3667-48d7-ac7d-e3d12c86ab4b}" StaticName="RequestedBy" Name="RequestedBy" />
+    <Field Type="Boolean" DisplayName="Internal Channel" ID="{7cd7a01d-b1b7-4d4d-9806-f34dc2d249d0}" StaticName="InternalChannel" Name="InternalChannel">
+      <Default>0</Default>
+    </Field>
+    <Field Type="Boolean" DisplayName="Read Only Group" ID="{3a1df1af-e51f-4476-bd01-15f6f48aac1e}" StaticName="ReadOnlyGroup" Name="ReadOnlyGroup">
+      <Default>0</Default>
+    </Field>
+    <Field Type="Text" DisplayName="Requested Source" MaxLength="255" ID="{8a938be3-b414-4a77-af08-11f6e45722cc}" StaticName="RequestedSource" Name="RequestedSource" />
+    <Field Type="Note" DisplayName="Space Image" NumLines="6" RichText="FALSE" ID="{7f88f789-8cdb-4db0-ac2b-be4d11453787}" StaticName="SpaceImage" Name="SpaceImage" RestrictedMode="TRUE" RichTextMode="Compatible" />
   </pnp:Fields>
 </pnp:ListInstance>
