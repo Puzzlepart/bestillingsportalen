@@ -58,10 +58,10 @@ See the [Provisioning types](./Provisioning-types.md) documentation to find out 
 |Description|Multiple lines of text|Description of the respective collaboration space type, displayed to end users in the Power App.|
 |Allowed|Yes/No|Whether or not this collaboration space type should be hidden from the Power App (disallow users from requesting this type of space).|
 |TemplateID|Single line of text|Internal template id for the collaboration space type (only applies to SharePoint Team Sites).|
-|Image|Hyperlink or Picture|Image of the collaboration space type that is displayed on the 'Recommendation' screen of the Power App.|
+|Image|Hyperlink or Picture|Image of the collaboration space type that is displayed on the 'Select template' screen of the Power App.|
 |WebTemplateID|Single line of text|Internal web template id for the collaboration space type (only applies to SharePoint Sites & O365 Groups)|
 |Learn Video|Hyperlink or Picture|URL to a video which explains this type of collaboration space, this could be a video hosted on YouTube for example, it can be viewed directly in the Power App by the end user.|
-|Icon|Hyperlink or Picture|Icon image of the collaboration space that is displayed on the 'Recommendation' screen of the Power App.|
+|Icon|Hyperlink or Picture|Icon image of the collaboration space that is displayed on the 'Select template' screen of the Power App.|
 |Prefix Text|Single line of text|Text prefix to be prepended to the name of the collaboration space when requested.|
 |Prefix Use Attribute|Yes/No|Whether or not to use an attribute for the prefix.|
 |Prefix Attribute|Choice|Attribute to use for the prefix.|
@@ -72,26 +72,6 @@ See the [Provisioning types](./Provisioning-types.md) documentation to find out 
 |Managed Path|Single line of text|Managed path to use when creating collaboration spaces using this type. You can use this to create SharePoint sites under the 'sites' managed path even if your tenant default is 'teams'.
 |Default Visibility|Choice|Default visibility - 'Private' or 'Public' for this space type.
 |Default Confidential Data|Yes/No|Default value for the Confidential Data radio button for this space type.
-
-**Recommendation Scoring**
-
-The Recommendation Scoring list determines which types of collaboration space are recommended to users based on the requirements they select when making the request.
-
-You can edit existing requirements in this list or add your own. 
-
-Columns exist with numeric values for each type of collaboration space, these values are the score for this space type. The higher the score, the more likely this collaboration space will be recommended to the user. The spaces with the highest scores are recommended (this is calculated in the Power App).
-
-For more details on how the recommendation scoring works, please see the [Recommendation scoring](./Recommendation-scoring.md) documentation.
-
-|Name of Column|Type|Comment|
-|---|---|---|
-|Requirement|Single line of text|Name of the requirement.|
-|Modern Team Site|Number|Score for a Modern Team Site.|
-|Modern Team Site Group|Number|Score for a Modern Team Site with Office 365 Group.|
-|Communication Site|Number|Score for a Communication Site.|
-|Microsoft Teams Team|Number|Score for a Microsoft Teams 'Team'.|
-|Hub Site|Number|Score for a Hub Site.|
-|Viva Engage Community|Number|Score for a Viva Engage Community.|
 
 **Site Templates**
 

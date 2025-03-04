@@ -107,7 +107,7 @@ Please make sure that users making requests have configured values for the attri
 
 ***Space type convention***
 
-Space type conventions allow you to set specific naming conventions for each type of space a user can request i.e. Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site and a Viva Engage Community. These are the ones that are displayed on the 'Recommendation' screen in the Power App. If space types have naming conventions defined these will **override** the global one. 
+Space type conventions allow you to set specific naming conventions for each type of space a user can request i.e. Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site and a Viva Engage Community. These are the ones that are displayed on the 'Select template' screen in the Power App. If space types have naming conventions defined these will **override** the global one. 
 
 For this example, we will apply a specific naming convention to Communication Sites.
 
@@ -135,7 +135,7 @@ An space type naming convention has now been configured for a Communication Site
 
 COMM_Space Title_UsersDepartment e.g. COMM_My New Communication Site_HR
 
-Please now test the naming convention by creating a new request selecting 'Communication Site' on the Recommendation screen.
+Please now test the naming convention by creating a new request selecting 'Communication Site' on the 'Select template' screen.
 
 ---
 

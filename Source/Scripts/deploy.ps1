@@ -80,7 +80,6 @@ $preReqModules = "PnP.PowerShell", "Az", "ImportExcel", "WriteAscii"
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
 $provTypesWorksheetName = "Provisioning Types"
-$recommendationsWorksheetName = "Recommendation Scoring"
 $teamsTemplatesWorksheetName = "Teams Templates"
 $timeZonesWorksheetName = "Time Zones"
 $localesWorksheetName = "Locales"
@@ -92,7 +91,6 @@ $siteAssetsListURL = "SiteAssets"
 $provTypesListName = "Provisioning Types"
 $siteTemplatesListName = "Site Templates"
 $hubSitesListName = "Hub Sites"
-$recommendationScoreListName = "Recommendation Scoring"
 $teamsTemplatesListName = "Teams Templates"
 $timeZonesListName = "Time Zones"
 $localesListName = "Locales"
@@ -494,45 +492,6 @@ function ConfigureSharePointSite {
         $context.ExecuteQuery()
 
         Write-Host "Added provisioning types to Provisioning Types list" -ForegroundColor Green
-
-        # Adding requirements to Recommendation Scoring list
-        $recommendationScoreList = Get-PnPList $recommendationScoreListName
-        $context.Load($recommendationScoreList)
-        $context.ExecuteQuery()
-
-        # Rename Title field to 'Requirement'
-        $fields = $recommendationScoreList.Fields
-        $context.Load($fields)
-        $context.ExecuteQuery()
- 
-        $titleField = $fields | Where-Object { $_.InternalName -eq $TitleFieldName }
-        $titleField.Title = $RequirementFieldName
-        $titleField.UpdateAndPushChanges($true)
-        $context.ExecuteQuery()
-
-        # Delete existing recommendation items
-        $recommendationItems = Get-PnPListItem -List $recommendationScoreList
-
-        foreach ($recommendationItem in $recommendationItems) {
-            Remove-PnpListItem -List $recommendationScoreList -Identity $recommendationItem -Force
-        }
-
-        $recommendations = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $recommendationsWorksheetName
-        foreach ($recommendation in $recommendations) {
-            $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-            $newItem = $recommendationScoreList.AddItem($listItemCreationInformation)
-            $newitem["Title"] = $recommendation.Requirement
-            $newitem["ModernTeamSite"] = $recommendation.ModernTeamSite
-            $newitem["ModernTeamSiteGroup"] = $recommendation.ModernTeamSiteGroup
-            $newitem["CommunicationSite"] = $recommendation.CommunicationSite
-            $newitem["MicrosoftTeamsTeam"] = $recommendation.MicrosoftTeamsTeam
-            $newitem["HubSite"] = $recommendation.HubSite
-            $newitem["VivaEngageCommunity"] = $recommendation.VivaEngageCommunity
-            $newitem.Update()
-            $context.ExecuteQuery()
-
-        }
-        Write-Host "Added requirements and recommendation scores types to Recommendation Scoring list" -ForegroundColor Green
 
         # Adding templates to Teams Templates list
         $teamsTemplatesList = Get-PnPList $teamsTemplatesListName

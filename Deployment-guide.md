@@ -421,7 +421,7 @@ To enable this functionality, please perform the following steps:
 9. Save and close the logic app.
 10. Navigate to the SharePoint site created as part of the deployment and locate the **Provisioning Types** list.
 11. Edit the list item entitled **Viva Engage Community** and set the **Allowed** column to **Yes**.
-12. Launch the Provision Assist Power App and complete a test request. Observe that the **Recommendation** step now displays an option to select a Viva Engage Community.
+12. Launch the Provision Assist Power App and complete a test request. Observe that the **Select template** step now displays an option to select a Viva Engage Community.
 13. Viva Engage Community provisioning is now enabled.
 
 ## Step 14 (Optional): Enable auto approval (disabling approval process)

@@ -1,9 +1,9 @@
 # Provision Assist
 
-| [Deployment guide](/Deployment-guide.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Recommendation Scoring](/Recommendation-scoring.md) | [Translations](/Translations.md) | [Refreshing App Secret](/Refreshing-app-secret.md) 
-| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| [Deployment guide](/Deployment-guide.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Translations](/Translations.md) | [Refreshing App Secret](/Refreshing-app-secret.md) 
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 
-Provision Assist is a Power Platform and Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through a frontend Power App allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. 
+Provision Assist is a Power Platform and Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through a frontend Power App allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning.
 
 ![Provision Assist Home Screenshot](/Images/ProvisionAssistHome.png)
 
@@ -14,7 +14,6 @@ Provision Assist is a Power Platform and Azure based solution that provides an a
 Provision Assist provides the following capabilities:
 
 - Canvas based Power App (designed to be added and pinned in Teams) allowing users to request collaboration spaces.
-- Recommendations 'engine' meaning users are recommended an appropriate collaboration space e.g. A Microsoft Teams Team based on their requirements.
 - Configurable approval process using Power Automate to facilitate the approval of requests.
 - SharePoint site and supporting lists which act as the backend for the solution.
 - Requestor dashboard showing past and current requests with the approval status.
