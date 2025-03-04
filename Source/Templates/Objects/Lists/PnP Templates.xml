@@ -5,7 +5,7 @@
     <pnp:ContentTypeBinding ContentTypeID="0x0120" />
   </pnp:ContentTypeBindings>
   <pnp:Views>
-    <View Name="{DEEE7413-6E98-44FC-8031-78D50BCAC3CA}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Documents" Url="{site}/PnPTemplates/Forms/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/dlicon.png?rev=47">
+    <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Documents" Url="{site}/PnPTemplates/Forms/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/dlicon.png?rev=47">
       <Query>
         <OrderBy>
           <FieldRef Name="FileLeafRef" />

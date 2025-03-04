@@ -5,7 +5,7 @@
         <pnp:ContentTypeBinding ContentTypeID="0x0120" />
     </pnp:ContentTypeBindings>
     <pnp:Views>
-        <View Name="{E7E06587-FDCE-4EAC-8CF6-B6F73650E6F6}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/SiteTemplates/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+        <View efaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/SiteTemplates/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
             <ViewFields>
                 <FieldRef Name="LinkTitle" />
                 <FieldRef Name="Description" />

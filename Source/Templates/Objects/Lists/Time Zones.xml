@@ -5,7 +5,7 @@
     <pnp:ContentTypeBinding ContentTypeID="0x0120" />
   </pnp:ContentTypeBindings>
   <pnp:Views>
-    <View Name="{6000C5EC-DEDE-40CA-8AD6-30E996149476}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/TimeZones/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+    <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/TimeZones/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
       <ViewFields>
         <FieldRef Name="LinkTitle" />
         <FieldRef Name="TimeZoneId" />
