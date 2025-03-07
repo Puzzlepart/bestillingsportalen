@@ -1,8 +1,19 @@
 {
-    "terminal.integrated.env.windows": {
-        "PATH": "C:\\Users\\aleclar\\.azurelogicapps\\dependencies\\DotNetSDK;${env:PATH}"
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/node_modules": true,
+        "**/lib": true,
+        "**/dist": true,
+        "**/.dist": true,
+        "**/temp": true,
+        "**/tmp": true,
+        "**/common/temp": true,
+        "README.md": true,
     },
-    "omnisharp.dotNetCliPaths": [
-        "C:\\Users\\aleclar\\.azurelogicapps\\dependencies\\DotNetSDK"
-    ]
+    "files.associations": {
+        "*.txt": "json",
+        ".README": "markdown",
+        ".development-guide/.README": "markdown"
+    },
 }
