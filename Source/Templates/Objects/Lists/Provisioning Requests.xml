@@ -4,28 +4,28 @@
     <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="Alle elementer" Url="{site}/Lists/ProvisioningRequests/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
       <ViewFields>
         <FieldRef Name="LinkTitle" />
-        <FieldRef Name="SpaceDisplayName" />
         <FieldRef Name="Description" />
         <FieldRef Name="BusinessJustification" />
-        <FieldRef Name="Requirements" />
+        <FieldRef Name="Status" />
+        <FieldRef Name="ApprovedDate" />
+        <FieldRef Name="Comments" />
         <FieldRef Name="SpaceType" />
         <FieldRef Name="Owners" />
         <FieldRef Name="Members" />
-        <FieldRef Name="RequestedBy" />
-        <FieldRef Name="RequestedSource" />
-        <FieldRef Name="Visibility" />
-        <FieldRef Name="ConfidentialData" />
-        <FieldRef Name="ExternalSharingRequired" />
-        <FieldRef Name="ExternalSharingJustification" />
         <FieldRef Name="SiteURL" />
+        <FieldRef Name="RequestedSource" />
+        <FieldRef Name="RequestedBy" />
         <FieldRef Name="Teamify" />
-        <FieldRef Name="JoinHub" />
-        <FieldRef Name="HubSiteTitle" />
-        <FieldRef Name="Status" />
-        <FieldRef Name="Comments" />
-        <FieldRef Name="ApprovedDate" />
+        <FieldRef Name="SensitivityLabelName" />
+        <FieldRef Name="RetentionLabelName" />
+        <FieldRef Name="Guests" />
+        <FieldRef Name="InternalChannel" />
+        <FieldRef Name="ReadOnlyGroup" />
+        <FieldRef Name="ExpirationDate" />
         <FieldRef Name="SpaceImage" />
         <FieldRef Name="Metadata" />
+        <FieldRef Name="Prefix" />
+        <FieldRef Name="Suffix" />
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
       <Aggregations Value="Off" />
