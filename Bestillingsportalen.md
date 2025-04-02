@@ -1,5 +1,11 @@
 # Tilpasninger gjort på Bestillingsportalen
 
+## Når forket vi Bestillingsportalen?
+
+- Før 09.06.2024
+- Vi mangler commits etter 09.06.2024
+- Vi har ikke fått med oss endringer som er gjort i Bestillingsportalen etter dette tidspunktet.
+
 ## Lister
 
 ### Provisioning Types
