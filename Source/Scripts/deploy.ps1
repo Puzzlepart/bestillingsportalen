@@ -9,7 +9,7 @@
 
 .DESCRIPTION
     Deploys the Bestillingsportalen solution (excluding the PowerApp and Flows).
-    This script uses the Azure CLI, Azure Az PowerShell, SharePoint PnP PowerShell and the Microsoft Graph PowerShell Modules to perform the deployment.
+    This script uses the Azure CLI, Azure Az PowerShell and PnP PowerShell Modules to perform the deployment.
 
     As part of the deployment, the script will generate a secet for the Entra ID App created by the 'createadapp.ps1' script. 
 
@@ -224,6 +224,11 @@ function ValidateParameters {
 
     if (-not (IsValidParam($parameters.pnpAppId))) {
         Write-Host "Invalid pnpAppId" -ForegroundColor Red
+        $isValid = $false;
+    }
+
+    if (-not (IsValidParam($parameters.pnpCertPath))) {
+        Write-Host "Invalid certValidityDays" -ForegroundColor Red
         $isValid = $false;
     }
 

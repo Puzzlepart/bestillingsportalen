@@ -72,8 +72,8 @@
         "Description": "Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank."
     },
     "keyVaultName": {
-      "Value": "",
-        "Description": "Name for the Key Vault that will be provisioned to store the Azure ad app ID and secret. The Key Vault name must be unique and not exist in another subscription."
+        "Value": "",
+        "Description": "Name for the Key Vault that will be provisioned to store the Entra ID app ID and secret. The Key Vault name must be unique and not exist in another subscription."
     },
     "enableSensitivity": {
         "Value": false,
@@ -82,6 +82,5 @@
     "skipApplySPOTemplate": {
         "Value": false,
         "Description": "Skip applying the PnP template to the SharePoint site."
-
     }
 }

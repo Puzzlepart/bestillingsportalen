@@ -9,7 +9,6 @@
         "**/temp": true,
         "**/tmp": true,
         "**/common/temp": true,
-        "README.md": true,
     },
     "files.associations": {
         "*.txt": "json",
