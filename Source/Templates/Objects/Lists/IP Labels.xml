@@ -11,6 +11,11 @@ xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
       <JSLink>clienttemplates.js</JSLink>
+      <ColumnWidth>
+        <FieldRef Name="LabelId" width="205" />
+        <FieldRef Name="LabelDescription" width="265" />
+        <FieldRef Name="LabelName" width="200" />
+      </ColumnWidth>
     </View>
   </pnp:Views>
   <pnp:Fields>

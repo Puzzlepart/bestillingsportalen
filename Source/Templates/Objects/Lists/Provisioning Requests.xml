@@ -26,6 +26,7 @@
         <FieldRef Name="Metadata" />
         <FieldRef Name="Prefix" />
         <FieldRef Name="Suffix" />
+        <FieldRef Name="BusinessUnit" />
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
       <Aggregations Value="Off" />
@@ -135,6 +136,7 @@
     <Field Type="Text" DisplayName="Space Type Internal" MaxLength="255" ID="{a5104a84-554a-4c7e-9bf1-a4664dda07e4}" StaticName="SpaceTypeInternal" Name="SpaceTypeInternal" ShowInEditForm="FALSE" ShowInNewForm="FALSE" ShowInDisplayForm="FALSE" />
     <Field Type="Note" DisplayName="Status Reason" NumLines="6" RichText="FALSE" ID="{21090e30-411b-4034-adeb-2737f33703a3}" StaticName="StatusReason" Name="StatusReason" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="Text" DisplayName="RequirementIds" EnforceUniqueValues="FALSE" MaxLength="255" Direction="None" ID="{06a6ddb2-12fe-471b-83a6-336857bfc79f}" StaticName="RequirementIds" Name="RequirementIds" />
+    <Field Type="Lookup" DisplayName="Business Unit" Format="Dropdown" List="{listid:Business Units}" Name="BusinessUnit" ShowField="Title" Title="Business Unit" ID="{5a6f4610-446c-4038-96c8-22670d4761f0}" StaticName="BusinessUnit" />
     <Field Type="Note" DisplayName="Metadata" NumLines="6" RichText="FALSE" ID="{0197869f-7a9c-4d52-aa2b-68bf0eade933}" StaticName="Metadata" Name="Metadata" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="UserMulti" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{08360167-3667-48d7-ac7d-e3d12c86ab4b}" StaticName="RequestedBy" Name="RequestedBy" Mult="TRUE" />
     <Field Type="Boolean" DisplayName="Internal Channel" ID="{7cd7a01d-b1b7-4d4d-9806-f34dc2d249d0}" StaticName="InternalChannel" Name="InternalChannel">

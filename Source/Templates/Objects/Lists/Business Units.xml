@@ -1,0 +1,24 @@
+<pnp:ListInstance Title="Business Units" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/BusinessUnits" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/BusinessUnits/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/BusinessUnits/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/BusinessUnits/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+  xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:Views>
+    <View Name="{0FE0EDD6-8540-4059-866E-D667DD207650}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Items" Url="{site}/Lists/BusinessUnits/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query />
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="Prefix" />
+        <FieldRef Name="Suffix" />
+        <FieldRef Name="Approvers" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field DisplayName="Prefix" Format="Dropdown" MaxLength="255" Name="Prefix" Title="Prefix" Type="Text" ID="{fd1317aa-51b5-49d1-9b95-9ebe64095733}" StaticName="Prefix" />
+    <Field DisplayName="Suffix" Format="Dropdown" MaxLength="255" Name="Suffix" Title="Suffix" Type="Text" ID="{579ff89e-5d32-4b94-a3e1-b935850d717f}" StaticName="Suffix" />
+    <Field DisplayName="Approvers" Format="Dropdown" List="UserInfo" Mult="TRUE" Name="Approvers" Title="Approvers" Type="UserMulti" UserSelectionMode="1" UserSelectionScope="0" ID="{e62216b8-cfb6-4a6d-b29e-272296215278}" StaticName="Approvers" AutofillInfo="{&quot;LLM&quot;:{&quot;IsEnabled&quot;:false,&quot;Prompt&quot;:&quot;&quot;},&quot;PrebuiltModel&quot;:null}" />
+  </pnp:Fields>
+  <pnp:FieldRefs>
+    <pnp:FieldRef ID="fa564e0f-0c70-4ab9-b863-0177e6ddd247" Name="Title" DisplayName="Title" />
+  </pnp:FieldRefs>
+</pnp:ListInstance>
