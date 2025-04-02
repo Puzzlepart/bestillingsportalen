@@ -58,6 +58,6 @@ And finally If you like V2, please buy us some pizza 🍕🍕 to say thanks, a l
 
 ## Extra Screenshots
 
-<img src="./images/V2RecommendationMobile.jpeg" height="500" alt="Provision Assist V2 Recommendation Screen Mobile Screenshot"><br/>
+<img src="./images/V2HomeMobile.jpeg" height="500" alt="Provision Assist V2 Home Screen Mobile Screenshot"><br/>
 
 <img src="./images/V2RequestDesktop.png" height="500" alt="Provision Assist V2 New Request Desktop Screenshot"><br/>
