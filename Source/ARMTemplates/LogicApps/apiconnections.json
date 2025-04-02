@@ -22,7 +22,7 @@
             "defaultvalue": "",
             "type": "string"
         },
-           "keyvaultName": {
+        "keyvaultName": {
             "defaultvalue": "",
             "type": "string"
         }
@@ -36,8 +36,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - SharePoint Online",
-                "customParameterValues": {
-                },
+                "customParameterValues": {},
                 "api": {
                     "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
                 }
@@ -50,8 +49,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - Office 365 Outlook",
-                "customParameterValues": {
-                },
+                "customParameterValues": {},
                 "api": {
                     "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/office365')]"
                 }
@@ -64,8 +62,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - Office 365 Users",
-                "customParameterValues": {
-                },
+                "customParameterValues": {},
                 "api": {
                     "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/office365users')]"
                 }
@@ -96,14 +93,13 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - Microsoft Teams",
-                 "customParameterValues": {
-                },
+                "customParameterValues": {},
                 "api": {
                     "id": "[concat('subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/teams')]"
                 }
             }
         },
-         {
+        {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
             "name": "bestillingsportalen-kv",

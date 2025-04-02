@@ -40,8 +40,7 @@
                     "contentVersion": "1.0.0.0",
                     "parameters": {
                         "$connections": {
-                            "defaultValue": {
-                            },
+                            "defaultValue": {},
                             "type": "Object"
                         }
                     },
@@ -162,8 +161,7 @@
                             }
                         },
                         "Initialize_TenantID_variable": {
-                            "runAfter": {
-                            },
+                            "runAfter": {},
                             "type": "InitializeVariable",
                             "inputs": {
                                 "variables": [
@@ -227,8 +225,7 @@
                                                             },
                                                             "type": "object"
                                                         },
-                                                        "invitedUserDisplayName": {
-                                                        },
+                                                        "invitedUserDisplayName": {},
                                                         "invitedUserEmailAddress": {
                                                             "type": "string"
                                                         },
@@ -239,10 +236,8 @@
                                                                         "properties": {
                                                                             "emailAddress": {
                                                                                 "properties": {
-                                                                                    "address": {
-                                                                                    },
-                                                                                    "name": {
-                                                                                    }
+                                                                                    "address": {},
+                                                                                    "name": {}
                                                                                 },
                                                                                 "type": "object"
                                                                             }
@@ -257,8 +252,7 @@
                                                                 "customizedMessageBody": {
                                                                     "type": "string"
                                                                 },
-                                                                "messageLanguage": {
-                                                                }
+                                                                "messageLanguage": {}
                                                             },
                                                             "type": "object"
                                                         },
@@ -277,8 +271,7 @@
                                             }
                                         },
                                         "Send_guest_invitation": {
-                                            "runAfter": {
-                                            },
+                                            "runAfter": {},
                                             "type": "Http",
                                             "inputs": {
                                                 "authentication": {
@@ -317,8 +310,7 @@
                                                 "foreach": "@body('Parse_Guest_JSON')?['value']",
                                                 "actions": {
                                                     "Append_existing_guest_to_Guests_variable": {
-                                                        "runAfter": {
-                                                        },
+                                                        "runAfter": {},
                                                         "type": "AppendToArrayVariable",
                                                         "inputs": {
                                                             "name": "Guests",
@@ -326,13 +318,11 @@
                                                                 "GuestEmail": "@{items('Loop_through_existing_guests_collection')?['mail']}",
                                                                 "GuestId": "@{items('Loop_through_existing_guests_collection')?['id']}",
                                                                 "InviteRedeemUrl": ""
-
                                                             }
                                                         }
                                                     }
                                                 },
-                                                "runAfter": {
-                                                },
+                                                "runAfter": {},
                                                 "type": "Foreach",
                                                 "description": "Should only be a single guest as we are filtering using Graph to external users matching the exact email address."
                                             }
@@ -351,8 +341,7 @@
                                     "type": "If"
                                 },
                                 "Get_Guest": {
-                                    "runAfter": {
-                                    },
+                                    "runAfter": {},
                                     "type": "Http",
                                     "inputs": {
                                         "authentication": {
@@ -390,24 +379,18 @@
                                                             "displayName": {
                                                                 "type": "string"
                                                             },
-                                                            "givenName": {
-                                                            },
+                                                            "givenName": {},
                                                             "id": {
                                                                 "type": "string"
                                                             },
-                                                            "jobTitle": {
-                                                            },
+                                                            "jobTitle": {},
                                                             "mail": {
                                                                 "type": "string"
                                                             },
-                                                            "mobilePhone": {
-                                                            },
-                                                            "officeLocation": {
-                                                            },
-                                                            "preferredLanguage": {
-                                                            },
-                                                            "surname": {
-                                                            },
+                                                            "mobilePhone": {},
+                                                            "officeLocation": {},
+                                                            "preferredLanguage": {},
+                                                            "surname": {},
                                                             "userPrincipalName": {
                                                                 "type": "string"
                                                             }
@@ -465,8 +448,7 @@
                             "inputs": "@split(triggerBody()?['Guests'],';')"
                         }
                     },
-                    "outputs": {
-                    }
+                    "outputs": {}
                 },
                 "parameters": {
                     "$connections": {

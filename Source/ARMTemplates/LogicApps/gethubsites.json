@@ -57,8 +57,7 @@
                     "contentVersion": "1.0.0.0",
                     "parameters": {
                         "$connections": {
-                            "defaultValue": {
-                            },
+                            "defaultValue": {},
                             "type": "Object"
                         }
                     },
@@ -72,19 +71,19 @@
                         }
                     },
                     "actions": {
-                            "Get_Certificate": {
+                        "Get_Certificate": {
                             "runAfter": {
-                                           "Get_Client_ID": [
+                                "Get_Client_ID": [
                                     "Succeeded"
                                 ]
                             },
-                          "type": "ApiConnection",
+                            "type": "ApiConnection",
                             "inputs": {
-                                   "host": {
+                                "host": {
                                     "connection": {
                                         "name": "@parameters('$connections')['keyvault']['connectionId']"
                                     }
-                                      },
+                                },
                                 "method": "get",
                                 "path": "[concat('/secrets/@{encodeURIComponent(',variables('singlequote'),parameters('certName'),variables('singlequote'),')}/value')]"
                             },
@@ -124,13 +123,13 @@
                         },
                         "Get_Hub_Sites": {
                             "runAfter": {
-                                  "Get_Certificate": [
+                                "Get_Certificate": [
                                     "Succeeded"
                                 ]
                             },
                             "type": "Http",
                             "inputs": {
-                                 "authentication": {
+                                "authentication": {
                                     "audience": "[parameters('spoRootSiteUrl')]",
                                     "clientId": "@body('Get_Client_ID')?['value']",
                                     "password": "@null",
@@ -140,7 +139,7 @@
                                 },
                                 "headers": {
                                     "Accept": "application/json;odata=verbose",
-                                     "Content-Type": "application/json;odata=verbose;charset=utf-8"
+                                    "Content-Type": "application/json;odata=verbose;charset=utf-8"
                                 },
                                 "method": "GET",
                                 "uri": "[concat(parameters('requestsSiteUrl'),'/_api/HubSites')]"
