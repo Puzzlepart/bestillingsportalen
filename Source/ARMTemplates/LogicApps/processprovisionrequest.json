@@ -481,7 +481,6 @@
                                             }
                                         },
                                         "Update_status_to_space_already_exists_-_SP_site_exists": {
-                                            "runAfter": {},
                                             "type": "ApiConnection",
                                             "inputs": {
                                                 "body": {
@@ -572,7 +571,6 @@
                                         "Check_for_members": {
                                             "actions": {
                                                 "Set_MembersRequestBody_variable": {
-                                                    "runAfter": {},
                                                     "type": "SetVariable",
                                                     "inputs": {
                                                         "name": "MembersRequestBody",
@@ -580,11 +578,9 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
                                             "else": {
                                                 "actions": {
                                                     "Set_MembersRequestBody_variable_-_no_members": {
-                                                        "runAfter": {},
                                                         "type": "SetVariable",
                                                         "inputs": {
                                                             "name": "MembersRequestBody",
@@ -721,7 +717,6 @@
                                                             }
                                                         },
                                                         "Set_TeamsTemplateOperation_variable_-_standard": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "TeamsTemplateOperation",
@@ -779,13 +774,11 @@
                                                             }
                                                         }
                                                     },
-                                                    "runAfter": {},
                                                     "else": {
                                                         "actions": {
                                                             "Check_if_template_is_empty": {
                                                                 "actions": {
                                                                     "Set_standard_template": {
-                                                                        "runAfter": {},
                                                                         "type": "SetVariable",
                                                                         "inputs": {
                                                                             "name": "TeamsTemplateOperation",
@@ -793,11 +786,9 @@
                                                                         }
                                                                     }
                                                                 },
-                                                                "runAfter": {},
                                                                 "else": {
                                                                     "actions": {
                                                                         "Set_teams_template": {
-                                                                            "runAfter": {},
                                                                             "type": "SetVariable",
                                                                             "inputs": {
                                                                                 "name": "TeamsTemplateOperation",
@@ -1038,11 +1029,9 @@
                                             }
                                         }
                                     },
-                                    "runAfter": {},
                                     "else": {
                                         "actions": {
                                             "Clone_team": {
-                                                "runAfter": {},
                                                 "type": "Http",
                                                 "inputs": {
                                                     "authentication": {
@@ -1132,7 +1121,6 @@
                                     "Check_if_space_type_is_SharePoint_site": {
                                         "actions": {
                                             "Build_sitedesign_JSON_properties": {
-                                                "runAfter": {},
                                                 "type": "Compose",
                                                 "inputs": "@if(equals(triggerBody()?['SiteTemplate'],'6142d2a0-63a5-4ba0-aede-d9fefca2c767'),',\"SiteDesignId\":\"6142d2a0-63a5-4ba0-aede-d9fefca2c767\",\"WebTemplateExtensionId\":\"00000000-0000-0000-0000-000000000000\"',if(equals(triggerBody()?['SiteTemplate'],'f6cc5403-0d63-442e-96c0-285923709ffc'),',\"SiteDesignId\":\"f6cc5403-0d63-442e-96c0-285923709ffc\",\"WebTemplateExtensionId\":\"00000000-0000-0000-0000-000000000000\"',if(equals(empty(triggerBody()?['SiteTemplate']),true),'',concat(',\"SiteDesignId\":\"00000000-0000-0000-0000-000000000000\",\"WebTemplateExtensionId\":\"',triggerBody()?['SiteTemplate'],'\"'))))"
                                             },
@@ -1188,7 +1176,6 @@
                                                 }
                                             }
                                         },
-                                        "runAfter": {},
                                         "else": {
                                             "actions": {
                                                 "Check_if_space_type_is_a_Viva_engage_Community": {
@@ -1243,7 +1230,6 @@
                                                                     "foreach": "@variables('MemberUPNs')",
                                                                     "actions": {
                                                                         "Add_viva_engage_group_member": {
-                                                                            "runAfter": {},
                                                                             "type": "Http",
                                                                             "inputs": {
                                                                                 "body": {
@@ -1275,7 +1261,6 @@
                                                                                     "foreach": "@body('Parse_viva_engage_unified_group_JSON')?['value']",
                                                                                     "actions": {
                                                                                         "Add_viva_engage_group_owner": {
-                                                                                            "runAfter": {},
                                                                                             "type": "Http",
                                                                                             "inputs": {
                                                                                                 "authentication": {
@@ -1297,11 +1282,9 @@
                                                                                             "description": "Use the graph to add the owners to the unified group. This will sync with Viva engage and the owners will become Viva engage community admins."
                                                                                         }
                                                                                     },
-                                                                                    "runAfter": {},
                                                                                     "type": "Foreach"
                                                                                 }
                                                                             },
-                                                                            "runAfter": {},
                                                                             "expression": {
                                                                                 "and": [
                                                                                     {
@@ -1890,7 +1873,6 @@
                                                                     }
                                                                 },
                                                                 "Provision_Viva_engage_Group": {
-                                                                    "runAfter": {},
                                                                     "type": "Http",
                                                                     "inputs": {
                                                                         "headers": {
@@ -1928,11 +1910,9 @@
                                                                     }
                                                                 }
                                                             },
-                                                            "runAfter": {},
                                                             "type": "Scope"
                                                         }
                                                     },
-                                                    "runAfter": {},
                                                     "else": {
                                                         "actions": {
                                                             "Terminate": {
@@ -1950,7 +1930,6 @@
                                                                 }
                                                             },
                                                             "Update_status_to_creation_failed_-_invalid_space_type": {
-                                                                "runAfter": {},
                                                                 "type": "ApiConnection",
                                                                 "inputs": {
                                                                     "body": {
@@ -2185,13 +2164,11 @@
                                     "foreach": "@body('Get_settings_items')?['value']",
                                     "actions": {
                                         "Switch": {
-                                            "runAfter": {},
                                             "cases": {
                                                 "Case_CompanyName": {
                                                     "case": "CompanyName",
                                                     "actions": {
                                                         "Set_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "CompanyName",
@@ -2204,7 +2181,6 @@
                                                     "case": "DefaultExternalSharingSetting",
                                                     "actions": {
                                                         "Set_DefaultExternalSharingSetting_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DefaultExternalSharingSetting",
@@ -2217,7 +2193,6 @@
                                                     "case": "DefaultStorageQuota",
                                                     "actions": {
                                                         "Set_StorageQuota_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "StorageQuota",
@@ -2230,7 +2205,6 @@
                                                     "case": "DefaultStorageQuotaWarning",
                                                     "actions": {
                                                         "Set_StorageQuotaWarning_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "StorageQuotaWarning",
@@ -2243,7 +2217,6 @@
                                                     "case": "DisableDocumentSync",
                                                     "actions": {
                                                         "Set_DisableDocumentSync_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DisableDocumentSync",
@@ -2256,7 +2229,6 @@
                                                     "case": "EmailAccentColor",
                                                     "actions": {
                                                         "Set_EmailAccentColor_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EmailAccentColor",
@@ -2269,7 +2241,6 @@
                                                     "case": "EnableAllowAccessRequests",
                                                     "actions": {
                                                         "Set_EnableAllowAccessRequests_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EnableAllowAccessRequests",
@@ -2282,7 +2253,6 @@
                                                     "case": "EnableHubSitePermissionsSync",
                                                     "actions": {
                                                         "Set_SyncHubPermissions_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "SyncHubPermissions",
@@ -2295,7 +2265,6 @@
                                                     "case": "FeaturesToActivate",
                                                     "actions": {
                                                         "Set_FeaturesToActivate_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "FeaturesToActivate",
@@ -2308,7 +2277,6 @@
                                                     "case": "LogoPath",
                                                     "actions": {
                                                         "Set_LogoPath_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "LogoPath",
@@ -2321,7 +2289,6 @@
                                                     "case": "EnableSensitivityLabels",
                                                     "actions": {
                                                         "Set_EnableSensitivityLabels_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EnableSensitivityLabels",
@@ -2334,7 +2301,6 @@
                                                     "case": "TeamsWelcomeMessage",
                                                     "actions": {
                                                         "Set_TeamsWelcomeMessage_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "TeamsWelcomeMessage",
@@ -2347,7 +2313,6 @@
                                                     "case": "UseNamingConventions",
                                                     "actions": {
                                                         "Set_UseNamingConventions_variable": {
-                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "UseNamingConventions",
@@ -2372,7 +2337,6 @@
                                     "type": "Foreach"
                                 },
                                 "Get_settings_items": {
-                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3151,7 +3115,6 @@
                                                             }
                                                         },
                                                         "Append_guest_to_Members_variable": {
-                                                            "runAfter": {},
                                                             "type": "AppendToArrayVariable",
                                                             "inputs": {
                                                                 "name": "Members",
@@ -3215,7 +3178,6 @@
                                                     }
                                                 },
                                                 "Process_Guests": {
-                                                    "runAfter": {},
                                                     "type": "Workflow",
                                                     "inputs": {
                                                         "body": {
@@ -3235,7 +3197,6 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -3256,7 +3217,6 @@
                                                             "foreach": "@body('Parse_Guests_JSON')",
                                                             "actions": {
                                                                 "Add_guest_members_to_group": {
-                                                                    "runAfter": {},
                                                                     "type": "Http",
                                                                     "inputs": {
                                                                         "authentication": {
@@ -3278,11 +3238,9 @@
                                                                     }
                                                                 }
                                                             },
-                                                            "runAfter": {},
                                                             "type": "Foreach"
                                                         }
                                                     },
-                                                    "runAfter": {},
                                                     "expression": {
                                                         "and": [
                                                             {
@@ -3322,7 +3280,6 @@
                                             "type": "If"
                                         }
                                     },
-                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -3406,7 +3363,6 @@
                                     }
                                 },
                                 "Get_member_user_profile": {
-                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3505,7 +3461,6 @@
                                     }
                                 },
                                 "Get_owner_user_profile": {
-                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3531,7 +3486,6 @@
                                 "Check_if_guest_is_new": {
                                     "actions": {
                                         "Send_guest_invitation_email": {
-                                            "runAfter": {},
                                             "type": "ApiConnection",
                                             "inputs": {
                                                 "body": {
@@ -3550,7 +3504,6 @@
                                             }
                                         }
                                     },
-                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -3686,7 +3639,6 @@
                                                     }
                                                 },
                                                 "Parse_create_team_JSON": {
-                                                    "runAfter": {},
                                                     "type": "ParseJson",
                                                     "inputs": {
                                                         "content": "@if(equals(variables('TeamsTemplateOperation'),'template'),outputs('Create_team_from_group')['headers'],outputs('Clone_team')['headers'])",
@@ -3919,7 +3871,6 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -3981,7 +3932,6 @@
                                                             }
                                                         },
                                                         "Get_group_owners": {
-                                                            "runAfter": {},
                                                             "type": "Http",
                                                             "inputs": {
                                                                 "authentication": {
@@ -4005,7 +3955,6 @@
                                                                 "Check_if_member_does_not_already_exist_in_the_group": {
                                                                     "actions": {
                                                                         "Add_member_to_group": {
-                                                                            "runAfter": {},
                                                                             "type": "Http",
                                                                             "inputs": {
                                                                                 "authentication": {
@@ -4027,7 +3976,6 @@
                                                                             }
                                                                         }
                                                                     },
-                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4070,7 +4018,6 @@
                                                                 "Check_if_owner_does_not_already_exist_in_the_group": {
                                                                     "actions": {
                                                                         "Add_owner_to_group": {
-                                                                            "runAfter": {},
                                                                             "type": "Http",
                                                                             "inputs": {
                                                                                 "authentication": {
@@ -4106,7 +4053,6 @@
                                                                             }
                                                                         }
                                                                     },
-                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4471,7 +4417,6 @@
                                                                                 "Check_if_template_team_owner_was_not_found_in_specified_owners": {
                                                                                     "actions": {
                                                                                         "Remove_template_team_owner_from_team": {
-                                                                                            "runAfter": {},
                                                                                             "type": "Http",
                                                                                             "inputs": {
                                                                                                 "authentication": {
@@ -4490,7 +4435,6 @@
                                                                                             }
                                                                                         }
                                                                                     },
-                                                                                    "runAfter": {},
                                                                                     "expression": {
                                                                                         "and": [
                                                                                             {
@@ -4506,11 +4450,9 @@
                                                                                     "type": "If"
                                                                                 }
                                                                             },
-                                                                            "runAfter": {},
                                                                             "type": "Foreach"
                                                                         }
                                                                     },
-                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4533,7 +4475,6 @@
                                                             "description": "When cloning teams, the owners of the source team will be cloned. We need to remove these owners."
                                                         }
                                                     },
-                                                    "runAfter": {},
                                                     "type": "Scope"
                                                 }
                                             },
@@ -4562,7 +4503,6 @@
                                             "description": "Adding Members and Owners is only required if we have cloned an existing team."
                                         }
                                     },
-                                    "runAfter": {},
                                     "expression": {
                                         "or": [
                                             {
@@ -4597,7 +4537,6 @@
                                         "Check_if_space_is_a_team_-_post_welcome_message": {
                                             "actions": {
                                                 "Add_service_account_to_group_-_post_welcome_message": {
-                                                    "runAfter": {},
                                                     "type": "Http",
                                                     "inputs": {
                                                         "authentication": {
@@ -4674,7 +4613,6 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -4712,7 +4650,6 @@
                                                     }
                                                 },
                                                 "Set_TeamURL_variable": {
-                                                    "runAfter": {},
                                                     "type": "SetVariable",
                                                     "inputs": {
                                                         "name": "TeamURL",
@@ -4720,7 +4657,6 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -4734,7 +4670,6 @@
                                             "type": "If"
                                         }
                                     },
-                                    "runAfter": {},
                                     "type": "Scope"
                                 }
                             },
@@ -4797,7 +4732,6 @@
                                 "Check_if_external_sharing_is_not_required": {
                                     "actions": {
                                         "Disable_external_sharing": {
-                                            "runAfter": {},
                                             "type": "Http",
                                             "inputs": {
                                                 "authentication": {
@@ -4823,7 +4757,6 @@
                                             }
                                         }
                                     },
-                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -4870,7 +4803,6 @@
                                                 "Check_the_policy_covers_all_groups": {
                                                     "actions": {
                                                         "Update_request_with_expiration_date": {
-                                                            "runAfter": {},
                                                             "type": "ApiConnection",
                                                             "inputs": {
                                                                 "body": {
@@ -4890,7 +4822,6 @@
                                                             }
                                                         }
                                                     },
-                                                    "runAfter": {},
                                                     "expression": {
                                                         "and": [
                                                             {
@@ -4924,7 +4855,6 @@
                                             "description": "Check that a group expiration policy exists. We will only store the expiration date if a policy exists."
                                         },
                                         "Get_group": {
-                                            "runAfter": {},
                                             "type": "Http",
                                             "inputs": {
                                                 "authentication": {
@@ -5104,7 +5034,6 @@
                                             }
                                         }
                                     },
-                                    "runAfter": {},
                                     "expression": {
                                         "or": [
                                             {
@@ -5160,7 +5089,6 @@
                             }
                         },
                         "Update_status_to_Space_Creation": {
-                            "runAfter": {},
                             "type": "ApiConnection",
                             "inputs": {
                                 "body": {
