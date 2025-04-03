@@ -490,12 +490,12 @@
                                                 },
                                                 "method": "patch",
                                                 "body": {
+                                                    "Title": "@triggerBody()?['Title']",
                                                     "Status": {
                                                         "Value": "Space Already Exists"
                                                     },
                                                     "StatusReason": "Space already exists.",
-                                                    "Teamify": "@triggerBody()?['Teamify']",
-                                                    "Title": "@triggerBody()?['Title']"
+                                                    "Teamify": "@triggerBody()?['Teamify']"
                                                 },
                                                 "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                             }
@@ -581,6 +581,7 @@
                                             "else": {
                                                 "actions": {
                                                     "Set_MembersRequestBody_variable_-_no_members": {
+                                                        "runAfter": {},
                                                         "type": "SetVariable",
                                                         "inputs": {
                                                             "name": "MembersRequestBody",
@@ -717,6 +718,7 @@
                                                             }
                                                         },
                                                         "Set_TeamsTemplateOperation_variable_-_standard": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "TeamsTemplateOperation",
@@ -774,6 +776,7 @@
                                                             }
                                                         }
                                                     },
+                                                    "runAfter": {},
                                                     "else": {
                                                         "actions": {
                                                             "Check_if_template_is_empty": {
@@ -1029,9 +1032,11 @@
                                             }
                                         }
                                     },
+                                    "runAfter": {},
                                     "else": {
                                         "actions": {
                                             "Clone_team": {
+                                                "runAfter": {},
                                                 "type": "Http",
                                                 "inputs": {
                                                     "authentication": {
@@ -1121,6 +1126,7 @@
                                     "Check_if_space_type_is_SharePoint_site": {
                                         "actions": {
                                             "Build_sitedesign_JSON_properties": {
+                                                "runAfter": {},
                                                 "type": "Compose",
                                                 "inputs": "@if(equals(triggerBody()?['SiteTemplate'],'6142d2a0-63a5-4ba0-aede-d9fefca2c767'),',\"SiteDesignId\":\"6142d2a0-63a5-4ba0-aede-d9fefca2c767\",\"WebTemplateExtensionId\":\"00000000-0000-0000-0000-000000000000\"',if(equals(triggerBody()?['SiteTemplate'],'f6cc5403-0d63-442e-96c0-285923709ffc'),',\"SiteDesignId\":\"f6cc5403-0d63-442e-96c0-285923709ffc\",\"WebTemplateExtensionId\":\"00000000-0000-0000-0000-000000000000\"',if(equals(empty(triggerBody()?['SiteTemplate']),true),'',concat(',\"SiteDesignId\":\"00000000-0000-0000-0000-000000000000\",\"WebTemplateExtensionId\":\"',triggerBody()?['SiteTemplate'],'\"'))))"
                                             },
@@ -1176,6 +1182,7 @@
                                                 }
                                             }
                                         },
+                                        "runAfter": {},
                                         "else": {
                                             "actions": {
                                                 "Check_if_space_type_is_a_Viva_engage_Community": {
@@ -1184,24 +1191,26 @@
                                                             "actions": {
                                                                 "Get_viva_engage_unified_group": {
                                                                     "runAfter": {
-                                                                        "Parse_viva_engage_group_JSON": [
+                                                                        "Parse_Viva_Engage_community_JSON": [
                                                                             "Succeeded"
                                                                         ]
                                                                     },
                                                                     "type": "Http",
                                                                     "inputs": {
-                                                                        "authentication": {
-                                                                            "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                                            "secret": "@body('Get_Client_Secret')?['value']",
-                                                                            "tenant": "@variables('TenantID')",
-                                                                            "type": "ActiveDirectoryOAuth"
-                                                                        },
+                                                                        "uri": "@{variables('GraphURL')}/groups/@{body('Parse_Viva_Engage_community_JSON')?['groupId']}",
+                                                                        "method": "GET",
                                                                         "headers": {
                                                                             "content-type": "application/json"
                                                                         },
-                                                                        "method": "GET",
-                                                                        "uri": "@{variables('GraphURL')}/groups?$filter=displayName eq '@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}'"
+                                                                        "authentication": {
+                                                                            "type": "ActiveDirectoryOAuth",
+                                                                            "authority": "",
+                                                                            "tenant": "@{variables('TenantID')}",
+                                                                            "audience": "https://graph.microsoft.com",
+                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                            "password": ""
+                                                                        }
                                                                     }
                                                                 },
                                                                 "Get_viva_engage_unified_group_owners": {
@@ -1212,36 +1221,44 @@
                                                                     },
                                                                     "type": "Http",
                                                                     "inputs": {
-                                                                        "authentication": {
-                                                                            "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                                            "secret": "@body('Get_Client_Secret')?['value']",
-                                                                            "tenant": "@variables('TenantID')",
-                                                                            "type": "ActiveDirectoryOAuth"
-                                                                        },
+                                                                        "uri": "@{variables('GraphURL')}/groups/@{body('Parse_Viva_Engage_community_JSON')?['groupId']}/owners",
+                                                                        "method": "GET",
                                                                         "headers": {
                                                                             "content-type": "application/json"
                                                                         },
-                                                                        "method": "GET",
-                                                                        "uri": "@{variables('GraphURL')}/groups/@{first(body('Parse_viva_engage_unified_group_JSON')?['Value'])?['id']}/owners"
+                                                                        "authentication": {
+                                                                            "type": "ActiveDirectoryOAuth",
+                                                                            "authority": "",
+                                                                            "tenant": "@{variables('TenantID')}",
+                                                                            "audience": "https://graph.microsoft.com",
+                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                            "password": ""
+                                                                        }
                                                                     }
                                                                 },
                                                                 "Loop_through_members_-_Viva_engage_group": {
-                                                                    "foreach": "@variables('MemberUPNs')",
+                                                                    "foreach": "@variables('MemberIDs')",
                                                                     "actions": {
                                                                         "Add_viva_engage_group_member": {
                                                                             "type": "Http",
                                                                             "inputs": {
-                                                                                "body": {
-                                                                                    "email": "@{items('Loop_through_members_-_Viva_engage_group')}",
-                                                                                    "group_id": "@body('Parse_viva_engage_group_JSON')?['id']"
-                                                                                },
+                                                                                "uri": "@{variables('GraphURL')}/groups/@{body('Parse_Viva_Engage_community_JSON')?['groupId']}/members/$ref",
+                                                                                "method": "POST",
                                                                                 "headers": {
-                                                                                    "Authorization": "Bearer @{variables('VivaEngageAppToken')}",
                                                                                     "content-type": "application/json"
                                                                                 },
-                                                                                "method": "POST",
-                                                                                "uri": "https://www.yammer.com/api/v1/group_memberships.json"
+                                                                                "body": {
+                                                                                    "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_members_-_viva_engage_group')}"
+                                                                                },
+                                                                                "authentication": {
+                                                                                    "type": "ActiveDirectoryOAuth",
+                                                                                    "tenant": "@{variables('TenantID')}",
+                                                                                    "audience": "https://graph.microsoft.com",
+                                                                                    "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                                    "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                                    "password": "@{null}"
+                                                                                }
                                                                             }
                                                                         }
                                                                     },
@@ -1257,33 +1274,32 @@
                                                                     "actions": {
                                                                         "Check_if_owner_does_not_already_exist_in_the_viva_engage_group": {
                                                                             "actions": {
-                                                                                "Loop_through_Viva_engage_unified_groups": {
-                                                                                    "foreach": "@body('Parse_viva_engage_unified_group_JSON')?['value']",
-                                                                                    "actions": {
-                                                                                        "Add_viva_engage_group_owner": {
-                                                                                            "type": "Http",
-                                                                                            "inputs": {
-                                                                                                "authentication": {
-                                                                                                    "audience": "https://graph.microsoft.com",
-                                                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                                                    "secret": "@body('Get_Client_Secret')?['value']",
-                                                                                                    "tenant": "@variables('TenantID')",
-                                                                                                    "type": "ActiveDirectoryOAuth"
-                                                                                                },
-                                                                                                "body": {
-                                                                                                    "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_Owners_-_Viva_engage_group')?['ID']}"
-                                                                                                },
-                                                                                                "headers": {
-                                                                                                    "content-type": "application/json"
-                                                                                                },
-                                                                                                "method": "POST",
-                                                                                                "uri": "@{variables('GraphURL')}/groups/@{items('Loop_through_Viva_engage_unified_groups')?['id']}/owners/$ref"
-                                                                                            },
-                                                                                            "description": "Use the graph to add the owners to the unified group. This will sync with Viva engage and the owners will become Viva engage community admins."
+                                                                                "Add_viva_engage_group_owner": {
+                                                                                    "type": "Http",
+                                                                                    "inputs": {
+                                                                                        "uri": "@{variables('GraphURL')}/groups/@{body('Parse_Viva_Engage_community_JSON')?['groupId']}/owners/$ref",
+                                                                                        "method": "POST",
+                                                                                        "headers": {
+                                                                                            "content-type": "application/json"
+                                                                                        },
+                                                                                        "body": {
+                                                                                            "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_Owners_-_Viva_engage_group')?['ID']}"
+                                                                                        },
+                                                                                        "authentication": {
+                                                                                            "type": "ActiveDirectoryOAuth",
+                                                                                            "authority": "",
+                                                                                            "tenant": "@{variables('TenantID')}",
+                                                                                            "audience": "https://graph.microsoft.com",
+                                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                                            "password": ""
                                                                                         }
                                                                                     },
-                                                                                    "type": "Foreach"
+                                                                                    "description": "Use the graph to add the owners to the unified group. This will sync with Viva engage and the owners will become Viva engage community admins."
                                                                                 }
+                                                                            },
+                                                                            "else": {
+                                                                                "actions": {}
                                                                             },
                                                                             "expression": {
                                                                                 "and": [
@@ -1306,142 +1322,6 @@
                                                                         ]
                                                                     },
                                                                     "type": "Foreach"
-                                                                },
-                                                                "Parse_viva_engage_group_JSON": {
-                                                                    "runAfter": {
-                                                                        "Wait_for_viva_engage_group_to_provision": [
-                                                                            "Succeeded"
-                                                                        ]
-                                                                    },
-                                                                    "type": "ParseJson",
-                                                                    "inputs": {
-                                                                        "content": "@body('Provision_Viva_engage_Group')",
-                                                                        "schema": {
-                                                                            "properties": {
-                                                                                "aad_guests": {
-                                                                                    "type": "integer"
-                                                                                },
-                                                                                "admin": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "can_add_members": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "can_invite": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "can_start_thread": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "category": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "color": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "company_group": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "created_at": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "creator_id": {
-                                                                                    "type": "integer"
-                                                                                },
-                                                                                "creator_type": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "default_thread_starter_type": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "description": {},
-                                                                                "email": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "external": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "favorite": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "full_name": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "has_admin": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "header_image_url": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "id": {
-                                                                                    "type": "integer"
-                                                                                },
-                                                                                "member": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "moderated": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "mugshot_id": {},
-                                                                                "mugshot_url": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "mugshot_url_template": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "name": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "network_id": {
-                                                                                    "type": "integer"
-                                                                                },
-                                                                                "network_name": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "pending": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "privacy": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "restricted_posting": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "show_in_directory": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "state": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "stats": {
-                                                                                    "properties": {
-                                                                                        "aad_guests": {
-                                                                                            "type": "integer"
-                                                                                        },
-                                                                                        "last_message_at": {},
-                                                                                        "last_message_id": {},
-                                                                                        "members": {
-                                                                                            "type": "integer"
-                                                                                        },
-                                                                                        "updates": {
-                                                                                            "type": "integer"
-                                                                                        }
-                                                                                    },
-                                                                                    "type": "object"
-                                                                                },
-                                                                                "type": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "url": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "web_url": {
-                                                                                    "type": "string"
-                                                                                }
-                                                                            },
-                                                                            "type": "object"
-                                                                        }
-                                                                    }
                                                                 },
                                                                 "Parse_viva_engage_unified_group_JSON": {
                                                                     "runAfter": {
@@ -1849,55 +1729,50 @@
                                                                         }
                                                                     }
                                                                 },
-                                                                "Post_viva_engage_welcome_message": {
-                                                                    "runAfter": {
-                                                                        "Loop_through_owners_-_Viva_engage_group": [
-                                                                            "Succeeded"
-                                                                        ]
-                                                                    },
-                                                                    "type": "Http",
-                                                                    "inputs": {
-                                                                        "body": {
-                                                                            "body": "This community was created using the Bestillingsportalen tool. <br><br>For helpful tips on getting started with Viva Engage, please visit the help center - https://support.office.com/en-gb/yammer.",
-                                                                            "group_id": "@body('Parse_viva_engage_group_JSON')?['id']",
-                                                                            "is_rich_text": true,
-                                                                            "message_type": "announcement",
-                                                                            "title": "Welcome to the @{triggerBody()?['Title']} Community"
-                                                                        },
-                                                                        "headers": {
-                                                                            "Authorization": "Bearer @{variables('VivaEngageAppToken')}",
-                                                                            "content-type": "application/json"
-                                                                        },
-                                                                        "method": "POST",
-                                                                        "uri": "https://www.yammer.com/api/v1/messages.json"
-                                                                    }
-                                                                },
-                                                                "Provision_Viva_engage_Group": {
-                                                                    "type": "Http",
-                                                                    "inputs": {
-                                                                        "headers": {
-                                                                            "Authorization": "Bearer @{variables('VivaEngageAppToken')}",
-                                                                            "content-type": "application/json"
-                                                                        },
-                                                                        "method": "POST",
-                                                                        "uri": "https://www.yammer.com/api/v1/groups.json?name=@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}&private=@{if(equals(triggerBody()?['Visibility']?['Value'],'private'),'true','false')}&show_in_directory=true@{if(empty(triggerBody()?['Classification']),'',concat('&classification=',triggerBody()?['Classification']))}"
-                                                                    }
-                                                                },
                                                                 "Set_VivaEngageURL_variable": {
                                                                     "runAfter": {
-                                                                        "Post_viva_engage_welcome_message": [
+                                                                        "Loop_through_owners_-_Viva_engage_group": [
                                                                             "Succeeded"
                                                                         ]
                                                                     },
                                                                     "type": "SetVariable",
                                                                     "inputs": {
                                                                         "name": "VivaEngageURL",
-                                                                        "value": "@body('Parse_viva_engage_group_JSON')?['web_url']"
+                                                                        "value": "https://engage.cloud.microsoft/main/groups/@{body('Parse_Viva_Engage_community_JSON')?['id']}"
                                                                     }
                                                                 },
-                                                                "Wait_for_viva_engage_group_to_provision": {
+                                                                "Create_Viva_engage_community": {
+                                                                    "type": "Http",
+                                                                    "inputs": {
+                                                                        "uri": "@{variables('GraphURL')}/employeeExperience/communities",
+                                                                        "method": "POST",
+                                                                        "headers": {
+                                                                            "content-type": "application/json"
+                                                                        },
+                                                                        "body": {
+                                                                            "displayName": "@{triggerBody()?['SpaceDisplayName']}",
+                                                                            "description": "@{triggerBody()?['Description']}",
+                                                                            "privacy": "@{triggerBody()?['Visibility']?['Value']}",
+                                                                            "owners@odata.bind": "@variables('OwnersGraph')"
+                                                                        },
+                                                                        "authentication": {
+                                                                            "type": "ActiveDirectoryOAuth",
+                                                                            "tenant": "@{variables('TenantID')}",
+                                                                            "audience": "https://graph.microsoft.com",
+                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                            "password": "@{null}"
+                                                                        }
+                                                                    },
+                                                                    "runtimeConfiguration": {
+                                                                        "contentTransfer": {
+                                                                            "transferMode": "Chunked"
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "Wait_for_viva_engage_community_to_provision": {
                                                                     "runAfter": {
-                                                                        "Provision_Viva_engage_Group": [
+                                                                        "Create_Viva_engage_community": [
                                                                             "Succeeded"
                                                                         ]
                                                                     },
@@ -1908,6 +1783,249 @@
                                                                             "unit": "Minute"
                                                                         }
                                                                     }
+                                                                },
+                                                                "Parse_create_Viva_Engage_community_JSON": {
+                                                                    "runAfter": {
+                                                                        "Wait_for_viva_engage_community_to_provision": [
+                                                                            "Succeeded"
+                                                                        ]
+                                                                    },
+                                                                    "type": "ParseJson",
+                                                                    "inputs": {
+                                                                        "content": "@body('Create_Viva_engage_community')",
+                                                                        "schema": {
+                                                                            "type": "object",
+                                                                            "properties": {
+                                                                                "@@odata.context": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "id": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "createdDateTime": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "lastActionDateTime": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "status": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "statusDetail": {},
+                                                                                "resourceLocation": {
+                                                                                    "type": [
+                                                                                        "string",
+                                                                                        "null"
+                                                                                    ]
+                                                                                },
+                                                                                "operationType": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "resourceId": {
+                                                                                    "type": [
+                                                                                        "string",
+                                                                                        "null"
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "Get_Viva_Engage_community": {
+                                                                    "runAfter": {
+                                                                        "Until": [
+                                                                            "Succeeded"
+                                                                        ]
+                                                                    },
+                                                                    "type": "Http",
+                                                                    "inputs": {
+                                                                        "uri": "@{variables('GraphURL')}/employeeexperience/communities/@{variables('CommunityID')}",
+                                                                        "method": "GET",
+                                                                        "headers": {
+                                                                            "content-type": "application/json"
+                                                                        },
+                                                                        "authentication": {
+                                                                            "type": "ActiveDirectoryOAuth",
+                                                                            "tenant": "@{variables('TenantID')}",
+                                                                            "audience": "https://graph.microsoft.com",
+                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                            "password": "@{null}"
+                                                                        }
+                                                                    },
+                                                                    "runtimeConfiguration": {
+                                                                        "contentTransfer": {
+                                                                            "transferMode": "Chunked"
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "Parse_Viva_Engage_community_JSON": {
+                                                                    "runAfter": {
+                                                                        "Get_Viva_Engage_community": [
+                                                                            "Succeeded"
+                                                                        ]
+                                                                    },
+                                                                    "type": "ParseJson",
+                                                                    "inputs": {
+                                                                        "content": "@body('Get_Viva_Engage_community')",
+                                                                        "schema": {
+                                                                            "type": "object",
+                                                                            "properties": {
+                                                                                "@@odata.context": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "@@microsoft.graph.tips": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "id": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "displayName": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "description": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "privacy": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "groupId": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "Until": {
+                                                                    "actions": {
+                                                                        "Get_create_community_operation": {
+                                                                            "type": "Http",
+                                                                            "inputs": {
+                                                                                "uri": "https://graph.microsoft.com/v1.0/employeeExperience/engagementAsyncOperations('@{body('Parse_create_Viva_Engage_community_JSON')?['id']}')",
+                                                                                "method": "GET",
+                                                                                "headers": {
+                                                                                    "content-type": "application/json"
+                                                                                },
+                                                                                "authentication": {
+                                                                                    "type": "ActiveDirectoryOAuth",
+                                                                                    "tenant": "@{variables('TenantID')}",
+                                                                                    "audience": "https://graph.microsoft.com",
+                                                                                    "clientId": "@{body('Get_Client_ID')?['value']}",
+                                                                                    "pfx": "@{body('Get_Certificate')?['value']}",
+                                                                                    "password": "@{null}"
+                                                                                }
+                                                                            },
+                                                                            "runtimeConfiguration": {
+                                                                                "contentTransfer": {
+                                                                                    "transferMode": "Chunked"
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                        "Parse_create_community_operation_JSON": {
+                                                                            "runAfter": {
+                                                                                "Get_create_community_operation": [
+                                                                                    "Succeeded"
+                                                                                ]
+                                                                            },
+                                                                            "type": "ParseJson",
+                                                                            "inputs": {
+                                                                                "content": "@body('Get_create_community_operation')",
+                                                                                "schema": {
+                                                                                    "type": "object",
+                                                                                    "properties": {
+                                                                                        "@@odata.context": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "id": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "createdDateTime": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "lastActionDateTime": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "status": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "statusDetail": {},
+                                                                                        "resourceLocation": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "operationType": {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        "resourceId": {
+                                                                                            "type": "string"
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                        "Check_if_community_has_been_created": {
+                                                                            "actions": {
+                                                                                "Set_CommunityID_variable": {
+                                                                                    "type": "SetVariable",
+                                                                                    "inputs": {
+                                                                                        "name": "CommunityID",
+                                                                                        "value": "@body('Parse_create_community_operation_JSON')?['resourceId']"
+                                                                                    }
+                                                                                },
+                                                                                "Set_IsCommunityCreated_variable": {
+                                                                                    "runAfter": {
+                                                                                        "Set_CommunityID_variable": [
+                                                                                            "Succeeded"
+                                                                                        ]
+                                                                                    },
+                                                                                    "type": "SetVariable",
+                                                                                    "inputs": {
+                                                                                        "name": "IsCommunityCreated",
+                                                                                        "value": true
+                                                                                    }
+                                                                                }
+                                                                            },
+                                                                            "runAfter": {
+                                                                                "Parse_create_community_operation_JSON": [
+                                                                                    "Succeeded"
+                                                                                ]
+                                                                            },
+                                                                            "else": {
+                                                                                "actions": {
+                                                                                    "Wait_for_operation_to_complete": {
+                                                                                        "type": "Wait",
+                                                                                        "inputs": {
+                                                                                            "interval": {
+                                                                                                "count": 2,
+                                                                                                "unit": "Minute"
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            },
+                                                                            "expression": {
+                                                                                "and": [
+                                                                                    {
+                                                                                        "equals": [
+                                                                                            "@body('Parse_create_community_operation_JSON')?['status']",
+                                                                                            "succeeded"
+                                                                                        ]
+                                                                                    }
+                                                                                ]
+                                                                            },
+                                                                            "type": "If"
+                                                                        }
+                                                                    },
+                                                                    "runAfter": {
+                                                                        "Parse_create_Viva_Engage_community_JSON": [
+                                                                            "Succeeded"
+                                                                        ]
+                                                                    },
+                                                                    "expression": "@equals(variables('IsCommunityCreated'),true)",
+                                                                    "limit": {
+                                                                        "count": 60,
+                                                                        "timeout": "PT1H"
+                                                                    },
+                                                                    "type": "Until"
                                                                 }
                                                             },
                                                             "type": "Scope"
@@ -1923,13 +2041,14 @@
                                                                 },
                                                                 "type": "Terminate",
                                                                 "inputs": {
+                                                                    "runStatus": "Failed",
                                                                     "runError": {
                                                                         "message": "Invalid Space Type"
-                                                                    },
-                                                                    "runStatus": "Failed"
+                                                                    }
                                                                 }
                                                             },
                                                             "Update_status_to_creation_failed_-_invalid_space_type": {
+                                                                "runAfter": {},
                                                                 "type": "ApiConnection",
                                                                 "inputs": {
                                                                     "body": {
@@ -2164,11 +2283,13 @@
                                     "foreach": "@body('Get_settings_items')?['value']",
                                     "actions": {
                                         "Switch": {
+                                            "runAfter": {},
                                             "cases": {
                                                 "Case_CompanyName": {
                                                     "case": "CompanyName",
                                                     "actions": {
                                                         "Set_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "CompanyName",
@@ -2181,6 +2302,7 @@
                                                     "case": "DefaultExternalSharingSetting",
                                                     "actions": {
                                                         "Set_DefaultExternalSharingSetting_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DefaultExternalSharingSetting",
@@ -2193,6 +2315,7 @@
                                                     "case": "DefaultStorageQuota",
                                                     "actions": {
                                                         "Set_StorageQuota_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "StorageQuota",
@@ -2205,6 +2328,7 @@
                                                     "case": "DefaultStorageQuotaWarning",
                                                     "actions": {
                                                         "Set_StorageQuotaWarning_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "StorageQuotaWarning",
@@ -2217,6 +2341,7 @@
                                                     "case": "DisableDocumentSync",
                                                     "actions": {
                                                         "Set_DisableDocumentSync_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DisableDocumentSync",
@@ -2229,6 +2354,7 @@
                                                     "case": "EmailAccentColor",
                                                     "actions": {
                                                         "Set_EmailAccentColor_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EmailAccentColor",
@@ -2241,6 +2367,7 @@
                                                     "case": "EnableAllowAccessRequests",
                                                     "actions": {
                                                         "Set_EnableAllowAccessRequests_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EnableAllowAccessRequests",
@@ -2253,6 +2380,7 @@
                                                     "case": "EnableHubSitePermissionsSync",
                                                     "actions": {
                                                         "Set_SyncHubPermissions_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "SyncHubPermissions",
@@ -2265,6 +2393,7 @@
                                                     "case": "FeaturesToActivate",
                                                     "actions": {
                                                         "Set_FeaturesToActivate_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "FeaturesToActivate",
@@ -2277,6 +2406,7 @@
                                                     "case": "LogoPath",
                                                     "actions": {
                                                         "Set_LogoPath_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "LogoPath",
@@ -2289,6 +2419,7 @@
                                                     "case": "EnableSensitivityLabels",
                                                     "actions": {
                                                         "Set_EnableSensitivityLabels_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "EnableSensitivityLabels",
@@ -2301,6 +2432,7 @@
                                                     "case": "TeamsWelcomeMessage",
                                                     "actions": {
                                                         "Set_TeamsWelcomeMessage_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "TeamsWelcomeMessage",
@@ -2313,6 +2445,7 @@
                                                     "case": "UseNamingConventions",
                                                     "actions": {
                                                         "Set_UseNamingConventions_variable": {
+                                                            "runAfter": {},
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "UseNamingConventions",
@@ -2337,6 +2470,7 @@
                                     "type": "Foreach"
                                 },
                                 "Get_settings_items": {
+                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3115,6 +3249,7 @@
                                                             }
                                                         },
                                                         "Append_guest_to_Members_variable": {
+                                                            "runAfter": {},
                                                             "type": "AppendToArrayVariable",
                                                             "inputs": {
                                                                 "name": "Members",
@@ -3178,6 +3313,7 @@
                                                     }
                                                 },
                                                 "Process_Guests": {
+                                                    "runAfter": {},
                                                     "type": "Workflow",
                                                     "inputs": {
                                                         "body": {
@@ -3197,6 +3333,7 @@
                                                     }
                                                 }
                                             },
+                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -3217,6 +3354,7 @@
                                                             "foreach": "@body('Parse_Guests_JSON')",
                                                             "actions": {
                                                                 "Add_guest_members_to_group": {
+                                                                    "runAfter": {},
                                                                     "type": "Http",
                                                                     "inputs": {
                                                                         "authentication": {
@@ -3238,9 +3376,11 @@
                                                                     }
                                                                 }
                                                             },
+                                                            "runAfter": {},
                                                             "type": "Foreach"
                                                         }
                                                     },
+                                                    "runAfter": {},
                                                     "expression": {
                                                         "and": [
                                                             {
@@ -3280,6 +3420,7 @@
                                             "type": "If"
                                         }
                                     },
+                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -3363,6 +3504,7 @@
                                     }
                                 },
                                 "Get_member_user_profile": {
+                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3461,6 +3603,7 @@
                                     }
                                 },
                                 "Get_owner_user_profile": {
+                                    "runAfter": {},
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "host": {
@@ -3486,6 +3629,7 @@
                                 "Check_if_guest_is_new": {
                                     "actions": {
                                         "Send_guest_invitation_email": {
+                                            "runAfter": {},
                                             "type": "ApiConnection",
                                             "inputs": {
                                                 "body": {
@@ -3504,6 +3648,7 @@
                                             }
                                         }
                                     },
+                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -3639,6 +3784,7 @@
                                                     }
                                                 },
                                                 "Parse_create_team_JSON": {
+                                                    "runAfter": {},
                                                     "type": "ParseJson",
                                                     "inputs": {
                                                         "content": "@if(equals(variables('TeamsTemplateOperation'),'template'),outputs('Create_team_from_group')['headers'],outputs('Clone_team')['headers'])",
@@ -3871,6 +4017,7 @@
                                                     }
                                                 }
                                             },
+                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -3932,6 +4079,7 @@
                                                             }
                                                         },
                                                         "Get_group_owners": {
+                                                            "runAfter": {},
                                                             "type": "Http",
                                                             "inputs": {
                                                                 "authentication": {
@@ -3955,6 +4103,7 @@
                                                                 "Check_if_member_does_not_already_exist_in_the_group": {
                                                                     "actions": {
                                                                         "Add_member_to_group": {
+                                                                            "runAfter": {},
                                                                             "type": "Http",
                                                                             "inputs": {
                                                                                 "authentication": {
@@ -3976,6 +4125,7 @@
                                                                             }
                                                                         }
                                                                     },
+                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4018,6 +4168,7 @@
                                                                 "Check_if_owner_does_not_already_exist_in_the_group": {
                                                                     "actions": {
                                                                         "Add_owner_to_group": {
+                                                                            "runAfter": {},
                                                                             "type": "Http",
                                                                             "inputs": {
                                                                                 "authentication": {
@@ -4053,6 +4204,7 @@
                                                                             }
                                                                         }
                                                                     },
+                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4417,6 +4569,7 @@
                                                                                 "Check_if_template_team_owner_was_not_found_in_specified_owners": {
                                                                                     "actions": {
                                                                                         "Remove_template_team_owner_from_team": {
+                                                                                            "runAfter": {},
                                                                                             "type": "Http",
                                                                                             "inputs": {
                                                                                                 "authentication": {
@@ -4435,6 +4588,7 @@
                                                                                             }
                                                                                         }
                                                                                     },
+                                                                                    "runAfter": {},
                                                                                     "expression": {
                                                                                         "and": [
                                                                                             {
@@ -4450,9 +4604,11 @@
                                                                                     "type": "If"
                                                                                 }
                                                                             },
+                                                                            "runAfter": {},
                                                                             "type": "Foreach"
                                                                         }
                                                                     },
+                                                                    "runAfter": {},
                                                                     "expression": {
                                                                         "and": [
                                                                             {
@@ -4475,6 +4631,7 @@
                                                             "description": "When cloning teams, the owners of the source team will be cloned. We need to remove these owners."
                                                         }
                                                     },
+                                                    "runAfter": {},
                                                     "type": "Scope"
                                                 }
                                             },
@@ -4503,6 +4660,7 @@
                                             "description": "Adding Members and Owners is only required if we have cloned an existing team."
                                         }
                                     },
+                                    "runAfter": {},
                                     "expression": {
                                         "or": [
                                             {
@@ -4537,6 +4695,7 @@
                                         "Check_if_space_is_a_team_-_post_welcome_message": {
                                             "actions": {
                                                 "Add_service_account_to_group_-_post_welcome_message": {
+                                                    "runAfter": {},
                                                     "type": "Http",
                                                     "inputs": {
                                                         "authentication": {
@@ -4613,6 +4772,7 @@
                                                     }
                                                 }
                                             },
+                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -4650,6 +4810,7 @@
                                                     }
                                                 },
                                                 "Set_TeamURL_variable": {
+                                                    "runAfter": {},
                                                     "type": "SetVariable",
                                                     "inputs": {
                                                         "name": "TeamURL",
@@ -4657,6 +4818,7 @@
                                                     }
                                                 }
                                             },
+                                            "runAfter": {},
                                             "expression": {
                                                 "and": [
                                                     {
@@ -4670,6 +4832,7 @@
                                             "type": "If"
                                         }
                                     },
+                                    "runAfter": {},
                                     "type": "Scope"
                                 }
                             },
@@ -4732,6 +4895,7 @@
                                 "Check_if_external_sharing_is_not_required": {
                                     "actions": {
                                         "Disable_external_sharing": {
+                                            "runAfter": {},
                                             "type": "Http",
                                             "inputs": {
                                                 "authentication": {
@@ -4757,6 +4921,7 @@
                                             }
                                         }
                                     },
+                                    "runAfter": {},
                                     "expression": {
                                         "and": [
                                             {
@@ -4803,6 +4968,7 @@
                                                 "Check_the_policy_covers_all_groups": {
                                                     "actions": {
                                                         "Update_request_with_expiration_date": {
+                                                            "runAfter": {},
                                                             "type": "ApiConnection",
                                                             "inputs": {
                                                                 "body": {
@@ -4822,6 +4988,7 @@
                                                             }
                                                         }
                                                     },
+                                                    "runAfter": {},
                                                     "expression": {
                                                         "and": [
                                                             {
@@ -4855,6 +5022,7 @@
                                             "description": "Check that a group expiration policy exists. We will only store the expiration date if a policy exists."
                                         },
                                         "Get_group": {
+                                            "runAfter": {},
                                             "type": "Http",
                                             "inputs": {
                                                 "authentication": {
@@ -5034,6 +5202,7 @@
                                             }
                                         }
                                     },
+                                    "runAfter": {},
                                     "expression": {
                                         "or": [
                                             {
@@ -5089,6 +5258,7 @@
                             }
                         },
                         "Update_status_to_Space_Creation": {
+                            "runAfter": {},
                             "type": "ApiConnection",
                             "inputs": {
                                 "body": {
