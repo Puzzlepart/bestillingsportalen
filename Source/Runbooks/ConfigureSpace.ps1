@@ -205,15 +205,14 @@ function SetStorageQuota {
 
         Write-Output "Finished setting storage quota"
     }
-
 }
 
 function DisableDocumentSync {
 
     if ($disableDocSync) {
-        Write-Output "Disabling sync option in Shared Documents library"
+        Write-Output "Disabling sync option in 'Dokumenter' library"
 
-        $list = Get-PnPList "Shared Documents"
+        $list = Get-PnPList "Dokumenter"
  
         #Exclude List or Library from Sync
         $List.ExcludeFromOfflineClient = $true
@@ -222,14 +221,13 @@ function DisableDocumentSync {
 
         Write-Output "Finished disabling sync option"
     }
-
 }
 
 function SetRetentionLabel {
 	if($retentionLabel -ne "") {
-		Write-Output "Setting retention label $retentionLabel on Shared Documents library"
+        Write-Output "Setting retention label $retentionLabel on 'Dokumenter' library"
 
-		$list = Get-PnPList "Shared Documents"
+        $list = Get-PnPList "Dokumenter"
 
 		Set-PnPLabel -List $list -Label $retentionLabel
 
