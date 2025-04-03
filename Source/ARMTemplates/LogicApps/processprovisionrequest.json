@@ -2139,8 +2139,9 @@
                                 "body": {
                                     "properties": {
                                         "parameters": {
-                                            "ExternalSharing": "@triggerBody()?['ExternalSharingRequired']",
                                             "Members": "@{outputs('Create_Members_string')}",
+                                            "Owners": "@{outputs('Create_Owners_string')}",
+                                            "retentionLabel": "@triggerBody()?['RetentionLabelName']",
                                             "SiteUrl": "@triggerBody()?['SiteURL']",
                                             "TimeZoneId": "@{triggerBody()?['TimeZoneId']}",
                                             "Visitors": "@{outputs('Create_Visitors_string')}",
@@ -2149,21 +2150,20 @@
                                             "defaultExternalSharingSetting": "@variables('DefaultExternalSharingSetting')",
                                             "disableDocSync": "@variables('DisableDocumentSync')",
                                             "enableAllowAccessRequests": "@variables('EnableAllowAccessRequests')",
+                                            "ExternalSharing": "@triggerBody()?['ExternalSharingRequired']",
                                             "featuresToActivate": "@variables('FeaturesToActivate')",
                                             "hubSiteId": "@triggerBody()?['HubSite']",
                                             "joinHub": "@{triggerBody()?['JoinHub']}",
                                             "lcid": "@{triggerBody()?['LCID']}",
-                                            "owners": "@{outputs('Create_Owners_string')}",
                                             "pnpTemplateUrl": "@triggerBody()?['PnPTemplateURL']",
-                                            "retentionLabel": "@triggerBody()?['RetentionLabelName']",
-                                            "siteDesignId": "@triggerBody()?['SiteTemplate']",
                                             "siteTemplateTitle": "@triggerBody()?['SiteTemplateTitle']",
                                             "spaceType": "@triggerBody()?['SpaceType']?['Value']",
                                             "storageQuota": "@variables('StorageQuota')",
                                             "storageQuotaWarning": "@variables('StorageQuotaWarning')",
                                             "syncHubPermissions": "@variables('SyncHubPermissions')",
                                             "themeName": "@triggerBody()?['ThemeName']",
-                                            "visibility": "@triggerBody()?['Visibility']?['Value']"
+                                            "visibility": "@triggerBody()?['Visibility']?['Value']",
+                                            "siteDesignId": "@triggerBody()?['SiteTemplate']"
                                         }
                                     }
                                 },
