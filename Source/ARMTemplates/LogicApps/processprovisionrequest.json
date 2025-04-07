@@ -3227,6 +3227,39 @@
                                 ]
                             }
                         },
+                        "Initialize_IsCommunityCreated_variable": {
+                            "runAfter": {
+                                "Initialize_MembersOwnersCount": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "IsCommunityCreated",
+                                        "type": "boolean",
+                                        "value": false
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_CommunityID_variable": {
+                            "runAfter": {
+                                "Initialize_IsCommunityCreated_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "CommunityID",
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        },
                         "Invite_guests": {
                             "actions": {
                                 "Check_if_external_sharing_is_required": {
