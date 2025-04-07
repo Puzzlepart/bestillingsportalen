@@ -227,11 +227,6 @@ function ValidateParameters {
         $isValid = $false;
     }
 
-    if (-not (IsValidParam($parameters.pnpCertPath))) {
-        Write-Host "Invalid certValidityDays" -ForegroundColor Red
-        $isValid = $false;
-    }
-
     if (-not (IsValidParam($parameters.fullTenantName))) {
         Write-Host "Invalid fullTenantName" -ForegroundColor Red
         $isValid = $false;
