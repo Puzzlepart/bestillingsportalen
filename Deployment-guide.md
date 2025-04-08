@@ -8,42 +8,42 @@ To begin, you will need:
 - Power Apps environment with a Dataverse database deployed. You may use the default environment, however a production environment is recommended. If you do not have capacity to create a Dataverse database, you may need to use the default environment.
 - Billable Azure Subscription in the same tenant to which you will deploy Bestillingsportalen.
 - Service account (used by Logic Apps to connect to SPO, Outlook and Teams) with an appropriate Microsoft 365 license (This account should NOT be an admin). This account CAN have MFA.
-- Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however at the time of writing this account CANNOT use MFA due to restrictions in the Microsoft Graph. 
+- Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however at the time of writing this account CANNOT use MFA due to restrictions in the Microsoft Graph.
 - Windows 10/11 machine on which to execute the PowerShell deployment script.
-- PowerShell 7 downloaded and installed - https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4.
-- Azure CLI (Command Line Interface) - https://learn.microsoft.com/en-us/cli/azure/install-azure-cli.
+- PowerShell 7 downloaded and installed - <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
+- Azure CLI (Command Line Interface) - <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
 - Firewall/Proxy configured to allow connectivity using the Azure CLI - please test the 'az login' cmdlet works before proceeding.
- - Global Administrator (to execute the `createentraidapp.ps1` script and create/authorize the PnP app registration).
- - A user account with **Owner** rights to the Azure Subscription that is also a SharePoint, Power Platform and Teams Administrator. 
- - A certificate (self-signed is ok) to use for Microsoft Graph and SharePoint REST API authentication (**Optional** as the deployment script will create a self-signed cert for you if preffered). 
- - App Registration for PnP PowerShell (see below).
+- Global Administrator (to execute the `createentraidapp.ps1` script and create/authorize the PnP app registration).
+- A user account with **Owner** rights to the Azure Subscription that is also a SharePoint, Power Platform and Teams Administrator. 
+- A certificate (self-signed is ok) to use for Microsoft Graph and SharePoint REST API authentication (**Optional** as the deployment script will create a self-signed cert for you if preffered). 
+- App Registration for PnP PowerShell (see below).
 
- #### PnP PowerShell App Registration
+#### PnP PowerShell App Registration
 
- PnP PowerShell no longer supports the 'multi-tenant app registration' option. This previously created an app registration automatically for PnP PowerShell with all neccessary permissions. 
+PnP PowerShell no longer supports the 'multi-tenant app registration' option. This previously created an app registration automatically for PnP PowerShell with all neccessary permissions.
 
- In order to authenticate and use PnP PowerShell moving forward, it is neccessary to create your own app registration with the required permissions. 
+In order to authenticate and use PnP PowerShell moving forward, it is neccessary to create your own app registration with the required permissions.
 
- Before you execute the deployment script for Bestillingsportalen, make sure you have created this app registration and have the certificate file and password to hand.
+Before you execute the deployment script for Bestillingsportalen, make sure you have created this app registration and have the certificate file and password to hand.
 
- The minimum permissions required for the PnP app registration to be able to run the deployment script are:
+The minimum permissions required for the PnP app registration to be able to run the deployment script are:
 
- **Microsoft Graph**
+**Microsoft Graph**
 
- - Group.Create
- - Group.Read.All
+- Group.Create
+- Group.Read.All
 
- **SharePoint**
+**SharePoint**
 
- - Sites.FullControl.All
+- Sites.FullControl.All
 
- Once the Bestillingsportalen deployment is complete, you may delete the PnP PowerShell app registration or remove the above permissions if you no longer require them.
+Once the Bestillingsportalen deployment is complete, you may delete the PnP PowerShell app registration or remove the above permissions if you no longer require them.
 
- You can find more details on the changes to PnP PowerShell authentication [here](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
+You can find more details on the changes to PnP PowerShell authentication [here](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
 
- Please see [this video](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for details of how to create and use the app registration.
+Please see [this video](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for details of how to create and use the app registration.
 
- If Sites.FullControl.All is a concern, you may create the SharePoint site for Bestillingsportalen manually and make sure the name in the parameters.json file matches the name of the site you created.
+If Sites.FullControl.All is a concern, you may create the SharePoint site for Bestillingsportalen manually and make sure the name in the parameters.json file matches the name of the site you created.
 
 #### PowerShell 7.x
 
@@ -68,7 +68,7 @@ The following PowerShell modules are used by the deployment script and must be i
 
 You will find a parameters.json file in the Scripts folder. Please update all the parameters with the correct values for your tenant.
 
-Replace `<<value>>` with appropriate values for all required parameters. 
+Replace `<<value>>` with appropriate values for all required parameters.
 
 You may refer to the following to understand each parameter:
 
@@ -108,11 +108,11 @@ You may refer to the following to understand each parameter:
 
 - `KeyVaultName` - Name to use for the Key Vault that is provisioned by the deployment script. The Key Vault stores the app id and secret of the Entra ID app that this solution uses. This ensures that these are held securely. The name of the key vault must be unique across the Azure region that you are deploying to. If a key vault matching the name provided exists ***in*** the current subscription, it can be used. **PLEASE NOTE - IF YOU USE AN EXISTING KEY VAULT, IT WILL BE OVERWRITTEN AND CONFIGURATION SUCH AS ROLE ASSIGNMENTS WILL BE LOST. WE RECOMMEND USING A DEDICATED KEY VAULT FOR Bestillingsportalen**. The script will validate that the name is available and if not, an alternative name will need to be provided.
 
- - `enableSensitivity` - Enable the Sensitivity Label functionality. Note - this will require you to have a Service Account with NO MFA, this can be the same service account as above if you wish.
+- `enableSensitivity` - Enable the Sensitivity Label functionality. Note - this will require you to have a Service Account with NO MFA, this can be the same service account as above if you wish.
 
- - `skipApplySPOTemplate` - Skip applying the PnP template to the SharePoint site. Leave **false** unless you have a specific reason to skip this.
+- `skipApplySPOTemplate` - Skip applying the PnP template to the SharePoint site. Leave **false** unless you have a specific reason to skip this.
 
- ## Step 3: Execute the scripts
+## Step 3: Execute the scripts
 
 ### Entra ID App Creation
 
@@ -158,7 +158,7 @@ In Microsoft Azure portal go to the resource group that was created by the scrip
 3. Click "Authorize". Use the Service Account to authenticate.
 4. Repeate the above actions for "bestillingsportalen-o365users", "bestillingsportalen-spo" and "bestillingsportalen-teams" API connections.
 
- ## Step 4: Configure approval process
+## Step 4: Configure approval process
 
 Approval of requests in the solution can take place in two ways:
 
@@ -228,7 +228,7 @@ The approvals will now use adaptive cards in Teams. Please revisit this section 
 ![Power Apps import solution connections screenshot](/Images/PASolutionConnections.png)
 
 8. Click 'Next' once the connections have been connected.
-9. The next step is to update the environment variables used by the solution. Either select the SharePoint site created by the deployment in the drop down OR if it is not visible, enter the URL. 
+9. The next step is to update the environment variables used by the solution. Either select the SharePoint site created by the deployment in the drop down OR if it is not visible, enter the URL.
 10. Using each drop down, connect each environment variable to the appropriate SharePoint list by matching the name.
 
 ![Power Apps solution environment variables screenshot](/Images/PASolutionEnvVariables.png)
@@ -265,7 +265,7 @@ Follow the steps below to do this.
 
 ## Step 7: Turn on 'Provisioning Request Approval' flow
 
-The **Provisioning Request Approval** is turned off by default and needs to be turned on. 
+The **Provisioning Request Approval** is turned off by default and needs to be turned on.
 
 Follow the steps below to turn it on.
 
@@ -322,7 +322,7 @@ The steps below will share the SharePoint site with end users, giving them acces
 1. Navigate to the SharePoint site created during the deployment.
 2. Click 'Settings' _(gear)_ icon at the top right corner.
 3. Click 'Site permissions'.
-4. Click 'Advanced Permissions settings'.	
+4. Click 'Advanced Permissions settings'.
 5. Click the Grant Permission option from the top menu bar and search for the user name or type the email address of the user to whom you want to share the site OR select a group containing the users.
 6. Click 'Show Options' and under the permission level, select the visitors group (this will grant the users read-only access to the site initially).
 7. Navigate to the 'Provisioning Requests' list and [follow these steps](https://support.office.com/en-gb/article/customize-permissions-for-a-sharepoint-list-or-library-02d770f3-59eb-4910-a608-5f84cc297782) to break permission inheritance. Give the Visitors group 'Edit' rights (this will ensure that users can create requests).
@@ -379,8 +379,8 @@ The reason for this column is to allow admins the flexibility to show/hide Site 
 
 The Bestillingsportalen Power App leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *At the time of writing this screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Bestillingsportalen only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Bestillingsportalen:
 
-- Microsoft 365 Group (can be the same one used for the Bestillingsportalen SPO site) OR 
-- Microsoft Teams Team OR 
+- Microsoft 365 Group (can be the same one used for the Bestillingsportalen SPO site) OR
+- Microsoft Teams Team OR
 - AAD Security Group
 
 Obtain the id of the resource you created or an existing one you will reuse and follow the steps below:

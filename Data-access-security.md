@@ -6,13 +6,13 @@ Provisioning is carried out using an **Entra ID App Registration** which has the
 
 At the time of writing (July 2023), the Graph API does not support applying sensitivity labels to Groups and Teams using Application Permissions therefore a Service Account is used (no MFA) and **Delegated Permissions** configured to the relevant Graph endpoint.
 
-If you choose to disable or not use the sensitivity label functionality, then this is not required. 
+If you choose to disable or not use the sensitivity label functionality, then this is not required.
 
 The **Client ID** and **Client Secret** of the Entra ID app are stored in a dedicated Key Vault that is created for the Bestillingsportalen solution. These are then extracted for use in the Logic Apps using the Key Vault action, the action is set to hide the input and outputs so the secret value cannot be seen when viewing the run history.
 
-The full list of the required API permissions for the Microsoft Graph and SharePoint tenant can be found below. 
+The full list of the required API permissions for the Microsoft Graph and SharePoint tenant can be found below.
 
-## API Permissions 
+## API Permissions
 
 The API permissions required for the Entra ID app are as follows:
 
@@ -37,6 +37,6 @@ The API permissions required for the Entra ID app are as follows:
 |--|--|--|--|
 | Sites.FullControl.All | Application | Have full control of all site collections| Used to read and write to created SharePoint sites. |
 
-In addition to the above, the Entra ID App must be registered as a **SharePoint add-in** and granted **Full Control permissions** to the SharePoint tenant. 
+In addition to the above, the Entra ID App must be registered as a **SharePoint add-in** and granted **Full Control permissions** to the SharePoint tenant.
 
 This is required because, as part of the provisioning there is a check to see if a SharePoint site matching the URL already exists both as an active site but also in the tenant recycle bin.

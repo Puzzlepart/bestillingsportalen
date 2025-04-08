@@ -40,7 +40,7 @@ There are two ways to enable this functionality:
 
 1. When running the script - A parameter 'EnableSensitivity' can be found in the parameters.json file which will enable the sensitivity label functionality. If this is set to true, the functionality will be automatically enabled. This is documented in the [deployment guide](./Deployment-guide.md).
 
-2. Manual Enablement - Follow the steps below to manually enable this functionality, assuming you did not enable it in the parameters.json file. 
+2. Manual Enablement - Follow the steps below to manually enable this functionality, assuming you did not enable it in the parameters.json file.
 
 ### Manual Enablement
 

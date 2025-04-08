@@ -3,6 +3,7 @@
 Param
 (
     [Parameter (Mandatory = $false)]
+    [String] $groupId,
     [String] $siteUrl,
     [String] $spaceType,
     [String] $externalSharing,
@@ -28,16 +29,45 @@ Param
 	[String] $themeName,
 	[String] $siteTemplateTitle,
 	[String] $siteCollectionAdmins,
-    [String] $siteDesignId
+    [String] $siteDesignId,
+    [string] $spaceImage
 )
 
-$logoUrl = Get-AutomationVariable -Name "logoUrl"
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
 
 function SetSiteLogo {
-    if ($spaceType -ne "Office 365 Group" -and $logoUrl -ne "") {
+    if ($spaceImage -ne "") {
+        Write-Output "Adding site logo (convert base64 to image)"
+        $logoFileName = "$GroupId.png"
+        $logoPath = "$env:TEMP\$logoFileName"
+        Write-Output  $logoFileName
+        Write-Output  $logoPath
+
+        $base64 = $spaceImage
+        $bytes = [System.Convert]::FromBase64String($base64)
+        [System.IO.File]::WriteAllBytes($logoPath, $bytes)
+        
         Write-Output "Setting site logo"
-        Set-PnPWeb -SiteLogoUrl $logoUrl
+
+        try {
+            Set-PnPMicrosoft365Group -Identity $groupId -GroupLogoPath $logoPath
+        }
+        catch {
+            Write-Output "Error setting site logo (Set-PnPMicrosoft365Group): $($_.Exception.Message)"
+        }
+
+        Write-Output "Adding logo to site assets library"
+
+        $web = Get-PnPWeb
+        $siteAssets = Get-PnPList -Identity "SiteAssets" -ErrorAction SilentlyContinue
+        if ($null -eq $siteAssets) {
+            $web.Lists.EnsureSiteAssetsLibrary()
+            Invoke-PnPQuery -ErrorAction SilentlyContinue
+        }
+
+        $uploadedFile = Add-PnPFile -Path $logoPath -Folder "SiteAssets" -ErrorAction SilentlyContinue
+        $siteAssetsLogoPath = "$($web.ServerRelativeUrl)/SiteAssets/$($logoFileName)"
+        $webOutput = Set-PnPWebHeader -SiteLogoUrl $siteAssetsLogoPath -SiteThumbnailUrl $siteAssetsLogoPath -ErrorAction SilentlyContinue
         Write-Output "Finished setting site logo"
     }
 }
