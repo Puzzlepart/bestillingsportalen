@@ -294,7 +294,7 @@ function Get-AccessTokenFromCurrentUser {
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
-        Write-Host "### Bestillingsportalen SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
 
         $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
 
@@ -305,7 +305,7 @@ function CreateRequestsSharePointSite {
             Write-Host "Waiting for site to finish creating..." -ForegroundColor Yellow
             
             Start-sleep -Seconds 60
-            Write-Host "Site created`n**Bestillingsportalen SITE CREATION COMPLETE**" -ForegroundColor Green
+            Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
             Write-Host "Site already exists! Do you wish to overwrite?" -ForegroundColor Red
@@ -325,7 +325,7 @@ function ConfigureSharePointSite {
 
     try {
 
-        Write-Host "### Bestillingsportalen SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### BESTILLINGSPORTALEN SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
 
         If ($parameters.skipApplySPOTemplate.Value) { 
 
@@ -635,7 +635,7 @@ function UploadAssets {
         UploadFiles  $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
         UploadFiles  $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
 
-        Write-Host "Uploaded files to Site Assets`n**PROVISION ASSIST SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
+        Write-Host "Uploaded files to Site Assets`n**BESTILLINGSPORTALEN SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
         throw('Failed to upload assets {0}', $_.Exception.Message)

@@ -2139,6 +2139,7 @@
                                 "body": {
                                     "properties": {
                                         "parameters": {
+                                            "groupId": "@{variables('GroupID')",
                                             "Members": "@{outputs('Create_Members_string')}",
                                             "Owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
@@ -2163,7 +2164,8 @@
                                             "syncHubPermissions": "@variables('SyncHubPermissions')",
                                             "themeName": "@triggerBody()?['ThemeName']",
                                             "visibility": "@triggerBody()?['Visibility']?['Value']",
-                                            "siteDesignId": "@triggerBody()?['SiteTemplate']"
+                                            "siteDesignId": "@triggerBody()?['SiteTemplate']",
+                                            "spaceImage": "@triggerBody()?['SpaceImage']"
                                         }
                                     }
                                 },

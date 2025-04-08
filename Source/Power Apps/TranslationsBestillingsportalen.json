@@ -30,12 +30,12 @@ Set(
                 reqSharing: "Kortvarig deling under et prosjekt",
                 reqNav: "Bruke konsekvent navigasjon og merkevarebygging på nettstedet mitt",
                 // Preloading Component
-                firstloading: "Laster inn Provision Assist",
+                firstloading: "Laster inn Bestillingsportalen",
                 loading: "Laster...",
                 verify: "Verifiserer...",
                 process: "Behandler...",
                 // Header Component
-                lblHeading: "Provision Assist",
+                lblHeading: "Bestillingsportalen",
                 // Progress Bar Component
                 stepOne: "Krav",
                 stepTwo: "Anbefaling",
@@ -68,7 +68,7 @@ Set(
                 btnClose: "Lukk",
                 btnCancel: "Avbryt",
                 // Welcome Screen
-                lblWelcome: "Velkommen til Provision Assist" & Char(10) & Char(10) & "Del dine krav med oss, så anbefaler vi et samarbeidrom som passer dine behov." & Char(10) & Char(10) & "Når du har valgt, kan du sende forespørselen for godkjenning." & Char(10) & Char(10) & "Bruk knappene for å komme i gang.",
+                lblWelcome: "Velkommen til Bestillingsportalen" & Char(10) & Char(10) & "Del dine krav med oss, så anbefaler vi et samarbeidrom som passer dine behov." & Char(10) & Char(10) & "Når du har valgt, kan du sende forespørselen for godkjenning." & Char(10) & Char(10) & "Bruk knappene for å komme i gang.",
                 lblUnsubmitted: "Det ser ut til at du har en ikke-innsendt forespørsel. Klikk på 'Mine forespørsler' for å fortsette redigeringen.",
                 lblRate: "Vurder denne appen",
                 lblStartRequest: "Start en forespørsel",
@@ -140,12 +140,12 @@ Set(
                 reqSharing: "Short term sharing for the duration of a project",
                 reqNav: "Apply consistent navigation and branding across my site",
                 //Preloading Component
-                firstloading: "Loading Provision Assist",
+                firstloading: "Loading Bestillingsportalen",
                 loading: "Loading...",
                 verify: "Verifying...",
                 process: "Processing...",
                 //Header Component
-                lblHeading: "Provision Assist",
+                lblHeading: "Bestillingsportalen",
                 //Progress Bar Component
                 stepOne: "Requirements",
                 stepTwo: "Recommendation",
@@ -163,7 +163,7 @@ Set(
                 locDialogTitle: "Request not complete",
                 locDialogTitle2: "Request comments",
                 locDialogDesc: "Your request has not been completed. Are you sure you wish to go back? (You can continue editing this request later).",
-                locDialogDescSubmit: "Request successfully submited and pending approval. You can view this request in 'My Requests'.",
+                locDialogDescSubmit: "Request successfully submitted and pending approval. You can view this request in 'My Requests'.",
                 locDialogTitleSubmit: "Request Submitted",
                 locDialogDelete: "Delete request",
                 locDialogDescDelete: "Your request has not been completed. Are you sure you wish to delete it?",
@@ -178,7 +178,7 @@ Set(
                 btnClose: "Close",
                 btnCancel: "Cancel",
                 //Welcome Screen
-                lblWelcome: "Welcome to Provision Assist" & Char(10) & Char(10) & "Share with us your requirements and we will recommend a collaboration space to suit your needs." & Char(10) & Char(10) & "Once you have chosen, you can submit your request for approval." & Char(10) & Char(10) & "Use the buttons to get started.",
+                lblWelcome: "Welcome to Bestillingsportalen" & Char(10) & Char(10) & "Share with us your requirements and we will recommend a collaboration space to suit your needs." & Char(10) & Char(10) & "Once you have chosen, you can submit your request for approval." & Char(10) & Char(10) & "Use the buttons to get started.",
                 lblUnsubmitted: "It looks like you have an unsubmitted request, please click 'My Requests' to continue editing.",
                 lblRate: "Rate this app",
                 lblStartRequest: "Start a request",
@@ -356,12 +356,12 @@ Set(
                 reqSharing: "Short term sharing for the duration of a project",
                 reqNav: "Apply consistent navigation and branding across my site",
                 //Preloading Component
-                firstloading: "Loading Provision Assist",
+                firstloading: "Loading Bestillingsportalen",
                 loading: "Loading...",
                 verify: "Verifying...",
                 process: "Processing...",
                 //Header Component
-                lblHeading: "Provision Assist",
+                lblHeading: "Bestillingsportalen",
                 //Progress Bar Component
                 stepOne: "Requirements",
                 stepTwo: "Recommendation",
@@ -379,7 +379,7 @@ Set(
                 locDialogTitle: "Request not complete",
                 locDialogTitle2: "Request comments",
                 locDialogDesc: "Your request has not been completed. Are you sure you wish to go back? (You can continue editing this request later).",
-                locDialogDescSubmit: "Request successfully submited and pending approval. You can view this request in 'My Requests'.",
+                locDialogDescSubmit: "Request successfully submitted and pending approval. You can view this request in 'My Requests'.",
                 locDialogTitleSubmit: "Request Submitted",
                 locDialogDelete: "Delete request",
                 locDialogDescDelete: "Your request has not been completed. Are you sure you wish to delete it?",
@@ -394,7 +394,7 @@ Set(
                 btnClose: "Close",
                 btnCancel: "Cancel",
                 //Welcome Screen
-                lblWelcome: "Welcome to Provision Assist" & Char(10) & Char(10) & "Share with us your requirements and we will recommend a collaboration space to suit your needs." & Char(10) & Char(10) & "Once you have chosen, you can submit your request for approval." & Char(10) & Char(10) & "Use the buttons to get started.",
+                lblWelcome: "Welcome to Bestillingsportalen" & Char(10) & Char(10) & "Share with us your requirements and we will recommend a collaboration space to suit your needs." & Char(10) & Char(10) & "Once you have chosen, you can submit your request for approval." & Char(10) & Char(10) & "Use the buttons to get started.",
                 lblUnsubmitted: "It looks like you have an unsubmitted request, please click 'My Requests' to continue editing.",
                 lblRate: "Rate this app",
                 lblStartRequest: "Start a request",

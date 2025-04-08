@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    Creates the Entra ID App Registration for the Provision Assist solution and grants required API Permissions.
+    Creates the Entra ID App Registration for the Bestillingsportalen solution and grants required API Permissions.
 
 .DESCRIPTION
-    Creates the Entra ID App Registration for the Provision Assist solution and grants API permissions.
+    Creates the Entra ID App Registration for the Bestillingsportalen solution and grants API permissions.
 
     This script uses the Azure CLI to create/update the Entra ID App.
 
     This script should be executed using an account that has Global Administrator rights, this is neccessary to grant the requried API permissions.
 
-    This script accepts a single parameter, which is the name of the Entra ID App you wish to use for Provision Assist.
+    This script accepts a single parameter, which is the name of the Entra ID App you wish to use for Bestillingsportalen.
 
 .EXAMPLE
     createadapp.ps1
@@ -125,7 +125,7 @@ $ErrorActionPreference = "stop"
 
 Write-Host "###  CREATE ENTRA ID APP SCRIPT STARTED `n(c) Microsoft Corporation ###" -ForegroundColor Magenta
 
-Write-Ascii -InputObject "Provision Assist" -ForegroundColor Green
+Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
 # Initialise connections - Azure Az/CLI
 Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
