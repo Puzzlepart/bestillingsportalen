@@ -1,6 +1,6 @@
 # Data Stores
 
-The Provision Assist contains a number of SharePoint lists which are used for different purposes. See below to find out what each list is used for. The explanation of each column is also provided, with the exception of the 'Provisioning Requests' list.
+The Bestillingsportalen contains a number of SharePoint lists which are used for different purposes. See below to find out what each list is used for. The explanation of each column is also provided, with the exception of the 'Provisioning Requests' list.
 
 ### SharePoint Lists  
 
@@ -28,7 +28,7 @@ The Teams Templates list stores the details of all templates used for creating t
 
 **Provisioning Request Settings**
 
-The Provisioning Request Settings list stores all configurable settings for Provision Assist.
+The Provisioning Request Settings list stores all configurable settings for Bestillingsportalen.
 
 |Name of Column|Type|Comment|
 |---|---|---|

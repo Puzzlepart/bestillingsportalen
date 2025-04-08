@@ -1,6 +1,6 @@
 # Site Templates
 
-Provision Assist includes the ability to apply Site Templates (previously known as Site Designs) when a user requests the creation of a SharePoint Site (Team Site, Office 365 Group, Communication Site or Hub Site).
+Bestillingsportalen includes the ability to apply Site Templates (previously known as Site Designs) when a user requests the creation of a SharePoint Site (Team Site, Office 365 Group, Communication Site or Hub Site).
 
 The solution now includes the ability to apply PnP Provisioning templates, at the time of writing these can be applied **instead** of Site Templates. Please read the [PnP Templates](/PnP-Templates.md) documentation for more details. 
 
@@ -8,7 +8,7 @@ All available Site Templates in the current SharePoint tenant are retrieved by a
 
 This includes out of the box templates - Topic, Showcase, Blank etc. and any custom templates that have been created.
 
-These are then stored in a SharePoint list within the Provision Assist site - 'Site Templates'.
+These are then stored in a SharePoint list within the Bestillingsportalen site - 'Site Templates'.
 
 The following properties of the Site Templates are stored in the list:
 

@@ -1,19 +1,19 @@
-# Provision Assist
+# Bestillingsportalen
 
 | [Deployment guide](/Deployment-guide.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Business Units](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Translations](/Translations.md) | [Refreshing App Secret](/Refreshing-app-secret.md) | [V2](/Version2.md) 
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 
-Provision Assist is a Power Platform and Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through a frontend Power App allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. Provision Assist can be used as part of a Copilot for Microsoft 365 deployment in order to establish a layer of governance over self-service.
+Bestillingsportalen is a Power Platform and Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through a frontend Power App allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. Bestillingsportalen can be used as part of a Copilot for Microsoft 365 deployment in order to establish a layer of governance over self-service.
 
 **Note - V2 of the solution is now the 'current' version, V1 is no longer supported and will not be included in future releases. The documentation and screenshots will be updated to reflect this shortly.**
 
-![Provision Assist Home Screenshot](/Images/ProvisionAssistHome.png)
+![Bestillingsportalen Home Screenshot](/Images/BestillingsportalenHome.png)
 
-![Provision Assist Recommendations Screenshot](/Images/ProvisionAssistRecommendations.png)
+![Bestillingsportalen Recommendations Screenshot](/Images/BestillingsportalenRecommendations.png)
 
 ## Capabilities
 
-Provision Assist provides the following capabilities:
+Bestillingsportalen provides the following capabilities:
 
 - Canvas based Power App (designed to be added and pinned in Teams) allowing users to request collaboration spaces.
 - Configurable approval process using Power Automate to facilitate the approval of requests.
@@ -37,7 +37,7 @@ To get started please follow the [Deployment guide](Deployment-guide.md).
 
 ## Issues
 
-Please report any issues by raising an [issue](https://github.com/pnp/provision-assist-m365/issues/new/choose).
+Please report any issues by raising an [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
 
 ## Contributing
 
@@ -45,7 +45,7 @@ We 💖 to accept contributions.
 
 Check out our [Contribution guidelines](/CONTRIBUTING.md) for guidance on how to contribute. 
 
-If you want to get involved with helping us enhance Provision Assist, whether that is suggesting or adding new functionality, updating our documentation or fixing bugs, we would love to hear from you.
+If you want to get involved with helping us enhance Bestillingsportalen, whether that is suggesting or adding new functionality, updating our documentation or fixing bugs, we would love to hear from you.
 
 ## Special Thanks
 
@@ -57,15 +57,11 @@ Special thanks to those below who have helped build this awesome solution.
 
 ## Support
 
-This solution is open-source and community provided with no active community providing support for it. This solution is maintained by both Microsoft employees and community contributors and is not a Microsoft provided solution so there is no SLA or direct support for this from Microsoft. Please report any issues by raising an [issue](https://github.com/pnp/provision-assist-m365/issues/new/choose).
-
-If you like this project, please buy us some pizza 🍕🍕 to say thanks - your support is greatly received.
-
-<a href="https://www.buymeacoffee.com/provisionassist" target="_blank"><img src="./Images/buypizza.png" alt="Buy us some pizza" ></a>
+This solution is open-source and community provided with no active community providing support for it. This solution is maintained by both Microsoft employees and community contributors and is not a Microsoft provided solution so there is no SLA or direct support for this from Microsoft. Please report any issues by raising an [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
 
 ## Microsoft 365 & Power Platform Community
 
-Provision Assist is a Microsoft 365 & Power Platform Community (PnP) project. Microsoft 365 & Power Platform Community is a virtual team consisting of Microsoft employees and community members focused on helping the community make the best use of Microsoft products. Provision Assist is an open-source project not affiliated with Microsoft and not covered by Microsoft support. If you experience any issues using Provision Assist, please submit an issue in the [issues list](https://github.com/pnp/provision-assist-m365/issues).
+Bestillingsportalen is a Microsoft 365 & Power Platform Community (PnP) project. Microsoft 365 & Power Platform Community is a virtual team consisting of Microsoft employees and community members focused on helping the community make the best use of Microsoft products. Bestillingsportalen is an open-source project not affiliated with Microsoft and not covered by Microsoft support. If you experience any issues using Bestillingsportalen, please submit an issue in the [issues list](https://github.com/Puzzlepart/bestillingsportalen/issues).
 
 ## "Sharing is Caring"
 

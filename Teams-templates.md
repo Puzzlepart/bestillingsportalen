@@ -1,8 +1,8 @@
 # Teams Templates
 
-Provision Assist supports the creation of Teams based on templates defined in the Admin Center. The Admin Center templates power the native 'out of the box' Teams Templates functionality. 
+Bestillingsportalen supports the creation of Teams based on templates defined in the Admin Center. The Admin Center templates power the native 'out of the box' Teams Templates functionality. 
 
-In addition to the support of Admin Center based templates, Provision Assist supports 'cloning' teams by defining these as a template.
+In addition to the support of Admin Center based templates, Bestillingsportalen supports 'cloning' teams by defining these as a template.
 
 You may also create dedicated naming conventions for teams templates, please follow the [Naming conventions](./Naming-conventions.md) documentation for details on how to configure this.
 
@@ -22,7 +22,7 @@ Cloning teams uses the v1.0 endpoints.
 
 **Teams Templates list**
 
-The Teams Templates list (which can be found in the SharePoint site backing the Provision Assist solution), defines a set of templates that users can choose when they make a request for a Team from a template. 
+The Teams Templates list (which can be found in the SharePoint site backing the Bestillingsportalen solution), defines a set of templates that users can choose when they make a request for a Team from a template. 
 
 This list should contain the 'out of the box' Microsoft provided templates when the solution is first deployed. This list is populated by a logic app, this is explained in the [Deployment guide](./Deployment-guide.md).
 
@@ -58,7 +58,7 @@ At the time of writing, this API is only available in beta and is yet to be rele
 2. Select 'Team templates' from the left hand menu (under 'Teams').
 3. Click the '+Add' button to create a new template.
 4. Choose whether to create a brand new template, use an existing team or start with an existing template.
-5. Fill out the details and click 'Next' (**_Note - only English (United States) is supported with Provision Assist at the moment)_**
+5. Fill out the details and click 'Next' (**_Note - only English (United States) is supported with Bestillingsportalen at the moment)_**
 
 ![Creating a template in the Admin Center](https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Images/template1.png)
 
@@ -74,12 +74,12 @@ At the time of writing, this API is only available in beta and is yet to be rele
 
 This logic app is configured to run weekly, this can be changed to suit your requirements. It is worth noting that any new templates added to the Admin Center will automatically be added to the Teams Templates SharePoint list when this logic app runs. 
 
-They will therefore be available in the Provision Assist Power App for selection by users. If you have templates you do not wish to display, please disable this logic app once you have executed it.
+They will therefore be available in the Bestillingsportalen Power App for selection by users. If you have templates you do not wish to display, please disable this logic app once you have executed it.
 
 **_Note - After the above steps have been completed please WAIT 24 hours before running the logic app. It can take up to 24 hours for the template to be retrievable by the logic app. _**
 
 1. Navigate to the Azure Portal.
-2. Locate the resource group you created for Provision Assist.
+2. Locate the resource group you created for Bestillingsportalen.
 3. Locate the GetTeamsTemplates Logic App.
 4. Click 'Run Trigger' > 'Run'.
 5. Check that the status of the Logic App displays succeeded. 
@@ -88,13 +88,13 @@ They will therefore be available in the Provision Assist Power App for selection
 
 ![GetTeamsTemplates logic app screenshot](./images/GetTeamsTemplatesLA.png)
 
-Your template is now ready for use - make sure you refresh/reload the Provision Assist Power App if you have it open. When a user requests a team from the new template it will be created with the predefined content you configured in the Admin Center. 
+Your template is now ready for use - make sure you refresh/reload the Bestillingsportalen Power App if you have it open. When a user requests a team from the new template it will be created with the predefined content you configured in the Admin Center. 
 
 **_Please note - Changes to templates in the Admin Center will not change Teams that have been previously created from the template._**
 
 ## Cloning Teams
 
-In addition to being able to create teams from Admin Center templates, Provision Assist supports cloning of existing teams. 
+In addition to being able to create teams from Admin Center templates, Bestillingsportalen supports cloning of existing teams. 
 
 The cloning team functionality uses v1.0 of the Microsoft Graph, specifically [Clone a team](https://docs.microsoft.com/en-us/graph/api/team-clone?view=graph-rest-1.0&tabs=http) so may be preferable to the other form of templating in a Production environment.
 
@@ -110,9 +110,9 @@ To use this functionality - follow the steps below.
 2. Populate the team as you would like it - Channels, Apps, Tabs etc. (This is the content that will be cloned and set up as a new team).
 2. Copy the Group Id for the team. You can get the Group Id from the URL that is generated when you click 'Get link to team'.
 
-### Step 2: Add the template to the Provision Assist Teams Templates list
+### Step 2: Add the template to the Bestillingsportalen Teams Templates list
 
-1. Navigate to the SharePoint site backing Provision Assist.
+1. Navigate to the SharePoint site backing Bestillingsportalen.
 2. Open the 'Teams Templates' list.
 3. Create a new list item with the following values:
 

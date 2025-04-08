@@ -1,6 +1,6 @@
 # Naming Conventions
 
-Provision Assist includes the ability to define Naming Conventions/Policies for created Sites/Groups/Teams/Viva Engage communities.
+Bestillingsportalen includes the ability to define Naming Conventions/Policies for created Sites/Groups/Teams/Viva Engage communities.
 
 When a user makes a request through the Power App, the naming convention will be applied and a preview of how this will look when combined with the title they have entered will be shown (See 'Space display name' below). 
 
@@ -143,7 +143,7 @@ Please now test the naming convention by creating a new request selecting 'Commu
 
 Teams template naming conventions allow you to set specific naming conventions for teams templates (or types of teams). If templates have naming conventions defined these will **override** the global one AND those set at the space type level.
 
-For more details on how to create templates for use with Provision Assist, please follow this documentation on GitHub - https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Teams-Templates. 
+For more details on how to create templates for use with Bestillingsportalen, please follow this documentation on GitHub - https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Teams-Templates. 
 
 For this example, we will apply a naming convention to one of the Microsoft out of the box templates but you can define your own templates as per the documentation above and configure naming conventions against these.
 

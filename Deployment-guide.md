@@ -6,7 +6,7 @@ To begin, you will need:
 
 - Power Apps and Power Automate (seeded licenses) enabled and rolled out across your organisation.
 - Power Apps environment with a Dataverse database deployed. You may use the default environment, however a production environment is recommended. If you do not have capacity to create a Dataverse database, you may need to use the default environment.
-- Billable Azure Subscription in the same tenant to which you will deploy Provision Assist.
+- Billable Azure Subscription in the same tenant to which you will deploy Bestillingsportalen.
 - Service account (used by Logic Apps to connect to SPO, Outlook and Teams) with an appropriate Microsoft 365 license (This account should NOT be an admin). This account CAN have MFA.
 - Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however at the time of writing this account CANNOT use MFA due to restrictions in the Microsoft Graph. 
 - Windows 10/11 machine on which to execute the PowerShell deployment script.
@@ -24,7 +24,7 @@ To begin, you will need:
 
  In order to authenticate and use PnP PowerShell moving forward, it is neccessary to create your own app registration with the required permissions. 
 
- Before you execute the deployment script for Provision Assist, make sure you have created this app registration and have the certificate file and password to hand.
+ Before you execute the deployment script for Bestillingsportalen, make sure you have created this app registration and have the certificate file and password to hand.
 
  The minimum permissions required for the PnP app registration to be able to run the deployment script are:
 
@@ -37,17 +37,17 @@ To begin, you will need:
 
  - Sites.FullControl.All
 
- Once the Provision Assist deployment is complete, you may delete the PnP PowerShell app registration or remove the above permissions if you no longer require them.
+ Once the Bestillingsportalen deployment is complete, you may delete the PnP PowerShell app registration or remove the above permissions if you no longer require them.
 
  You can find more details on the changes to PnP PowerShell authentication [here](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
 
  Please see [this video](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for details of how to create and use the app registration.
 
- If Sites.FullControl.All is a concern, you may create the SharePoint site for Provision Assist manually and make sure the name in the parameters.json file matches the name of the site you created.
+ If Sites.FullControl.All is a concern, you may create the SharePoint site for Bestillingsportalen manually and make sure the name in the parameters.json file matches the name of the site you created.
 
 #### PowerShell 7.x
 
-The Provision Assist deployment script requires PowerShell 7 and no longer supports 5.1. Please ensure PowerShell 7 is installed before installing the PowerShell modules listed below.
+The Bestillingsportalen deployment script requires PowerShell 7 and no longer supports 5.1. Please ensure PowerShell 7 is installed before installing the PowerShell modules listed below.
 
 #### PowerShell Modules
 
@@ -60,7 +60,7 @@ The following PowerShell modules are used by the deployment script and must be i
 
 ## Step 1: Configuring PowerShell
 
-1. Download the [latest release](https://github.com/pnp/provision-assist-m365/releases/latest) of Provision Assist.
+1. Download the [latest release](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) of Bestillingsportalen.
 2. Launch PowerShell 7 as an Administrator.
 3. Set the PowerShell Execution Policy to 'Unrestricted' by running the following cmdlet - ```Set-ExecutionPolicy -ExecutionPolicy unrestricted```
 
@@ -74,29 +74,29 @@ You may refer to the following to understand each parameter:
 
 - `tenantId` - Id of the tenant to deploy to. Can be found in the Azure Active Directory blade.
 
-- `spoTenantName` - Name of the SharePoint tenant excluding .sharepoint.com e.g. `contoso`.
+- `spoTenantName` - Name of the SharePoint tenant excluding .sharepoint.com e.g. `puzzlepart`.
 
 - `requestsSiteName` - Name of the SharePoint site to store requests made by users, can include spaces (URL/Alias automatically generated). If the site exists, it will prompt to overwrite and will apply the PnP provisioning template.
 
 - `requestsSiteDesc` - Description of the site that will be created above.
 
-- `managedPath ` - Managed path configured in the tenant e.g. 'sites' or 'teams' (no forward slash).
+- `managedPath` - Managed path configured in the tenant e.g. 'sites' or 'teams' (no forward slash).
 
 - `subscriptionId` - Azure subscription to deploy the solution to (MUST be associated with the Entra ID directory of the Microsoft 365 tenant that you wish to deploy this solution to).
 
-- `region` - Azure region in which to create the resources. The internal name should be used e.g. `uksouth`. The location MUST support Automation and Logic Apps. See [Valid Azure locations](https://azure.microsoft.com/en-gb/explore/global-infrastructure/products-by-region/?products=logic-apps%2Cautomation&regions=all).
+- `region` - Azure region in which to create the resources. The internal name should be used e.g. `norwayeast`. The location MUST support Automation and Logic Apps. See [Valid Azure locations](https://azure.microsoft.com/en-gb/explore/global-infrastructure/products-by-region/?products=logic-apps%2Cautomation&regions=all).
 
 - `resourceGroupName` - Name for a new resource group to deploy the solution to - the script will create this resource group.
 
- - `appName` - Name for the Entra ID app that will be created e.g. `ProvisionAssist`.
+- `appName` - Name for the Entra ID app that will be created e.g. `Bestillingsportalen`.
 
- - `createSelfSignedCert` - Specifies whether to create a self-signed certificate as part of the deployment. If set to true, a self-signed cert will be created through the Azure CLI with the name specified in the 'certName' parameter.
+- `createSelfSignedCert` - Specifies whether to create a self-signed certificate as part of the deployment. If set to true, a self-signed cert will be created through the Azure CLI with the name specified in the 'certName' parameter.
 
- - `certName` - Name for the self-signed certificate e.g. 'provisionassist'. If you are creating your own certificate, this parameter is still mandatory and should match the name of your certificate.
+- `certName` - Name for the self-signed certificate e.g. 'bestillingsportalen-cert'. If you are creating your own certificate, this parameter is still mandatory and should match the name of your certificate.
 
- - `certValidityDays` - Number of days that the certificate is valid for (if 'createSelfSignedCert' is set to true). The default is 365 days.
+- `certValidityDays` - Number of days that the certificate is valid for (if 'createSelfSignedCert' is set to true). The default is 365 days.
 
- - `pnpAppId` - Id of the PnP Entra app registration that you created when configuring PnP PowerShell.
+- `pnpAppId` - Id of the PnP Entra app registration that you created when configuring PnP PowerShell.
 
 - `pnpCertPath` - Path to the PnP certificate on your local machine that you created when configuring PnP PowerShell.
 
@@ -106,7 +106,7 @@ You may refer to the following to understand each parameter:
 
 - `isEdu` - Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank
 
-- `KeyVaultName` - Name to use for the Key Vault that is provisioned by the deployment script. The Key Vault stores the app id and secret of the Entra ID app that this solution uses. This ensures that these are held securely. The name of the key vault must be unique across the Azure region that you are deploying to. If a key vault matching the name provided exists ***in*** the current subscription, it can be used. **PLEASE NOTE - IF YOU USE AN EXISTING KEY VAULT, IT WILL BE OVERWRITTEN AND CONFIGURATION SUCH AS ROLE ASSIGNMENTS WILL BE LOST. WE RECOMMEND USING A DEDICATED KEY VAULT FOR PROVISION ASSIST**. The script will validate that the name is available and if not, an alternative name will need to be provided.
+- `KeyVaultName` - Name to use for the Key Vault that is provisioned by the deployment script. The Key Vault stores the app id and secret of the Entra ID app that this solution uses. This ensures that these are held securely. The name of the key vault must be unique across the Azure region that you are deploying to. If a key vault matching the name provided exists ***in*** the current subscription, it can be used. **PLEASE NOTE - IF YOU USE AN EXISTING KEY VAULT, IT WILL BE OVERWRITTEN AND CONFIGURATION SUCH AS ROLE ASSIGNMENTS WILL BE LOST. WE RECOMMEND USING A DEDICATED KEY VAULT FOR Bestillingsportalen**. The script will validate that the name is available and if not, an alternative name will need to be provided.
 
  - `enableSensitivity` - Enable the Sensitivity Label functionality. Note - this will require you to have a Service Account with NO MFA, this can be the same service account as above if you wish.
 
@@ -140,7 +140,7 @@ As the script uses various PowerShell modules to perform deployment, it will pro
 2. Navigate to the 'Scripts' folder.
 3. Execute the deploy script in the PowerShell window - ```.\deploy.ps1```
 
-You will be prompted during the script to enter the password for the PnP app registration certificate. 
+You will be prompted during the script to enter the password for the PnP app registration certificate.
 
 If you chose to enable the Sensitivity Label functionality, a dialog will be displayed prompting for the password for the Service Account. Please complete the prompt.
 
@@ -150,13 +150,13 @@ When the message **"DEPLOYMENT COMPLETED SUCCESSFULLY** is displayed, move onto 
 
 ### Authorize API connections
 
-When the script was executed, it created a number of API connections that need to be authorized manually. 
-In Microsoft Azure portal go to the resource group that was created by the script. 
+When the script was executed, it created a number of API connections that need to be authorized manually.
+In Microsoft Azure portal go to the resource group that was created by the script.
 
-1. Click on the API connection with the name "provisionassist-o365".
+1. Click on the API connection with the name "bestillingsportalen-o365".
 2. Go to "Edit API connection" on the left menu.
 3. Click "Authorize". Use the Service Account to authenticate.
-4. Repeate the above actions for "provisionassist-o365users", "provisionassist-spo" and "provisionassist-teams" API connections.
+4. Repeate the above actions for "bestillingsportalen-o365users", "bestillingsportalen-spo" and "bestillingsportalen-teams" API connections.
 
  ## Step 4: Configure approval process
 
@@ -165,25 +165,25 @@ Approval of requests in the solution can take place in two ways:
 - Power Automate Approval action (Approval Email and Approvals app in Teams).
 - Microsoft Teams Adaptive Card Approval (Adaptive card posted into a Teams channel).
 
-Approvals for requests use a single Power Automate flow which runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Power App). 
+Approvals for requests use a single Power Automate flow which runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Power App).
 
-Follow the steps to configure the Provison Assist settings depending on which approval method you wish to implement. 
+Follow the steps to configure the Bestillingsportalen settings depending on which approval method you wish to implement.
 
-The settings for the Provision Assist solution can be found in the 'Provisioning Request Settings' list and are in the form of a key/value pair (Title/Value), both the **Title** and **Value** columns are single line of text. 
+The settings for the Bestillingsportalen solution can be found in the 'Provisioning Request Settings' list and are in the form of a key/value pair (Title/Value), both the **Title** and **Value** columns are single line of text.
 
 ### Power Automate Approvals
 
 1. Navigate to the SharePoint site created as part of the deployment.
 2. Locate the 'Provisioning Request Settings' list and navigate to it.
 3. Edit the 'ApproverEmail' list item and set the 'Value' field to a Email/UPN of a **single user** OR a **Microsoft 365 Group**.
-4. Ensure the value of the 'PostToTeams' list item is set to **false**. 
+4. Ensure the value of the 'PostToTeams' list item is set to **false**.
 5. Save the changes to the list item.
 
 Approvals are now configured to use Power Automate Approvals tasks.
 
 ### Teams
 
-1. Create (OR use an existing) Microsoft Teams Team to use for the approval adaptive cards. You may wish to connect the **Provision Assist** SharePoint site (group) to a new Teams Team.
+1. Create (OR use an existing) Microsoft Teams Team to use for the approval adaptive cards. You may wish to connect the **Bestillingsportalen** SharePoint site (group) to a new Teams Team.
 2. Create (OR use an existing) channel in the same team for the approval cards. This is where they will be posted.
 3. Add the appropriate users that will approve requests to the team.
 4. In the Teams client, click on the elipsis and select 'Get link to channel'.
@@ -211,19 +211,19 @@ The approvals will now use adaptive cards in Teams. Please revisit this section 
 
 ## Step 5: Deploy Power Apps solution
 
-1. Sign in with the service account that you created for the Provision Assist solution. **This is an important step, you must not use the account that you used to deploy the resources.**
+1. Sign in with the service account that you created for the Bestillingsportalen solution. **This is an important step, you must not use the account that you used to deploy the resources.**
 2. Navigate to the Power Apps portal.
 3. Click on 'Solutions' in the left pane and click 'Import solution'.
 
 ![Power Apps browse solution import screenshot](/Images/PASolutionImport.png)
 
-4. Browse and select the ProvisionAssist managed solution file.
+4. Browse and select the bestillingsportalen managed solution file.
 5. Click 'Next'.
 
 ![Power Apps import solution screenshot](/Images/PASolutionImport1.png)
 
 6. Click 'Next'.
-7. Create new connections for each connection used by Provision Assist, ensure you sign in using the service account.
+7. Create new connections for each connection used by Bestillingsportalen, ensure you sign in using the service account.
 
 ![Power Apps import solution connections screenshot](/Images/PASolutionConnections.png)
 
@@ -258,7 +258,7 @@ Follow the steps below to do this.
 6. Click the back arrow.
 7. Click 'Edit' next to 'Run only users'.
 8. In the pane that appears, select the 'SharePoint' tab.
-9. Select the Provision Assist site and 'Provisioning Requests' list in the drop downs beneath.
+9. Select the Bestillingsportalen site and 'Provisioning Requests' list in the drop downs beneath.
 10. Set the values in the 'Connections Used' drop downs to use the connection from the owner of the flow.
 
 ![Run only users screenshot](/Images/RunOnlyUsers.png)
@@ -276,14 +276,14 @@ Follow the steps below to turn it on.
 
 ## Step 8: Share Power App, Flows and SharePoint site
 
-Before Provision Assist can be rolled out, the Power App and SharePoint site need to be shared with all users to will submit requests.
+Before Bestillingsportalen can be rolled out, the Power App and SharePoint site need to be shared with all users to will submit requests.
 
 ### Power App
 
 Follow the steps below to share the app and the SharePoint site:
 
 1. Navigate to the Power Apps portal as the service account.
-2. Select the Provision Assist Power App and click 'Share' on the top menu.
+2. Select the Bestillingsportalen Power App and click 'Share' on the top menu.
 3. Enter users or groups to share the app with. You may wish to give some users 'Owner' rights to edit the app. This will avoid the need to sign in with the service account when making changes.
 
 If you don't have a group you can add users individually or share with everyone across your tenant by sharing with the 'Everyone' group. (To keep the communication official, you should take out the checkbox to 'Send an email invitation to new users.') You can also share the app with other admins by granting them Co-Owner rights.
@@ -297,15 +297,15 @@ If you don't have a group you can add users individually or share with everyone 
 
 ### Flows
 
-Next, we will share the flows that are used by Provision Assist with admins that wish to view flow runs/edit the flows. This step is optional but will avoid the need to sign in with the service account when viewing flow runs. Repeat these steps for each flow.
+Next, we will share the flows that are used by Bestillingsportalen with admins that wish to view flow runs/edit the flows. This step is optional but will avoid the need to sign in with the service account when viewing flow runs. Repeat these steps for each flow.
 
-Two flows are provided with the Provision Assist solution, these are:
+Two flows are provided with the Bestillingsportalen solution, these are:
 
 - Provisioning Request Approval - Provides an approval process for requests, see [Approval flow](/Approval-flow.md) for more details.
 - Check Space Availability - Checks to see if a space matching the supplied Title/URL already exists. This flow is executed when the 'Verify' button is clicked in the Power App. It uses the 'Office 365 Groups' connector to check for a group with the same details and also checks the 'Provisioning Requests' list for a matching request. Users may only proceed if the space does not exist or a request matching the same name does not already exist. If a request is found in the list and it was created by the SAME user, they are prompted to edit the other request instead.
 
 1. Navigate to the Power Apps portal as the service account.
-2. Click 'Flows' in the left pane. You will find two flows that are used by Provision Assist - **Provisioning Request Approval** and **Check Space Availability**.
+2. Click 'Flows' in the left pane. You will find two flows that are used by Bestillingsportalen - **Provisioning Request Approval** and **Check Space Availability**.
 3. Select the 'Provisioning Request Approval' flow and click 'Share' on the top menu.
 
 ![Share flow screenshot](/Images/PAShareFlow.png)
@@ -317,7 +317,7 @@ Two flows are provided with the Provision Assist solution, these are:
 
 ### SharePoint site
 
-The steps below will share the SharePoint site with end users, giving them access to create/edit requests only and not edit any of the backend settings of Provision Assist.
+The steps below will share the SharePoint site with end users, giving them access to create/edit requests only and not edit any of the backend settings of Bestillingsportalen.
 
 1. Navigate to the SharePoint site created during the deployment.
 2. Click 'Settings' _(gear)_ icon at the top right corner.
@@ -331,7 +331,7 @@ The steps below will share the SharePoint site with end users, giving them acces
 
 ## Step 9: Add the app to Teams
 
-1. Navigate to the Power Apps portal as the account you wish to install the app for and click 'Apps' in the left pane, you should see the Provision Assist Power App. **You may need to select the correct Environment in which you deployed the solution from the Environment menu at the top**.
+1. Navigate to the Power Apps portal as the account you wish to install the app for and click 'Apps' in the left pane, you should see the Bestillingsportalen Power App. **You may need to select the correct Environment in which you deployed the solution from the Environment menu at the top**.
 2. Select the app and click 'Add to Teams' from the top menu bar.
 
 At this point you have two options:
@@ -377,9 +377,9 @@ The reason for this column is to allow admins the flexibility to show/hide Site 
 
 ## Step 12: Set up Admins group
 
-The Provision Assist Power App leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *At the time of writing this screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Provision Assist only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Provision Assist:
+The Bestillingsportalen Power App leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *At the time of writing this screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Bestillingsportalen only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Bestillingsportalen:
 
-- Microsoft 365 Group (can be the same one used for the Provision Assist SPO site) OR 
+- Microsoft 365 Group (can be the same one used for the Bestillingsportalen SPO site) OR 
 - Microsoft Teams Team OR 
 - AAD Security Group
 
@@ -392,9 +392,9 @@ Obtain the id of the resource you created or an existing one you will reuse and 
 
 The admins group is now set up and configured.
 
-![Provision Assist settings icon screenshot](/Images/PASettingsIcon.png)
+![Bestillingsportalen settings icon screenshot](/Images/PASettingsIcon.png)
 
-![Provision Assist settings screen screenshot](/Images/PASettingsScreen.png)
+![Bestillingsportalen settings screen screenshot](/Images/PASettingsScreen.png)
 
 ## Deployment of the solution is now complete and the app should be accessible in Teams
 

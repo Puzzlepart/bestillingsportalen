@@ -1,6 +1,6 @@
 # Sensitivity Labels
 
-Provision Assist supports the application of sensitivity labels to created Teams or Office 365 Groups. 
+Bestillingsportalen supports the application of sensitivity labels to created Teams or Office 365 Groups. 
 
 To use this functionality sensitivity labels must be enabled for Teams & Groups, for more information see - https://docs.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels-teams-groups-sites?view=o365-worldwide. 
 
@@ -8,11 +8,11 @@ To use this functionality sensitivity labels must be enabled for Teams & Groups,
 
 This functionality needs to be enabled and configured for it to work.
 
-_Note - Due to limitations in the Microsoft Graph API, labels can only be applied using the Delegated permissions model. This means a Service Account (this can be the same one used for Provision Assist) is required. This account must NOT have MFA configured._
+_Note - Due to limitations in the Microsoft Graph API, labels can only be applied using the Delegated permissions model. This means a Service Account (this can be the same one used for Bestillingsportalen) is required. This account must NOT have MFA configured._
 
 _The username and password for this account is stored in Key Vault in order to ensure it is as secure as possible._
 
-_When this restriction is removed, we will update Provision Assist to use Application permissions, removing the need for a NO MFA Service Account._
+_When this restriction is removed, we will update Bestillingsportalen to use Application permissions, removing the need for a NO MFA Service Account._
 
 We will first cover how the functionality works and then how to enable it.
 
@@ -20,7 +20,7 @@ We will first cover how the functionality works and then how to enable it.
 
 Sensitivity labels are retrieved from the Purview portal using the Microsoft Graph API. A Logic App named 'SyncLabels' performs this sync. By default, this Logic App is set to run daily, you can change this if desired.
 
-Labels are stored as list items in a SharePoint list named 'IP Labels' in the SharePoint site backing Provision Assist.
+Labels are stored as list items in a SharePoint list named 'IP Labels' in the SharePoint site backing Bestillingsportalen.
 
 ![IP labels list screenshot](./images/IPLabelsList.png)
 
@@ -46,7 +46,7 @@ There are two ways to enable this functionality:
 
 1. Navigate to the **'Provisioning Request Settings'** list in the SharePoint site.
 2. Edit the **'EnableSensitivityLabels'** list item and set the Value field to **'true'**. It will be set to 'false' by default.
-3. Navigate to the **Azure Portal > Key Vaults blade** and click on the key vault used for your Provision Assist implementation.
+3. Navigate to the **Azure Portal > Key Vaults blade** and click on the key vault used for your Bestillingsportalen implementation.
 4. Select **'Secrets'** from the left pane.
 
 ![Key vault secrets screenshot](./images/KeyVaultSecrets.png)

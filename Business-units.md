@@ -1,6 +1,6 @@
 # Business Units
 
-Provision Assist now includes the capability to define Naming Conventions/Policies and unique approvers for created spaces by 'Business Unit'.
+Bestillingsportalen now includes the capability to define Naming Conventions/Policies and unique approvers for created spaces by 'Business Unit'.
 
 When this functionality is enabled in the settings list, a user can select a business unit when making a request.
 
@@ -42,7 +42,7 @@ Approvers for business units are configured in the 'Business Units' list, multip
 
 ## Creating Business Units
 
-To create a business unit, simply locate the 'Business Units' list in the Provision Assist SharePoint site and create a list item.
+To create a business unit, simply locate the 'Business Units' list in the Bestillingsportalen SharePoint site and create a list item.
 
 ![Business units list screenshot](./images/BusinessUnitsList.png)
 
@@ -66,7 +66,7 @@ In this initial release there are some limitations to be aware of.
 
 ## Upgrading from an earlier version (Adding business units functionality)
 
-**Before** importing the updated Provision Assist Power Apps solution, follow the steps below to add the Business Units functionality.
+**Before** importing the updated Bestillingsportalen Power Apps solution, follow the steps below to add the Business Units functionality.
 
 1. Create a list named 'BusinessUnits', once created rename the list to 'Business Units' i.e. add a space.
 2. Create the following columns:
@@ -84,5 +84,5 @@ In this initial release there are some limitations to be aware of.
 
 6. In the 'Provisioning Request Settings' worksheet locate the business units settings and create the relevant items in the settings list copying and pasting the Title, Value and Description.
 
-7. Import the latest Provision Assist Power Apps solution (this will upgrade earlier versions), making sure to select the 'Business Units' list when importing. 
+7. Import the latest Bestillingsportalen Power Apps solution (this will upgrade earlier versions), making sure to select the 'Business Units' list when importing. 
 

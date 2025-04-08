@@ -1,6 +1,6 @@
 # Retention Labels
 
-Provision Assist supports the application of retention labels to the SharePoint site backing a created collaboration space.
+Bestillingsportalen supports the application of retention labels to the SharePoint site backing a created collaboration space.
 
 The label will be applied to the **out of the box 'Documents' library only**.
 
@@ -8,13 +8,13 @@ To use this functionality retention labels must have been created in the Microso
 
 **Allow 24 hours after creating and publishing labels before you follow this guide.**
 
-Once labels are created, you will need to enable this functionality in the Provision Assist solution. Follow the steps below to do this. 
+Once labels are created, you will need to enable this functionality in the Bestillingsportalen solution. Follow the steps below to do this. 
 
 We will first cover how the functionality works and then how to enable it.
 
 ### What does this look like?
 
-Retention labels are stored as list items in a SharePoint list named 'Retention Labels' in the SharePoint site backing Provision Assist.
+Retention labels are stored as list items in a SharePoint list named 'Retention Labels' in the SharePoint site backing Bestillingsportalen.
 
 Labels need to be added manually to the SharePoint list named 'Retention Labels'. Ensure that the value of the 'Label Name' column **matches the exact name of the label in Purview**. 
 

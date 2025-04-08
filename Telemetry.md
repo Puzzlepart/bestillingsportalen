@@ -1,6 +1,6 @@
 # Telemetry
 
-Power Apps offers functionality to monitor the execution of an app at runtime. You can use the [monitor](https://learn.microsoft.com/en-us/power-apps/maker/monitor-overview) to debug or investigate performance of the Provision Assist app if required. 
+Power Apps offers functionality to monitor the execution of an app at runtime. You can use the [monitor](https://learn.microsoft.com/en-us/power-apps/maker/monitor-overview) to debug or investigate performance of the Bestillingsportalen app if required. 
 
 The Activity monitor tracks the following actions: 
 

@@ -1,6 +1,6 @@
 # Data Access & Security
 
-The Provision Assist solution uses the **Microsoft Graph API** and the **SharePoint REST API** to perform provisioning of Groups, Sites, Teams and Viva Engage Communities.
+The Bestillingsportalen solution uses the **Microsoft Graph API** and the **SharePoint REST API** to perform provisioning of Groups, Sites, Teams and Viva Engage Communities.
 
 Provisioning is carried out using an **Entra ID App Registration** which has the required permissions to the Microsoft Graph API assigned to it. For the most part **Application Permissions** are used with one exception - the application of sensitivity labels.
 
@@ -8,7 +8,7 @@ At the time of writing (July 2023), the Graph API does not support applying sens
 
 If you choose to disable or not use the sensitivity label functionality, then this is not required. 
 
-The **Client ID** and **Client Secret** of the Entra ID app are stored in a dedicated Key Vault that is created for the Provision Assist solution. These are then extracted for use in the Logic Apps using the Key Vault action, the action is set to hide the input and outputs so the secret value cannot be seen when viewing the run history.
+The **Client ID** and **Client Secret** of the Entra ID app are stored in a dedicated Key Vault that is created for the Bestillingsportalen solution. These are then extracted for use in the Logic Apps using the Key Vault action, the action is set to hide the input and outputs so the secret value cannot be seen when viewing the run history.
 
 The full list of the required API permissions for the Microsoft Graph and SharePoint tenant can be found below. 
 

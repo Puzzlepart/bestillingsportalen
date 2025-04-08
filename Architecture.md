@@ -1,6 +1,6 @@
 # Solution Architecture
 
-The diagram below details the architecture of the Provision Assist solution and the components used at a high level.
+The diagram below details the architecture of the Bestillingsportalen solution and the components used at a high level.
 
 ``` mermaid
 graph TD

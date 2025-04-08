@@ -1,6 +1,6 @@
 # Regional Settings
 
-Provision Assist includes the ability for users to choose a Time Zone and Locale to apply to their area when making a request.
+Bestillingsportalen includes the ability for users to choose a Time Zone and Locale to apply to their area when making a request.
 
 This time zone/locale will be applied to the SharePoint site using PnP PowerShell during provisioning. If the area is a Team, Group or Viva Engage community then the regional settings will be applied to the SharePoint site that backs this.
 

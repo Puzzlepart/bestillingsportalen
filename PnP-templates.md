@@ -1,6 +1,6 @@
 # PnP Templates
 
-Provision Assist includes the ability to apply PnP Provisioning templates when a user requests the creation of a SharePoint Site (Team Site, Office 365 Group, Communication Site or Hub Site).
+Bestillingsportalen includes the ability to apply PnP Provisioning templates when a user requests the creation of a SharePoint Site (Team Site, Office 365 Group, Communication Site or Hub Site).
 
 Currently these can be applied **instead** of Site Templates and **cannot** be applied to Microsoft Teams 'Teams'.
 
