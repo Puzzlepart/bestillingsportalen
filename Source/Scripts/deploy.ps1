@@ -717,23 +717,33 @@ function AssignManagedIdentityPermissions {
         $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
 
         $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
+        $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
 
         # Get the app role we need to assign
         $spoFullControlAppRole = $spoResource.AppRole | Where-Object DisplayName -eq 'Have full control of all site collections'
+        
+        # Group.ReadWrite.All
+        # TODO: Check to see that the graph role is working and is set next time we deploy
+        $graphReadWriteAppRole = $graphResource.AppRole | Where-Object DisplayName -eq 'Group.ReadWrite.All'
 
         # Get existing role assignments
         $roles = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
 
         # Check that the role assigments do not already exist
+        $existingSpoRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $spoResource.Id }
+        $existingGraphRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $graphResource.Id }
 
-        $existingRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $spoResource.Id }
-
-        if ($null -eq $existingRoleAssignment) {
+        if ($null -eq $existingSpoRoleAssignment) {
             # Assign SharePoint app roles to the service principal
             New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $spoFullControlAppRole.Id -ResourceId $spoResource.Id
         }
 
-        Write-Host "Finished assigning SharePoint app role to managed identity" -ForegroundColor Green
+        if ($null -eq $existingGraphRoleAssignment) {
+            # Assign Graph app roles to the service principal
+            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $graphReadWriteAppRole.Id -ResourceId $graphResource.Id
+        }
+
+        Write-Host "Finished assigning SharePoint and Graph app roles to managed identity" -ForegroundColor Green
     }
     catch {
         throw('Failed to assign graph and SharePoint app roles to the managed identity {0}', $_.Exception.Message)
