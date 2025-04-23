@@ -2165,7 +2165,9 @@
                                             "themeName": "@triggerBody()?['ThemeName']",
                                             "visibility": "@triggerBody()?['Visibility']?['Value']",
                                             "siteDesignId": "@triggerBody()?['SiteTemplate']",
-                                            "spaceImage": "@triggerBody()?['SpaceImage']"
+                                            "spaceImage": "@triggerBody()?['SpaceImage']",
+                                            "internalChannel": "@triggerBody()?['InternalChannel']",
+                                            "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']"
                                         }
                                     }
                                 },
@@ -2308,6 +2310,19 @@
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DefaultExternalSharingSetting",
+                                                                "value": "@{items('For_each_setting')?['ExternalSharingSetting']?['Value']}"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "Case_DefaultReadOnlyGroup": {
+                                                    "case": "DefaultReadOnlyGroup",
+                                                    "actions": {
+                                                        "Set_DefaultReadOnlyGroup_variable": {
+                                                            "runAfter": {},
+                                                            "type": "SetVariable",
+                                                            "inputs": {
+                                                                "name": "DefaultReadOnlyGroup",
                                                                 "value": "@{items('For_each_setting')?['ExternalSharingSetting']?['Value']}"
                                                             }
                                                         }
@@ -2569,6 +2584,22 @@
                                 "variables": [
                                     {
                                         "name": "DefaultExternalSharingSetting",
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_DefaultReadOnlyGroup_variable": {
+                            "runAfter": {
+                                "Initialize_EnableAllowAccessRequests_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "DefaultReadOnlyGroup",
                                         "type": "string"
                                     }
                                 ]
