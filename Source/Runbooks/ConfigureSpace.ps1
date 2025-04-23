@@ -30,7 +30,9 @@ Param
 	[String] $siteTemplateTitle,
 	[String] $siteCollectionAdmins,
     [String] $siteDesignId,
-    [string] $spaceImage
+    [string] $spaceImage,
+    [bool] $internalChannel,
+    [string] $readOnlyGroup
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
