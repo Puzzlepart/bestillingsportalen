@@ -2143,6 +2143,7 @@
                                             "Members": "@{outputs('Create_Members_string')}",
                                             "Owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
+                                            "sensitivityLabel": "@{triggerBody()?['SensitivityLabelId']}",
                                             "SiteUrl": "@triggerBody()?['SiteURL']",
                                             "TimeZoneId": "@{triggerBody()?['TimeZoneId']}",
                                             "Visitors": "@{outputs('Create_Visitors_string')}",
@@ -2167,7 +2168,8 @@
                                             "siteDesignId": "@triggerBody()?['SiteTemplate']",
                                             "spaceImage": "@triggerBody()?['SpaceImage']",
                                             "internalChannel": "@triggerBody()?['InternalChannel']",
-                                            "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']"
+                                            "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
+                                            "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')"
                                         }
                                     }
                                 },
@@ -2323,7 +2325,7 @@
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DefaultReadOnlyGroup",
-                                                                "value": "@{items('For_each_setting')?['ExternalSharingSetting']?['Value']}"
+                                                                "value": "@{items('For_each_setting')?['DefaultReadOnlyGroup']?['Value']}"
                                                             }
                                                         }
                                                     }
