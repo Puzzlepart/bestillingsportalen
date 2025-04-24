@@ -124,6 +124,8 @@
     <Field Type="Text" DisplayName="Site Template Store" MaxLength="255" ID="{67787e49-7ead-42a5-8900-faff09a779e6}" StaticName="SiteTemplateStore" Name="SiteTemplateStore" ShowInEditForm="FALSE" ShowInNewForm="FALSE" ShowInDisplayForm="FALSE" />
     <Field Type="Text" DisplayName="Sensitivity Label Id" MaxLength="255" ID="{b1f45310-ef31-4812-b9f5-7bb5a2b94110}" StaticName="SensitivityLabelId" Name="SensitivityLabelId" />
     <Field Type="Text" DisplayName="Sensitivity Label Name" MaxLength="255" ID="{3a0b1f74-2abf-4cc7-b8fb-c1cf4550f473}" StaticName="SensitivityLabelName" Name="SensitivityLabelName" />
+    <Field Type="Text" DisplayName="Sensitivity Label Library Id" MaxLength="255" ID="{0e97fef5-1d88-449b-ab28-74bc45536108}" StaticName="SensitivityLabelLibraryId" Name="SensitivityLabelLibraryId" />
+    <Field Type="Text" DisplayName="Sensitivity Label Library Name" MaxLength="255" ID="{e7b3a0d4-8e9b-4576-87a6-b5f0f8526f59}" StaticName="SensitivityLabelLibraryName" Name="SensitivityLabelLibraryName" />
     <Field Type="DateTime" DisplayName="Expiration Date" Format="DateOnly" FriendlyDisplayFormat="Disabled" ID="{7231cdee-ed49-4744-b6a6-29dc0764f7a5}" StaticName="ExpirationDate" Name="ExpirationDate" CalType="0" />
     <Field Type="Text" DisplayName="Space Display Name" MaxLength="255" ID="{0f9c9f53-942c-4a3e-ae0d-3383fcfe9224}" StaticName="SpaceDisplayName" Name="SpaceDisplayName" />
     <Field Type="Text" DisplayName="Retention Label Name" MaxLength="255" ID="{692d4351-e455-4c50-a1eb-a9c7b1039f8f}" StaticName="RetentionLabelName" Name="RetentionLabelName" />

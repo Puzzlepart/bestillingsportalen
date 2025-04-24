@@ -2144,6 +2144,7 @@
                                             "Owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
                                             "sensitivityLabel": "@{triggerBody()?['SensitivityLabelId']}",
+                                            "sensitivityLabelLibrary": "@{triggerBody()?['SensitivityLabelLibraryId']}",
                                             "SiteUrl": "@triggerBody()?['SiteURL']",
                                             "TimeZoneId": "@{triggerBody()?['TimeZoneId']}",
                                             "Visitors": "@{outputs('Create_Visitors_string')}",

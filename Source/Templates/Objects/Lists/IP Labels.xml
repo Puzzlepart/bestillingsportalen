@@ -8,6 +8,7 @@ xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
         <FieldRef Name="LabelId" />
         <FieldRef Name="LabelDescription" />
         <FieldRef Name="Enabled" />
+        <FieldRef Name="IsLibrary" />
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
       <JSLink>clienttemplates.js</JSLink>
@@ -23,6 +24,9 @@ xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
     <Field Type="Text" DisplayName="Label Id" MaxLength="255" ID="{ca381da2-a503-4d09-8b8d-2a6eb1d0536e}" StaticName="LabelId" Name="LabelId" />
     <Field Type="Note" DisplayName="Label Description" NumLines="6" RichText="FALSE" ID="{9b6e614c-539c-4032-869d-f9b74fd5dbb8}" StaticName="LabelDescription" Name="LabelDescription" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="Boolean" DisplayName="Enabled" ID="{65bd9ad8-d1d9-4d05-b3f8-b90bde062207}" StaticName="Enabled" Name="Enabled">
+      <Default>0</Default>
+    </Field>
+    <Field Type="Boolean" DisplayName="Is Library" ID="{0baff079-e598-4c4e-b427-357ec9fd01de}" StaticName="IsLibrary" Name="IsLibrary">
       <Default>0</Default>
     </Field>
   </pnp:Fields>

@@ -24,7 +24,7 @@ Param
     [bool] $disableDocSync,
     [String] $retentionLabel,
     [String] $sensitivityLabel,
-	[String] $featuresToActivate,
+    [String] $sensitivityLabelLibrary,
     [String] $featuresToActivate,
     [String] $applyPnPTemplate,
     [String] $pnpTemplateUrl,
@@ -285,6 +285,33 @@ function SetRetentionLabel {
     }
 }
 
+function SetSensitivityLabel {
+    if ($sensitivityLabel -ne "") {
+        try {
+            Write-Output "Setting sensitivity label $sensitivityLabel on site"
+            
+            Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
+            
+            Write-Output "Finished setting sensitivity label on site"
+        }
+        catch {
+            Write-Output $_.Exception.Message
+        }
+    }
+}
+
+function SetSensitivityLabelLibrary {
+    if ($sensitivityLabelLibrary -ne "") {
+        Write-Output "Setting sensitivity label $sensitivityLabelLibrary on 'Dokumenter' library"
+
+        $list = Get-PnPList "Dokumenter"
+        
+        Set-PnPList -Identity $list -DefaultSensitivityLabelForLibrary $sensitivityLabelLibrary
+
+        Write-Output "Finished setting sensitivity label"
+    }
+}
+
 function ActivateFeatures {
     If ($featuresToActivate -ne "") {
         Write-Output "Activating features"
@@ -403,6 +430,8 @@ try {
             ApplyTheme
             DisableDocumentSync
             SetRetentionLabel
+            SetSensitivityLabel
+            SetSensitivityLabelLibrary
             SetSiteClassification
             JoinOrRegisterHubSite
             SetStorageQuota
