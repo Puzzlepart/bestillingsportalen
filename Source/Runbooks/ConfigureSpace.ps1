@@ -25,17 +25,17 @@ Param
     [String] $retentionLabel,
     [String] $sensitivityLabel,
 	[String] $featuresToActivate,
-	[String] $applyPnPTemplate,
-	[String] $pnpTemplateUrl,
-	[String] $themeName,
-	[String] $siteTemplateTitle,
-	[String] $siteCollectionAdmins,
+    [String] $featuresToActivate,
+    [String] $applyPnPTemplate,
+    [String] $pnpTemplateUrl,
+    [String] $themeName,
+    [String] $siteTemplateTitle,
+    [String] $siteCollectionAdmins,
     [String] $siteDesignId,
     [string] $spaceImage,
     [bool] $internalChannel,
     [bool] $readOnlyGroup,
     [string] $defaultReadOnlyGroup
-    
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
@@ -80,14 +80,14 @@ function SetSiteLogo {
 function AddOwners {
     if ($spaceType -ne "Office 365 Group") {
         Write-Output "Updating SP owners group"
-		$group = Get-PnPGroup -AssociatedOwnerGroup
+        $group = Get-PnPGroup -AssociatedOwnerGroup
         ForEach ($owner in $owners -split ",") {
             #Get the group
             Write-Output("Adding '$owner' to Owners")
             Add-PnPGroupMember -LoginName $owner -Identity $group
         }
 
-}
+    }
 }
 
 function AddMembers {
@@ -140,7 +140,7 @@ function AddSiteCollectionAdmins {
         Write-Output "Adding Site Collection Administrators"
         ForEach ($sca in $siteCollectionAdmins -split ",") {
             #Add the sca
-			Add-PnPSiteCollectionAdmin -Owners $sca
+            Add-PnPSiteCollectionAdmin -Owners $sca
         }
         Write-Output "Finished adding Site Collection Administrators"
     }
@@ -220,8 +220,7 @@ function JoinOrRegisterHubSite {
                 Register-PnPHubSite -Site $siteUrl
                 Write-Output "Finished registering site as a hub"
 
-                if($syncHubPermissions)
-                {
+                if ($syncHubPermissions) {
                     Write-Output "Enabling hub permissions sync"
                     Set-PnPHubSite -Identity $siteUrl -EnablePermissionsSync
                     Write-Output "Finished enabling hub permissions sync"
@@ -275,99 +274,97 @@ function DisableDocumentSync {
 }
 
 function SetRetentionLabel {
-	if($retentionLabel -ne "") {
+    if ($retentionLabel -ne "") {
         Write-Output "Setting retention label $retentionLabel on 'Dokumenter' library"
 
         $list = Get-PnPList "Dokumenter"
 
-		Set-PnPLabel -List $list -Label $retentionLabel
+        Set-PnPLabel -List $list -Label $retentionLabel
 
-		Write-Output "Finished setting retention label"
-	}
+        Write-Output "Finished setting retention label"
+    }
 }
 
 function ActivateFeatures {
-	If($featuresToActivate -ne "") {
-		Write-Output "Activating features"
+    If ($featuresToActivate -ne "") {
+        Write-Output "Activating features"
 
-		$ctx = Get-PnPContext
-		$site = $ctx.Site
-		$ctx.Load($site)
-		$ctx.ExecuteQuery()
+        $ctx = Get-PnPContext
+        $site = $ctx.Site
+        $ctx.Load($site)
+        $ctx.ExecuteQuery()
 
-		$web = $ctx.Web
-		$ctx.Load($web)
-		$ctx.ExecuteQuery()
+        $web = $ctx.Web
+        $ctx.Load($web)
+        $ctx.ExecuteQuery()
 
-		# Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
-		if($featuresToActivate.ToLower().Contains('web')) {
+        # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
+        if ($featuresToActivate.ToLower().Contains('web')) {
 
-			$featureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
+            $featureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
 
-			$web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
-			$ctx.ExecuteQuery()
+            $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+            $ctx.ExecuteQuery()
 
-		}
+        }
 
-		ForEach ($feature in $featuresToActivate -split ",") {
+        ForEach ($feature in $featuresToActivate -split ",") {
 
-			$featureId = $feature.Substring($feature.IndexOf(':') + 1)
+            $featureId = $feature.Substring($feature.IndexOf(':') + 1)
 
-			If($feature.ToLower().StartsWith("web")) {
-				Write-Output "Activating web feature $featureId"
+            If ($feature.ToLower().StartsWith("web")) {
+                Write-Output "Activating web feature $featureId"
 			
-				$web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
-				$ctx.ExecuteQuery()
+                $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+                $ctx.ExecuteQuery()
 
-				Write-Output "Activated web feature $featureId"
-			}
+                Write-Output "Activated web feature $featureId"
+            }
 			
-			If($feature.ToLower().StartsWith("site")) {
-				Write-Output "Activating site feature $featureId"
+            If ($feature.ToLower().StartsWith("site")) {
+                Write-Output "Activating site feature $featureId"
 
-				$site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
-				$ctx.ExecuteQuery()
+                $site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
+                $ctx.ExecuteQuery()
 
-				Write-Output "Activated site feature $featureId"
-			}
+                Write-Output "Activated site feature $featureId"
+            }
 
-		}
+        }
 
-		Write-Output "Finished activating features"
+        Write-Output "Finished activating features"
 
-	}
+    }
 }
 
 function ApplyPnPTemplate {
 
-	if($applyPnPTemplate -eq $true) {
-		Write-Output "Applying PnP template"
+    if ($applyPnPTemplate -eq $true) {
+        Write-Output "Applying PnP template"
 
-		#Apply the template
-		Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
+        #Apply the template
+        Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
 
-		Write-Output "Finished applying PnP template"
-	}
+        Write-Output "Finished applying PnP template"
+    }
 
 }
 
 function ApplyTheme {
-	if($themeName -ne "") 
-	{
-		Write-Output "Applying $themeName theme"
+    if ($themeName -ne "") {
+        Write-Output "Applying $themeName theme"
 
-		#Apply the theme
-		Set-PnPWebTheme -Theme $themeName
+        #Apply the theme
+        Set-PnPWebTheme -Theme $themeName
 
-		Write-Output "Finished applying theme"
+        Write-Output "Finished applying theme"
 		
-	}
+    }
 }
 
 function ApplySiteDesign {
     # Reapply site design if we have applied a PnP template
-    if ($applyPnPTemplate -eq $true -and $siteDesignId -ne $null)
-    {
+    if ($applyPnPTemplate -eq $true -and $siteDesignId -ne $null) {
         Write-Output "Applying site design"
 
         Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
@@ -397,15 +394,15 @@ try {
             AddMembers
             AddVisitors
             AddReadOnlyGroup
-			AddSiteCollectionAdmins
+            AddSiteCollectionAdmins
             SetAccessRequestSettings
             SetSiteLogo
             SetRegionalSettings
-			ActivateFeatures
-			ApplyPnPTemplate
-			ApplyTheme
+            ActivateFeatures
+            ApplyPnPTemplate
+            ApplyTheme
             DisableDocumentSync
-			SetRetentionLabel
+            SetRetentionLabel
             SetSiteClassification
             JoinOrRegisterHubSite
             SetStorageQuota
