@@ -22,7 +22,8 @@ Param
     [Int] $storageQuotaWarning,
     [bool] $syncHubPermissions,
     [bool] $disableDocSync,
-	[String] $retentionLabel,
+    [String] $retentionLabel,
+    [String] $sensitivityLabel,
 	[String] $featuresToActivate,
 	[String] $applyPnPTemplate,
 	[String] $pnpTemplateUrl,
@@ -32,7 +33,9 @@ Param
     [String] $siteDesignId,
     [string] $spaceImage,
     [bool] $internalChannel,
-    [string] $readOnlyGroup
+    [bool] $readOnlyGroup,
+    [string] $defaultReadOnlyGroup
+    
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
@@ -112,6 +115,22 @@ function AddVisitors {
         }
 
         Write-Output "Finished updating SP visitors group"
+    }
+}
+
+function AddReadOnlyGroup {
+    Write-Output("Running 'AddReadOnlyGroup'")
+    If ($readOnlyGroup -and $defaultReadOnlyGroup -ne "") {
+        try {
+            Write-Output "Updating SP visitors group with read-only group"
+            #Get the group
+            $group = Get-PnPGroup -AssociatedVisitorGroup
+            Add-PnPGroupMember -Group $group -LoginName $defaultReadOnlyGroup
+            Write-Output "Finished updating SP visitors group"
+        }
+        catch {
+            Write-Host "Error updating SP visitors group with read-only group: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -377,6 +396,7 @@ try {
             AddOwners
             AddMembers
             AddVisitors
+            AddReadOnlyGroup
 			AddSiteCollectionAdmins
             SetAccessRequestSettings
             SetSiteLogo

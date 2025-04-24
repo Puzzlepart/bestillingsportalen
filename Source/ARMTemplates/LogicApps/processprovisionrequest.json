@@ -2143,7 +2143,7 @@
                                             "Members": "@{outputs('Create_Members_string')}",
                                             "Owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
-                                            "sensitivityLabel": "@{triggerBody()?['SensitivityLabelId']}",
+                                            "sensitivityLabel": "@{triggerBody()?['SensitivityLabelName']}",
                                             "SiteUrl": "@triggerBody()?['SiteURL']",
                                             "TimeZoneId": "@{triggerBody()?['TimeZoneId']}",
                                             "Visitors": "@{outputs('Create_Visitors_string')}",
@@ -2325,7 +2325,7 @@
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "DefaultReadOnlyGroup",
-                                                                "value": "@{items('For_each_setting')?['DefaultReadOnlyGroup']?['Value']}"
+                                                                "value": "@items('For_each_setting')?['Value']"
                                                             }
                                                         }
                                                     }
