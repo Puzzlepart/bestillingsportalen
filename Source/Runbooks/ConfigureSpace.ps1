@@ -129,7 +129,7 @@ function AddReadOnlyGroup {
             Write-Output "Finished updating SP visitors group"
         }
         catch {
-            Write-Host "Error updating SP visitors group with read-only group: $($_.Exception.Message)"
+            Write-Output "Error updating SP visitors group with read-only group: $($_.Exception.Message)"
         }
     }
 }
@@ -302,13 +302,18 @@ function SetSensitivityLabel {
 
 function SetSensitivityLabelLibrary {
     if ($sensitivityLabelLibrary -ne "") {
-        Write-Output "Setting sensitivity label $sensitivityLabelLibrary on 'Dokumenter' library"
+        try {
+            Write-Output "Setting sensitivity label $sensitivityLabelLibrary on 'Dokumenter' library"
 
-        $list = Get-PnPList "Dokumenter"
-        
-        Set-PnPList -Identity $list -DefaultSensitivityLabelForLibrary $sensitivityLabelLibrary
+            $list = Get-PnPList "Dokumenter"
+            
+            Set-PnPList -Identity $list -DefaultSensitivityLabelForLibrary $sensitivityLabelLibrary
 
-        Write-Output "Finished setting sensitivity label"
+            Write-Output "Finished setting sensitivity label"
+        }
+        catch {
+            Write-Output $_.Exception.Message
+        }
     }
 }
 

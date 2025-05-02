@@ -26,6 +26,7 @@
                 <FieldRef Name="ExternalSharing" />
                 <FieldRef Name="DefaultHub" />
                 <FieldRef Name="DefaultSensitivityLabel" />
+                <FieldRef Name="DefaultSensitivityLabelLibrary" />
                 <FieldRef Name="DefaultRetentionLabel" />
             </ViewFields>
             <RowLimit Paged="TRUE">30</RowLimit>
@@ -87,6 +88,7 @@
             <Default>0</Default>
         </Field>
         <Field DisplayName="Default Sensitivity Label" Name="DefaultSensitivityLabel" Title="Default Sensitivity Label" Type="Text" ID="{c2eea410-410d-4642-9499-2b6b9e0bcf47}" StaticName="DefaultSensitivityLabel" />
+        <Field DisplayName="Default Sensitivity Label Library" Name="DefaultSensitivityLabelLibrary" Title="Default Sensitivity Label Library" Type="Text" ID="{f075f029-0753-4510-b7aa-5276dd6edd23}" StaticName="DefaultSensitivityLabelLibrary" />
         <Field DisplayName="Default Retention Label" Name="DefaultRetentionLabel" Title="Default Sensitivity Label" Type="Text" ID="{f1b39606-2a10-48a0-ba44-d8cba8953a59}" StaticName="DefaultRetentionLabel" />
         <Field DisplayName="Default Hub" Name="DefaultHub" Title="Default Hub" Type="Text" ID="{53778c0f-bb26-4b14-a6e6-14fc9765a962}" StaticName="DefaultHub" />
     </pnp:Fields>

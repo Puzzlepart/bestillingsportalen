@@ -17,6 +17,7 @@
         <FieldRef Name="RequestedBy" />
         <FieldRef Name="Teamify" />
         <FieldRef Name="SensitivityLabelName" />
+        <FieldRef Name="SensitivityLabelLibraryName" />
         <FieldRef Name="RetentionLabelName" />
         <FieldRef Name="Guests" />
         <FieldRef Name="InternalChannel" />
