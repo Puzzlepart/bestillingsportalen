@@ -75,12 +75,12 @@
                     "triggers": {
                         "When_an_item_is_created_or_modified": {
                             "recurrence": {
-                                "frequency": "Hour",
-                                "interval": 1
+                                "frequency": "Minute",
+                                "interval": 10
                             },
                             "evaluatedRecurrence": {
-                                "frequency": "Hour",
-                                "interval": 1
+                                "frequency": "Minute",
+                                "interval": 10
                             },
                             "splitOn": "@triggerBody()?['value']",
                             "type": "ApiConnection",
@@ -580,7 +580,7 @@
                                                     "type": "SetVariable",
                                                     "inputs": {
                                                         "name": "MembersRequestBody",
-                                                        "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{triggerBody()?['MailboxAlias']}\",\n  \"members@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('MembersGraph'),10),variables('MembersGraph'))},\n  \"owners@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('OwnersGraph'),10),variables('OwnersGraph'))},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\": @{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team'))),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
+                                                        "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{triggerBody()?['MailboxAlias']}\",\n  \"members@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('MembersGraph'),10),variables('MembersGraph'))},\n  \"owners@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('OwnersGraph'),10),variables('OwnersGraph'))},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\": @{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
                                                     }
                                                 }
                                             },
@@ -591,7 +591,7 @@
                                                         "type": "SetVariable",
                                                         "inputs": {
                                                             "name": "MembersRequestBody",
-                                                            "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{triggerBody()?['MailboxAlias']}\",\n  \"owners@odata.bind\": @{variables('OwnersGraph')},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\":@{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team'))),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
+                                                            "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{triggerBody()?['MailboxAlias']}\",\n  \"owners@odata.bind\": @{variables('OwnersGraph')},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\":@{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
                                                         }
                                                     }
                                                 }
@@ -2157,7 +2157,7 @@
                                 "body": {
                                     "properties": {
                                         "parameters": {
-                                            "groupId": "@{variables('GroupID')",
+                                            "groupId": "@variables('GroupID')",
                                             "Members": "@{outputs('Create_Members_string')}",
                                             "Owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
@@ -5373,7 +5373,7 @@
                                         "Value": "Space Created"
                                     },
                                     "Teamify": "@triggerBody()?['Teamify']",
-                                    "TeamsURL": "@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team'))),variables('TeamURL'),'')}",
+                                    "TeamsURL": "@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceType']?['Value'], 'Microsoft Teams Team')),variables('TeamURL'),'')}",
                                     "Title": "@triggerBody()?['Title']",
                                     "VivaEngageCommunityURL": "@variables('VivaEngageURL')"
                                 },
