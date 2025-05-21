@@ -73,6 +73,7 @@
     <Field Type="Text" DisplayName="Site Template Title" MaxLength="255" ID="{bf4459ca-98ec-474d-ace1-e93c35f6538f}" StaticName="SiteTemplateTitle" Name="SiteTemplateTitle" />
     <Field Type="Text" DisplayName="Teams Template" MaxLength="255" ID="{6db7f98e-cace-4954-8dc3-ae830a194162}" StaticName="TeamsTemplate" Name="TeamsTemplate" />
     <Field Type="Text" DisplayName="Teams Template Title" MaxLength="255" ID="{72b2b19c-b593-4798-bcdb-fec27b4ab7c4}" StaticName="TeamsTemplateTitle" Name="TeamsTemplateTitle" />
+    <Field Type="Text" DisplayName="Teams Channel ID" MaxLength="255" Name="TeamsChannelID" Title="Teams Channel ID" ID="{23984d03-ae4a-436e-b94a-7796e17a3462}" StaticName="TeamsChannelID" />
     <Field Type="Boolean" DisplayName="Join Hub" ID="{6d759eb2-439f-4706-8da4-6d564a671e01}" StaticName="JoinHub" Name="JoinHub">
       <Default>0</Default>
     </Field>
