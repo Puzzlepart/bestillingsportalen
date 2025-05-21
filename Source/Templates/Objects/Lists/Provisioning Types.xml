@@ -28,6 +28,7 @@
                 <FieldRef Name="DefaultSensitivityLabel" />
                 <FieldRef Name="DefaultSensitivityLabelLibrary" />
                 <FieldRef Name="DefaultRetentionLabel" />
+                <FieldRef Name="TeamsChannelID" />
             </ViewFields>
             <RowLimit Paged="TRUE">30</RowLimit>
             <JSLink>clienttemplates.js</JSLink>
@@ -91,5 +92,6 @@
         <Field DisplayName="Default Sensitivity Label Library" Name="DefaultSensitivityLabelLibrary" Title="Default Sensitivity Label Library" Type="Text" ID="{f075f029-0753-4510-b7aa-5276dd6edd23}" StaticName="DefaultSensitivityLabelLibrary" />
         <Field DisplayName="Default Retention Label" Name="DefaultRetentionLabel" Title="Default Sensitivity Label" Type="Text" ID="{f1b39606-2a10-48a0-ba44-d8cba8953a59}" StaticName="DefaultRetentionLabel" />
         <Field DisplayName="Default Hub" Name="DefaultHub" Title="Default Hub" Type="Text" ID="{53778c0f-bb26-4b14-a6e6-14fc9765a962}" StaticName="DefaultHub" />
+        <Field DisplayName="Teams Channel ID" Name="TeamsChannelID" Title="Teams Channel ID" Type="Text" ID="{580a28ae-d3ee-4f05-a69c-4765bce2f280}" StaticName="TeamsChannelID" />
     </pnp:Fields>
 </pnp:ListInstance>
