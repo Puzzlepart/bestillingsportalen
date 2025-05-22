@@ -1,0 +1,302 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json",
+  "elmType": "div",
+  "style": {
+    "flex-wrap": "wrap",
+    "display": "flex"
+  },
+  "children": [
+    {
+      "elmType": "div",
+      "style": {
+        "box-sizing": "border-box",
+        "padding": "4px 8px 5px 8px",
+        "overflow": "hidden",
+        "text-overflow": "ellipsis",
+        "display": "flex",
+        "border-radius": "16px",
+        "height": "24px",
+        "align-items": "center",
+        "white-space": "nowrap",
+        "margin": "4px 4px 4px 4px"
+      },
+      "attributes": {
+        "class": {
+          "operator": ":",
+          "operands": [
+            {
+              "operator": "==",
+              "operands": [
+                "[$Status]",
+                "Not Submitted"
+              ]
+            },
+            "sp-css-backgroundColor-BgBrown sp-css-borderColor-WhiteFont sp-css-color-WhiteFont",
+            {
+              "operator": ":",
+              "operands": [
+                {
+                  "operator": "==",
+                  "operands": [
+                    "[$Status]",
+                    "Submitted"
+                  ]
+                },
+                "sp-css-backgroundColor-BgPurple sp-css-borderColor-WhiteFont sp-css-color-WhiteFont",
+                {
+                  "operator": ":",
+                  "operands": [
+                    {
+                      "operator": "==",
+                      "operands": [
+                        "[$Status]",
+                        "Pending Approval"
+                      ]
+                    },
+                    "sp-css-backgroundColor-BgGold sp-css-color-GoldFont",
+                    {
+                      "operator": ":",
+                      "operands": [
+                        {
+                          "operator": "==",
+                          "operands": [
+                            "[$Status]",
+                            "Approved"
+                          ]
+                        },
+                        "sp-css-backgroundColor-BgTeal sp-css-borderColor-WhiteFont sp-css-color-WhiteFont",
+                        {
+                          "operator": ":",
+                          "operands": [
+                            {
+                              "operator": "==",
+                              "operands": [
+                                "[$Status]",
+                                "Rejected"
+                              ]
+                            },
+                            "sp-css-backgroundColor-BgDustRose sp-css-color-DustRoseFont",
+                            {
+                              "operator": ":",
+                              "operands": [
+                                {
+                                  "operator": "==",
+                                  "operands": [
+                                    "[$Status]",
+                                    "Space Creation"
+                                  ]
+                                },
+                                "sp-css-backgroundColor-BgCornflowerBlue sp-css-borderColor-CornflowerBlueFont sp-css-color-CornflowerBlueFont",
+                                {
+                                  "operator": ":",
+                                  "operands": [
+                                    {
+                                      "operator": "==",
+                                      "operands": [
+                                        "[$Status]",
+                                        "Space Created"
+                                      ]
+                                    },
+                                    "sp-css-backgroundColor-BgMintGreen sp-css-borderColor-MintGreenFont sp-css-color-MintGreenFont",
+                                    {
+                                      "operator": ":",
+                                      "operands": [
+                                        {
+                                          "operator": "==",
+                                          "operands": [
+                                            "[$Status]",
+                                            "Space Creation Failed"
+                                          ]
+                                        },
+                                        "sp-css-backgroundColor-BgSage sp-css-color-SageFont",
+                                        {
+                                          "operator": ":",
+                                          "operands": [
+                                            {
+                                              "operator": "==",
+                                              "operands": [
+                                                "[$Status]",
+                                                "Space Already Exists"
+                                              ]
+                                            },
+                                            "sp-css-backgroundColor-BgLightPurple sp-css-color-LightPurpleFont",
+                                            {
+                                              "operator": ":",
+                                              "operands": [
+                                                {
+                                                  "operator": "==",
+                                                  "operands": [
+                                                    "[$Status]",
+                                                    "Team Requested"
+                                                  ]
+                                                },
+                                                "sp-css-backgroundColor-BgViolet sp-css-color-VioletFont",
+                                                "sp-field-borderAllRegular sp-field-borderAllSolid sp-css-borderColor-neutralSecondary"
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "children": [
+        {
+          "elmType": "span",
+          "style": {
+            "overflow": "hidden",
+            "text-overflow": "ellipsis",
+            "padding": "0 3px"
+          },
+          "txtContent": "[$Status]",
+          "attributes": {
+            "class": {
+              "operator": ":",
+              "operands": [
+                {
+                  "operator": "==",
+                  "operands": [
+                    "[$Status]",
+                    "Not Submitted"
+                  ]
+                },
+                "sp-css-color-WhiteFont",
+                {
+                  "operator": ":",
+                  "operands": [
+                    {
+                      "operator": "==",
+                      "operands": [
+                        "[$Status]",
+                        "Submitted"
+                      ]
+                    },
+                    "sp-css-color-WhiteFont",
+                    {
+                      "operator": ":",
+                      "operands": [
+                        {
+                          "operator": "==",
+                          "operands": [
+                            "[$Status]",
+                            "Pending Approval"
+                          ]
+                        },
+                        "sp-css-color-GoldFont",
+                        {
+                          "operator": ":",
+                          "operands": [
+                            {
+                              "operator": "==",
+                              "operands": [
+                                "[$Status]",
+                                "Approved"
+                              ]
+                            },
+                            "sp-css-color-WhiteFont",
+                            {
+                              "operator": ":",
+                              "operands": [
+                                {
+                                  "operator": "==",
+                                  "operands": [
+                                    "[$Status]",
+                                    "Rejected"
+                                  ]
+                                },
+                                "sp-css-color-DustRoseFont",
+                                {
+                                  "operator": ":",
+                                  "operands": [
+                                    {
+                                      "operator": "==",
+                                      "operands": [
+                                        "[$Status]",
+                                        "Space Creation"
+                                      ]
+                                    },
+                                    "sp-css-color-CornflowerBlueFont",
+                                    {
+                                      "operator": ":",
+                                      "operands": [
+                                        {
+                                          "operator": "==",
+                                          "operands": [
+                                            "[$Status]",
+                                            "Space Created"
+                                          ]
+                                        },
+                                        "sp-css-color-MintGreenFont",
+                                        {
+                                          "operator": ":",
+                                          "operands": [
+                                            {
+                                              "operator": "==",
+                                              "operands": [
+                                                "[$Status]",
+                                                "Space Creation Failed"
+                                              ]
+                                            },
+                                            "sp-css-color-SageFont",
+                                            {
+                                              "operator": ":",
+                                              "operands": [
+                                                {
+                                                  "operator": "==",
+                                                  "operands": [
+                                                    "[$Status]",
+                                                    "Space Already Exists"
+                                                  ]
+                                                },
+                                                "sp-css-color-LightPurpleFont",
+                                                {
+                                                  "operator": ":",
+                                                  "operands": [
+                                                    {
+                                                      "operator": "==",
+                                                      "operands": [
+                                                        "[$Status]",
+                                                        "Team Requested"
+                                                      ]
+                                                    },
+                                                    "sp-css-color-VioletFont",
+                                                    ""
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

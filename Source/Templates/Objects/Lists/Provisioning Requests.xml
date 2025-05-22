@@ -3,30 +3,35 @@
   <pnp:Views>
     <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="Alle elementer" Url="{site}/Lists/ProvisioningRequests/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
       <ViewFields>
+        <FieldRef Name="ID" />
         <FieldRef Name="LinkTitle" />
         <FieldRef Name="Description" />
         <FieldRef Name="BusinessJustification" />
         <FieldRef Name="Status" />
         <FieldRef Name="ApprovedDate" />
         <FieldRef Name="Comments" />
+        <FieldRef Name="SiteURL" />
         <FieldRef Name="SpaceType" />
+        <FieldRef Name="SpaceTypeInternal" />
         <FieldRef Name="Owners" />
         <FieldRef Name="Members" />
-        <FieldRef Name="SiteURL" />
-        <FieldRef Name="RequestedSource" />
         <FieldRef Name="RequestedBy" />
+        <FieldRef Name="RequestedSource" />
         <FieldRef Name="Teamify" />
         <FieldRef Name="SensitivityLabelName" />
         <FieldRef Name="SensitivityLabelLibraryName" />
         <FieldRef Name="RetentionLabelName" />
         <FieldRef Name="Guests" />
-        <FieldRef Name="InternalChannel" />
-        <FieldRef Name="ReadOnlyGroup" />
         <FieldRef Name="ExpirationDate" />
         <FieldRef Name="SpaceImage" />
-        <FieldRef Name="Metadata" />
         <FieldRef Name="Prefix" />
         <FieldRef Name="Suffix" />
+        <FieldRef Name="SiteTemplate" />
+        <FieldRef Name="TeamsTemplate" />
+        <FieldRef Name="ApplyPnPTemplate" />
+        <FieldRef Name="JoinHub" />
+        <FieldRef Name="HubSite" />
+        <FieldRef Name="HubSiteTitle" />
         <FieldRef Name="BusinessUnit" />
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
@@ -96,7 +101,7 @@
         <CHOICE>Submitted</CHOICE>
       </CHOICES>
     </Field>
-    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{52b9dc12-9bd2-4e69-bbaa-eb3c2ad9f334}" StaticName="Status" Name="Status">
+    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{52b9dc12-9bd2-4e69-bbaa-eb3c2ad9f334}" StaticName="Status" Name="Status" CustomFormatter="{&quot;$schema&quot;:&quot;https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json&quot;,&quot;elmType&quot;:&quot;div&quot;,&quot;style&quot;: {&quot;flex-wrap&quot;:&quot;wrap&quot;,&quot;display&quot;:&quot;flex&quot;},&quot;children&quot;: [ {&quot;elmType&quot;:&quot;div&quot;,&quot;style&quot;: {&quot;box-sizing&quot;:&quot;border-box&quot;,&quot;padding&quot;:&quot;4px 8px 5px 8px&quot;,&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;,&quot;display&quot;:&quot;flex&quot;,&quot;border-radius&quot;:&quot;16px&quot;,&quot;height&quot;:&quot;24px&quot;,&quot;align-items&quot;:&quot;center&quot;,&quot;white-space&quot;:&quot;nowrap&quot;,&quot;margin&quot;:&quot;4px 4px 4px 4px&quot;},&quot;attributes&quot;: {&quot;class&quot;: {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Not Submitted&quot;]},&quot;sp-css-backgroundColor-BgBrown sp-css-borderColor-WhiteFont sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Submitted&quot;]},&quot;sp-css-backgroundColor-BgPurple sp-css-borderColor-WhiteFont sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Pending Approval&quot;]},&quot;sp-css-backgroundColor-BgGold sp-css-color-GoldFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Approved&quot;]},&quot;sp-css-backgroundColor-BgTeal sp-css-borderColor-WhiteFont sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Rejected&quot;]},&quot;sp-css-backgroundColor-BgDustRose sp-css-color-DustRoseFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Creation&quot;]},&quot;sp-css-backgroundColor-BgCornflowerBlue sp-css-borderColor-CornflowerBlueFont sp-css-color-CornflowerBlueFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Created&quot;]},&quot;sp-css-backgroundColor-BgMintGreen sp-css-borderColor-MintGreenFont sp-css-color-MintGreenFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Creation Failed&quot;]},&quot;sp-css-backgroundColor-BgSage sp-css-color-SageFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Already Exists&quot;]},&quot;sp-css-backgroundColor-BgLightPurple sp-css-color-LightPurpleFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Team Requested&quot;]},&quot;sp-css-backgroundColor-BgViolet sp-css-color-VioletFont&quot;,&quot;sp-field-borderAllRegular sp-field-borderAllSolid sp-css-borderColor-neutralSecondary&quot;]}]}]}]}]}]}]}]}]}]}},&quot;children&quot;: [ {&quot;elmType&quot;:&quot;span&quot;,&quot;style&quot;: {&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;,&quot;padding&quot;:&quot;0 3px&quot;},&quot;txtContent&quot;:&quot;[$Status]&quot;,&quot;attributes&quot;: {&quot;class&quot;: {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Not Submitted&quot;]},&quot;sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Submitted&quot;]},&quot;sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Pending Approval&quot;]},&quot;sp-css-color-GoldFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Approved&quot;]},&quot;sp-css-color-WhiteFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Rejected&quot;]},&quot;sp-css-color-DustRoseFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Creation&quot;]},&quot;sp-css-color-CornflowerBlueFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Created&quot;]},&quot;sp-css-color-MintGreenFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Creation Failed&quot;]},&quot;sp-css-color-SageFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Space Already Exists&quot;]},&quot;sp-css-color-LightPurpleFont&quot;, {&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;: [ {&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;: [&quot;[$Status]&quot;,&quot;Team Requested&quot;]},&quot;sp-css-color-VioletFont&quot;,&quot;&quot;]}]}]}]}]}]}]}]}]}]}}}]}]}">
       <Default>Not Submitted</Default>
       <CHOICES>
         <CHOICE>Not Submitted</CHOICE>
