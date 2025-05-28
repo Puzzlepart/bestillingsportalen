@@ -7,28 +7,29 @@
                 <FieldRef Name="LinkTitle" />
                 <FieldRef Name="Description" />
                 <FieldRef Name="Allowed" />
-                <FieldRef Name="TemplateId" />
                 <FieldRef Name="Image" />
-                <FieldRef Name="WebTemplateId" />
-                <FieldRef Name="LearnVideoURL" />
                 <FieldRef Name="Icon" />
                 <FieldRef Name="PrefixText" />
-                <FieldRef Name="PrefixUseAttribute" />
-                <FieldRef Name="PrefixAttribute" />
                 <FieldRef Name="SuffixText" />
-                <FieldRef Name="SuffixUseAttribute" />
-                <FieldRef Name="SuffixAttribute" />
-                <FieldRef Name="VisibleTo" />
                 <FieldRef Name="InternalTitle" />
+                <FieldRef Name="TemplateId" />
+                <FieldRef Name="WebTemplateId" />
+                <FieldRef Name="JoinHub" />
+                <FieldRef Name="DefaultHub" />
+                <FieldRef Name="TeamsChannelID" />
+                <FieldRef Name="VisibleTo" />
                 <FieldRef Name="ManagedPath" />
                 <FieldRef Name="DefaultVisibility" />
                 <FieldRef Name="DefaultConfidentialData" />
                 <FieldRef Name="ExternalSharing" />
-                <FieldRef Name="DefaultHub" />
                 <FieldRef Name="DefaultSensitivityLabel" />
                 <FieldRef Name="DefaultSensitivityLabelLibrary" />
                 <FieldRef Name="DefaultRetentionLabel" />
-                <FieldRef Name="TeamsChannelID" />
+                <FieldRef Name="LearnVideoURL" />
+                <FieldRef Name="PrefixUseAttribute" />
+                <FieldRef Name="PrefixAttribute" />
+                <FieldRef Name="SuffixUseAttribute" />
+                <FieldRef Name="SuffixAttribute" />
             </ViewFields>
             <RowLimit Paged="TRUE">30</RowLimit>
             <JSLink>clienttemplates.js</JSLink>
@@ -91,6 +92,9 @@
         <Field DisplayName="Default Sensitivity Label" Name="DefaultSensitivityLabel" Title="Default Sensitivity Label" Type="Text" ID="{c2eea410-410d-4642-9499-2b6b9e0bcf47}" StaticName="DefaultSensitivityLabel" />
         <Field DisplayName="Default Sensitivity Label Library" Name="DefaultSensitivityLabelLibrary" Title="Default Sensitivity Label Library" Type="Text" ID="{f075f029-0753-4510-b7aa-5276dd6edd23}" StaticName="DefaultSensitivityLabelLibrary" />
         <Field DisplayName="Default Retention Label" Name="DefaultRetentionLabel" Title="Default Sensitivity Label" Type="Text" ID="{f1b39606-2a10-48a0-ba44-d8cba8953a59}" StaticName="DefaultRetentionLabel" />
+        <Field Type="Boolean" DisplayName="Join Hub" ID="{c58cb7fc-21d4-47aa-9f97-7c220133b588}" StaticName="JoinHub" Name="JoinHub">
+            <Default>0</Default>
+        </Field>
         <Field DisplayName="Default Hub" Name="DefaultHub" Title="Default Hub" Type="Text" ID="{53778c0f-bb26-4b14-a6e6-14fc9765a962}" StaticName="DefaultHub" />
         <Field DisplayName="Teams Channel ID" Name="TeamsChannelID" Title="Teams Channel ID" Type="Text" ID="{580a28ae-d3ee-4f05-a69c-4765bce2f280}" StaticName="TeamsChannelID" />
     </pnp:Fields>
