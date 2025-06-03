@@ -16,7 +16,7 @@
         "Description": "Name of the SharePoint site to store the requests, can include spaces (URL/Alias auomatically generated). If the site exists, it will prompt to overwrite and will apply the provisioning template."
     },
     "requestsSiteDesc": {
-        "Value": "Bestillingsportalen",
+        "Value": "Område for bestillingsportalen",
         "Description": "Description for the site that will be created above."
     },
     "managedPath": {
@@ -52,7 +52,7 @@
         "Description": "Number of days the self signed certificate will be valid for (if createSelfSignedCert is set to true)."
     },
     "pnpAppId": {
-        "Value": "",
+        "Value": "da6c31a6-b557-4ac3-9994-7315da06ea3a",
         "Description": "Id of the PnP Entra app registration."
     },
     "pnpCertPath": {

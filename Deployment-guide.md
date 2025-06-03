@@ -92,7 +92,7 @@ You may refer to the following to understand each parameter:
 
 - `createSelfSignedCert` - Specifies whether to create a self-signed certificate as part of the deployment. If set to true, a self-signed cert will be created through the Azure CLI with the name specified in the 'certName' parameter.
 
-- `certName` - Name for the self-signed certificate e.g. 'bestillingsportalen-cert'. If you are creating your own certificate, this parameter is still mandatory and should match the name of your certificate.
+- `certName` - Name for the self-signed certificate e.g. 'cert-bestillingsportalen'. If you are creating your own certificate, this parameter is still mandatory and should match the name of your certificate.
 
 - `certValidityDays` - Number of days that the certificate is valid for (if 'createSelfSignedCert' is set to true). The default is 365 days.
 
