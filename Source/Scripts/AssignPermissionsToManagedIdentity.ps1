@@ -11,7 +11,7 @@ $GraphPermissionScopes = @(
 )
 
 try {
-  Connect-MgGraph -Scopes "Application.ReadWrite.All", "DelegatedPermissionGrant.ReadWrite.All"
+  Connect-MgGraph -Scopes "Directory.Read.All", "AppRoleAssignment.ReadWrite.All", "RoleManagement.ReadWrite.Directory", "Application.ReadWrite.All", "DelegatedPermissionGrant.ReadWrite.All"
 }
 catch {
   Write-Host "Failed to connect to Microsoft Graph: $_"

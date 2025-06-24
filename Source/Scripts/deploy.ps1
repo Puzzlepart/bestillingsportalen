@@ -435,6 +435,7 @@ function ConfigureSharePointSite {
             $newItem = $siteRequestsSettingsList.AddItem($listItemCreationInformation)
             $newitem["Title"] = $setting.Title
             $newitem["Description"] = $setting.Description
+            $newitem["PowerAppOnly"] = $setting.PowerAppOnly
             # Hide site classifications option in Power App if no site classifications were found in the tenant
             if ($null -eq $global:siteClassifications -and $setting.Title -eq "HideSiteClassifications") {
                 $newItem["Value"] = "true"
@@ -474,6 +475,7 @@ function ConfigureSharePointSite {
         foreach ($provType in $provTypes) {
             $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
             $newItem = $provTypesList.AddItem($listItemCreationInformation)
+            $newitem["SortOrder"] = $provType.SortOrder
             $newitem["Title"] = $provType.Title
             $newitem["Description"] = $provType.Description
             $newitem["Allowed"] = $provType.Allowed
@@ -483,6 +485,7 @@ function ConfigureSharePointSite {
             $newitem["WebTemplateId"] = $provType.WebTemplateID
             $newitem["LearnVideoURL"] = $provType.LearnVideo
             $newItem["InternalTitle"] = $provType.InternalTitle
+            $newItem["JoinHub"] = $provType.JoinHub
             $newitem["DefaultVisibility"] = $provType.DefaultVisibility
             $newitem.Update()
             $context.ExecuteQuery()
