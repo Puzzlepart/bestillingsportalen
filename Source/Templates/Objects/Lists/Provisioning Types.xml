@@ -16,6 +16,7 @@
                 <FieldRef Name="WebTemplateId" />
                 <FieldRef Name="JoinHub" />
                 <FieldRef Name="DefaultHub" />
+                <FieldRef Name="Teamify" />
                 <FieldRef Name="TeamsChannelID" />
                 <FieldRef Name="VisibleTo" />
                 <FieldRef Name="ManagedPath" />
@@ -92,6 +93,9 @@
         <Field DisplayName="Default Sensitivity Label" Name="DefaultSensitivityLabel" Title="Default Sensitivity Label" Type="Text" ID="{c2eea410-410d-4642-9499-2b6b9e0bcf47}" StaticName="DefaultSensitivityLabel" />
         <Field DisplayName="Default Sensitivity Label Library" Name="DefaultSensitivityLabelLibrary" Title="Default Sensitivity Label Library" Type="Text" ID="{f075f029-0753-4510-b7aa-5276dd6edd23}" StaticName="DefaultSensitivityLabelLibrary" />
         <Field DisplayName="Default Retention Label" Name="DefaultRetentionLabel" Title="Default Sensitivity Label" Type="Text" ID="{f1b39606-2a10-48a0-ba44-d8cba8953a59}" StaticName="DefaultRetentionLabel" />
+        <Field DisplayName="Teamify" Format="Dropdown" Name="Teamify" Title="Teamify" Type="Boolean" ID="{1f5bc578-b6c5-4581-89e6-be178ab8b939}" StaticName="Teamify">
+            <Default>0</Default>
+        </Field>
         <Field Type="Boolean" DisplayName="Join Hub" ID="{c58cb7fc-21d4-47aa-9f97-7c220133b588}" StaticName="JoinHub" Name="JoinHub">
             <Default>0</Default>
         </Field>
