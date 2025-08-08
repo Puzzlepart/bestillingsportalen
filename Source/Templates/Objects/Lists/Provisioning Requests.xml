@@ -40,9 +40,10 @@
     </View>
   </pnp:Views>
   <pnp:Fields>
-    <Field DisplayName="Description" Format="Dropdown" Name="Description" RichText="FALSE" RichTextMode="Compatible" Title="Description" Type="Note" ID="{748b2beb-10ed-4858-9493-c9159707d479}" StaticName="Description" />
-    <Field DisplayName="Business Justification" Format="Dropdown" Name="BusinessJustification" RichText="FALSE" RichTextMode="Compatible" Title="Business Justification" Type="Note" ID="{ea6d6e55-8b05-4c30-ad90-ca3e23d5eae5}" StaticName="BusinessJustification" />
-    <Field DisplayName="Requirements" Format="Dropdown" Name="Requirements" RichText="FALSE" RichTextMode="Compatible" Title="Requirements" Type="Note" ID="{4263a9c3-c180-40a7-a30e-7c13a64602a6}" StaticName="Requirements" />
+    <Field DisplayName="Description" Name="Description" RichText="FALSE" RichTextMode="Compatible" Title="Description" Type="Note" ID="{748b2beb-10ed-4858-9493-c9159707d479}" StaticName="Description" />
+    <Field DisplayName="Business Justification" Name="BusinessJustification" RichText="FALSE" RichTextMode="Compatible" Title="Business Justification" Type="Note" ID="{ea6d6e55-8b05-4c30-ad90-ca3e23d5eae5}" StaticName="BusinessJustification" />
+    <Field DisplayName="Additional Info" Name="AdditionalInfo" RichText="FALSE" RichTextMode="Compatible" Title="Additional Info" Type="Note" ID="{31462352-5643-4616-9a3a-170f7df686c0}" StaticName="AdditionalInfo" />
+    <Field DisplayName="Requirements" Name="Requirements" RichText="FALSE" RichTextMode="Compatible" Title="Requirements" Type="Note" ID="{4263a9c3-c180-40a7-a30e-7c13a64602a6}" StaticName="Requirements" />
     <Field Type="Choice" DisplayName="Space Type" Format="Dropdown" FillInChoice="FALSE" ID="{06a99ffa-db71-497a-871a-1bd2b908e312}" StaticName="SpaceType" Name="SpaceType">
       <Default>Team Site</Default>
       <CHOICES>
