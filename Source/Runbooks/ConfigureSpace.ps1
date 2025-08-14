@@ -396,7 +396,7 @@ function ApplyTheme {
 
 function ApplySiteDesign {
     # Reapply site design if we have applied a PnP template
-    if ($applyPnPTemplate -eq $true -and $siteDesignId -ne $null) {
+    if ($applyPnPTemplate -eq $true -and $siteDesignId -ne $null -and $siteDesignId -ne "") {
         Write-Output "Applying site design"
 
         Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
