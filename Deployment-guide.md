@@ -53,7 +53,7 @@ The Bestillingsportalen deployment script requires PowerShell 7 and no longer su
 
 The following PowerShell modules are used by the deployment script and must be installed before executing the script:
 
-- PnP.PowerShell
+- PnP.PowerShell (2.12 for now)
 - Az
 - ImportExcel
 - WriteAscii
@@ -116,7 +116,7 @@ You may refer to the following to understand each parameter:
 
 ### Entra ID App Creation
 
-The first step is to execute the dedicated script responsible for creating the Entra ID app and granting admin consent for the Microsoft Graph API permissions. 
+The first step is to execute the dedicated script responsible for creating the Entra ID app and granting admin consent for the Microsoft Graph API permissions.
 
 **This part of the deployment requires a user account with Global Administrator access.**
 
@@ -277,6 +277,10 @@ Follow the steps below to turn it on.
 ## Step 8: Share Power App, Flows and SharePoint site
 
 Before Bestillingsportalen can be rolled out, the Power App and SharePoint site need to be shared with all users to will submit requests.
+
+## Step 9 (temporarily): Overwrite Runbook `ConfigureSpace`
+
+When deploying, the runbook `ConfigureSpace` is fetched from a public repo. This should be replaced with the version in this repo. Just a simple copy/paste is required. This is temporary until this repo is public. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
 
 ### Power App
 
