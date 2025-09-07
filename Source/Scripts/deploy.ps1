@@ -246,7 +246,10 @@ function VerifyModules {
     foreach ($module in $preReqModules) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
-            throw('{0} module not installed. Please install all required modules.' -f $module)
+            $LoadedCommands = Get-Command -Module $instModule -ErrorAction:SilentlyContinue
+            if ($null -eq $LoadedCommands) {
+                throw('{0} module not installed. Please install all required modules.' -f $module)
+            }            
         }
     } 
 }
@@ -979,7 +982,7 @@ if ($pnpCertPassword.Length -eq 0) {
         Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
     }
     else {
-        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -Interactive
+        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value
     }
 }
 else {
@@ -1008,7 +1011,7 @@ if (-not $SkipSharepointSite) {
             Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
         }
         else {
-            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive
+            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value
         }
     }
     else {
@@ -1020,7 +1023,7 @@ if (-not $SkipSharepointSite) {
 else {
     # If we're skipping site creation/configuration, we need to get the list ids
     Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
-    Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive
+    Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value
     $context = Get-PnPContext
     
     $siteRequestsList = Get-PnPList $requestsListName
