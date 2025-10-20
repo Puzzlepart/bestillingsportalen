@@ -198,7 +198,7 @@ Approvals are now configured to use Power Automate Approvals tasks.
 
 https://teams.microsoft.com/l/channel/<span style="color:red">19%3af221b1abbb214c4b8b5fe3d7e4074194%40thread.tacv2</span>/Request%2520Approvals?groupId=<span style="color:green">320312d1-e925-433f-80bc-4422f5395edf</span>&tenantId=32292181-0169-456b-b0a4-95fa4c5773a4
 
-The text shown in <span style="color:red">red</span> is the Group Id. The text shown in <span style="color:green">green</span> is the Channel Id.
+The text shown in <span style="color:red">red</span> is the Channel Id. The text shown in <span style="color:green">green</span> is the Group Id.
 
 7. Navigate to the SharePoint site created as part of the deployment.
 8. Location the 'Provisioning Request Settings' list and navigate to it.
