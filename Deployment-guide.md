@@ -53,7 +53,7 @@ The Bestillingsportalen deployment script requires PowerShell 7 and no longer su
 
 The following PowerShell modules are used by the deployment script and must be installed before executing the script:
 
-- PnP.PowerShell (2.12 for now)
+- PnP.PowerShell (3.1)
 - Az
 - ImportExcel
 - WriteAscii
