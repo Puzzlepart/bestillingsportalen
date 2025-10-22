@@ -6,6 +6,7 @@ Param
     [String] $groupId,
     [String] $siteUrl,
     [String] $spaceType,
+    [String] $spaceTypeInternal,
     [String] $externalSharing,
     [String] $owners,
     [String] $members,
@@ -78,7 +79,7 @@ function SetSiteLogo {
 }
 
 function AddOwners {
-    if ($spaceType -ne "Office 365 Group") {
+    if ($spaceTypeInternal -ne "Office 365 Group") {
         Write-Output "Updating SP owners group"
         $group = Get-PnPGroup -AssociatedOwnerGroup
         ForEach ($owner in $owners -split ",") {
@@ -92,7 +93,7 @@ function AddOwners {
 
 function AddMembers {
     Write-Output("Running 'AddMembers'")
-    If ($members -ne "" -and $spaceType -ne "Office 365 Group") {
+    If ($members -ne "" -and $spaceTypeInternal -ne "Office 365 Group") {
         Write-Output "Updating SP members group"
         ForEach ($member in $members -split ",") {
             #Get the group
@@ -136,7 +137,7 @@ function AddReadOnlyGroup {
 
 function AddSiteCollectionAdmins {
     Write-Output("Running 'AddSiteCollectionAdmins'")
-    if ($spaceType -ne "Office 365 Group") {
+    if ($spaceTypeInternal -ne "Office 365 Group") {
         Write-Output "Adding Site Collection Administrators"
         ForEach ($sca in $siteCollectionAdmins -split ",") {
             #Add the sca
@@ -186,7 +187,7 @@ function SetAccessRequestSettings {
 }
 
 function SetSiteClassification {
-    If ($spaceType -ne "Office 365 Group") {
+    If ($spaceTypeInternal -ne "Office 365 Group") {
         Write-Output $classification
         If ($classification -ne "") {
             Write-Output "Setting classification"
@@ -199,7 +200,7 @@ function SetSiteClassification {
 function JoinOrRegisterHubSite {
     Write-Output "Checking if joining a hub site"
     #Join hub site if space type is not a hub
-    if ($joinHub -eq $true -and $spaceType -ne "Hub Site") {
+    if ($joinHub -eq $true -and $spaceTypeInternal -ne "Hub Site") {
         Write-Output "Joining hub site"
         Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
 
@@ -212,7 +213,7 @@ function JoinOrRegisterHubSite {
     else {
         Write-Output "Checking if provisioning a hub site"
         #Register as a hub site
-        if ($spaceType -eq "Hub Site") {
+        if ($spaceTypeInternal -eq "Hub Site") {
         
             try {
                 Write-Output "Registering site as a hub"
@@ -416,7 +417,7 @@ try {
     if ($context) {
         Write-Output "Connected to SharePoint Online"
 
-        if ($spaceType -ne "Viva Engage Community") {
+        if ($spaceTypeInternal -ne "Viva Engage Community") {
 
             SetExternalSharing
 
