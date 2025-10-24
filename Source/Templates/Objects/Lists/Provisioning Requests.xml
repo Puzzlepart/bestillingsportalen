@@ -10,6 +10,7 @@
         <FieldRef Name="Status" />
         <FieldRef Name="ApprovedDate" />
         <FieldRef Name="Comments" />
+        <FieldRef Name="Approver" />
         <FieldRef Name="SiteURL" />
         <FieldRef Name="SpaceType" />
         <FieldRef Name="SpaceTypeInternal" />
@@ -57,6 +58,7 @@
     </Field>
     <Field Type="UserMulti" DisplayName="Owners" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{3fee5a3c-2ee3-42b1-bff9-0e1ddef9122d}" StaticName="Owners" Name="Owners" Mult="TRUE" />
     <Field Type="UserMulti" DisplayName="Members" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{771276d0-9cb8-4403-b669-22dd7d366de4}" StaticName="Members" Name="Members" Mult="TRUE" />
+    <Field Type="User" DisplayName="Approver" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{7cecc54f-2d4f-4c74-b277-cfa3aa187ab3}" StaticName="Approver" Name="Approver" />
     <Field Type="Choice" DisplayName="Visibility" Format="Dropdown" FillInChoice="FALSE" ID="{cf70149b-423c-4ec2-892e-d78ae30ed893}" StaticName="Visibility" Name="Visibility">
       <Default>Private</Default>
       <CHOICES>
