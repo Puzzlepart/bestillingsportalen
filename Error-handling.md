@@ -2,6 +2,8 @@
 
 Denne dokumentasjonen beskriver hvordan feilhåndtering fungerer i Bestillingsportalen-løsningen.
 
+> 📊 **Flytdiagram**: Se [Error Handling Flow Diagram](Images/error-handling-flow.md) for en visuell oversikt over feilhåndteringsflyten.
+
 ## Oversikt
 
 Bestillingsportalen har omfattende feilhåndtering for å sikre at feil under provisjoneringsprosessen blir fanget opp og dokumentert. Når en feil oppstår, blir status på forespørselen automatisk oppdatert til "Space Creation Failed" med detaljert informasjon om hva som gikk galt.
