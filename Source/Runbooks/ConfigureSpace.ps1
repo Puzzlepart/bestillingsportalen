@@ -79,7 +79,7 @@ function SetSiteLogo {
 }
 
 function AddOwners {
-    if ($spaceTypeInternal -ne "Office 365 Group") {
+    if ($spaceTypeInternal -notin "Office 365 Group", "Project") {
         Write-Output "Updating SP owners group"
         $group = Get-PnPGroup -AssociatedOwnerGroup
         ForEach ($owner in $owners -split ",") {
@@ -93,7 +93,7 @@ function AddOwners {
 
 function AddMembers {
     Write-Output("Running 'AddMembers'")
-    If ($members -ne "" -and $spaceTypeInternal -ne "Office 365 Group") {
+    If ($members -ne "" -and $spaceTypeInternal -notin "Office 365 Group", "Project") {
         Write-Output "Updating SP members group"
         ForEach ($member in $members -split ",") {
             #Get the group
@@ -137,7 +137,7 @@ function AddReadOnlyGroup {
 
 function AddSiteCollectionAdmins {
     Write-Output("Running 'AddSiteCollectionAdmins'")
-    if ($spaceTypeInternal -ne "Office 365 Group") {
+    if ($spaceTypeInternal -notin "Office 365 Group", "Project") {
         Write-Output "Adding Site Collection Administrators"
         ForEach ($sca in $siteCollectionAdmins -split ",") {
             #Add the sca
@@ -187,7 +187,7 @@ function SetAccessRequestSettings {
 }
 
 function SetSiteClassification {
-    If ($spaceTypeInternal -ne "Office 365 Group") {
+    If ($spaceTypeInternal -notin "Office 365 Group", "Project") {
         Write-Output $classification
         If ($classification -ne "") {
             Write-Output "Setting classification"
@@ -375,10 +375,35 @@ function ApplyPnPTemplate {
     if ($applyPnPTemplate -eq $true) {
         Write-Output "Applying PnP template"
 
-        #Apply the template
-        Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
+        $maxRetries = 3
+        $retryCount = 0
+        $success = $false
 
-        Write-Output "Finished applying PnP template"
+        while ($retryCount -lt $maxRetries -and -not $success) {
+            try {
+                $retryCount++
+                Write-Output "Attempt $retryCount of $maxRetries to apply PnP template"
+                
+                #Apply the template
+                Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
+                
+                $success = $true
+                Write-Output "Finished applying PnP template"
+            }
+            catch {
+                Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
+                
+                if ($retryCount -lt $maxRetries) {
+                    $waitTime = 10 * $retryCount
+                    Write-Output "Waiting $waitTime seconds before retry..."
+                    Start-Sleep -Seconds $waitTime
+                }
+                else {
+                    Write-Error "Failed to apply PnP template after $maxRetries attempts: $($_.Exception.Message)"
+                    throw
+                }
+            }
+        }
     }
 
 }
