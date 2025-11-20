@@ -8,4 +8,6 @@ Sjekk ut [release notes](#) for høydepunkter og mer detaljert endringslogg for 
 
 ### Forbedringer
 
+- **Forbedret feilhåndtering i bestillingsflyt**: Implementert omfattende feilhåndtering som automatisk oppdaterer Provisioning Requests-listen med status "Space Creation Failed" når feil oppstår i både Logic App og ConfigureSpace runbook. Dette gir bedre synlighet på feiltilstander og enklere feilsøking.
+
 ### Feilrettinger
