@@ -5416,7 +5416,7 @@
                         },
                         "Handle_Error_Check_if_space_exists": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Check_if_space_exists": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5449,7 +5449,7 @@
                         },
                         "Handle_Error_Check_space_type": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Check_space_type": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5482,7 +5482,7 @@
                         },
                         "Handle_Error_Process_Owners_and_Members": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Process_Owners_and_Members": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5515,7 +5515,7 @@
                         },
                         "Handle_Error_Process_Team": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Process_Team": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5548,7 +5548,7 @@
                         },
                         "Handle_Error_Apply_Site_Template": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Apply_Site_Template": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5581,7 +5581,7 @@
                         },
                         "Handle_Error_Set_external_sharing": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Set_external_sharing": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5614,7 +5614,7 @@
                         },
                         "Handle_Error_Invite_guests": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Invite_guests": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5647,7 +5647,7 @@
                         },
                         "Handle_Error_Apply_sensitivity_label": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Apply_sensitivity_label": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5680,7 +5680,7 @@
                         },
                         "Handle_Error_Store_expiration_date": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Store_expiration_date": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
@@ -5713,7 +5713,7 @@
                         },
                         "Handle_Error_Configure_space": {
                             "actions": {
-                                "Update_status_to_Space_Creation_Failed": {
+                                "Update_status_to_Space_Creation_Failed_Configure_space": {
                                     "type": "ApiConnection",
                                     "inputs": {
                                         "body": {
