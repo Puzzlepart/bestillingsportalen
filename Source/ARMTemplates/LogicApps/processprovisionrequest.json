@@ -5440,7 +5440,6 @@
                             "runAfter": {
                                 "Check_if_space_exists": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5473,7 +5472,6 @@
                             "runAfter": {
                                 "Check_space_type": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5506,7 +5504,6 @@
                             "runAfter": {
                                 "Process_Owners_and_Members": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5539,7 +5536,6 @@
                             "runAfter": {
                                 "Process_Team": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5572,7 +5568,6 @@
                             "runAfter": {
                                 "Apply_Site_Template": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5605,7 +5600,6 @@
                             "runAfter": {
                                 "Set_external_sharing": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5638,7 +5632,6 @@
                             "runAfter": {
                                 "Invite_guests": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5671,7 +5664,6 @@
                             "runAfter": {
                                 "Apply_sensitivity_label": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5704,7 +5696,6 @@
                             "runAfter": {
                                 "Store_expiration_date": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
@@ -5737,7 +5728,6 @@
                             "runAfter": {
                                 "Configure_space": [
                                     "Failed",
-                                    "Skipped",
                                     "TimedOut"
                                 ]
                             },
