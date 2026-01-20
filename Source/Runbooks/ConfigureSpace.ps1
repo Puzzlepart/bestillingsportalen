@@ -511,7 +511,7 @@ function ApplyPnPTemplate {
 
             while ($retryCount -lt $maxRetries -and -not $success) {
                 try {
-                $retryCount++
+                    $retryCount++
                     Write-Output "Attempt $retryCount of $maxRetries to apply PnP template"
 
                     #Apply the template
@@ -521,7 +521,7 @@ function ApplyPnPTemplate {
                     Write-Output "Finished applying PnP template"
                 }
                 catch {
-                Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
+                    Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
 
                     if ($retryCount -lt $maxRetries) {
                         $waitTime = 10 * $retryCount
@@ -575,6 +575,65 @@ function ApplySiteDesign {
     }
 }
 
+function SetMetadata {
+    try {
+        Write-Output "Running 'SetMetadata'"
+
+        if ($null -ne $metadata -and "" -ne $metadata) {
+            try {
+                $metadataObject = $metadata | ConvertFrom-Json
+                Write-Output "Successfully parsed metadata JSON: $metadataObject"
+            }
+            catch {
+                Write-Error "Failed to parse metadata JSON: $($_.Exception.Message)"
+                return
+            }
+
+            # Handle propertyBagProps
+            if ($null -ne $metadataObject.propertyBagProps) {
+                Write-Output ""
+                Write-Output "Processing propertyBagProps"
+                Write-Output "***************************"
+                try {
+                    Write-Output "Disabling no script mode"
+                    # Disable no script mode to allow property bag updates
+                    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$false
+
+                    foreach ($prop in $metadataObject.propertyBagProps) {
+                        $propName = $prop.name
+                        $propValue = $prop.value
+                        if ($null -ne $propName -and $null -ne $propValue) {
+                            try {
+                                Write-Output "Adding property bag value for '$propName'"
+                                Set-PnPPropertyBagValue -Key $propName -Value $propValue
+                            }
+                            catch {
+                                Write-Output "Error adding property bag value for '$propName': $($_.Exception.Message)"
+                            }
+                        }
+                    }
+
+                    Write-output "Re-enabling no script mode"
+                    # Enable no script mode to prevent property bag updates
+                    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$true
+                    Write-Output "Finished processing propertyBagProps"
+                }
+                catch {
+                    Write-Output "Error processing propertyBagProps: $($_.Exception.Message)"
+                }
+            }
+
+            Write-Output "Finished processing metadata"
+        }
+        else {
+            Write-Warning "No metadata provided"
+        }
+    }
+    catch {
+        Set-SpaceCreationFailed -FunctionName "SetMetadata" -ErrorMessage $_.Exception.Message
+    }
+}
+
 try {
 
     #Connect to spo
@@ -607,6 +666,7 @@ try {
             SetSensitivityLabel
             SetSensitivityLabelLibrary
             SetSiteClassification
+            SetMetadata
             JoinOrRegisterHubSite
             SetStorageQuota
             ApplySiteDesign
