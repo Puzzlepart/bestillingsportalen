@@ -91,7 +91,7 @@ function SetSiteLogo {
     try {
         if ($spaceImage -ne "") {
             Write-Output "Adding site logo (convert base64 to image)"
-            $logoFileName = "$GroupId.png"
+            $logoFileName = "$groupId.png"
             $logoPath = "$env:TEMP\$logoFileName"
             Write-Output  $logoFileName
             Write-Output  $logoPath
@@ -454,6 +454,8 @@ function ActivateFeatures {
             $web = $ctx.Web
             $ctx.Load($web)
             $ctx.ExecuteQuery()
+
+            $force = $true
 
             # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
             if ($featuresToActivate.ToLower().Contains('web')) {
