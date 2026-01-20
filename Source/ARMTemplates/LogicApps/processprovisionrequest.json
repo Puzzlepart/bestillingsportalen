@@ -5413,6 +5413,416 @@
                                 "method": "patch",
                                 "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                             }
+                        },
+                        "Handle_Error_Check_if_space_exists": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Check_if_space_exists": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed during space existence check"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Check_if_space_exists": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Check_if_space_exists": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Check_space_type": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Check_space_type": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed during space type validation"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Check_space_type": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Check_space_type": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Process_Owners_and_Members": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Process_Owners_and_Members": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to process owners and members"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Process_Owners_and_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Process_Owners_and_Members": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Process_Team": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Process_Team": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to process team settings"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Process_Team": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Process_Team": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Apply_Site_Template": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Apply_Site_Template": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to apply site template"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Apply_Site_Template": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Apply_Site_Template": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Set_external_sharing": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Set_external_sharing": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to set external sharing settings"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Set_external_sharing": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Set_external_sharing": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Invite_guests": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Invite_guests": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to invite guests"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Invite_guests": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Invite_guests": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Apply_sensitivity_label": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Apply_sensitivity_label": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to apply sensitivity label"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Apply_sensitivity_label": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Apply_sensitivity_label": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Store_expiration_date": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Store_expiration_date": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to store expiration date"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Store_expiration_date": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Store_expiration_date": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Configure_space": {
+                            "type": "Scope",
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_Configure_space": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to configure space using runbook"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Terminate": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Configure_space": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Configure_space": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
                         }
                     },
                     "outputs": {}
