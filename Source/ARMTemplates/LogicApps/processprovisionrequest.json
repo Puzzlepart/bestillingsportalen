@@ -2189,7 +2189,8 @@
                                             "spaceImage": "@triggerBody()?['SpaceImage']",
                                             "internalChannel": "@triggerBody()?['InternalChannel']",
                                             "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
-                                            "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')"
+                                            "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
+                                            "metadata": "@triggerBody()?['Metadata']"
                                         }
                                     }
                                 },

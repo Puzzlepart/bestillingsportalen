@@ -36,7 +36,8 @@ Param
     [string] $spaceImage,
     [bool] $internalChannel,
     [bool] $readOnlyGroup,
-    [string] $defaultReadOnlyGroup
+    [string] $defaultReadOnlyGroup,
+    [String] $metadata
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
