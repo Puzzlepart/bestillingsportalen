@@ -22,6 +22,7 @@
                 <FieldRef Name="ManagedPath" />
                 <FieldRef Name="DefaultVisibility" />
                 <FieldRef Name="DefaultConfidentialData" />
+                <FieldRef Name="DefaultMetadata" />
                 <FieldRef Name="ExternalSharing" />
                 <FieldRef Name="DefaultSensitivityLabel" />
                 <FieldRef Name="DefaultSensitivityLabelLibrary" />
@@ -87,6 +88,7 @@
         <Field DisplayName="Default Confidential Data" Format="Dropdown" Name="DefaultConfidentialData" Title="Default Confidential Data" Type="Boolean" ID="{b1e84208-0b64-49d6-82b3-551d9e8d2537}" StaticName="DefaultConfidentialData">
             <Default>0</Default>
         </Field>
+        <Field Type="Note" DisplayName="Default Metadata" NumLines="6" RichText="FALSE" ID="{707c5a66-2289-4022-b330-fd197b97af71}" StaticName="DefaultMetadata" Name="DefaultMetadata" RestrictedMode="TRUE" RichTextMode="Compatible" />
         <Field DisplayName="External Sharing" Format="Dropdown" Name="ExternalSharing" Title="External Sharing" Type="Boolean" ID="{34b20e32-85cf-4f24-932d-58f88badae91}" StaticName="ExternalSharing">
             <Default>0</Default>
         </Field>
