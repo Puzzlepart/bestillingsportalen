@@ -3,41 +3,43 @@
 Param
 (
     [Parameter (Mandatory = $false)]
-    [String] $groupId,
-    [String] $siteUrl,
-    [String] $spaceType,
-    [String] $spaceTypeInternal,
-    [String] $externalSharing,
-    [String] $owners,
-    [String] $members,
-    [String] $visitors,
-    [String] $visibility,
-    [String] $classification,
-    [String] $joinHub,
-    [String] $hubSiteId,
-    [String] $timeZoneId,
-    [String] $lcid,
+    [string] $groupId,
+    [string] $siteUrl,
+    [string] $spaceType,
+    [string] $spaceTypeInternal,
+    [string] $externalSharing,
+    [string] $owners,
+    [string] $members,
+    [string] $visitors,
+    [string] $visibility,
+    [string] $classification,
+    [string] $joinHub,
+    [string] $hubSiteId,
+    [string] $timeZoneId,
+    [string] $lcid,
     [bool] $enableAllowAccessRequests,
-    [String] $defaultExternalSharingSetting,
-    [Int] $storageQuota,
-    [Int] $storageQuotaWarning,
+    [string] $defaultExternalSharingSetting,
+    [int] $storageQuota,
+    [int] $storageQuotaWarning,
     [bool] $syncHubPermissions,
     [bool] $disableDocSync,
-    [String] $retentionLabel,
-    [String] $sensitivityLabel,
-    [String] $sensitivityLabelLibrary,
-    [String] $featuresToActivate,
-    [String] $applyPnPTemplate,
-    [String] $pnpTemplateUrl,
-    [String] $themeName,
-    [String] $siteTemplateTitle,
-    [String] $siteCollectionAdmins,
-    [String] $siteDesignId,
+    [string] $retentionLabel,
+    [string] $sensitivityLabel,
+    [string] $sensitivityLabelLibrary,
+    [string] $featuresToActivate,
+    [string] $applyPnPTemplate,
+    [string] $pnpTemplateUrl,
+    [string] $themeName,
+    [string] $siteTemplateTitle,
+    [string] $siteCollectionAdmins,
+    [string] $siteDesignId,
     [string] $spaceImage,
     [bool] $internalChannel,
     [bool] $readOnlyGroup,
     [string] $defaultReadOnlyGroup,
-    [String] $metadata
+    [string] $metadata,
+    [string] $parentSite
+
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
@@ -635,6 +637,197 @@ function SetMetadata {
     }
 }
 
+function UpdateParentSite {
+    try {
+        Write-Output "Running 'UpdateParentSite'"
+
+        if ($null -ne $parentSite -and "" -ne $parentSite) {
+            Write-Output "Parent site specified: $parentSite"
+
+            # Get current site information
+            $currentWeb = Get-PnPWeb -Includes Id, Title, Url
+            $currentSiteId = $currentWeb.Id.ToString()
+            $currentSiteTitle = $currentWeb.Title
+            $currentSiteUrl = $currentWeb.Url
+
+            # Get hub site information
+            $hubSiteInfo = $null
+            $hubSiteUrl = ""
+            $hubSiteTitle = ""
+            
+            if ($null -ne $hubSiteId -and "" -ne $hubSiteId) {
+                try {
+                    Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
+                    $hubSiteInfo = Get-PnPHubSite -Identity $hubSiteId -ErrorAction SilentlyContinue
+                    
+                    if ($null -ne $hubSiteInfo) {
+                        $hubSiteUrl = $hubSiteInfo.SiteUrl
+                        $hubSiteTitle = $hubSiteInfo.Title
+                        Write-Output "Hub site information retrieved: $hubSiteTitle ($hubSiteUrl)"
+                    }
+                }
+                catch {
+                    Write-Output "Could not retrieve hub site information: $($_.Exception.Message)"
+                }
+            }
+
+            # Create child project object
+            $childProjectObject = @{
+                key = $currentSiteId
+                SiteId = $currentSiteId
+                Title = $currentSiteTitle
+                Path = $currentSiteUrl
+                HubSiteId = $hubSiteId
+                HubSiteUrl = $hubSiteUrl
+                HubSiteTitle = $hubSiteTitle
+            }
+
+            $childProjectJson = ConvertTo-Json @($childProjectObject) -Compress
+
+            Write-Output "Child project data: $childProjectJson"
+
+            # Update parent site
+            try {
+                Write-Output "Connecting to parent site: $parentSite"
+                Connect-PnPOnline -Url $parentSite -ManagedIdentity
+
+                # Get the parent site's GtSiteId for later use
+                $parentWeb = Get-PnPWeb -Includes Id
+                $parentGtSiteId = $parentWeb.Id.ToString()
+
+                # Get the first item from Prosjektegenskaper list
+                Write-Output "Getting first item from 'Prosjektegenskaper' list on parent site"
+                $listItem = Get-PnPListItem -List "Prosjektegenskaper" -PageSize 1
+                
+                if ($null -ne $listItem -and $listItem.Count -gt 0) {
+                    $firstItem = $listItem[0]
+                    
+                    # Get existing GtChildProjects value
+                    $existingChildProjects = $firstItem["GtChildProjects"]
+                    $childProjectsArray = @()
+
+                    if ($null -ne $existingChildProjects -and "" -ne $existingChildProjects) {
+                        try {
+                            $childProjectsArray = $existingChildProjects | ConvertFrom-Json
+                            Write-Output "Existing child projects found: $($childProjectsArray.Count)"
+                        }
+                        catch {
+                            Write-Output "Could not parse existing GtChildProjects, starting with new array"
+                            $childProjectsArray = @()
+                        }
+                    }
+
+                    # Add new child project if not already present
+                    $existingProject = $childProjectsArray | Where-Object { $_.SiteId -eq $currentSiteId }
+                    if ($null -eq $existingProject) {
+                        $childProjectsArray += $childProjectObject
+                        Write-Output "Added new child project to array"
+                    }
+                    else {
+                        Write-Output "Child project already exists in parent site, updating entry"
+                        $childProjectsArray = $childProjectsArray | Where-Object { $_.SiteId -ne $currentSiteId }
+                        $childProjectsArray += $childProjectObject
+                    }
+
+                    # Update the parent site list item
+                    $updatedChildProjectsJson = ConvertTo-Json @($childProjectsArray) -Compress
+                    Write-Output "Updating parent site 'Prosjektegenskaper' with: $updatedChildProjectsJson"
+                    
+                    Set-PnPListItem -List "Prosjektegenskaper" -Identity $firstItem.Id -Values @{
+                        "GtChildProjects" = $updatedChildProjectsJson
+                    }
+                    
+                    Write-Output "Successfully updated parent site 'Prosjektegenskaper' list"
+                }
+                else {
+                    Write-Warning "No items found in 'Prosjektegenskaper' list on parent site"
+                }
+            }
+            catch {
+                Write-Output "Error updating parent site: $($_.Exception.Message)"
+            }
+
+            # Update hub site "Prosjekter" list
+            if ($null -ne $hubSiteUrl -and "" -ne $hubSiteUrl) {
+                try {
+                    Write-Output "Connecting to hub site: $hubSiteUrl"
+                    Connect-PnPOnline -Url $hubSiteUrl -ManagedIdentity
+
+                    Write-Output "Searching for project in 'Prosjekter' list where GtSiteId equals parent site ID: $parentGtSiteId"
+                    
+                    # Get all items from Prosjekter list and filter for parent site
+                    $prosjekterItems = Get-PnPListItem -List "Prosjekter" -PageSize 5000
+                    
+                    $parentProjectItem = $prosjekterItems | Where-Object { 
+                        $_.FieldValues["GtSiteId"] -eq $parentGtSiteId 
+                    }
+
+                    if ($null -ne $parentProjectItem) {
+                        Write-Output "Found parent project item in hub site 'Prosjekter' list (ID: $($parentProjectItem.Id))"
+                        
+                        # Get existing GtChildProjects value
+                        $existingHubChildProjects = $parentProjectItem["GtChildProjects"]
+                        $hubChildProjectsArray = @()
+
+                        if ($null -ne $existingHubChildProjects -and "" -ne $existingHubChildProjects) {
+                            try {
+                                $hubChildProjectsArray = $existingHubChildProjects | ConvertFrom-Json
+                                Write-Output "Existing child projects found in hub site: $($hubChildProjectsArray.Count)"
+                            }
+                            catch {
+                                Write-Output "Could not parse existing GtChildProjects in hub site, starting with new array"
+                                $hubChildProjectsArray = @()
+                            }
+                        }
+
+                        # Add or update child project
+                        $existingHubProject = $hubChildProjectsArray | Where-Object { $_.SiteId -eq $currentSiteId }
+                        if ($null -eq $existingHubProject) {
+                            $hubChildProjectsArray += $childProjectObject
+                            Write-Output "Added new child project to hub site array"
+                        }
+                        else {
+                            Write-Output "Child project already exists in hub site, updating entry"
+                            $hubChildProjectsArray = $hubChildProjectsArray | Where-Object { $_.SiteId -ne $currentSiteId }
+                            $hubChildProjectsArray += $childProjectObject
+                        }
+
+                        # Update the hub site list item
+                        $updatedHubChildProjectsJson = ConvertTo-Json @($hubChildProjectsArray) -Compress
+                        Write-Output "Updating hub site 'Prosjekter' with: $updatedHubChildProjectsJson"
+                        
+                        Set-PnPListItem -List "Prosjekter" -Identity $parentProjectItem.Id -Values @{
+                            "GtChildProjects" = $updatedHubChildProjectsJson
+                        }
+                        
+                        Write-Output "Successfully updated hub site 'Prosjekter' list"
+                    }
+                    else {
+                        Write-Warning "Could not find parent project (GtSiteId: $parentGtSiteId) in hub site 'Prosjekter' list"
+                    }
+                }
+                catch {
+                    Write-Output "Error updating hub site 'Prosjekter' list: $($_.Exception.Message)"
+                }
+            }
+            else {
+                Write-Output "Hub site information not available, skipping hub site update"
+            }
+
+            # Reconnect to the current site for any subsequent operations
+            Connect-PnPOnline -Url $siteUrl -ManagedIdentity
+
+            Write-Output "Finished updating parent site and hub site"
+        }
+        else {
+            Write-Output "No parent site specified, skipping UpdateParentSite"
+        }
+    }
+    catch {
+        Set-SpaceCreationFailed -FunctionName "UpdateParentSite" -ErrorMessage $_.Exception.Message
+    }
+}
+
 try {
 
     #Connect to spo
@@ -671,6 +864,7 @@ try {
             JoinOrRegisterHubSite
             SetStorageQuota
             ApplySiteDesign
+            UpdateParentSite
 
             # Check if any errors occurred during configuration
             if ($script:hasErrors) {

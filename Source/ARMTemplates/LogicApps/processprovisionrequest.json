@@ -2158,20 +2158,20 @@
                                     "properties": {
                                         "parameters": {
                                             "groupId": "@variables('GroupID')",
-                                            "Members": "@{outputs('Create_Members_string')}",
-                                            "Owners": "@{outputs('Create_Owners_string')}",
+                                            "members": "@{outputs('Create_Members_string')}",
+                                            "owners": "@{outputs('Create_Owners_string')}",
                                             "retentionLabel": "@triggerBody()?['RetentionLabelName']",
                                             "sensitivityLabel": "@{triggerBody()?['SensitivityLabelId']}",
                                             "sensitivityLabelLibrary": "@{triggerBody()?['SensitivityLabelLibraryId']}",
-                                            "SiteUrl": "@triggerBody()?['SiteURL']",
-                                            "TimeZoneId": "@{triggerBody()?['TimeZoneId']}",
-                                            "Visitors": "@{outputs('Create_Visitors_string')}",
+                                            "siteUrl": "@triggerBody()?['SiteURL']",
+                                            "timeZoneId": "@{triggerBody()?['TimeZoneId']}",
+                                            "visitors": "@{outputs('Create_Visitors_string')}",
                                             "applyPnPTemplate": "@{triggerBody()?['ApplyPnPTemplate']}",
                                             "classification": "@triggerBody()?['Classification']",
                                             "defaultExternalSharingSetting": "@variables('DefaultExternalSharingSetting')",
                                             "disableDocSync": "@variables('DisableDocumentSync')",
                                             "enableAllowAccessRequests": "@variables('EnableAllowAccessRequests')",
-                                            "ExternalSharing": "@triggerBody()?['ExternalSharingRequired']",
+                                            "externalSharing": "@triggerBody()?['ExternalSharingRequired']",
                                             "featuresToActivate": "@variables('FeaturesToActivate')",
                                             "hubSiteId": "@triggerBody()?['HubSite']",
                                             "joinHub": "@{triggerBody()?['JoinHub']}",
@@ -2190,7 +2190,8 @@
                                             "internalChannel": "@triggerBody()?['InternalChannel']",
                                             "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
                                             "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
-                                            "metadata": "@triggerBody()?['Metadata']"
+                                            "metadata": "@triggerBody()?['Metadata']",
+                                            "parentSite": "@triggerBody()?['ParentSite']"
                                         }
                                     }
                                 },
