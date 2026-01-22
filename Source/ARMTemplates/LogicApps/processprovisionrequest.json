@@ -76,11 +76,11 @@
                         "When_an_item_is_created_or_modified": {
                             "recurrence": {
                                 "frequency": "Minute",
-                                "interval": 10
+                                "interval": 1
                             },
                             "evaluatedRecurrence": {
                                 "frequency": "Minute",
-                                "interval": 10
+                                "interval": 1
                             },
                             "splitOn": "@triggerBody()?['value']",
                             "type": "ApiConnection",
