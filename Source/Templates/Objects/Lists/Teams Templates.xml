@@ -1,7 +1,7 @@
 <pnp:ListInstance Title="Teams Templates" Description="" DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/TeamsTemplates" MinorVersionLimit="0" MaxVersionLimit="0" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/TeamsTemplates/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/TeamsTemplates/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/TeamsTemplates/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
     xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
     <pnp:Views>
-        <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="Alle elementer" Url="{site}/Lists/TeamsTemplates/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+        <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="AllItems" Url="{site}/Lists/TeamsTemplates/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
             <Query>
                 <OrderBy>
                     <FieldRef Name="ID" />
