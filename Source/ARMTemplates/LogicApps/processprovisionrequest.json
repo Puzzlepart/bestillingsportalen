@@ -2045,7 +2045,7 @@
                                                     },
                                                     "else": {
                                                         "actions": {
-                                                            "Terminate": {
+                                                            "Terminate_Invalid_Space_Type": {
                                                                 "runAfter": {
                                                                     "Update_status_to_creation_failed_-_invalid_space_type": [
                                                                         "Succeeded"
@@ -5438,7 +5438,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Check_If_Space_Exists": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5479,7 +5479,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Check_Space_Type": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5520,7 +5520,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Process_Owners_And_Members": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5561,7 +5561,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Process_Team": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5602,7 +5602,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Apply_Site_Template": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5643,7 +5643,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Set_External_Sharing": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5684,7 +5684,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Invite_Guests": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5725,7 +5725,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Apply_Sensitivity_Label": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5766,7 +5766,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Store_Expiration_Date": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
@@ -5807,7 +5807,7 @@
                                     },
                                     "runAfter": {}
                                 },
-                                "Terminate": {
+                                "Terminate_Configure_Space": {
                                     "type": "Terminate",
                                     "inputs": {
                                         "runStatus": "Failed"
