@@ -56,7 +56,8 @@ param
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipGenerateCertificate,
-    [switch]$SkipDeployAPIConnections
+    [switch]$SkipDeployAPIConnections,
+    [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
 )
 
 Add-Type -AssemblyName System.Web
@@ -131,6 +132,7 @@ $global:appId = $null
 $global:appSecret = $null
 $global:appServicePrincipalId = $null
 $global:tenantUrl = $null
+$global:upgrade = $false
 
 # Validates if a parameter in the json file is valid
 function IsValidParam {
@@ -347,6 +349,53 @@ function ConfigureSharePointSite {
             Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
 
             Write-Host "Applied template" -ForegroundColor Green
+        }
+        
+        # In upgrade mode, skip list item population
+        if ($global:upgrade) {
+            Write-Host "Running in Upgrade Mode - skipping list item population" -ForegroundColor Yellow
+            Write-Host "For more information, see Upgrade.md" -ForegroundColor Cyan
+            
+            # Still need to get list IDs for logic app deployment
+            $context = Get-PnPContext
+            $web = $context.Web
+            $context.Load($web)
+            $context.Load($web.Lists)
+            $t = $web.Lists.EnsureSiteAssetsLibrary()
+            $context.ExecuteQuery()
+            
+            $siteRequestsList = Get-PnPList $requestsListName
+            $context.Load($siteRequestsList)
+            $context.ExecuteQuery()
+            $global:requestsListId = $siteRequestsList.Id
+            
+            $siteRequestsSettingsList = Get-PnPList $requestSettingsListName
+            $context.Load($siteRequestsSettingsList)
+            $context.ExecuteQuery()
+            $global:requestsSettingsListId = $siteRequestsSettingsList.Id
+            
+            $siteTemplatesList = Get-PnPList $siteTemplatesListName
+            $context.Load($siteTemplatesList)
+            $context.ExecuteQuery()
+            $global:siteTemplatesListId = $siteTemplatesList.Id
+            
+            $hubSitesList = Get-PnPList $hubSitesListName
+            $context.Load($hubSitesList)
+            $context.ExecuteQuery()
+            $global:hubSitesListId = $hubSitesList.Id
+            
+            $teamsTemplatesList = Get-PnPList $teamsTemplatesListName
+            $context.Load($teamsTemplatesList)
+            $context.ExecuteQuery()
+            $global:teamsTemplatesListId = $teamsTemplatesList.Id
+            
+            $ipLabelsList = Get-PnPList $ipLabelsListName
+            $context.Load($ipLabelsList)
+            $context.ExecuteQuery()
+            $global:ipLabelsListId = $ipLabelsList.Id
+            
+            Write-Host "Finished site configuration in upgrade mode" -ForegroundColor Green
+            return
         }
         
             
@@ -819,6 +868,24 @@ function DeployARMTemplates {
     }
 }
 
+# Deploy only ProcessProvisionRequest logic app for upgrade scenarios
+# See Upgrade.md for more details
+function DeployUpgradeLogicApp {
+    try {
+        Write-Host "### UPGRADE MODE - DEPLOYING PROCESSPROVISIONREQUEST LOGIC APP ONLY ###" -ForegroundColor Yellow
+        Write-Host "For upgrade documentation, see Upgrade.md" -ForegroundColor Cyan
+        
+        Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
+        
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
+        
+        Write-Host "Finished deploying ProcessProvisionRequest logic app" -ForegroundColor Green
+    }
+    catch {
+        throw('Failed to deploy ProcessProvisionRequest logic app in upgrade mode: {0}', $_.Exception.Message)
+    }
+}
+
 #Check that the provided location is a valid Azure location
 function ValidateAzureLocation {
 
@@ -953,6 +1020,34 @@ Write-Host "Parameters are valid" -ForegroundColor Green
 
 Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
+# Set upgrade mode
+$global:upgrade = $Upgrade
+if ($global:upgrade) {
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "    RUNNING IN UPGRADE MODE" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "This will:" -ForegroundColor Cyan
+    Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
+    Write-Host "  - Deploy ONLY the ProcessProvisionRequest Logic App" -ForegroundColor Cyan
+    Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
+    Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "For complete upgrade documentation, see Upgrade.md" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Yellow
+    
+    # Automatically set skip flags for upgrade mode
+    $SkipCreateEntraIDAppSecret = $true
+    $SkipBicepDeploy = $true
+    $SkipCreateResourceGroup = $true
+    $SkipGenerateCertificate = $true
+    $SkipDeployAPIConnections = $true
+    
+    Write-Host "Automatically skipping: Entra ID App Secret, Bicep Deploy, Resource Group Creation, Certificate Generation, API Connections" -ForegroundColor DarkGray
+    Write-Host "" -ForegroundColor Yellow
+}
+
 $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 $requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')
 $requestsSiteUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com/$($parameters.managedPath.Value)/$requestsSiteAlias"
@@ -962,10 +1057,15 @@ Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
 # Clear the az context before we login
 #Clear-AzContext -Force
 $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
-if (-not $SkipBicepDeploy) {
-    ValidateKeyVault
+
+# Skip validation steps in upgrade mode
+if (-not $global:upgrade) {
+    if (-not $SkipBicepDeploy) {
+        ValidateKeyVault
+    }
+    ValidateAzureLocation
 }
-ValidateAzureLocation
+
 Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
 az login
 Write-Host "Connected to Azure" -ForegroundColor Green
@@ -990,7 +1090,11 @@ else {
 }
 Write-Host "Connected to SPO" -ForegroundColor Green
 
-$currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
+# Skip getting current user ID in upgrade mode (not needed)
+if (-not $global:upgrade) {
+    $currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
+}
+
 if (-not $SkipCreateEntraIDAppSecret) {
     CreateEntraIDAppSecret
 }
@@ -1018,7 +1122,11 @@ if (-not $SkipSharepointSite) {
         Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
     }
     ConfigureSharePointSite
-    UploadAssets
+    
+    # Skip uploading assets in upgrade mode
+    if (-not $global:upgrade) {
+        UploadAssets
+    }
 }
 else {
     # If we're skipping site creation/configuration, we need to get the list ids
@@ -1065,6 +1173,27 @@ else {
     $global:ipLabelsListId = $ipLabelsList.Id
 }
 
+# Skip Azure resource deployment in upgrade mode - only deploy Logic App
+if ($global:upgrade) {
+    Write-Host "### UPGRADE MODE - SKIPPING AZURE RESOURCE DEPLOYMENT ###" -ForegroundColor Yellow
+    Write-Host "Only deploying ProcessProvisionRequest Logic App..." -ForegroundColor Yellow
+    
+    # Get the location from parameters for the logic app deployment
+    $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
+    
+    # Still need to get app ID for logic app deployment
+    $app = GetEntraIDApp $parameters.appName.Value
+    if (-not ([string]::IsNullOrEmpty($app))) {
+        $global:appId = $app.appId
+    }
+    
+    DeployUpgradeLogicApp
+    
+    Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
+    Write-Host "The ProcessProvisionRequest Logic App has been updated with the latest version." -ForegroundColor Green
+    exit 0
+}
+
 Write-Host "### AZURE RESOURCES DEPLOYMENT ###`nStarting Azure resources deployment..." -ForegroundColor Yellow
 
 if (-not $SkipCreateResourceGroup) {
@@ -1108,7 +1237,14 @@ else {
 }
 
 if (-not $SkipDeployARMTemplates) {
-    DeployARMTemplates
+    if ($global:upgrade) {
+        # In upgrade mode, only deploy ProcessProvisionRequest logic app
+        DeployUpgradeLogicApp
+    }
+    else {
+        # Normal deployment - deploy all ARM templates
+        DeployARMTemplates
+    }
 }
 else {
     Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow
