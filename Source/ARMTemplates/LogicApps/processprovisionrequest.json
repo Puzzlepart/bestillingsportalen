@@ -2190,8 +2190,8 @@
                                             "internalChannel": "@triggerBody()?['InternalChannel']",
                                             "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
                                             "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
-                                            "metadata": "@triggerBody()?['Metadata']",
-                                            "parentSite": "@triggerBody()?['ParentSite']"
+                                            "metadata": "@variables('Metadata')",
+                                            "parentSiteUrl": "@triggerBody()?['ParentSite']"
                                         }
                                     }
                                 },
@@ -2255,7 +2255,7 @@
                         },
                         "Get_Client_ID": {
                             "runAfter": {
-                                "Initialize_MembersOwnersCount": [
+                                "Initialize_CommunityID_variable": [
                                     "Succeeded"
                                 ]
                             },
@@ -2597,9 +2597,26 @@
                                 ]
                             }
                         },
+                        "Initialize_Metadata_variable": {
+                            "runAfter": {
+                                "Initialize_DefaultReadOnlyGroup_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "Metadata",
+                                        "type": "string",
+                                        "value": "@{if(or(empty(triggerBody()?['Metadata']), equals(triggerBody()?['Metadata'], null)), '', replace(triggerBody()?['Metadata'], '\\u0022', ''))}"
+                                    }
+                                ]
+                            }
+                        },
                         "Initialize_DefaultExternalSharingSetting_variable": {
                             "runAfter": {
-                                "Initialize_EnableAllowAccessRequests_variable": [
+                                "Initialize_Metadata_variable": [
                                     "Succeeded"
                                 ]
                             },
