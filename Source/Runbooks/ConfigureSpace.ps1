@@ -39,7 +39,6 @@ Param
     [string] $defaultReadOnlyGroup,
     $metadata,
     [string] $parentSiteUrl
-
 )
 
 $tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
@@ -453,55 +452,66 @@ function SetSensitivityLabelLibrary {
 function ActivateFeatures {
     try {
         If ($featuresToActivate -ne "") {
-            Write-Output "Activating features"
+            try {
+                Write-Output "Activating features"
 
-            $ctx = Get-PnPContext
-            $site = $ctx.Site
-            $ctx.Load($site)
-            $ctx.ExecuteQuery()
-
-            $web = $ctx.Web
-            $ctx.Load($web)
-            $ctx.ExecuteQuery()
-
-            $force = $true
-
-            # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
-            if ($featuresToActivate.ToLower().Contains('web')) {
-
-                $featureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
-
-                $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+                $ctx = Get-PnPContext
+                $site = $ctx.Site
+                $ctx.Load($site)
                 $ctx.ExecuteQuery()
 
-            }
+                $web = $ctx.Web
+                $ctx.Load($web)
+                $ctx.ExecuteQuery()
 
-            ForEach ($feature in $featuresToActivate -split ",") {
+                $force = $true
 
-                $featureId = $feature.Substring($feature.IndexOf(':') + 1)
+                # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
+                if ($featuresToActivate.ToLower().Contains('web')) {
 
-                If ($feature.ToLower().StartsWith("web")) {
-                    Write-Output "Activating web feature $featureId"
-			
-                    $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
-                    $ctx.ExecuteQuery()
+                    $featureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
 
-                    Write-Output "Activated web feature $featureId"
+                    try {
+                        Write-Output "Pre-activating push notifications feature"
+                        $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+                        $ctx.ExecuteQuery()
+                        Write-Output "Push notifications feature activated successfully"
+                    }
+                    catch {
+                        Write-Output "Warning: Could not activate push notifications feature: $($_.Exception.Message)"
+                        # Continue anyway - this is not critical
+                    }
                 }
+
+                ForEach ($feature in $featuresToActivate -split ",") {
+                    $featureId = $feature.Substring($feature.IndexOf(':') + 1)
+
+                    If ($feature.ToLower().StartsWith("web")) {
+                        Write-Output "Activating web feature $featureId"
 			
-                If ($feature.ToLower().StartsWith("site")) {
-                    Write-Output "Activating site feature $featureId"
+                        $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+                        $ctx.ExecuteQuery()
 
-                    $site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
-                    $ctx.ExecuteQuery()
+                        Write-Output "Activated web feature $featureId"
+                    }
+			
+                    If ($feature.ToLower().StartsWith("site")) {
+                        Write-Output "Activating site feature $featureId"
 
-                    Write-Output "Activated site feature $featureId"
+                        $site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
+                        $ctx.ExecuteQuery()
+
+                        Write-Output "Activated site feature $featureId"
+                    }
+
                 }
 
+                Write-Output "Finished activating features"
             }
-
-            Write-Output "Finished activating features"
-
+            catch {
+                Write-Output $_.Exception.Message
+                throw $_
+            }
         }
     }
     catch {
@@ -530,8 +540,17 @@ function ApplyPnPTemplate {
                     Write-Output "Finished applying PnP template"
                 }
                 catch {
-                    Write-Output "Error applying the PnP template: $pnpTemplateUrl $($_.Exception.Message)"
-                    throw $_
+                    Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
+
+                    if ($retryCount -lt $maxRetries) {
+                        $waitTime = 10 * $retryCount
+                        Write-Output "Waiting $waitTime seconds before retry..."
+                        Start-Sleep -Seconds $waitTime
+                    }
+                    else {
+                        Write-Error "Failed to apply PnP template after $maxRetries attempts: $($_.Exception.Message)"
+                        throw $_
+                    }
                 }
             }
         }
