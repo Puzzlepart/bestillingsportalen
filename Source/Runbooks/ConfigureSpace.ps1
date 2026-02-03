@@ -37,7 +37,7 @@ Param
     [bool] $internalChannel,
     [bool] $readOnlyGroup,
     [string] $defaultReadOnlyGroup,
-    [string] $metadata,
+    $metadata,
     [string] $parentSiteUrl
 
 )
@@ -87,6 +87,7 @@ function Update-ProvisioningRequestStatus {
     }
     catch {
         Write-Error "Failed to log status update: $($_.Exception.Message)"
+        throw $_
     }
 }
 
@@ -110,6 +111,7 @@ function SetSiteLogo {
             }
             catch {
                 Write-Output "Error setting site logo (Set-PnPMicrosoft365Group): $($_.Exception.Message)"
+                throw $_
             }
 
             Write-Output "Adding logo to site assets library"
@@ -200,6 +202,7 @@ function AddReadOnlyGroup {
             }
             catch {
                 Write-Output "Error updating SP visitors group with read-only group: $($_.Exception.Message)"
+                throw $_
             }
         }
     }
@@ -323,6 +326,7 @@ function JoinOrRegisterHubSite {
                 }
                 catch {
                     Write-Output $_.Exception.Message
+                    throw $_
                 }
             }
         }
@@ -414,6 +418,7 @@ function SetSensitivityLabel {
             }
             catch {
                 Write-Output $_.Exception.Message
+                throw $_
             }
         }
     }
@@ -436,6 +441,7 @@ function SetSensitivityLabelLibrary {
             }
             catch {
                 Write-Output $_.Exception.Message
+                throw $_
             }
         }
     }
@@ -524,17 +530,8 @@ function ApplyPnPTemplate {
                     Write-Output "Finished applying PnP template"
                 }
                 catch {
-                    Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
-
-                    if ($retryCount -lt $maxRetries) {
-                        $waitTime = 10 * $retryCount
-                        Write-Output "Waiting $waitTime seconds before retry..."
-                        Start-Sleep -Seconds $waitTime
-                    }
-                    else {
-                        Write-Error "Failed to apply PnP template after $maxRetries attempts: $($_.Exception.Message)"
-                        throw
-                    }
+                    Write-Output "Error applying the PnP template: $pnpTemplateUrl $($_.Exception.Message)"
+                    throw $_
                 }
             }
         }
@@ -582,14 +579,22 @@ function SetMetadata {
     try {
         Write-Output "Running 'SetMetadata'"
 
-        if ($null -ne $metadata -and "" -ne $metadata) {
+        if ($null -ne $metadata -and $metadata -ne "") {
+            # Convert metadata to string if it's not already
+            if ($metadata -is [string]) {
+                $metadataString = $metadata
+            }
+            else {
+                $metadataString = $metadata | ConvertTo-Json -Compress -Depth 10
+            }
+            
             try {
-                $metadataObject = $metadata | ConvertFrom-Json
-                Write-Output "Successfully parsed metadata JSON: $metadataObject"
+                $metadataObject = $metadataString | ConvertFrom-Json
+                Write-Output "Successfully parsed metadata JSON"
             }
             catch {
                 Write-Error "Failed to parse metadata JSON: $($_.Exception.Message)"
-                return
+                throw $_
             }
 
             # Handle propertyBagProps
@@ -612,6 +617,7 @@ function SetMetadata {
                             }
                             catch {
                                 Write-Output "Error adding property bag value for '$propName': $($_.Exception.Message)"
+                                throw $_
                             }
                         }
                     }
@@ -623,13 +629,14 @@ function SetMetadata {
                 }
                 catch {
                     Write-Output "Error processing propertyBagProps: $($_.Exception.Message)"
+                    throw $_
                 }
             }
 
             Write-Output "Finished processing metadata"
         }
         else {
-            Write-Warning "No metadata provided"
+            Write-Output "No metadata provided"
         }
     }
     catch {
@@ -667,6 +674,7 @@ function UpdateParentSite {
                 }
                 catch {
                     Write-Output "Could not retrieve hub site information: $($_.Exception.Message)"
+                    throw $_
                 }
             }
 
@@ -737,6 +745,7 @@ function UpdateParentSite {
             }
             catch {
                 Write-Output "Error updating parent site: $($_.Exception.Message)"
+                throw $_
             }
 
             if ($null -ne $hubSiteUrl -and "" -ne $hubSiteUrl) {
@@ -795,6 +804,7 @@ function UpdateParentSite {
                 }
                 catch {
                     Write-Output "Error updating hub site 'Prosjekter' list: $($_.Exception.Message)"
+                    throw $_
                 }
             }
             else {
@@ -880,10 +890,10 @@ catch {
     Write-Error $errorMsg
     
     # Update status if not already updated
-    if (-not $script:hasErrors) {
+    if ($script:hasErrors) {
         Update-ProvisioningRequestStatus -SiteUrl $siteUrl -Status "Space Creation Failed" -StatusReason $errorMsg
     }
     
     # Re-throw the error so Logic App can catch it
-    throw
+    throw $errorMsg
 }
