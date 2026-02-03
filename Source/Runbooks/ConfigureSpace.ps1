@@ -645,10 +645,10 @@ function UpdateParentSite {
             Write-Output "Parent site specified: $parentSiteUrl" 
 
             Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-            $currentWeb = Get-PnPWeb -Includes Id, Title, Url
-            $currentSiteId = $currentWeb.Id.ToString()
-            $currentSiteTitle = $currentWeb.Title
-            $currentSiteUrl = $currentWeb.Url
+            $currentSite = Get-PnPSite -Includes Id, Title, Url
+            $currentSiteId = $currentSite.Id.ToString()
+            $currentSiteTitle = $currentSite.Title
+            $currentSiteUrl = $currentSite.Url
 
             $hubSiteInfo = $null
             $hubSiteUrl = ""
@@ -688,7 +688,7 @@ function UpdateParentSite {
                 Write-Output "Connecting to parent site: $parentSiteUrl"
                 Connect-PnPOnline -Url $parentSiteUrl -ManagedIdentity
 
-                $parentSite = Get-PnPSite -Includes Id   
+                $parentSite = Get-PnPSite -Includes Id
                 $parentSiteId = $parentSite.Id.ToString()
 
                 Write-Output "Getting first item from 'Prosjektegenskaper' list on parent site"
