@@ -14,7 +14,7 @@ Please read on for more details on how you can configure this functionality.
 
 **IMPORTANT - Graph API Endpoints used:**
 
-The creation of Teams from Admin Center defined templates uses the Beta endpoint of the Graph API. A group is created first using the v1.0 endpoint and then a team is added from the specified template. See [Graph API Reference - Create team](https://docs.microsoft.com/en-us/graph/api/team-post?view=graph-rest-beta&tabs=http) (Example 4).
+The creation of Teams from Admin Center defined templates uses the Beta endpoint of the Graph API. A group is created first using the v1.0 endpoint and then a team is added from the specified template. See [Graph API Reference - Create team](https://learn.microsoft.com/en-us/graph/api/team-post?view=graph-rest-beta&tabs=http) (Example 4).
 
 Cloning teams uses the v1.0 endpoints.
 
@@ -48,9 +48,9 @@ Please see the steps below for details on how to define your own templates.
 
 As detailed in the [Deployment guide](./Deployment-guide.md),a logic app named 'GetTeamsTemplates' retrieves templates defined in the admin center. This uses the Graph API, specifically this beta endpoint - https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta&tabs=http.
 
-At the time of writing, this API is only available in beta and is yet to be released to v1.0.
+This API is currently only available in the beta endpoint and has not yet been released to v1.0. Please check the [Graph API reference](https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta) for the latest status.
 
-**Only en-US locale templates are retrieved as at the time of writing. We will be adding support for localized templates in a future release.**
+**Only en-US locale templates are currently retrieved. Support for localized templates may be added in a future release.**
 
 ### Step 1: Define the Template in the Admin Center
 
@@ -74,7 +74,7 @@ At the time of writing, this API is only available in beta and is yet to be rele
 
 This logic app is configured to run weekly, this can be changed to suit your requirements. It is worth noting that any new templates added to the Admin Center will automatically be added to the Teams Templates SharePoint list when this logic app runs. 
 
-They will therefore be available in the Bestillingsportalen Power App for selection by users. If you have templates you do not wish to display, please disable this logic app once you have executed it.
+They will therefore be available in the Bestillingsportalen webdel or Teams app for selection by users. If you have templates you do not wish to display, please disable this logic app once you have executed it.
 
 **_Note - After the above steps have been completed please WAIT 24 hours before running the logic app. It can take up to 24 hours for the template to be retrievable by the logic app. _**
 
@@ -88,7 +88,7 @@ They will therefore be available in the Bestillingsportalen Power App for select
 
 ![GetTeamsTemplates logic app screenshot](./images/GetTeamsTemplatesLA.png)
 
-Your template is now ready for use - make sure you refresh/reload the Bestillingsportalen Power App if you have it open. When a user requests a team from the new template it will be created with the predefined content you configured in the Admin Center. 
+Your template is now ready for use - make sure you refresh/reload the Bestillingsportalen webdel or Teams app if you have it open. When a user requests a team from the new template it will be created with the predefined content you configured in the Admin Center. 
 
 **_Please note - Changes to templates in the Admin Center will not change Teams that have been previously created from the template._**
 
@@ -96,7 +96,7 @@ Your template is now ready for use - make sure you refresh/reload the Bestilling
 
 In addition to being able to create teams from Admin Center templates, Bestillingsportalen supports cloning of existing teams. 
 
-The cloning team functionality uses v1.0 of the Microsoft Graph, specifically [Clone a team](https://docs.microsoft.com/en-us/graph/api/team-clone?view=graph-rest-1.0&tabs=http) so may be preferable to the other form of templating in a Production environment.
+The cloning team functionality uses v1.0 of the Microsoft Graph, specifically [Clone a team](https://learn.microsoft.com/en-us/graph/api/team-clone?view=graph-rest-1.0&tabs=http) so may be preferable to the other form of templating in a Production environment.
 
 When the team is being cloned it is given the new Title, Description etc. that the user specifies when requesting the team. All original owners and members of the source team are removed and replaced with those that the user requested.
 

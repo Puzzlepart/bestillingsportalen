@@ -7,7 +7,7 @@ Approval of requests in the solution can take place in two ways -
 - Power Automate Approval action (Approval Email and Approvals app in Teams).
 - Microsoft Teams Adaptive Card Approval (Adaptive card posted into a Teams channel).
 
-This flow runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Power App). 
+This flow runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Bestillingsportalen webdel or Teams app). 
 
 When you deploy the solution, be sure to follow the 'Step 5: Configure approval process' step of the [Deployment guide](/Deployment-guide.md) in order to set up approval. If you wish to change the approval method e.g. Move from Approvals to Teams adaptive cards, please follow the same step of the deployment guide. 
 
@@ -37,9 +37,9 @@ At a high level the 'Provisioning Request Approval' flow works as follows:
 
 Requests that are 'Approved' will trigger provisioning.
 
-Rejected requests can be edited by users in the Power App and resubmitted.
+Rejected requests can be edited by users in the webdel or Teams app and resubmitted.
 
-As mentioned above, you may edit the approval flow **however this will create an unmanaged layer in the Bestillingsportalen Power Apps solution**. This means if the solution is upgraded in the future, updates to the approval flow will not be applied in your tenant.
+As mentioned above, you may edit the approval flow, however if the solution is upgraded in the future, updates to the approval flow will not be applied in your tenant.
 
 ## Approval of 'Public' spaces only
 
@@ -51,13 +51,11 @@ Simply update the value of the setting named **'EnablePublicSpaceApprovalOnly'**
 
 This is designed for those organizations where 'Private' spaces are deemed to have less risk than 'Public' spaces.
 
-**Please note - This option may not be available in your deployed version of Bestillingsportalen. If you wish to upgrade to the latest Bestillingsportalen Power App, you must follow the steps below To add this functionality for the approval flow to work.
+**Please note - This option may not be available in your deployed version of Bestillingsportalen. If you wish to upgrade to the latest version, you must follow the steps below to add this functionality for the approval flow to work.
 
 1. Locate and navigate to the 'Provisioning Request Settings' list.
 2. Open the [SharePoint List Items](./Source/Settings/SharePoint%20List%20items.xlsx) spreadsheet.
 3. In the 'Provisioning Request Settings' worksheet locate the **'EnablePublicSpaceApprovalOnly'** setting and create the item in the settings list copying and pasting the Title, Value and Description.
 4. Enable or disable the functionality by setting the value column to 'true' or 'false'. 
-5. Import the latest Bestillingsportalen Power Apps solution (this will upgrade earlier versions). 
-
 
 

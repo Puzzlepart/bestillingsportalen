@@ -2,7 +2,7 @@
 
 Bestillingsportalen supports the application of sensitivity labels to created Teams or Office 365 Groups. 
 
-To use this functionality sensitivity labels must be enabled for Teams & Groups, for more information see - https://docs.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels-teams-groups-sites?view=o365-worldwide. 
+To use this functionality sensitivity labels must be enabled for Teams & Groups, for more information see - https://learn.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels-teams-groups-sites?view=o365-worldwide. 
 
 **You will need to have labels created in the Microsoft Purview Compliance Portal and published using Label Policies before this will work. Allow 24 hours after creating and publishing labels before you follow this guide.**
 
@@ -24,9 +24,7 @@ Labels are stored as list items in a SharePoint list named 'IP Labels' in the Sh
 
 ![IP labels list screenshot](./images/IPLabelsList.png)
 
-For a label to appear in the Power App, the 'Enabled' column must be checked. This column has been added because the Graph API does not allow filtering on labels that can be applied to Sites/Groups vs Document/Email labels and ensures that users cannot select the wrong type of label. You will notice that there may be document/email labels in the IP Labels list. Make sure these are not set to 'Enabled' and that only ones that can be applied to sites or groups are marked as enabled.
-
-![Sensitivity label in power app screenshot](./images/SensitivityLabelPA.png)
+For a label to appear in the Bestillingsportalen webdel or Teams app, the 'Enabled' column must be checked. This column has been added because the Graph API does not allow filtering on labels that can be applied to Sites/Groups vs Document/Email labels and ensures that users cannot select the wrong type of label. You will notice that there may be document/email labels in the IP Labels list. Make sure these are not set to 'Enabled' and that only ones that can be applied to sites or groups are marked as enabled.
 
 You can validate which labels can be applied to sites/groups through the Security & Compliance center.
 
@@ -81,7 +79,7 @@ Value: Password for your service account
 Once enabled, this functionality can be configured as follows:
 
 1. If not already done, locate the **'SyncLabels'** Logic App from within the Azure portal and run it - **'Run Trigger > Run'**. This will synchronize the labels into the IP Labels list. (See screenshot above). 
-2. Enable some labels to display in the Power App by editing the list items, setting the **'Enabled'** column to **'true'** and saving the items.
+2. Enable some labels to display in the Bestillingsportalen webdel or Teams app by editing the list items, setting the **'Enabled'** column to **'true'** and saving the items.
 
 ![Enabling a label screenshot](./images/EnableIPLabel.png)
 
@@ -90,4 +88,4 @@ Once enabled, this functionality can be configured as follows:
 ![Set default label screenshot](./images/SetDefaultLabel.png)
 
 4. Choose whether to require the user to select a label (Optional). The default is **'false'** which means the user will not be required to select a label and the combo box can be left blank. If you wish to require (force) users to select a label, simply set the value of the **'RequireSensitivityLabel'** list item to **'true'**.
-5. The functionality is now configured and when users launch the app to request collaboration spaces, they should see the Sensitivity combo box on the Data Classification step (only for 'Microsoft Teams Teams' or 'Office 365 Groups').
+5. The functionality is now configured and when users launch the Bestillingsportalen webdel or Teams app to request collaboration spaces, they should see the Sensitivity combo box on the Data Classification step (only for 'Microsoft Teams Teams' or 'Office 365 Groups').

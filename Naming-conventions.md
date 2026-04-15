@@ -2,7 +2,7 @@
 
 Bestillingsportalen includes the ability to define Naming Conventions/Policies for created Sites/Groups/Teams/Viva Engage communities.
 
-When a user makes a request through the Power App, the naming convention will be applied and a preview of how this will look when combined with the title they have entered will be shown (See 'Space display name' below). 
+When a user makes a request through the Bestillingsportalen webdel or Teams app, the naming convention will be applied and a preview of how this will look when combined with the title they have entered will be shown (See 'Space display name' below). 
 
 ![Naming conventions example screenshot](./images/NamingConventionsExample.png)
 
@@ -16,7 +16,7 @@ Global & Space Type - Requests created where **no** naming convention is assigne
 
 Teams Template - Overrides Global and Space Type if the user selects a teams template that has a naming convention configured.
 
-There is no UI in the Power App to configure this yet (we are working on this) so naming conventions must be set up in the SharePoint site for now.
+There is no UI in the webdel or Teams app to configure this yet (we are working on this) so naming conventions must be set up in the SharePoint site for now.
 
 _Note - If no space types/teams templates have naming conventions configured and naming conventions have been enabled, the templates will use the Global configuration._
 
@@ -107,7 +107,7 @@ Please make sure that users making requests have configured values for the attri
 
 ***Space type convention***
 
-Space type conventions allow you to set specific naming conventions for each type of space a user can request i.e. Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site and a Viva Engage Community. These are the ones that are displayed on the 'Select template' screen in the Power App. If space types have naming conventions defined these will **override** the global one. 
+Space type conventions allow you to set specific naming conventions for each type of space a user can request i.e. Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site and a Viva Engage Community. These are the ones that are displayed on the 'Select template' screen in the Bestillingsportalen webdel or Teams app. If space types have naming conventions defined these will **override** the global one. 
 
 For this example, we will apply a specific naming convention to Communication Sites.
 

@@ -20,8 +20,6 @@ Labels need to be added manually to the SharePoint list named 'Retention Labels'
 
 ![Retention labels list screenshot](./images/RetentionLabelsList.png)
 
-![Retention label in app screenshot](./images/RetentionLabelPA.png)
-
 If the functionality is enabled, the labels are shown to the user in a combo box on the Data Classification step.
 
 You can set a default label and choose whether to require the user to select a label by configuring the 'DefaultRetentionLabel' and 'RequireRetentionLabel' settings in the Site Request Settings list. This will be covered in the Configuration section of this documentation.
@@ -41,4 +39,4 @@ Once enabled, this functionality can be configured as follows:
 
 ![Retention label configuration in settings list screenshot](./images/RetentionLabelSettings.png)
 
-5. The functionality is now configured and when users launch the app to request spaces, they should see the Retention label combo box on the Data Classification screen.
+5. The functionality is now configured and when users launch the Bestillingsportalen webdel or Teams app to request spaces, they should see the Retention label combo box on the Data Classification screen.

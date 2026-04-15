@@ -4,7 +4,7 @@ The Bestillingsportalen solution uses the **Microsoft Graph API** and the **Shar
 
 Provisioning is carried out using an **Entra ID App Registration** which has the required permissions to the Microsoft Graph API assigned to it. For the most part **Application Permissions** are used with one exception - the application of sensitivity labels.
 
-At the time of writing (July 2023), the Graph API does not support applying sensitivity labels to Groups and Teams using Application Permissions therefore a Service Account is used (no MFA) and **Delegated Permissions** configured to the relevant Graph endpoint.
+As of July 2023, the Graph API did not support applying sensitivity labels to Groups and Teams using Application Permissions. This restriction may have since been lifted — please verify against current [Microsoft Graph documentation](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview). Until confirmed, a Service Account (no MFA) with **Delegated Permissions** configured to the relevant Graph endpoint is used.
 
 If you choose to disable or not use the sensitivity label functionality, then this is not required.
 

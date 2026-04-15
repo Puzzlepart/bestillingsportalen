@@ -1,21 +1,21 @@
-# Bestillingsportalen
+<p align="center">
+  <img src="Images/bp_logo.png" alt="Bestillingsportalen logo" width="80" />
+  <br />
+  <strong style="font-size: 2em;">Bestillingsportalen</strong>
+</p>
 
-| [Deployment guide](/Deployment-guide.md) | [Upgrade Guide](/Upgrade.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Business Units](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Translations](/Translations.md) | [Refreshing App Secret](/Refreshing-app-secret.md) | [Error Handling](/Error-handling.md) | [V2](/Version2.md) 
-| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| [Deployment guide](/Deployment-guide.md) | [Upgrade Guide](/Upgrade.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Business Units](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Refreshing App Secret](/Refreshing-app-secret.md) | [Error Handling](/Error-handling.md) |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 
-Bestillingsportalen is a Power Platform and Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through a frontend Power App allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. Bestillingsportalen can be used as part of a Copilot for Microsoft 365 deployment in order to establish a layer of governance over self-service.
+Bestillingsportalen is an Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through an SPFx Teams app allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. Bestillingsportalen can be used as part of a Copilot for Microsoft 365 deployment in order to establish a layer of governance over self-service.
 
-**Note - V2 of the solution is now the 'current' version, V1 is no longer supported and will not be included in future releases. The documentation and screenshots will be updated to reflect this shortly.**
-
-![Bestillingsportalen Home Screenshot](/Images/BestillingsportalenHome.png)
-
-![Bestillingsportalen Recommendations Screenshot](/Images/BestillingsportalenRecommendations.png)
+![Bestillingsportalen](/Images/bp_app.png)
 
 ## Capabilities
 
 Bestillingsportalen provides the following capabilities:
 
-- Canvas based Power App (designed to be added and pinned in Teams) allowing users to request collaboration spaces.
+- SPFx based Bestillingsportalen webdel and Teams app allowing users to request collaboration spaces.
 - Configurable approval process using Power Automate to facilitate the approval of requests.
 - SharePoint site and supporting lists which act as the backend for the solution.
 - Requestor dashboard showing past and current requests with the approval status.
@@ -25,7 +25,7 @@ Bestillingsportalen provides the following capabilities:
 
 The solution uses the Microsoft Graph and the SharePoint REST APIs for provisioning. Azure Runbooks are used with PnP PowerShell for tasks that cannot be completed using the Graph API. 
 
-Application permissions are used through an Azure AD app registration, the secret for the Azure AD app is stored in a key vault.
+Application permissions are used through an Entra ID app registration, the secret for the Entra ID app is stored in a key vault.
 
 Provisioning and other automation tasks in the solution is achieved through Azure Logic apps, ensuring a low runtime cost and the ability to secure access to all resources.
 

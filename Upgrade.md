@@ -206,13 +206,6 @@ After the upgrade completes:
 
 ## Common Upgrade Scenarios
 
-### Upgrading from v1.x to v2.x
-
-If you're upgrading to a major version:
-1. Review the [Version2.md](Version2.md) documentation for breaking changes
-2. Plan for any data migrations needed
-3. Consider testing in a dev environment first
-
 ### Applying Hotfixes
 
 For minor bug fixes:
@@ -225,7 +218,7 @@ For minor bug fixes:
 When new features are added to the template:
 1. The PnP template will add new fields/lists automatically
 2. You may need to manually configure new provisioning types
-3. Update your Power App if UI changes are needed
+3. Update the Bestillingsportalen webdel or Teams app if UI changes are needed
 
 ## Troubleshooting
 

@@ -2,7 +2,7 @@
 
 From time to time you may need to update/refresh the client secret used in the Entra ID App for Bestillingsportalen. This may be because the secret has expired or you wish to generate a new one.
 
-When you deploy Bestillingsportalen, the secret generated for the AD app has a default expiry of 1 year from the date the deployment script was executed.
+When you deploy Bestillingsportalen, the secret generated for the Entra ID app has a default expiry of 1 year from the date the deployment script was executed.
 
 The secret is used in a few places in the Bestillingsportalen solution:
 
@@ -14,17 +14,17 @@ The secret is used in a few places in the Bestillingsportalen solution:
 
 ## Refreshing the Secret
 
-***Appropriate permissions will be needed when following the process below. Ensure the account you are using has permissions to generate AAD app secrets, update secrets in Key Vault and update the Bestillingsportalen API Connections.**
+***Appropriate permissions will be needed when following the process below. Ensure the account you are using has permissions to generate Entra ID app secrets, update secrets in Key Vault and update the Bestillingsportalen API Connections.**
 
 When the secret expires (OR when you want to create a new one), please follow this process to update Bestillingsportalen to use the new value:
 
 ### Generating a new secret
 
 1. Open the Azure Portal.
-2. Navigate to Azure Active Directory.
+2. Navigate to Microsoft Entra ID.
 3. Click 'App registrations' on the left menu.
 4. Click 'All applications'.
-5. Locate your Bestillingsportalen AAD application and click on it.
+5. Locate your Bestillingsportalen Entra ID application and click on it.
 6. Click 'Certificates and secrets' on the left menu.
 7. Click 'New cient secret' under Client secrets.
 8. Enter a description for the secret and choose an expiry date. **Note down this expiry date.**

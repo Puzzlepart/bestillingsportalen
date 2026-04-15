@@ -6,7 +6,7 @@ The Bestillingsportalen contains a number of SharePoint lists which are used for
 
 **Provisioning Requests**  
 
-The Provisioning Requests list stores the details of all requests made through the Power App. If required, request list items can be updated by an admin outside of the Power App, however this is not recommended.
+The Provisioning Requests list stores the details of all requests made through the Bestillingsportalen webdel or Teams app. If required, request list items can be updated by an admin outside of the webdel/Teams app, however this is not recommended.
 
 **Teams Templates**
 
@@ -55,20 +55,20 @@ See the [Provisioning types](./Provisioning-types.md) documentation to find out 
 |Name of Column|Type|Comment|
 |---|---|---|
 |Title|Single line of text|Title of the collaboration space type e.g. Office 365 Group. You may change this value if use another terminology for this type in your organisation, for example a 'Team Site' could be a 'Document Management Area'.|
-|Description|Multiple lines of text|Description of the respective collaboration space type, displayed to end users in the Power App.|
-|Allowed|Yes/No|Whether or not this collaboration space type should be hidden from the Power App (disallow users from requesting this type of space).|
+|Description|Multiple lines of text|Description of the respective collaboration space type, displayed to end users in the Bestillingsportalen webdel or Teams app.|
+|Allowed|Yes/No|Whether or not this collaboration space type should be hidden from the webdel/Teams app (disallow users from requesting this type of space).|
 |TemplateID|Single line of text|Internal template id for the collaboration space type (only applies to SharePoint Team Sites).|
-|Image|Hyperlink or Picture|Image of the collaboration space type that is displayed on the 'Select template' screen of the Power App.|
+|Image|Hyperlink or Picture|Image of the collaboration space type that is displayed on the 'Select template' screen of the webdel/Teams app.|
 |WebTemplateID|Single line of text|Internal web template id for the collaboration space type (only applies to SharePoint Sites & O365 Groups)|
-|Learn Video|Hyperlink or Picture|URL to a video which explains this type of collaboration space, this could be a video hosted on YouTube for example, it can be viewed directly in the Power App by the end user.|
-|Icon|Hyperlink or Picture|Icon image of the collaboration space that is displayed on the 'Select template' screen of the Power App.|
+|Learn Video|Hyperlink or Picture|URL to a video which explains this type of collaboration space, this could be a video hosted on YouTube for example, it can be viewed directly in the webdel/Teams app by the end user.|
+|Icon|Hyperlink or Picture|Icon image of the collaboration space that is displayed on the 'Select template' screen of the webdel/Teams app.|
 |Prefix Text|Single line of text|Text prefix to be prepended to the name of the collaboration space when requested.|
 |Prefix Use Attribute|Yes/No|Whether or not to use an attribute for the prefix.|
 |Prefix Attribute|Choice|Attribute to use for the prefix.|
 |Suffix Text|Single line of text|Text suffix to be appended to the name of the collaboration space when requested.|
 |Suffix Use Attribute|Yes/No|Whether or not to use an attribute for the suffix.|
 |Suffix Atribute|Choice|Attribute to use for the suffix.|
-|Visible To|Person or Group|Security group containing users who this collaboration space type should be visible to. This MUST be a group and not individual users. If this column is left blank then the collaboration space type will be visible to all users who have access to the app. An example where this could be used is to restrict the creation of Communication Sites to those in Corporate Comms.
+|Visible To|Person or Group|Security group containing users who this collaboration space type should be visible to. This MUST be a group and not individual users. If this column is left blank then the collaboration space type will be visible to all users who have access to the webdel/Teams app. An example where this could be used is to restrict the creation of Communication Sites to those in Corporate Comms.
 |Managed Path|Single line of text|Managed path to use when creating collaboration spaces using this type. You can use this to create SharePoint sites under the 'sites' managed path even if your tenant default is 'teams'.
 |Default Visibility|Choice|Default visibility - 'Private' or 'Public' for this space type.
 |Default Confidential Data|Yes/No|Default value for the Confidential Data radio button for this space type.
@@ -84,7 +84,7 @@ The Site Templates list stores the SharePoint Site Templates in the current tena
 |PreviewImage|Hyperlink or Picture|URL to the preview image for the Site Template.|
 |WebTemplate|Single line of text|Internal web template id for the Site Template|
 |Store|Single line of text|Store for the Site Template, only applicable to out of the box templates.|
-|Enabled|Yes/No|Whether or not the Site Template should be displayed in the Power App for the user to select.|
+|Enabled|Yes/No|Whether or not the Site Template should be displayed in the webdel/Teams app for the user to select.|
 |ApplyPnPTemplate|Yes/No|Whether or not to associate and apply a PnP template with this Site Template. See the [PnP Templates](/PnP-templates.md) documentation to find out more.|
 |PnPTemplateURL|Hyperlink|URL to a PnP template stored in the 'PnP Templates' library.|
 |ThemeName|Single line of text|Name of a SharePoint theme to apply with this template e.g. Blue.|
@@ -99,13 +99,13 @@ The Hub Sites list stores the Hub Sites in the current tenant. A logic app (GetH
 |---|---|---|
 |Title|Single line of text|Title of the Hub Site.|
 |HubSiteId|Single line of text|Id of the Hub Site.|
-|Owner|Person or Group|Owner of the Hub Site (unused at the time of writing).|
-|Second Owner|Person or Group|Second owner of the Hub Site (unused at the time of writing).|
-|Enabled|Yes/No|Whether or not the Hub Site should be displayed in the Power App.|
+|Owner|Person or Group|Owner of the Hub Site (currently unused).|
+|Second Owner|Person or Group|Second owner of the Hub Site (currently unused).|
+|Enabled|Yes/No|Whether or not the Hub Site should be displayed in the webdel/Teams app.|
 
 **Time Zones**
 
-The Time Zones list stores all time zones that can be selected in the app and set on a SharePoint site.
+The Time Zones list stores all time zones that can be selected in the webdel/Teams app and set on a SharePoint site.
 
 |Name of Column|Type|Comment|
 |---|---|---|
@@ -114,7 +114,7 @@ The Time Zones list stores all time zones that can be selected in the app and se
 
 **Locales**
 
-The Locales list stores all locales that can be selected in the app and set on a SharePoint site.
+The Locales list stores all locales that can be selected in the webdel/Teams app and set on a SharePoint site.
 
 |Name of Column|Type|Comment|
 |---|---|---|
@@ -131,7 +131,7 @@ The IP Labels list stores all sensitivity labels from the current tenant. Read t
 |Label Name|Single line of text|Name of the label. |
 |Label Id|Single line of text|Id of the label. |
 |Label Description|Multiple lines of text|Description of the label. |
-|Enabled|Yes/No|Whether or not the label should be displayed in the Power App for users to select. |
+|Enabled|Yes/No|Whether or not the label should be displayed in the webdel/Teams app for users to select. |
 
 **Retention Labels**
 

@@ -13,15 +13,13 @@ Two lists are used in the SharePoint site to support this functionality:
 
 ![Time zones list screenshot](./images/TimeZonesList.png)
 
-This list stores all the Locales (LCIDs) that SharePoint Online supports. This list is used in the Power App to allow the user to select a locale. If you want to restrict the locales a user can select you can delete items from this list that are not required.
+This list stores all the Locales (LCIDs) that SharePoint Online supports. This list is used in the Bestillingsportalen webdel or Teams app to allow the user to select a locale. If you want to restrict the locales a user can select you can delete items from this list that are not required.
 
 **Locales:**
 
 ![Locales list screenshot](./images/LocalesList.png)
 
-**Power App/End User view:**
-
-![Time zones and locales end user view screenshot](./images/TimeZoneLocalePA.png)
+**App/End User view:**
 
 When making a request, the user can select a time zone/locale from the combo boxes provided on the 'Area Information' screen.
 
@@ -35,4 +33,4 @@ To configure a default time zone/locale, follow the steps below:
 1. Navigate to the 'Provisioning Request Settings' list in the SharePoint site.
 2. Edit the 'DefaultTimeZone' and 'DefaultLCID' and update the value in the 'Value' column to the time zone and LCID that you want as the default. You can obtain the ids from the Time Zones and Locales lists.
 
-A default time zone/locale is now configured and will take affect when the Power App is next launched.
+A default time zone/locale is now configured and will take affect when the Bestillingsportalen webdel or Teams app is next launched.

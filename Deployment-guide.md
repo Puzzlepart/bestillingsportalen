@@ -4,11 +4,10 @@
 
 To begin, you will need:
 
-- Power Apps and Power Automate (seeded licenses) enabled and rolled out across your organisation.
-- Power Apps environment with a Dataverse database deployed. You may use the default environment, however a production environment is recommended. If you do not have capacity to create a Dataverse database, you may need to use the default environment.
+- Power Automate (seeded licenses) enabled and rolled out across your organisation.
 - Billable Azure Subscription in the same tenant to which you will deploy Bestillingsportalen.
 - Service account (used by Logic Apps to connect to SPO, Outlook and Teams) with an appropriate Microsoft 365 license (This account should NOT be an admin). This account CAN have MFA.
-- Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however at the time of writing this account CANNOT use MFA due to restrictions in the Microsoft Graph.
+- Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however this account may not be able to use MFA due to restrictions in the Microsoft Graph. Please verify against current [Microsoft Graph documentation](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) as this restriction may have been lifted.
 - Windows 10/11 machine on which to execute the PowerShell deployment script.
 - PowerShell 7 downloaded and installed - <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) - <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
@@ -102,7 +101,7 @@ You may refer to the following to understand each parameter:
 
 - `siteLogoPath` (**Optional)** - Path to a company logo (ideally stored in SharePoint) that all users can access to set as the logo for created sites. Please ensure this path is to an image, if you don't have an image leave this blank.
 
-- `serviceAccountUPN` - UPN of Service Account to be used for the solution - used to connect the Logic App API connections. Service account should be a standard Microsoft 365 user who has SPO/Exchange/Teams licenses enabled. Refer to [Assign licenses to users](https://docs.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide) for more details.
+- `serviceAccountUPN` - UPN of Service Account to be used for the solution - used to connect the Logic App API connections. Service account should be a standard Microsoft 365 user who has SPO/Exchange/Teams licenses enabled. Refer to [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide) for more details.
 
 - `isEdu` - Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank
 
@@ -165,7 +164,7 @@ Approval of requests in the solution can take place in two ways:
 - Power Automate Approval action (Approval Email and Approvals app in Teams).
 - Microsoft Teams Adaptive Card Approval (Adaptive card posted into a Teams channel).
 
-Approvals for requests use a single Power Automate flow which runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Power App).
+Approvals for requests use a single Power Automate flow which runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Bestillingsportalen webdel or Teams app).
 
 Follow the steps to configure the Bestillingsportalen settings depending on which approval method you wish to implement.
 
@@ -209,115 +208,39 @@ The text shown in <span style="color:red">red</span> is the Channel Id. The text
 
 The approvals will now use adaptive cards in Teams. Please revisit this section of the deployment guide if you want to switch to Power Automate Approvals in the future.
 
-## Step 5: Deploy Power Apps solution
-
-1. Sign in with the service account that you created for the Bestillingsportalen solution. **This is an important step, you must not use the account that you used to deploy the resources.**
-2. Navigate to the Power Apps portal.
-3. Click on 'Solutions' in the left pane and click 'Import solution'.
-
-![Power Apps browse solution import screenshot](/Images/PASolutionImport.png)
-
-4. Browse and select the bestillingsportalen managed solution file.
-5. Click 'Next'.
-
-![Power Apps import solution screenshot](/Images/PASolutionImport1.png)
-
-6. Click 'Next'.
-7. Create new connections for each connection used by Bestillingsportalen, ensure you sign in using the service account.
-
-![Power Apps import solution connections screenshot](/Images/PASolutionConnections.png)
-
-8. Click 'Next' once the connections have been connected.
-9. The next step is to update the environment variables used by the solution. Either select the SharePoint site created by the deployment in the drop down OR if it is not visible, enter the URL.
-10. Using each drop down, connect each environment variable to the appropriate SharePoint list by matching the name.
-
-![Power Apps solution environment variables screenshot](/Images/PASolutionEnvVariables.png)
-
-11. Click 'Import'.
-12. When the solution has imported a message will be displayed.
-
-![Power Apps solution import success message screenshot](/Images/PASolutionImportSuccess.png)
-
-The solution has now been imported, please proceed to the next step to configure the Power App.
-
-## Step 6: Configure 'Run only users' for 'Check Space Availability' flow
-
-In order for this flow to be executed from the Power App (when users are checking to ensure the availability of their desired collaboration space) by users, the 'Provisioning Requests' list needs to be added as a 'Run only user' for the flow.
-
-This ensures that all users who have access to the list can execute this flow through the app.
-
-**At the time of writing there is a known bug that prevents the selection of your SharePoint site and list UNTIL the flow is edited for the first time, please ensure you follow all the steps below.**
-
-Follow the steps below to do this.
-
-1. Navigate to the Power Apps portal as the service account.
-2. Click 'Flows' in the left hand pane and locate the **Check Space Availability** flow.
-3. Click on the flow.
-4. Click 'Edit' in the top menu.
-5. Click 'Save' in the top menu without making any changes.
-6. Click the back arrow.
-7. Click 'Edit' next to 'Run only users'.
-8. In the pane that appears, select the 'SharePoint' tab.
-9. Select the Bestillingsportalen site and 'Provisioning Requests' list in the drop downs beneath.
-10. Set the values in the 'Connections Used' drop downs to use the connection from the owner of the flow.
-
-![Run only users screenshot](/Images/RunOnlyUsers.png)
-
-## Step 7: Turn on 'Provisioning Request Approval' flow
+## Step 5: Turn on 'Provisioning Request Approval' flow
 
 The **Provisioning Request Approval** is turned off by default and needs to be turned on.
 
 Follow the steps below to turn it on.
 
-1. Navigate to the Power Apps portal as the service account.
-2. Click 'Flows' in the left hand pane and locate the **Provisioning Request Approval** flow.
+1. Navigate to the Power Automate portal (make.powerautomate.com) as the service account.
+2. Locate the **Provisioning Request Approval** flow.
 3. Click on the flow.
 4. Click 'Turn on' in the top menu.
 
-## Step 8: Share Power App, Flows and SharePoint site
+## Step 6: Share Flows and SharePoint site
 
-Before Bestillingsportalen can be rolled out, the Power App and SharePoint site need to be shared with all users to will submit requests.
+Before Bestillingsportalen can be rolled out, the Flows and SharePoint site need to be shared with all users who will submit requests.
 
-## Step 9 (temporarily): Overwrite Runbook `ConfigureSpace`
+### Step 6a (temporarily): Overwrite Runbook `ConfigureSpace`
 
 When deploying, the runbook `ConfigureSpace` is fetched from a public repo. This should be replaced with the version in this repo. Just a simple copy/paste is required. This is temporary until this repo is public. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
 
-### Power App
-
-Follow the steps below to share the app and the SharePoint site:
-
-1. Navigate to the Power Apps portal as the service account.
-2. Select the Bestillingsportalen Power App and click 'Share' on the top menu.
-3. Enter users or groups to share the app with. You may wish to give some users 'Owner' rights to edit the app. This will avoid the need to sign in with the service account when making changes.
-
-If you don't have a group you can add users individually or share with everyone across your tenant by sharing with the 'Everyone' group. (To keep the communication official, you should take out the checkbox to 'Send an email invitation to new users.') You can also share the app with other admins by granting them Co-Owner rights.
-
-![Share Power App screenshot](/Images/PAShareApp.png)
-
-4. Choose whether or not to send an email invitation and click 'Share'.
-5. The users will now have access to the Power App.
-
-**Note:** Every user accessing the app for the first time will be prompted to consent to accessing the data sources. The user should click on 'Allow' to proceed. This can be bypassed by using the Power Apps admin PowerShell module. See [this documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powerapps.administration.powershell/set-adminpowerappapistobypassconsent?view=pa-ps-latest) for more details. It is recommended to disable the consent popup using PowerShell before production deployment.
-
 ### Flows
 
-Next, we will share the flows that are used by Bestillingsportalen with admins that wish to view flow runs/edit the flows. This step is optional but will avoid the need to sign in with the service account when viewing flow runs. Repeat these steps for each flow.
+Share the flows that are used by Bestillingsportalen with admins that wish to view flow runs/edit the flows. This step is optional but will avoid the need to sign in with the service account when viewing flow runs. Repeat these steps for each flow.
 
 Two flows are provided with the Bestillingsportalen solution, these are:
 
 - Provisioning Request Approval - Provides an approval process for requests, see [Approval flow](/Approval-flow.md) for more details.
-- Check Space Availability - Checks to see if a space matching the supplied Title/URL already exists. This flow is executed when the 'Verify' button is clicked in the Power App. It uses the 'Office 365 Groups' connector to check for a group with the same details and also checks the 'Provisioning Requests' list for a matching request. Users may only proceed if the space does not exist or a request matching the same name does not already exist. If a request is found in the list and it was created by the SAME user, they are prompted to edit the other request instead.
+- Check Space Availability - Checks to see if a space matching the supplied Title/URL already exists. It uses the 'Office 365 Groups' connector to check for a group with the same details and also checks the 'Provisioning Requests' list for a matching request. Users may only proceed if the space does not exist or a request matching the same name does not already exist. If a request is found in the list and it was created by the SAME user, they are prompted to edit the other request instead.
 
-1. Navigate to the Power Apps portal as the service account.
-2. Click 'Flows' in the left pane. You will find two flows that are used by Bestillingsportalen - **Provisioning Request Approval** and **Check Space Availability**.
-3. Select the 'Provisioning Request Approval' flow and click 'Share' on the top menu.
-
-![Share flow screenshot](/Images/PAShareFlow.png)
-
-4. Enter users or groups to share the flow with, select 'OK' in the 'Before you share' dialog that appears.
-
-5. Repeat these steps for the 'Check Space Availability' flow.
-6. These users will now have access to the flows.
+1. Navigate to the Power Automate portal (make.powerautomate.com) as the service account.
+2. Locate the **Provisioning Request Approval** flow and click 'Share' on the top menu.
+3. Enter users or groups to share the flow with, select 'OK' in the 'Before you share' dialog that appears.
+4. Repeat these steps for the 'Check Space Availability' flow.
+5. These users will now have access to the flows.
 
 ### SharePoint site
 
@@ -331,22 +254,7 @@ The steps below will share the SharePoint site with end users, giving them acces
 6. Click 'Show Options' and under the permission level, select the visitors group (this will grant the users read-only access to the site initially).
 7. Navigate to the 'Provisioning Requests' list and [follow these steps](https://support.office.com/en-gb/article/customize-permissions-for-a-sharepoint-list-or-library-02d770f3-59eb-4910-a608-5f84cc297782) to break permission inheritance. Give the Visitors group 'Edit' rights (this will ensure that users can create requests).
 
-**Note:** Every user accessing the app for the first time will be prompted to consent to accessing the data sources. The user should click on 'Allow' to proceed. This can be bypassed by using the Power Apps admin PowerShell module. See the [Solution Overview](/Solution-Overview) for more details. It is recommended to disable the consent popup using PowerShell before production deployment.
-
-## Step 9: Add the app to Teams
-
-1. Navigate to the Power Apps portal as the account you wish to install the app for and click 'Apps' in the left pane, you should see the Bestillingsportalen Power App. **You may need to select the correct Environment in which you deployed the solution from the Environment menu at the top**.
-2. Select the app and click 'Add to Teams' from the top menu bar.
-
-At this point you have two options:
-
-Add the app to Teams globally using policies in the Teams Admin Center OR sideload the app into the Teams client and install for the current logged in user only. 
-
-3. If you wish to sideload the app, click the 'Add to Teans' option in the dialog that appears. The Teams client will open (you may choose the web client or desktop) and the app will install for the current logged in user.
-
-If you wish to roll the app out via policies, please refer to our general documentation on docs.microsoft.com for how to upload to the Teams Admin Center and deploy globally.
-
-## Step 10: Running/Configuring supporting Logic Apps
+## Step 7: Running/Configuring supporting Logic Apps
 
 There are a few supporting Logic Apps which should be executed manually after the initial deployment.
 
@@ -369,9 +277,9 @@ Follow these steps to run them 'on demand':
 5. Once the logic app has executed, you should see a status of 'Succeeded' in the run history.
 6. Repeat the steps to execute each logic app.
 
-## Step 11 (Optional): Enabling Site Templates & Hub Sites
+## Step 8 (Optional): Enabling Site Templates & Hub Sites
 
-Before Hub Sites and Site Templates are visible to end users in the Power App, they must be 'Enabled'.
+Before Hub Sites and Site Templates are visible to end users in the Bestillingsportalen webdel or Teams app, they must be 'Enabled'.
 
 There is a Yes/No column named 'Enabled' in the 'Hub Sites' and 'Site Templates' lists. If you wish to make a specific template visible to end users please edit the list items and set the value of the column to true.
 
@@ -379,9 +287,9 @@ The reason for this column is to allow admins the flexibility to show/hide Site 
 
 ![Enabled column in Site Templates list](/Images/SiteTemplatesListEnabled.png)
 
-## Step 12: Set up Admins group
+## Step 9: Set up Admins group
 
-The Bestillingsportalen Power App leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *At the time of writing this screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Bestillingsportalen only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Bestillingsportalen:
+The Bestillingsportalen webdel or Teams app leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the webdel/Teams app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *This screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Bestillingsportalen only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Bestillingsportalen:
 
 - Microsoft 365 Group (can be the same one used for the Bestillingsportalen SPO site) OR
 - Microsoft Teams Team OR
@@ -396,16 +304,12 @@ Obtain the id of the resource you created or an existing one you will reuse and 
 
 The admins group is now set up and configured.
 
-![Bestillingsportalen settings icon screenshot](/Images/PASettingsIcon.png)
+## Deployment of the solution is now complete and the Bestillingsportalen webdel or Teams app should be accessible
 
-![Bestillingsportalen settings screen screenshot](/Images/PASettingsScreen.png)
-
-## Deployment of the solution is now complete and the app should be accessible in Teams
-
-## Step 13 (Optional): Enable auto approval (disabling approval process)
+## Step 10 (Optional): Enable auto approval (disabling approval process)
 
 If you do not wish to use the provided Power Automate approval process, you can enable 'Auto approval' through the 'Provisioning Request Settings' list.
 
 To turn this on, simply navigate to the settings list, edit the list item named 'EnableAutoApproval' and set the Value column to 'true'.
 
-When users submit requests through the Power App, the status will be set to 'Approved' meaning the approval flow will not run and therefore the provisioning process will start straight away.
+When users submit requests through the Bestillingsportalen webdel or Teams app, the status will be set to 'Approved' meaning the approval flow will not run and therefore the provisioning process will start straight away.
