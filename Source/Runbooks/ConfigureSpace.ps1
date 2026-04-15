@@ -678,9 +678,10 @@ function UpdateParentSite {
             Write-Output "Parent site specified: $parentSiteUrl" 
 
             Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-            $currentSite = Get-PnPSite -Includes Id, Title, Url
+            $currentSite = Get-PnPSite -Includes Id, Url
+            $currentWeb = Get-PnPWeb
             $currentSiteId = $currentSite.Id.ToString()
-            $currentSiteTitle = $currentSite.Title
+            $currentSiteTitle = $currentWeb.Title
             $currentSiteUrl = $currentSite.Url
 
             $hubSiteInfo = $null
