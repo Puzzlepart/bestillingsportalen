@@ -1,31 +1,31 @@
-# Deployment guide
+# Installasjonsveiledning
 
-## Prerequisites
+## Forutsetninger
 
-To begin, you will need:
+For å komme i gang trenger du:
 
-- Power Automate (seeded licenses) enabled and rolled out across your organisation.
-- Billable Azure Subscription in the same tenant to which you will deploy Bestillingsportalen.
-- Service account (used by Logic Apps to connect to SPO, Outlook and Teams) with an appropriate Microsoft 365 license (This account should NOT be an admin). This account CAN have MFA.
-- Service account for sensitivity label functionality (applying sensitivity labels), if you wish to use it. This can be the same account as the above if you wish however this account may not be able to use MFA due to restrictions in the Microsoft Graph. Please verify against current [Microsoft Graph documentation](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) as this restriction may have been lifted.
-- Windows 10/11 machine on which to execute the PowerShell deployment script.
-- PowerShell 7 downloaded and installed - <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
-- Azure CLI (Command Line Interface) - <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
-- Firewall/Proxy configured to allow connectivity using the Azure CLI - please test the 'az login' cmdlet works before proceeding.
-- Global Administrator (to execute the `createentraidapp.ps1` script and create/authorize the PnP app registration).
-- A user account with **Owner** rights to the Azure Subscription that is also a SharePoint, Power Platform and Teams Administrator. 
-- A certificate (self-signed is ok) to use for Microsoft Graph and SharePoint REST API authentication (**Optional** as the deployment script will create a self-signed cert for you if preffered). 
-- App Registration for PnP PowerShell (see below).
+- Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
+- Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA.
+- Tjenestekonto for sensitivitetsmerke-funksjonalitet (anvendelse av sensitivitetsmerker), hvis du vil bruke funksjonaliteten. Kan være samme konto som over, men kontoen kan være forhindret fra å bruke MFA grunnet begrensninger i Microsoft Graph. Verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) da denne begrensningen kan ha blitt fjernet.
+- Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
+- PowerShell 7 lastet ned og installert – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
+- Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
+- Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
+- Global Administrator (for å kjøre `createentraidapp.ps1`-skriptet og opprette/autorisere PnP app registration).
+- Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
+- Et sertifikat (self-signed er greit) for Microsoft Graph og SharePoint REST API-autentisering (**valgfritt** – installasjonsskriptet kan opprette et self-signed cert for deg).
+- App Registration for PnP PowerShell (se nedenfor).
 
 #### PnP PowerShell App Registration
 
-PnP PowerShell no longer supports the 'multi-tenant app registration' option. This previously created an app registration automatically for PnP PowerShell with all neccessary permissions.
+PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger.
 
-In order to authenticate and use PnP PowerShell moving forward, it is neccessary to create your own app registration with the required permissions.
+For å autentisere og bruke PnP PowerShell framover må du opprette din egen app registration med de nødvendige tillatelsene.
 
-Before you execute the deployment script for Bestillingsportalen, make sure you have created this app registration and have the certificate file and password to hand.
+Før du kjører installasjonsskriptet for Bestillingsportalen, sørg for at du har opprettet denne app-en og har sertifikatet og passordet tilgjengelig.
 
-The minimum permissions required for the PnP app registration to be able to run the deployment script are:
+Minimumskravene til PnP app registration for å kunne kjøre installasjonsskriptet er:
 
 **Microsoft Graph**
 
@@ -36,280 +36,280 @@ The minimum permissions required for the PnP app registration to be able to run 
 
 - Sites.FullControl.All
 
-Once the Bestillingsportalen deployment is complete, you may delete the PnP PowerShell app registration or remove the above permissions if you no longer require them.
+Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
-You can find more details on the changes to PnP PowerShell authentication [here](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
+Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
 
-Please see [this video](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for details of how to create and use the app registration.
+Se [denne videoen](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for hvordan du oppretter og bruker app registration.
 
-If Sites.FullControl.All is a concern, you may create the SharePoint site for Bestillingsportalen manually and make sure the name in the parameters.json file matches the name of the site you created.
+Hvis `Sites.FullControl.All` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
 
 #### PowerShell 7.x
 
-The Bestillingsportalen deployment script requires PowerShell 7 and no longer supports 5.1. Please ensure PowerShell 7 is installed before installing the PowerShell modules listed below.
+Installasjonsskriptet for Bestillingsportalen krever PowerShell 7 og støtter ikke lenger 5.1. Sørg for at PowerShell 7 er installert før du installerer PowerShell-modulene nedenfor.
 
-#### PowerShell Modules
+#### PowerShell-moduler
 
-The following PowerShell modules are used by the deployment script and must be installed before executing the script:
+Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres før skriptet kjøres:
 
 - PnP.PowerShell (3.1)
 - Az
 - ImportExcel
 - WriteAscii
 
-## Step 1: Configuring PowerShell
+## Steg 1: Konfigurere PowerShell
 
-1. Download the [latest release](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) of Bestillingsportalen.
-2. Launch PowerShell 7 as an Administrator.
-3. Set the PowerShell Execution Policy to 'Unrestricted' by running the following cmdlet - ```Set-ExecutionPolicy -ExecutionPolicy unrestricted```
+1. Last ned [nyeste utgave](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) av Bestillingsportalen.
+2. Start PowerShell 7 som administrator.
+3. Sett PowerShell Execution Policy til `Unrestricted` ved å kjøre ```Set-ExecutionPolicy -ExecutionPolicy unrestricted```.
 
-## Step 2: Updating Parameters.json file
+## Steg 2: Oppdatere parameters.json
 
-You will find a parameters.json file in the Scripts folder. Please update all the parameters with the correct values for your tenant.
+Du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
 
-Replace `<<value>>` with appropriate values for all required parameters.
+Erstatt `<<value>>` med passende verdier for alle påkrevde parametre.
 
-You may refer to the following to understand each parameter:
+Beskrivelse av hver parameter:
 
-- `tenantId` - Id of the tenant to deploy to. Can be found in the Azure Active Directory blade.
+- `tenantId` – ID til tenanten du skal installere i. Finnes i Microsoft Entra ID-bladet.
 
-- `spoTenantName` - Name of the SharePoint tenant excluding .sharepoint.com e.g. `puzzlepart`.
+- `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `puzzlepart`.
 
-- `requestsSiteName` - Name of the SharePoint site to store requests made by users, can include spaces (URL/Alias automatically generated). If the site exists, it will prompt to overwrite and will apply the PnP provisioning template.
+- `requestsSiteName` – Navn på SharePoint-området som skal lagre bestillinger (URL/alias genereres automatisk). Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
 
-- `requestsSiteDesc` - Description of the site that will be created above.
+- `requestsSiteDesc` – Beskrivelse av området som opprettes.
 
-- `managedPath` - Managed path configured in the tenant e.g. 'sites' or 'teams' (no forward slash).
+- `managedPath` – Managed path konfigurert i tenanten, f.eks. `sites` eller `teams` (uten skråstrek).
 
-- `subscriptionId` - Azure subscription to deploy the solution to (MUST be associated with the Entra ID directory of the Microsoft 365 tenant that you wish to deploy this solution to).
+- `subscriptionId` – Azure-abonnement som løsningen installeres i (MÅ være tilknyttet Entra ID-katalogen til Microsoft 365-tenanten du installerer i).
 
-- `region` - Azure region in which to create the resources. The internal name should be used e.g. `norwayeast`. The location MUST support Automation and Logic Apps. See [Valid Azure locations](https://azure.microsoft.com/en-gb/explore/global-infrastructure/products-by-region/?products=logic-apps%2Cautomation&regions=all).
+- `region` – Azure-region der ressursene opprettes. Bruk internt navn, f.eks. `norwayeast`. Plasseringen MÅ støtte Automation og Logic Apps. Se [Valid Azure locations](https://azure.microsoft.com/en-gb/explore/global-infrastructure/products-by-region/?products=logic-apps%2Cautomation&regions=all).
 
-- `resourceGroupName` - Name for a new resource group to deploy the solution to - the script will create this resource group.
+- `resourceGroupName` – Navn på ny ressursgruppe løsningen installeres i. Skriptet oppretter denne.
 
-- `appName` - Name for the Entra ID app that will be created e.g. `Bestillingsportalen`.
+- `appName` – Navn på Entra ID-appen som opprettes, f.eks. `Bestillingsportalen`.
 
-- `createSelfSignedCert` - Specifies whether to create a self-signed certificate as part of the deployment. If set to true, a self-signed cert will be created through the Azure CLI with the name specified in the 'certName' parameter.
+- `createSelfSignedCert` – Angir om et self-signed sertifikat skal opprettes som del av installasjonen. Hvis `true`, opprettes et self-signed cert via Azure CLI med navnet i `certName`.
 
-- `certName` - Name for the self-signed certificate e.g. 'cert-bestillingsportalen'. If you are creating your own certificate, this parameter is still mandatory and should match the name of your certificate.
+- `certName` – Navn på det self-signed sertifikatet, f.eks. `cert-bestillingsportalen`. Hvis du lager ditt eget sertifikat, er denne parameteren fortsatt påkrevd og skal matche navnet på sertifikatet ditt.
 
-- `certValidityDays` - Number of days that the certificate is valid for (if 'createSelfSignedCert' is set to true). The default is 365 days.
+- `certValidityDays` – Antall dager sertifikatet er gyldig (hvis `createSelfSignedCert` er `true`). Standard er 365 dager.
 
-- `pnpAppId` - Id of the PnP Entra app registration that you created when configuring PnP PowerShell.
+- `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
 
-- `pnpCertPath` - Path to the PnP certificate on your local machine that you created when configuring PnP PowerShell.
+- `pnpCertPath` – Sti til PnP-sertifikatet på din lokale maskin som du opprettet da du konfigurerte PnP PowerShell.
 
-- `siteLogoPath` (**Optional)** - Path to a company logo (ideally stored in SharePoint) that all users can access to set as the logo for created sites. Please ensure this path is to an image, if you don't have an image leave this blank.
+- `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
-- `serviceAccountUPN` - UPN of Service Account to be used for the solution - used to connect the Logic App API connections. Service account should be a standard Microsoft 365 user who has SPO/Exchange/Teams licenses enabled. Refer to [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide) for more details.
+- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser. Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
-- `isEdu` - Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank
+- `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
-- `KeyVaultName` - Name to use for the Key Vault that is provisioned by the deployment script. The Key Vault stores the app id and secret of the Entra ID app that this solution uses. This ensures that these are held securely. The name of the key vault must be unique across the Azure region that you are deploying to. If a key vault matching the name provided exists ***in*** the current subscription, it can be used. **PLEASE NOTE - IF YOU USE AN EXISTING KEY VAULT, IT WILL BE OVERWRITTEN AND CONFIGURATION SUCH AS ROLE ASSIGNMENTS WILL BE LOST. WE RECOMMEND USING A DEDICATED KEY VAULT FOR Bestillingsportalen**. The script will validate that the name is available and if not, an alternative name will need to be provided.
+- `KeyVaultName` – Navn på Key Vault som installasjonsskriptet oppretter. Key Vault lagrer `app id` og `secret` for Entra ID-appen. Navnet må være unikt på tvers av Azure-regionen du installerer i. Hvis en Key Vault med samme navn eksisterer ***i*** det aktuelle abonnementet, kan den brukes. **MERK – HVIS DU BRUKER EN EKSISTERENDE KEY VAULT, VIL DEN BLI OVERSKREVET OG KONFIGURASJON SOM ROLE ASSIGNMENTS GÅR TAPT. VI ANBEFALER EN DEDIKERT KEY VAULT FOR Bestillingsportalen.** Skriptet validerer at navnet er tilgjengelig, og hvis ikke må et annet navn oppgis.
 
-- `enableSensitivity` - Enable the Sensitivity Label functionality. Note - this will require you to have a Service Account with NO MFA, this can be the same service account as above if you wish.
+- `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merk – dette krever en tjenestekonto UTEN MFA. Kan være samme tjenestekonto som over.
 
-- `skipApplySPOTemplate` - Skip applying the PnP template to the SharePoint site. Leave **false** unless you have a specific reason to skip this.
+- `skipApplySPOTemplate` – Hopper over anvendelse av PnP-mal på SharePoint-området. La stå som `false` med mindre du har en spesifikk grunn til å hoppe over dette.
 
-## Step 3: Execute the scripts
+## Steg 3: Kjør skriptene
 
-### Entra ID App Creation
+### Opprettelse av Entra ID-app
 
-The first step is to execute the dedicated script responsible for creating the Entra ID app and granting admin consent for the Microsoft Graph API permissions.
+Første steg er å kjøre det dedikerte skriptet som oppretter Entra ID-appen og gir admin consent for Microsoft Graph API-tillatelsene.
 
-**This part of the deployment requires a user account with Global Administrator access.**
+**Denne delen av installasjonen krever en brukerkonto med Global Administrator-tilgang.**
 
-1. Launch a PowerShell 7 window as an Administrator.
-2. Navigate to the 'Scripts' folder.
-3. Execute the createentraidapp script in the PowerShell window - ```.\createentraidapp.ps1```
-4. Enter a name for the Entra ID app when prompted (**This must be the same name as the 'appName' parameter in the parameters.json file**).
-5. Wait for the script to complete.
+1. Åpne et PowerShell 7-vindu som administrator.
+2. Gå til `Scripts`-mappen.
+3. Kjør `createentraidapp`-skriptet i PowerShell-vinduet – ```.\createentraidapp.ps1```.
+4. Oppgi et navn for Entra ID-appen når du blir spurt (**Dette må være samme navn som `appName`-parameteren i `parameters.json`**).
+5. Vent til skriptet er ferdig.
 
-### Deployment of Resources
+### Installasjon av ressurser
 
-The next step of deployment is to execute the deploy script.
+Neste steg er å kjøre deploy-skriptet.
 
-**Ensure the account you are using at this stage has owner rights to the Azure Subscription and is also a SharePoint Administrator.**
+**Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet og også er SharePoint Administrator.**
 
-**The deployment script generates a secret for the Entra ID app created above. The default expiry period for this secret is to 1 year, for details on how refresh the secret when it expires, see [Refreshing app secret](./Refreshing-app-secret.md).**
+**Installasjonsskriptet genererer en secret for Entra ID-appen opprettet over. Standard utløpstid for denne secret-en er 1 år. For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
 
-As the script uses various PowerShell modules to perform deployment, it will prompt for authentication a number of times.
+Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om autentisering flere ganger.
 
-1. Launch a PowerShell 7 window as an Administrator.
-2. Navigate to the 'Scripts' folder.
-3. Execute the deploy script in the PowerShell window - ```.\deploy.ps1```
+1. Åpne et PowerShell 7-vindu som administrator.
+2. Gå til `Scripts`-mappen.
+3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-You will be prompted during the script to enter the password for the PnP app registration certificate.
+Du blir bedt om passordet for PnP app registration-sertifikatet underveis.
 
-If you chose to enable the Sensitivity Label functionality, a dialog will be displayed prompting for the password for the Service Account. Please complete the prompt.
+Hvis du aktiverer sensitivitetsmerke-funksjonaliteten, vises en dialog som ber om passordet for tjenestekontoen. Fullfør dialogen.
 
-When the message **"DEPLOYMENT COMPLETED SUCCESSFULLY** is displayed, move onto the next stage of the deployment.
+Når meldingen **«DEPLOYMENT COMPLETED SUCCESSFULLY»** vises, går du videre til neste steg.
 
-**If the script fails for any reason, it can be re-executed as many times as require without the need to delete any resources**
+**Hvis skriptet feiler av noen årsak, kan det kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes.**
 
-### Authorize API connections
+### Autorisere API-tilkoblinger
 
-When the script was executed, it created a number of API connections that need to be authorized manually.
-In Microsoft Azure portal go to the resource group that was created by the script.
+Skriptet oppretter flere API-tilkoblinger som må autoriseres manuelt.
+I Microsoft Azure Portal, gå til ressursgruppen som ble opprettet av skriptet.
 
-1. Click on the API connection with the name "bestillingsportalen-o365".
-2. Go to "Edit API connection" on the left menu.
-3. Click "Authorize". Use the Service Account to authenticate.
-4. Repeate the above actions for "bestillingsportalen-o365users", "bestillingsportalen-spo" and "bestillingsportalen-teams" API connections.
+1. Klikk på API-tilkoblingen med navnet `bestillingsportalen-o365`.
+2. Klikk `Edit API connection` i venstre meny.
+3. Klikk `Authorize`. Bruk tjenestekontoen for å autentisere.
+4. Gjenta handlingene for `bestillingsportalen-o365users`, `bestillingsportalen-spo` og `bestillingsportalen-teams` API-tilkoblinger.
 
-## Step 4: Configure approval process
+## Steg 4: Konfigurere godkjenningsprosess
 
-Approval of requests in the solution can take place in two ways:
+Godkjenning av bestillinger i løsningen kan skje på to måter:
 
-- Power Automate Approval action (Approval Email and Approvals app in Teams).
-- Microsoft Teams Adaptive Card Approval (Adaptive card posted into a Teams channel).
+- Power Automate Approval-handling (godkjennings-epost og Approvals-app i Teams).
+- Microsoft Teams Adaptive Card-godkjenning (adaptivt kort postet i en Teams-kanal).
 
-Approvals for requests use a single Power Automate flow which runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Bestillingsportalen webdel or Teams app).
+Godkjenninger av bestillinger bruker én Power Automate-flyt som kjører når status på en bestilling i **`Provisioning Requests`**-listen endres til **`Submitted`** (brukeren sender inn bestillingen i Bestillingsportalen webdel eller Teams app).
 
-Follow the steps to configure the Bestillingsportalen settings depending on which approval method you wish to implement.
+Følg stegene for å konfigurere Bestillingsportalen-innstillingene avhengig av hvilken godkjenningsmetode du vil bruke.
 
-The settings for the Bestillingsportalen solution can be found in the 'Provisioning Request Settings' list and are in the form of a key/value pair (Title/Value), both the **Title** and **Value** columns are single line of text.
+Innstillingene for Bestillingsportalen finnes i `Provisioning Request Settings`-listen som nøkkel/verdi-par (Title/Value). Begge kolonnene er `Single line of text`.
 
 ### Power Automate Approvals
 
-1. Navigate to the SharePoint site created as part of the deployment.
-2. Locate the 'Provisioning Request Settings' list and navigate to it.
-3. Edit the 'ApproverEmail' list item and set the 'Value' field to a Email/UPN of a **single user** OR a **Microsoft 365 Group**.
-4. Ensure the value of the 'PostToTeams' list item is set to **false**.
-5. Save the changes to the list item.
+1. Gå til SharePoint-området opprettet som del av installasjonen.
+2. Finn `Provisioning Request Settings`-listen og åpne den.
+3. Rediger listeelementet `ApproverEmail` og sett `Value`-feltet til e-post/UPN for en **enkelt bruker** ELLER en **Microsoft 365-gruppe**.
+4. Sørg for at verdien på listeelementet `PostToTeams` er satt til `false`.
+5. Lagre endringene.
 
-Approvals are now configured to use Power Automate Approvals tasks.
+Godkjenninger er nå konfigurert til å bruke Power Automate Approvals-oppgaver.
 
 ### Teams
 
-1. Create (OR use an existing) Microsoft Teams Team to use for the approval adaptive cards. You may wish to connect the **Bestillingsportalen** SharePoint site (group) to a new Teams Team.
-2. Create (OR use an existing) channel in the same team for the approval cards. This is where they will be posted.
-3. Add the appropriate users that will approve requests to the team.
-4. In the Teams client, click on the elipsis and select 'Get link to channel'.
+1. Opprett (ELLER bruk et eksisterende) Microsoft Teams-team for godkjennings-adaptive cards. Du kan koble **Bestillingsportalen**-SharePoint-området (-gruppen) til et nytt Teams-team.
+2. Opprett (ELLER bruk en eksisterende) kanal i samme team for godkjenningskortene. Det er her de vil postes.
+3. Legg til brukerne som skal godkjenne bestillinger i teamet.
+4. I Teams-klienten, klikk på ellipsisen og velg `Get link to channel`.
 
 ![Microsoft Teams get link to channel screenshot](/Images/LinkToChannel.png)
 
-5. Click 'Copy' to copy the link to the clipboard.
+5. Klikk `Copy` for å kopiere lenken til utklippstavlen.
 
 ![Get link to channel screenshot](/Images/LinkToChannelCopy.png)
 
-6. Extract the Group Id and Channel Id from the string value as shown below:
+6. Trekk ut Group Id og Channel Id fra lenkestrengen som vist nedenfor:
 
 https://teams.microsoft.com/l/channel/<span style="color:red">19%3af221b1abbb214c4b8b5fe3d7e4074194%40thread.tacv2</span>/Request%2520Approvals?groupId=<span style="color:green">320312d1-e925-433f-80bc-4422f5395edf</span>&tenantId=32292181-0169-456b-b0a4-95fa4c5773a4
 
-The text shown in <span style="color:red">red</span> is the Channel Id. The text shown in <span style="color:green">green</span> is the Group Id.
+Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span style="color:green">grønt</span> er Group Id.
 
-7. Navigate to the SharePoint site created as part of the deployment.
-8. Location the 'Provisioning Request Settings' list and navigate to it.
-9. Edit the 'PostToTeams' list item and set the 'Value' field to **true**.
-10. Edit the 'TeamsChannelID' list item and set the 'Value' field to the id of the channel that you extracted above.
-11. Edit the 'TeamsTeamID' list item and set the 'Value' field to the id of the group that you extracted above.
-12. Add the service account to the team as a member, this is required or the adaptive cards will not be posted.
+7. Gå til SharePoint-området opprettet som del av installasjonen.
+8. Finn `Provisioning Request Settings`-listen og åpne den.
+9. Rediger listeelementet `PostToTeams` og sett `Value`-feltet til `true`.
+10. Rediger listeelementet `TeamsChannelID` og sett `Value`-feltet til Channel Id du trakk ut.
+11. Rediger listeelementet `TeamsTeamID` og sett `Value`-feltet til Group Id du trakk ut.
+12. Legg til tjenestekontoen som medlem i teamet – dette er påkrevd, ellers vil ikke kortene postes.
 
-The approvals will now use adaptive cards in Teams. Please revisit this section of the deployment guide if you want to switch to Power Automate Approvals in the future.
+Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
 
-## Step 5: Turn on 'Provisioning Request Approval' flow
+## Steg 5: Aktivere `Provisioning Request Approval`-flyten
 
-The **Provisioning Request Approval** is turned off by default and needs to be turned on.
+**`Provisioning Request Approval`** er avslått som standard og må aktiveres.
 
-Follow the steps below to turn it on.
+Følg stegene for å aktivere den:
 
-1. Navigate to the Power Automate portal (make.powerautomate.com) as the service account.
-2. Locate the **Provisioning Request Approval** flow.
-3. Click on the flow.
-4. Click 'Turn on' in the top menu.
+1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
+2. Finn flyten **`Provisioning Request Approval`**.
+3. Klikk på flyten.
+4. Klikk `Turn on` i toppmenyen.
 
-## Step 6: Share Flows and SharePoint site
+## Steg 6: Dele flyter og SharePoint-område
 
-Before Bestillingsportalen can be rolled out, the Flows and SharePoint site need to be shared with all users who will submit requests.
+Før Bestillingsportalen kan rulles ut, må flytene og SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
 
-### Step 6a (temporarily): Overwrite Runbook `ConfigureSpace`
+### Steg 6a (midlertidig): Overskriv runbooken `ConfigureSpace`
 
-When deploying, the runbook `ConfigureSpace` is fetched from a public repo. This should be replaced with the version in this repo. Just a simple copy/paste is required. This is temporary until this repo is public. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
+Under installasjonen hentes runbooken `ConfigureSpace` fra et offentlig repo. Denne bør erstattes med versjonen i dette repoet. En enkel copy/paste er nok. Dette er midlertidig til dette repoet er offentlig. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
 
-### Flows
+### Flyter
 
-Share the flows that are used by Bestillingsportalen with admins that wish to view flow runs/edit the flows. This step is optional but will avoid the need to sign in with the service account when viewing flow runs. Repeat these steps for each flow.
+Del flytene som brukes av Bestillingsportalen med administratorer som ønsker å se flyt-kjøringer eller redigere flytene. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer. Gjenta stegene for hver flyt.
 
-Two flows are provided with the Bestillingsportalen solution, these are:
+To flyter leveres med Bestillingsportalen:
 
-- Provisioning Request Approval - Provides an approval process for requests, see [Approval flow](/Approval-flow.md) for more details.
-- Check Space Availability - Checks to see if a space matching the supplied Title/URL already exists. It uses the 'Office 365 Groups' connector to check for a group with the same details and also checks the 'Provisioning Requests' list for a matching request. Users may only proceed if the space does not exist or a request matching the same name does not already exist. If a request is found in the list and it was created by the SAME user, they are prompted to edit the other request instead.
+- **Provisioning Request Approval** – Gir godkjenningsprosess for bestillinger. Se [Godkjenningsflyt](/Approval-flow.md) for detaljer.
+- **Check Space Availability** – Sjekker om et område som matcher angitt tittel/URL allerede finnes. Bruker `Office 365 Groups`-connector for å sjekke om en gruppe med samme detaljer finnes, og sjekker også `Provisioning Requests`-listen for en matchende bestilling. Brukere kan kun fortsette hvis området ikke finnes og ingen bestilling med samme navn finnes. Hvis en bestilling finnes i listen og ble opprettet av SAMME bruker, blir brukeren bedt om å redigere den andre bestillingen i stedet.
 
-1. Navigate to the Power Automate portal (make.powerautomate.com) as the service account.
-2. Locate the **Provisioning Request Approval** flow and click 'Share' on the top menu.
-3. Enter users or groups to share the flow with, select 'OK' in the 'Before you share' dialog that appears.
-4. Repeat these steps for the 'Check Space Availability' flow.
-5. These users will now have access to the flows.
+1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
+2. Finn flyten **`Provisioning Request Approval`** og klikk `Share` i toppmenyen.
+3. Legg til brukere eller grupper du vil dele flyten med, og velg `OK` i `Before you share`-dialogen.
+4. Gjenta stegene for `Check Space Availability`-flyten.
+5. Brukerne har nå tilgang til flytene.
 
-### SharePoint site
+### SharePoint-område
 
-The steps below will share the SharePoint site with end users, giving them access to create/edit requests only and not edit any of the backend settings of Bestillingsportalen.
+Stegene nedenfor deler SharePoint-området med sluttbrukere, slik at de får tilgang til å opprette/redigere bestillinger uten å endre backend-innstillinger i Bestillingsportalen.
 
-1. Navigate to the SharePoint site created during the deployment.
-2. Click 'Settings' _(gear)_ icon at the top right corner.
-3. Click 'Site permissions'.
-4. Click 'Advanced Permissions settings'.
-5. Click the Grant Permission option from the top menu bar and search for the user name or type the email address of the user to whom you want to share the site OR select a group containing the users.
-6. Click 'Show Options' and under the permission level, select the visitors group (this will grant the users read-only access to the site initially).
-7. Navigate to the 'Provisioning Requests' list and [follow these steps](https://support.office.com/en-gb/article/customize-permissions-for-a-sharepoint-list-or-library-02d770f3-59eb-4910-a608-5f84cc297782) to break permission inheritance. Give the Visitors group 'Edit' rights (this will ensure that users can create requests).
+1. Gå til SharePoint-området opprettet under installasjonen.
+2. Klikk `Settings` _(tannhjulet)_ oppe til høyre.
+3. Klikk `Site permissions`.
+4. Klikk `Advanced Permissions settings`.
+5. Klikk `Grant Permission` i toppmenyen og søk etter brukernavnet eller e-postadressen du vil dele området med, ELLER velg en gruppe med brukerne.
+6. Klikk `Show Options` og velg `Visitors`-gruppen under `Permission level` (dette gir brukerne lesetilgang til området i første omgang).
+7. Gå til `Provisioning Requests`-listen og [følg disse stegene](https://support.office.com/en-gb/article/customize-permissions-for-a-sharepoint-list-or-library-02d770f3-59eb-4910-a608-5f84cc297782) for å bryte arv av tilganger. Gi `Visitors`-gruppen `Edit`-rettigheter (dette sikrer at brukerne kan opprette bestillinger).
 
-## Step 7: Running/Configuring supporting Logic Apps
+## Steg 7: Kjøre/konfigurere støttende Logic Apps
 
-There are a few supporting Logic Apps which should be executed manually after the initial deployment.
+Det finnes noen støttende Logic Apps som bør kjøres manuelt etter første installasjon.
 
-These are set to use recurrent triggers and run weekly by default. You can change the run frequency of these to a schedule that suits your organization.
+Disse er konfigurert med tilbakevendende triggere og kjører ukentlig som standard. Du kan endre kjørefrekvensen til en plan som passer organisasjonen din.
 
-Details of what these are and what they do can be seen below:
+Detaljer om disse:
 
-- **GetHubSites** (Retrieves all Hub Sites in the tenant and creates these as list items in the 'Hub Sites' list in the SharePoint site.)
-- **GetSiteTemplates** (Retrieves all SharePoint Site Templates deployed in the tenant and creates these as list items in the 'Site Templates' list in the SharePoint site.)
-- **GetTeamsTemplates** (Retrieves Teams Templates configured in the Teams Admin Center and creates references to these as list items in the 'Teams Templates' list in the SharePoint site.)
-- **SyncGroupSettings** (Gets group settings - Blocked Words and Classifications from Entra ID and updates list items in the 'Provisioning Request Settings' list in the SharePoint site.)
-- **SyncLabels** (Retrieves all Sensitivity labels from Purview in the tenant and adds these to the 'IP Labels' list in the SharePoint site.)
+- **GetHubSites** – Henter alle Hub Sites i tenanten og oppretter dem som listeelementer i `Hub Sites`-listen.
+- **GetSiteTemplates** – Henter alle SharePoint Site Templates installert i tenanten og oppretter dem som listeelementer i `Site Templates`-listen.
+- **GetTeamsTemplates** – Henter Teams-maler konfigurert i Teams Admin Center og oppretter referanser til disse som listeelementer i `Teams Templates`-listen.
+- **SyncGroupSettings** – Henter gruppe-innstillinger (blokkerte ord og klassifiseringer) fra Entra ID og oppdaterer listeelementer i `Provisioning Request Settings`-listen.
+- **SyncLabels** – Henter alle sensitivitetsmerker fra Purview i tenanten og legger dem til i `IP Labels`-listen.
 
-Follow these steps to run them 'on demand':
+Slik kjører du dem «on demand»:
 
-1. Navigate to the Azure Portal (portal.azure.com).
-2. Locate the required Logic App e.g. GetHubSites. You can either search for the logic app in the search bar or locate the resource group created as part of the deployment, click on it and locate the logic app in there.
-3. Select the logic app.
-4. Click on 'Run Trigger' > 'Run'.
-5. Once the logic app has executed, you should see a status of 'Succeeded' in the run history.
-6. Repeat the steps to execute each logic app.
+1. Gå til Azure Portal (portal.azure.com).
+2. Finn ønsket Logic App, f.eks. `GetHubSites`. Du kan enten søke i søkefeltet eller finne ressursgruppen fra installasjonen og finne Logic App-en der.
+3. Velg Logic App-en.
+4. Klikk `Run Trigger > Run`.
+5. Når Logic App-en har kjørt, skal statusen i kjørehistorikken være `Succeeded`.
+6. Gjenta stegene for hver Logic App.
 
-## Step 8 (Optional): Enabling Site Templates & Hub Sites
+## Steg 8 (valgfritt): Aktivere Site Templates og Hub Sites
 
-Before Hub Sites and Site Templates are visible to end users in the Bestillingsportalen webdel or Teams app, they must be 'Enabled'.
+Før Hub Sites og Site Templates er synlige for sluttbrukere i Bestillingsportalen webdel eller Teams app, må de aktiveres.
 
-There is a Yes/No column named 'Enabled' in the 'Hub Sites' and 'Site Templates' lists. If you wish to make a specific template visible to end users please edit the list items and set the value of the column to true.
+Det finnes en Yes/No-kolonne kalt `Enabled` i `Hub Sites`- og `Site Templates`-listene. Hvis du vil gjøre en mal synlig for sluttbrukere, rediger listeelementet og sett kolonneverdien til `true`.
 
-The reason for this column is to allow admins the flexibility to show/hide Site Templates and Hub Sites.
+Årsaken til denne kolonnen er å gi administratorer fleksibilitet til å vise/skjule Site Templates og Hub Sites.
 
 ![Enabled column in Site Templates list](/Images/SiteTemplatesListEnabled.png)
 
-## Step 9: Set up Admins group
+## Steg 9: Sette opp administratorgruppe
 
-The Bestillingsportalen webdel or Teams app leverages a setting in the 'Provisioning Request Settings' list to determine whether or not to display the 'settings' screen to a user in the webdel/Teams app. Settings for the solution can be configured via this screen as an alternative to using the settings list in the SharePoint site. *This screen is experimental and should be considered a work in progress.* Settings should be visible to Administrators of Bestillingsportalen only. Before following the steps, please create one of the following (or use an existing) which will contain the admins for Bestillingsportalen:
+Bestillingsportalen webdel eller Teams app bruker en innstilling i `Provisioning Request Settings`-listen for å avgjøre om «innstillinger»-skjermen skal vises for en bruker i webdel/Teams app. Innstillingene for løsningen kan konfigureres via denne skjermen som et alternativ til å bruke innstillingslisten i SharePoint-området. *Denne skjermen er eksperimentell og anses som under arbeid.* Innstillingene skal kun være synlige for administratorer av Bestillingsportalen. Før du følger stegene, opprett en av følgende (eller bruk en eksisterende) som inneholder administratorene for Bestillingsportalen:
 
-- Microsoft 365 Group (can be the same one used for the Bestillingsportalen SPO site) OR
-- Microsoft Teams Team OR
-- AAD Security Group
+- Microsoft 365-gruppe (kan være samme som Bestillingsportalen SPO-området bruker) ELLER
+- Microsoft Teams-team ELLER
+- Entra ID Security Group
 
-Obtain the id of the resource you created or an existing one you will reuse and follow the steps below:
+Hent ID-en til ressursen du opprettet eller en eksisterende du gjenbruker, og følg stegene nedenfor:
 
-1. Navigate to the SharePoint site created as part of the deployment.
-2. Location the 'Provisioning Request Settings' list and navigate to it.
-3. Edit the 'AdminGroupId' list item and set the 'Value' field to the id from above.
-4. Save the list item.
+1. Gå til SharePoint-området opprettet som del av installasjonen.
+2. Finn `Provisioning Request Settings`-listen og åpne den.
+3. Rediger listeelementet `AdminGroupId` og sett `Value`-feltet til ID-en fra over.
+4. Lagre listeelementet.
 
-The admins group is now set up and configured.
+Administratorgruppen er nå satt opp og konfigurert.
 
-## Deployment of the solution is now complete and the Bestillingsportalen webdel or Teams app should be accessible
+## Installasjonen av løsningen er nå fullført, og Bestillingsportalen webdel eller Teams app skal være tilgjengelig
 
-## Step 10 (Optional): Enable auto approval (disabling approval process)
+## Steg 10 (valgfritt): Aktivere automatisk godkjenning (deaktivere godkjenningsprosess)
 
-If you do not wish to use the provided Power Automate approval process, you can enable 'Auto approval' through the 'Provisioning Request Settings' list.
+Hvis du ikke ønsker å bruke den innebygde Power Automate-godkjenningsprosessen, kan du aktivere `Auto approval` via `Provisioning Request Settings`-listen.
 
-To turn this on, simply navigate to the settings list, edit the list item named 'EnableAutoApproval' and set the Value column to 'true'.
+For å aktivere, gå til innstillingslisten, rediger listeelementet `EnableAutoApproval` og sett `Value`-kolonnen til `true`.
 
-When users submit requests through the Bestillingsportalen webdel or Teams app, the status will be set to 'Approved' meaning the approval flow will not run and therefore the provisioning process will start straight away.
+Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams app, settes statusen til `Approved`. Godkjenningsflyten kjører da ikke, og provisjoneringsprosessen starter umiddelbart.

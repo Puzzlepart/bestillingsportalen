@@ -4,77 +4,77 @@
   <strong style="font-size: 2em;">Bestillingsportalen</strong>
 </p>
 
-| [Deployment guide](/Deployment-guide.md) | [Upgrade Guide](/Upgrade.md) | [Architecture](/Architecture.md) | [Data Stores](/Data-stores.md) | [Cost Estimates](/Cost-estimates.md) | [Data Access & Security](/Data-access-security.md) | [Naming Conventions](/Naming-conventions.md) | [Business Units](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivity Labels](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Retention Labels](/Retention-labels.md) | [Approval Flow](/Approval-flow.md) | [Regional Settings](/Regional-settings.md) | [Refreshing App Secret](/Refreshing-app-secret.md) | [Error Handling](/Error-handling.md) |
+| [Installasjonsveiledning](/Deployment-guide.md) | [Oppgraderingsveiledning](/Upgrade.md) | [Arkitektur](/Architecture.md) | [Datalagre](/Data-stores.md) | [Kostnadsestimater](/Cost-estimates.md) | [Datatilgang og sikkerhet](/Data-access-security.md) | [Navnekonvensjoner](/Naming-conventions.md) | [Forretningsenheter](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivitetsmerker](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Oppbevaringsmerker](/Retention-labels.md) | [Godkjenningsflyt](/Approval-flow.md) | [Regionale innstillinger](/Regional-settings.md) | [Fornye App Secret](/Refreshing-app-secret.md) | [Feilhåndtering](/Error-handling.md) |
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 
-Bestillingsportalen is an Azure based solution that provides an alternative to self-service creation in Microsoft 365. It provides governance over this process through an SPFx Teams app allowing users to request Collaboration 'Spaces' (Teams, Groups, SharePoint Online Sites & Viva Engage Communities) and backend Azure components providing automated provisioning. Bestillingsportalen can be used as part of a Copilot for Microsoft 365 deployment in order to establish a layer of governance over self-service.
+Bestillingsportalen er en Azure-basert løsning som gir et alternativ til selvbetjent opprettelse av samarbeidsområder i Microsoft 365. Den gir styring over prosessen gjennom en SPFx Teams app som lar brukere bestille samarbeidsområder (Teams, Groups, SharePoint Online-områder og Viva Engage-fellesskap), med bakenforliggende Azure-komponenter som sørger for automatisk provisjonering. Bestillingsportalen kan brukes som del av en Copilot for Microsoft 365-utrulling for å etablere styring over selvbetjening.
 
 ![Bestillingsportalen](/Images/bp_app.png)
 
-## Capabilities
+## Funksjonalitet
 
-Bestillingsportalen provides the following capabilities:
+Bestillingsportalen tilbyr følgende:
 
-- SPFx based Bestillingsportalen webdel and Teams app allowing users to request collaboration spaces.
-- Configurable approval process using Power Automate to facilitate the approval of requests.
-- SharePoint site and supporting lists which act as the backend for the solution.
-- Requestor dashboard showing past and current requests with the approval status.
-- Automated provisioning using Azure Logic Apps and Azure Automation.
-  
-## Architecture
+- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder.
+- Konfigurerbar godkjenningsprosess via Power Automate.
+- SharePoint-område med støttelister som utgjør backenden for løsningen.
+- Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
+- Automatisert provisjonering via Azure Logic Apps og Azure Automation.
 
-The solution uses the Microsoft Graph and the SharePoint REST APIs for provisioning. Azure Runbooks are used with PnP PowerShell for tasks that cannot be completed using the Graph API. 
+## Arkitektur
 
-Application permissions are used through an Entra ID app registration, the secret for the Entra ID app is stored in a key vault.
+Løsningen bruker Microsoft Graph og SharePoint REST API-ene for provisjonering. Azure Runbooks brukes sammen med PnP PowerShell for oppgaver som ikke kan utføres via Graph API.
 
-Provisioning and other automation tasks in the solution is achieved through Azure Logic apps, ensuring a low runtime cost and the ability to secure access to all resources.
+Application permissions brukes gjennom en Entra ID app registration. Secret-en for Entra ID-appen lagres i en Key Vault.
 
-For more details on the architecture please read the [Architecture](Architecture.md) documentation.
+Provisjonering og andre automatiseringsoppgaver løses gjennom Azure Logic Apps, som gir lav kjøretidkostnad og mulighet til å sikre tilgang til alle ressurser.
 
-## Getting Started
+For mer detaljer om arkitekturen, les [Arkitektur](Architecture.md)-dokumentasjonen.
 
-To get started with a new installation, please follow the [Deployment guide](Deployment-guide.md).
+## Kom i gang
 
-## Upgrading
+For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](Deployment-guide.md).
 
-If you have an existing Bestillingsportalen installation and want to upgrade to the latest version, see the [Upgrade Guide](Upgrade.md) for detailed instructions on how to upgrade without losing your data. 
+## Oppgradering
 
-## Issues
+Hvis du har en eksisterende Bestillingsportalen-installasjon og vil oppgradere til nyeste versjon, se [Oppgraderingsveiledningen](Upgrade.md) for detaljerte instruksjoner om hvordan du oppgraderer uten å miste data.
 
-Please report any issues by raising an [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
+## Feil og problemer
 
-## Contributing
+Rapporter eventuelle problemer ved å opprette et [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
 
-We 💖 to accept contributions.
+## Bidra
 
-Check out our [Contribution guidelines](/CONTRIBUTING.md) for guidance on how to contribute. 
+Vi 💖 å motta bidrag.
 
-If you want to get involved with helping us enhance Bestillingsportalen, whether that is suggesting or adding new functionality, updating our documentation or fixing bugs, we would love to hear from you.
+Se våre [retningslinjer for bidrag](/CONTRIBUTING.md) for hvordan du kan bidra.
 
-## Special Thanks
+Hvis du ønsker å bli involvert i å videreutvikle Bestillingsportalen – enten det er å foreslå ny funksjonalitet, oppdatere dokumentasjonen eller fikse bugs – vil vi gjerne høre fra deg.
 
-Special thanks to those below who have helped build this awesome solution.
+## En stor takk til
+
+Takk til de nedenfor som har vært med på å bygge denne løsningen.
 
 - [@alexc-MSFT](https://github.com/alexc-MSFT)
 - [@OlgKis](https://www.github.com/OlgKis)
 - [@PalinaSolik](https://www.github.com/PalinaSolik)
 
-## Support
+## Støtte
 
-This solution is open-source and community provided with no active community providing support for it. This solution is maintained by both Microsoft employees and community contributors and is not a Microsoft provided solution so there is no SLA or direct support for this from Microsoft. Please report any issues by raising an [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
+Denne løsningen er åpen kildekode og leveres av fellesskapet uten aktiv support. Løsningen vedlikeholdes av både Microsoft-ansatte og bidragsytere i fellesskapet, og er ikke en Microsoft-levert løsning. Det finnes derfor ingen SLA eller direkte støtte fra Microsoft. Rapporter problemer ved å opprette et [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new/choose).
 
-## Microsoft 365 & Power Platform Community
+## Microsoft 365 og Power Platform Community
 
-Bestillingsportalen is a Microsoft 365 & Power Platform Community (PnP) project. Microsoft 365 & Power Platform Community is a virtual team consisting of Microsoft employees and community members focused on helping the community make the best use of Microsoft products. Bestillingsportalen is an open-source project not affiliated with Microsoft and not covered by Microsoft support. If you experience any issues using Bestillingsportalen, please submit an issue in the [issues list](https://github.com/Puzzlepart/bestillingsportalen/issues).
+Bestillingsportalen er et Microsoft 365 og Power Platform Community (PnP)-prosjekt. Microsoft 365 og Power Platform Community er et virtuelt team bestående av Microsoft-ansatte og bidragsytere i fellesskapet som fokuserer på å hjelpe brukere med å få mest mulig ut av Microsoft-produkter. Bestillingsportalen er et åpen kildekode-prosjekt som ikke er tilknyttet Microsoft og ikke dekket av Microsoft-support. Hvis du opplever problemer, opprett gjerne et [issue](https://github.com/Puzzlepart/bestillingsportalen/issues).
 
-## "Sharing is Caring"
+## «Sharing is Caring»
 
 ![Parker PnP](/Images/parker-pnp.png)
 
-## Disclaimer
+## Ansvarsfraskrivelse
 
-**THIS CODE IS PROVIDED AS IS WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.**
+**DENNE KODEN LEVERES «SOM DEN ER» UTEN GARANTIER AV NOE SLAG, VERKEN UTTRYKTE ELLER UNDERFORSTÅTTE, INKLUDERT GARANTIER OM EGNETHET FOR ET BESTEMT FORMÅL, SALGBARHET ELLER IKKE-KRENKELSE.**
 
 ## Code of Conduct
 
-This repository has adopted the Microsoft Open Source Code of Conduct. For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact opencode@microsoft.com with any additional questions or comments.
+Dette repositoriet har adoptert Microsoft Open Source Code of Conduct. For mer informasjon, se [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) eller kontakt opencode@microsoft.com.

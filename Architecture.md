@@ -1,6 +1,6 @@
-# Solution Architecture
+# Løsningsarkitektur
 
-The diagram below details the architecture of the Bestillingsportalen solution and the components used at a high level.
+Diagrammet nedenfor viser arkitekturen til Bestillingsportalen-løsningen og komponentene som brukes på et overordnet nivå.
 
 ``` mermaid
 graph TD

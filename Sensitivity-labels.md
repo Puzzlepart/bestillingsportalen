@@ -1,91 +1,91 @@
-# Sensitivity Labels
+# Sensitivitetsmerker
 
-Bestillingsportalen supports the application of sensitivity labels to created Teams or Office 365 Groups. 
+Bestillingsportalen støtter anvendelse av sensitivitetsmerker på opprettede Teams eller Office 365 Groups.
 
-To use this functionality sensitivity labels must be enabled for Teams & Groups, for more information see - https://learn.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels-teams-groups-sites?view=o365-worldwide. 
+For å bruke denne funksjonaliteten må sensitivitetsmerker være aktivert for Teams og Groups. Mer informasjon finnes på <https://learn.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels-teams-groups-sites?view=o365-worldwide>.
 
-**You will need to have labels created in the Microsoft Purview Compliance Portal and published using Label Policies before this will work. Allow 24 hours after creating and publishing labels before you follow this guide.**
+**Du må ha merker opprettet i Microsoft Purview Compliance Portal og publisert med Label Policies før dette fungerer. Vent 24 timer etter at merker er opprettet og publisert før du følger denne veiledningen.**
 
-This functionality needs to be enabled and configured for it to work.
+Funksjonaliteten må aktiveres og konfigureres for å fungere.
 
-_Note - Due to limitations in the Microsoft Graph API, labels can only be applied using the Delegated permissions model. This means a Service Account (this can be the same one used for Bestillingsportalen) is required. This account must NOT have MFA configured._
+_Merk – På grunn av begrensninger i Microsoft Graph API kan merker kun anvendes ved hjelp av Delegated permissions. Dette betyr at en tjenestekonto (kan være samme som Bestillingsportalen bruker) er påkrevd. Denne kontoen MÅ IKKE ha MFA konfigurert._
 
-_The username and password for this account is stored in Key Vault in order to ensure it is as secure as possible._
+_Brukernavn og passord for denne kontoen lagres i Key Vault for å sikre at det er så trygt som mulig._
 
-_When this restriction is removed, we will update Bestillingsportalen to use Application permissions, removing the need for a NO MFA Service Account._
+_Når denne begrensningen fjernes, vil vi oppdatere Bestillingsportalen til å bruke Application permissions, slik at behovet for en tjenestekonto uten MFA elimineres._
 
-We will first cover how the functionality works and then how to enable it.
+Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du aktiverer den.
 
-### What does this look like?
+### Hvordan ser dette ut?
 
-Sensitivity labels are retrieved from the Purview portal using the Microsoft Graph API. A Logic App named 'SyncLabels' performs this sync. By default, this Logic App is set to run daily, you can change this if desired.
+Sensitivitetsmerker hentes fra Purview via Microsoft Graph API. En Logic App kalt `SyncLabels` utfører synkroniseringen. Logic App-en er som standard satt til å kjøre daglig – dette kan endres ved behov.
 
-Labels are stored as list items in a SharePoint list named 'IP Labels' in the SharePoint site backing Bestillingsportalen.
+Merker lagres som listeelementer i en SharePoint-liste kalt `IP Labels` i SharePoint-området som står bak Bestillingsportalen.
 
 ![IP labels list screenshot](./images/IPLabelsList.png)
 
-For a label to appear in the Bestillingsportalen webdel or Teams app, the 'Enabled' column must be checked. This column has been added because the Graph API does not allow filtering on labels that can be applied to Sites/Groups vs Document/Email labels and ensures that users cannot select the wrong type of label. You will notice that there may be document/email labels in the IP Labels list. Make sure these are not set to 'Enabled' and that only ones that can be applied to sites or groups are marked as enabled.
+For at et merke skal vises i Bestillingsportalen webdel eller Teams app, må `Enabled`-kolonnen være huket av. Denne kolonnen er lagt til fordi Graph API ikke tillater filtrering på merker som kan anvendes på Sites/Groups vs. Document/Email-merker, og den sikrer at brukere ikke velger feil type merke. Du kan se at det finnes document/email-merker i IP Labels-listen. Sørg for at disse ikke er markert som `Enabled`, og at kun merker som kan anvendes på områder eller grupper er aktivert.
 
-You can validate which labels can be applied to sites/groups through the Security & Compliance center.
+Du kan validere hvilke merker som kan anvendes på områder/grupper via Security & Compliance Center.
 
-If the functionality is enabled, the labels are shown to the user in a combo box on the Data Classification screen.
+Hvis funksjonaliteten er aktivert, vises merkene til brukeren i en kombinasjonsboks på «Datakategorisering»-skjermen.
 
-You can set a default label and choose whether to require the user to select a label by configuring the 'DefaultSensitivityLabel' and 'RequireSensitivityLabel' settings in the Site Request Settings list. This will be covered in the Configuration section of this documentation.
+Du kan angi et standardmerke og velge om brukeren må velge et merke ved å konfigurere innstillingene `DefaultSensitivityLabel` og `RequireSensitivityLabel` i `Provisioning Request Settings`-listen. Dette dekkes i Konfigurasjon-seksjonen nedenfor.
 
-## Enabling the functionality
+## Aktivere funksjonaliteten
 
-There are two ways to enable this functionality:
+Det finnes to måter å aktivere funksjonaliteten på:
 
-1. When running the script - A parameter 'EnableSensitivity' can be found in the parameters.json file which will enable the sensitivity label functionality. If this is set to true, the functionality will be automatically enabled. This is documented in the [deployment guide](./Deployment-guide.md).
+1. Under kjøring av skriptet – en parameter `EnableSensitivity` finnes i `parameters.json` som aktiverer sensitivitetsmerke-funksjonaliteten. Hvis den er satt til `true`, aktiveres funksjonaliteten automatisk. Dette er dokumentert i [Installasjonsveiledningen](./Deployment-guide.md).
 
-2. Manual Enablement - Follow the steps below to manually enable this functionality, assuming you did not enable it in the parameters.json file.
+2. Manuell aktivering – Følg stegene nedenfor for å aktivere funksjonaliteten manuelt hvis du ikke aktiverte den i `parameters.json`.
 
-### Manual Enablement
+### Manuell aktivering
 
-1. Navigate to the **'Provisioning Request Settings'** list in the SharePoint site.
-2. Edit the **'EnableSensitivityLabels'** list item and set the Value field to **'true'**. It will be set to 'false' by default.
-3. Navigate to the **Azure Portal > Key Vaults blade** and click on the key vault used for your Bestillingsportalen implementation.
-4. Select **'Secrets'** from the left pane.
+1. Gå til listen **`Provisioning Request Settings`** i SharePoint-området.
+2. Rediger listeelementet **`EnableSensitivityLabels`** og sett `Value`-feltet til **`true`**. Standardverdien er `false`.
+3. Gå til **Azure Portal > Key Vaults** og klikk på Key Vault-en for Bestillingsportalen-installasjonen din.
+4. Velg **`Secrets`** fra venstre panel.
 
 ![Key vault secrets screenshot](./images/KeyVaultSecrets.png)
 
-5. Click **'Generate/Import'** and create the following secret:
+5. Klikk **`Generate/Import`** og opprett følgende secret:
 
 ![Generate secret screenshot](./images/KeyVaultGenerateSecret.png)
 
-Name: sausername
+Name: `sausername`
 
-Value: UPN of your service account
+Value: UPN for tjenestekontoen din
 
-Click 'Create' once done'
+Klikk `Create` når ferdig.
 
 ![Create username secret screenshot](./images/KeyVaultUsernameSecret.png)
 
-6. Repeat the step above and create the following secret:
+6. Gjenta steget over og opprett følgende secret:
 
-Name: sapassword
+Name: `sapassword`
 
-Value: Password for your service account
+Value: Passord for tjenestekontoen
 
-7. Locate the Logic App named **'SyncLabels'** in the Azure Portal and click on it.
-8. Click **'Run Trigger > Run'** and wait for the run to complete.
+7. Finn Logic App-en **`SyncLabels`** i Azure Portal og klikk på den.
+8. Klikk **`Run Trigger > Run`** og vent til kjøringen fullfører.
 
 ![Sync labels logic app screenshot](./images/SyncLabelsLA.png)
 
-9. Navigate to the **'IP Labels'** list in the SharePoint site and validate that the labels are present (See screenshot of IP Labels list at the top of this documentation). If there are no list items present then the **'SyncLabels'** logic app has failed to run. Check the run history of the Logic App and investigate any failures. 
+9. Gå til listen **`IP Labels`** i SharePoint-området og valider at merkene er tilstede (se skjermbildet av IP Labels-listen øverst i dokumentet). Hvis det ikke finnes noen listeelementer, har **`SyncLabels`** Logic App-en feilet under kjøring. Sjekk kjørehistorikken til Logic App-en og undersøk eventuelle feil.
 
-## Configuration
+## Konfigurasjon
 
-Once enabled, this functionality can be configured as follows:
+Når aktivert kan funksjonaliteten konfigureres slik:
 
-1. If not already done, locate the **'SyncLabels'** Logic App from within the Azure portal and run it - **'Run Trigger > Run'**. This will synchronize the labels into the IP Labels list. (See screenshot above). 
-2. Enable some labels to display in the Bestillingsportalen webdel or Teams app by editing the list items, setting the **'Enabled'** column to **'true'** and saving the items.
+1. Hvis ikke allerede gjort, finn **`SyncLabels`** Logic App-en i Azure Portal og kjør den – **`Run Trigger > Run`**. Dette synkroniserer merkene inn i IP Labels-listen (se skjermbildet ovenfor).
+2. Aktiver noen merker som skal vises i Bestillingsportalen webdel eller Teams app ved å redigere listeelementene, sette **`Enabled`**-kolonnen til **`true`** og lagre elementene.
 
 ![Enabling a label screenshot](./images/EnableIPLabel.png)
 
-3. Set a default label (Optional) by setting the value of the **'DefaultSensitivityLabel'** list item in the **'Provisioning Request Settings'** list to the label id of your chosen label. The label id must **exactly** match a valid label id from the IP Labels list. You can find the label id in the **'Label Id'** column.
+3. Angi et standardmerke (valgfritt) ved å sette verdien på listeelementet **`DefaultSensitivityLabel`** i listen **`Provisioning Request Settings`** til merkets ID (label id). ID-en må **nøyaktig** matche en gyldig `LabelId` fra IP Labels-listen. Du finner ID-en i kolonnen **`Label Id`**.
 
 ![Set default label screenshot](./images/SetDefaultLabel.png)
 
-4. Choose whether to require the user to select a label (Optional). The default is **'false'** which means the user will not be required to select a label and the combo box can be left blank. If you wish to require (force) users to select a label, simply set the value of the **'RequireSensitivityLabel'** list item to **'true'**.
-5. The functionality is now configured and when users launch the Bestillingsportalen webdel or Teams app to request collaboration spaces, they should see the Sensitivity combo box on the Data Classification step (only for 'Microsoft Teams Teams' or 'Office 365 Groups').
+4. Velg om brukeren må velge et merke (valgfritt). Standardverdien er **`false`**, som betyr at brukeren ikke er tvunget til å velge et merke og kombinasjonsboksen kan stå tom. For å tvinge brukere til å velge et merke, sett verdien på listeelementet **`RequireSensitivityLabel`** til **`true`**.
+5. Funksjonaliteten er nå konfigurert. Når brukere starter Bestillingsportalen webdel eller Teams app for å bestille samarbeidsområder, vil de se sensitivitets-kombinasjonsboksen på «Datakategorisering»-steget (kun for `Microsoft Teams Team` eller `Office 365 Group`).

@@ -1,30 +1,30 @@
 # Site Templates
 
-Bestillingsportalen includes the ability to apply Site Templates (previously known as Site Designs) when a user requests the creation of a SharePoint Site (Team Site, Office 365 Group, Communication Site or Hub Site).
+Bestillingsportalen inkluderer muligheten til å anvende Site Templates (tidligere kjent som Site Designs) når en bruker bestiller opprettelse av et SharePoint-område (Team Site, Office 365 Group, Communication Site eller Hub Site).
 
-The solution also includes the ability to apply PnP Provisioning templates, which can be applied **instead** of Site Templates. Please read the [PnP Templates](/PnP-Templates.md) documentation for more details. 
+Løsningen inkluderer også muligheten til å anvende PnP Provisioning-maler, som kan anvendes **i stedet for** Site Templates. Se [PnP Templates](/PnP-templates.md) for mer informasjon.
 
-All available Site Templates in the current SharePoint tenant are retrieved by a Logic App and a Runbook - both named 'GetSiteTemplates'. 
+Alle tilgjengelige Site Templates i tenantens SharePoint hentes av en Logic App og en Runbook – begge kalt `GetSiteTemplates`.
 
-This includes out of the box templates - Topic, Showcase, Blank etc. and any custom templates that have been created.
+Dette inkluderer innebygde maler – Topic, Showcase, Blank osv. – og eventuelle egendefinerte maler som er opprettet.
 
-These are then stored in a SharePoint list within the Bestillingsportalen site - 'Site Templates'.
+Malene lagres i en SharePoint-liste kalt `Site Templates` i Bestillingsportalen-området.
 
-The following properties of the Site Templates are stored in the list:
+Følgende egenskaper lagres i listen:
 
-- Title (Title of the template e.g. Topic)
-- SiteTemplateId - Unique Id (GUID) of the template
-- PreviewImage - Link to the preview image for the template
-- WebTemplate - Web template that the template can be applied to (1 for a Team Site (Not Group Connected), 64 for a Group Connected Team Site, 68 for a Comms/Hub site)
-- Enabled - Whether or not the template should be displayed in the Bestillingsportalen webdel or Teams app for users to select. Default is false and you can enable which ones are required.
-- ThemeName - Name of a SharePoint theme in your tenant that should be applied to the area once created. Default is blank if you do what want to apply a template. If you want to apply a template, simply set this field to the name of a valid template. This can be an out of the box template e.g. Blue or a custom one e.g. 'Contoso Dark'. 
+- **Title** – Tittel på malen, f.eks. Topic
+- **SiteTemplateId** – Unik ID (GUID) på malen
+- **PreviewImage** – Lenke til forhåndsvisningsbilde
+- **WebTemplate** – Web template malen gjelder for (1 for Team Site uten gruppetilknytning, 64 for gruppetilknyttet Team Site, 68 for Communication/Hub site)
+- **Enabled** – Om malen skal vises i Bestillingsportalen webdel eller Teams app for valg. Standard er `false`, og du kan aktivere dem du ønsker.
+- **ThemeName** – Navn på et SharePoint-tema i tenanten som skal anvendes på området når det er opprettet. Blank hvis du ikke vil anvende et tema. Kan være et innebygd tema (f.eks. `Blue`) eller et egendefinert (f.eks. `Contoso Dark`).
 
 ![Site templates list screenshot](/images/SiteTemplatesList.png)
 
-Users can select one of these from the webdel or Teams app when creating a request, the 'ProcessProvisionRequest' logic applies these using the SharePoint REST API. 
+Brukere kan velge en av disse fra webdel eller Teams app når de oppretter en bestilling. Logic App-en `ProcessProvisionRequest` anvender dem via SharePoint REST API.
 
-The webdel or Teams app will ONLY display templates where the WebTemplate matches that of the chosen 'type', for example if a user selects a Group Connected Team Site, they will only see Site Templates where WebTemplate = 1. Be sure when creating your own Site Templates that you create them for the desired WebTemplate.
+Webdel eller Teams app viser **kun** maler der `WebTemplate` matcher den valgte områdetypen. For eksempel: hvis en bruker velger et gruppetilknyttet Team Site, vises kun Site Templates med `WebTemplate = 1`. Sørg for at du oppretter dine egne Site Templates for ønsket `WebTemplate`.
 
-As above, if you want a template to display, set the 'Enabled' column to true.
+Som nevnt over: for å vise en mal, sett `Enabled`-kolonnen til `true`.
 
-The 'GetSiteTemplates' logic app will handle creating, updating and deleting the list items in the Site Templates list. It will not handle updating/setting the 'ThemeName' column therefore this should be manually populated. 
+Logic App-en `GetSiteTemplates` håndterer opprettelse, oppdatering og sletting av listeelementer i Site Templates-listen. Den håndterer ikke oppdatering av `ThemeName`-kolonnen – denne må populeres manuelt.

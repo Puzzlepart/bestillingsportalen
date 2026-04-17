@@ -1,66 +1,62 @@
-# Business Units
+# Forretningsenheter
 
-Bestillingsportalen now includes the capability to define Naming Conventions/Policies and unique approvers for created spaces by 'Business Unit'.
+Bestillingsportalen inkluderer muligheten til å definere navnekonvensjoner/policyer og egne godkjennere per forretningsenhet (business unit).
 
-When this functionality is enabled in the settings list, a user can select a business unit when making a request.
+Når funksjonaliteten er aktivert i `Provisioning Request Settings`-listen, kan en bruker velge en forretningsenhet når hen bestiller et område.
 
-You can define a text 'Prefix' and 'Suffix' per business unit, for example you may wish to apply a prefix of HR- and a suffix of -Contoso for a 'Human Resources' business unit.
+Du kan definere et tekst-prefiks og -suffiks per forretningsenhet. For eksempel kan du anvende prefikset `HR-` og suffikset `-Contoso` for en forretningsenhet kalt «Human Resources».
 
-When a user makes a request through the Bestillingsportalen webdel or Teams app, the naming convention will be applied and a preview of how this will look when combined with the title they have entered will be shown (See 'Space display name' below).
+Når en bruker bestiller via Bestillingsportalen webdel eller Teams app, anvendes navnekonvensjonen, og en forhåndsvisning av hvordan navnet blir seende ut i kombinasjon med tittelen brukeren har angitt vises (se `Space display name` nedenfor).
 
 ![Business units drop down screenshot](./images/BusinessUnitsApp.png)
 
-A lookup column in the 'Provisioning Requests' list stores the business unit that the user selected in the webdel or Teams app.
+En oppslagskolonne i `Provisioning Requests`-listen lagrer forretningsenheten brukeren valgte i webdel eller Teams app.
 
-If the setting to enable business units approvals is turned on in the settings list, approvals of requested spaces will use those approvers/groups defined in the 'Business Units' list based on the business unit selected when the user makes the request.
+Hvis innstillingen for forretningsenhet-godkjenning er aktivert, vil godkjenningen av bestillinger bruke godkjennerne/gruppene definert i `Business Units`-listen basert på forretningsenheten brukeren valgte.
 
-Please read on below to find out more about how to enable and configure this functionality.
+Les videre for hvordan du aktiverer og konfigurerer funksjonaliteten.
 
-This functionality builds on the existing [Naming conventions](/Naming-conventions.md) functionality so make sure you understand that first.
+Denne funksjonaliteten bygger videre på eksisterende [navnekonvensjoner](/Naming-conventions.md) – sørg for at du forstår disse først.
 
-**Please note - If you are upgrading from an older version, you will need to carry out some steps manually. Details of how to do this can be found at the bottom of this documentation.**
+**Merk: Hvis du oppgraderer fra en eldre versjon, må du utføre noen steg manuelt. Se nederst i dette dokumentet for detaljer.**
 
-## Configuration
+## Konfigurasjon
 
-### Business Units Naming Convention
+### Navnekonvensjon for forretningsenheter
 
-To enable this functionality, the value of the **'EnableBusinessUnits** setting in the 'Provisioning Request Settings' list MUST be set to 'true'. By default this will be set to 'false' after deployment.
+For å aktivere funksjonaliteten MÅ verdien på innstillingen **`EnableBusinessUnits`** i `Provisioning Request Settings`-listen settes til `true`. Etter installasjon er denne satt til `false`.
 
-In addition the value of the **UseNamingConventions** setting must be set to 'true' for the business units naming functionality to work.
+I tillegg må verdien på innstillingen **`UseNamingConventions`** settes til `true` for at navnefunksjonaliteten for forretningsenheter skal fungere.
 
-### Business Units Approval
+### Godkjenning per forretningsenhet
 
-To enable this functionality, the value of the **'EnableBusinessUnitsApproval** setting in the 'Provisioning Request Settings' list MUST be set to 'true'. By default this will be set to 'false' after deployment. 
+For å aktivere funksjonaliteten MÅ verdien på innstillingen **`EnableBusinessUnitsApproval`** i `Provisioning Request Settings`-listen settes til `true`. Etter installasjon er denne satt til `false`.
 
-**Please note - For the business unit approval to work, the value of the **'PostToTeams'** setting must be set to 'false'.**
+**Merk: For at godkjenning per forretningsenhet skal fungere, må verdien på innstillingen `PostToTeams` være satt til `false`.**
 
-Approvers for business units are configured in the 'Business Units' list, multiple users or Microsoft 365 groups are supported.
+Godkjennere for forretningsenheter konfigureres i `Business Units`-listen – flere brukere eller Microsoft 365-grupper støttes.
 
-**Business unit approval does not need to be enabled for the business units functionality to work, if disabled, approval will take place as normal.**
+**Godkjenning per forretningsenhet trenger ikke å være aktivert for at forretningsenhet-funksjonaliteten skal fungere. Hvis deaktivert, vil godkjenning skje som normalt.**
 
 ![Business units settings screenshot](./images/BusinessUnitsSettings.png)
 
-## Creating Business Units
+## Opprette forretningsenheter
 
-To create a business unit, simply locate the 'Business Units' list in the Bestillingsportalen SharePoint site and create a list item.
+For å opprette en forretningsenhet, gå til `Business Units`-listen i Bestillingsportalen-området i SharePoint og opprett et nytt listeelement.
 
 ![Business units list screenshot](./images/BusinessUnitsList.png)
 
-Populate the columns as follows:
+Fyll inn kolonnene som følger:
 
-**Title**: Title of the business unit e.g. Human Resources
+- **Title** – Navn på forretningsenheten, f.eks. `Human Resources`.
+- **Prefix** – Ønsket prefiks, f.eks. `HR-`.
+- **Suffix** – Ønsket suffiks, f.eks. `-Contoso`.
+- **Approvers** – Godkjennere som skal godkjenne bestillingen.
 
-**Prefix**: Desired prefix e.g. HR-
+## Begrensninger
 
-**Suffix**: Desired suffix e.g. -Contoso
+I denne første utgivelsen er det noen begrensninger å være klar over:
 
-**Approvers**: Approvers who should approve the request.
-
-## Limitations
-
-In this initial release there are some limitations to be aware of.  
-
-- Business unit naming conventions cannot be used in conjunction with 'Global', 'Space' or 'Teams Template' naming conventions. If business unit naming conventions are enabled, this will override any other configured naming convention.
-- Only text based prefixes and suffixes are supported, the ability to use properties such as the users' department is not yet available.
-- A business unit must be selected in the webdel or Teams app if the functionality is enabled.
-
+- Navnekonvensjoner for forretningsenheter kan ikke kombineres med navnekonvensjoner for «Global», «Space» eller «Teams Template». Hvis navnekonvensjoner for forretningsenheter er aktivert, vil de overstyre andre konfigurerte navnekonvensjoner.
+- Kun tekstbaserte prefikser og suffikser støttes. Mulighet for å bruke egenskaper som brukerens avdeling er foreløpig ikke tilgjengelig.
+- En forretningsenhet må velges i webdel eller Teams app hvis funksjonaliteten er aktivert.
