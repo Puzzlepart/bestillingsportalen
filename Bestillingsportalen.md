@@ -22,7 +22,7 @@
   - ```json
     {
       [
-        "defaultProps": {
+        "projectProperties": {
           "internalName": "value",
           "value": "value"
         },

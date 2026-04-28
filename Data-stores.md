@@ -71,7 +71,7 @@ Denne listen lagrer detaljene om alle bestillinger gjort gjennom Bestillingsport
 | StatusReason | Note | Begrunnelse/detaljer knyttet til statusen (f.eks. feilmelding ved `Space Creation Failed`). |
 | Comments | Note | Kommentar fra godkjenner eller administrator. |
 | RequestKey | Text | Unik nøkkel brukt for å identifisere bestillingen i integrasjoner. |
-| Metadata | Note | JSON-objekt som lagrer prosjektinformasjon og property bag-verdier. Struktur: `{ "defaultProps": [...], "propertyBagProps": [...] }`. |
+| Metadata | Note | JSON-objekt som lagrer prosjektinformasjon og property bag-verdier. Struktur: `{ "projectProperties": [...], "propertyBagProps": [...] }`. |
 
 ### Provisioning Request Settings
 
