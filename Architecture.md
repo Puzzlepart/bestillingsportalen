@@ -1,10 +1,10 @@
-# Solution Architecture
+# Løsningsarkitektur
 
-The diagram below details the architecture of the Bestillingsportalen solution and the components used at a high level.
+Diagrammet nedenfor viser arkitekturen til Bestillingsportalen-løsningen og komponentene som brukes på et overordnet nivå.
 
 ``` mermaid
 graph TD
-    A(Canvas Power App) --> | Submit data | B[(SharePoint List)] --> C(Power Automate Approval Flow) --> D(Logic App) --> E(Entra ID App) <--> | Secret stored in Key Vault | F(Azure Key Vault) --> G{Type of collaboration space} --> |SharePoint Site| H[SharePoint REST API] 
+    A(SPFx Webdel / Teams App) --> | Submit data | B[(SharePoint List)] --> C(Power Automate Approval Flow) --> D(Logic App) --> E(Entra ID App) <--> | Secret stored in Key Vault | F(Azure Key Vault) --> G{Type of collaboration space} --> |SharePoint Site| H[SharePoint REST API] 
     G --> | Office 365 Group | I(Microsoft Graph)
     G --> | Viva Engage Community | J(Microsoft Graph) 
     I --> K(Azure Automation)

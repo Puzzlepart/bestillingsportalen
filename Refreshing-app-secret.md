@@ -1,74 +1,74 @@
-# Refreshing App Secret
+# Fornye App Secret
 
-From time to time you may need to update/refresh the client secret used in the Entra ID App for Bestillingsportalen. This may be because the secret has expired or you wish to generate a new one.
+Fra tid til annen må du oppdatere/fornye client secret-en som brukes i Entra ID-appen for Bestillingsportalen. Dette kan være fordi secret-en har utløpt, eller fordi du ønsker å generere en ny.
 
-When you deploy Bestillingsportalen, the secret generated for the AD app has a default expiry of 1 year from the date the deployment script was executed.
+Når du installerer Bestillingsportalen, har secret-en som genereres for Entra ID-appen en standard utløpstid på 1 år fra datoen installasjonsskriptet ble kjørt.
 
-The secret is used in a few places in the Bestillingsportalen solution:
+Secret-en brukes flere steder i Bestillingsportalen:
 
 - Key Vault
 - Key Vault API Connection
-- Automation Account encrypted variable
+- Kryptert variabel i Automation Account
 
-**It is advisable to note down the date when the secret expires as once this has expired, the Logic Apps and Automation Runbooks will fail until a new secret is created and Bestillingsportalen updated.**
+**Det anbefales å notere ned datoen secret-en utløper. Når den har utløpt, vil Logic Apps og Automation Runbooks feile til en ny secret er opprettet og Bestillingsportalen oppdatert.**
 
-## Refreshing the Secret
+## Fornye secret
 
-***Appropriate permissions will be needed when following the process below. Ensure the account you are using has permissions to generate AAD app secrets, update secrets in Key Vault and update the Bestillingsportalen API Connections.**
+***Passende tilganger kreves for å følge prosessen nedenfor. Sørg for at kontoen du bruker har tilganger til å generere Entra ID app secrets, oppdatere secrets i Key Vault og oppdatere Bestillingsportalen API Connections.**
 
-When the secret expires (OR when you want to create a new one), please follow this process to update Bestillingsportalen to use the new value:
+Når secret-en utløper (ELLER når du vil opprette en ny), følg denne prosessen for å oppdatere Bestillingsportalen:
 
-### Generating a new secret
+### Generere en ny secret
 
-1. Open the Azure Portal.
-2. Navigate to Azure Active Directory.
-3. Click 'App registrations' on the left menu.
-4. Click 'All applications'.
-5. Locate your Bestillingsportalen AAD application and click on it.
-6. Click 'Certificates and secrets' on the left menu.
-7. Click 'New cient secret' under Client secrets.
-8. Enter a description for the secret and choose an expiry date. **Note down this expiry date.**
-9. Copy the **value** of the secret. **Once you leave this blade, the value will be permanently hidden.**
+1. Åpne Azure Portal.
+2. Gå til Microsoft Entra ID.
+3. Klikk `App registrations` i venstre meny.
+4. Klikk `All applications`.
+5. Finn Bestillingsportalen Entra ID-applikasjonen din og klikk på den.
+6. Klikk `Certificates and secrets` i venstre meny.
+7. Klikk `New client secret` under Client secrets.
+8. Skriv inn en beskrivelse og velg utløpsdato. **Noter ned utløpsdatoen.**
+9. Kopier **Value** på secret-en. **Når du forlater blade-et, vil verdien være permanent skjult.**
 
-### Updating Key Vault
+### Oppdatere Key Vault
 
-1. Open the Azure Portal.
-2. Locate the Key Vault for Bestillingsportalen.
-3. Click 'Secrets' on the left menu. If you cannot view the secrets you will need to create an access policy for the account you are using OR use an account with appropriate permissions.
-4. Locate the 'appSecret' secret and click on it.
+1. Åpne Azure Portal.
+2. Finn Key Vault for Bestillingsportalen.
+3. Klikk `Secrets` i venstre meny. Hvis du ikke kan se secrets, må du opprette en access policy for kontoen du bruker, ELLER bruke en konto med passende tilganger.
+4. Finn secret-en `appSecret` og klikk på den.
 
 ![Key Vault appSecret secret screenshot](/Images/KeyVaultAppSecret.png)
 
-5. Click 'New Version', enter the value of the new secret into the 'Secret value' box and click 'Create'.
+5. Klikk `New Version`, skriv inn verdien på den nye secret-en i `Secret value`-boksen og klikk `Create`.
 
 ![Key Vault create secret version screenshot](/Images/KeyVaultUpdateSecret.png)
 
-6. Key vault has now been updated.
+6. Key Vault er nå oppdatert.
 
-### Updating API Connection
+### Oppdatere API Connection
 
-1. Locate the 'bestllingsportalen-kv' API Connection in the Azure portal, you can use the search box to search for it.
-2. Click 'Edit API connect' on the left menu.
+1. Finn API Connection-en `bestillingsportalen-kv` i Azure Portal. Du kan bruke søkeboksen.
+2. Klikk `Edit API connection` i venstre meny.
 
 ![Key Vault API Connection screenshot](/Images/KeyVaultAPIConnection.png)
 
-12. Enter the new secret into the 'Client secret' textbox and click 'Save'.
-13. API Connection has now been updated.
+3. Skriv inn den nye secret-en i `Client secret`-tekstboksen og klikk `Save`.
+4. API Connection er nå oppdatert.
 
-### Updating Automation Account Variable
+### Oppdatere Automation Account-variabel
 
-1. Open the Azure Portal.
-2. Locate the 'bestillingsportalen-auto' Automation Account.
-3. Click 'Variables' in the left menu.
+1. Åpne Azure Portal.
+2. Finn Automation Account-en `bestillingsportalen-auto`.
+3. Klikk `Variables` i venstre meny.
 
 ![Automation Account variables option screenshot](/Images/AutomationAccountVariables.png)
 
-4. Click on the 'appSecret' variable.
+4. Klikk på variabelen `appSecret`.
 
 ![Automation Account appSecret variable screenshot](/Images/AutomationAccountAppSecretVariable.png)
 
-5. Click 'Edit value'.
-6. Enter the value of the new secret into the 'Value' textbox and click 'Save'.
-7. Automation Account has now been updated.
+5. Klikk `Edit value`.
+6. Skriv inn verdien på den nye secret-en i `Value`-tekstboksen og klikk `Save`.
+7. Automation Account er nå oppdatert.
 
-The secret has now been updated for Bestillingsportalen.
+Secret-en er nå oppdatert for Bestillingsportalen.

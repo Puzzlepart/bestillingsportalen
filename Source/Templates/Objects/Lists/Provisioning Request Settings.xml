@@ -15,7 +15,7 @@
         <FieldRef Name="ExternalSharingSetting" />
         <FieldRef Name="BlockedWordsValue" />
         <FieldRef Name="LogoImage" />
-        <FieldRef Name="PowerAppOnly" />
+
       </ViewFields>
       <RowLimit Paged="TRUE">30</RowLimit>
       <JSLink>clienttemplates.js</JSLink>
@@ -60,9 +60,6 @@
         <CHOICE>NewExistingGuests</CHOICE>
         <CHOICE>ExistingGuests</CHOICE>
       </CHOICES>
-    </Field>
-    <Field DisplayName="Power App only" Description="Settings only for Power App" Format="Dropdown" Name="PowerAppOnly" Title="Power App only" Type="Boolean" ID="{7090f778-b898-4395-a3fa-a4831ca6e820}" StaticName="PowerAppOnly">
-      <Default>0</Default>
     </Field>
   </pnp:Fields>
 </pnp:ListInstance>

@@ -1,41 +1,41 @@
-# Contribution guidelines
+# Retningslinjer for bidrag
 
-We appreciate that you're interested in helping with Bestillingsportalen. Before you submit your first PR, please read the following guide. We'd hate to see you work on something that someone else is already working on, something that we agreed not to do or something that doesn't match the project.
+Vi setter pris på at du vil bidra til Bestillingsportalen. Før du sender din første PR, vennligst les denne guiden. Vi vil ikke at du skal bruke tid på noe andre allerede jobber med, noe vi har bestemt oss for ikke å gjøre, eller noe som ikke passer prosjektet.
 
 Sharing is caring!
 
-## You have an idea for new functionality
+## Du har en idé til ny funksjonalitet
 
-Awesome! Good ideas are invaluable for every product. Before you start hacking away, please check if there is no similar idea already listed in the [issues list](https://github.com/Puzzlepart/bestillingsportalen/issues). If not, please create a new issue describing your idea. Once we agree on the functionality and architecture, the functionality will be ready for building. Don't hesitate to mention in the issue if you'd like to build the functionality yourself.
+Flott! Gode idéer er uvurderlige for ethvert produkt. Før du setter i gang, sjekk om en lignende idé allerede ligger i [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues). Hvis ikke, opprett et nytt issue som beskriver idéen din. Når vi er enige om funksjonalitet og arkitektur, er idéen klar til å bygges. Ikke nøl med å nevne i issuet hvis du ønsker å bygge funksjonaliteten selv.
 
-## You have a suggestion for improving existing functionality
+## Du har et forslag til forbedring av eksisterende funksjonalitet
 
-Nothing is perfect. If you have an idea how to improve existing functionality in Bestillingsportalen, let us know by submitting an issue in the [issues list](https://github.com/Puzzlepart/bestillingsportalen/issues). Some things are done for a reason, but some are not. Let's discuss what you think and see how Bestillingsportalen could be improved for everyone.
+Ingenting er perfekt. Hvis du har en idé til hvordan eksisterende funksjonalitet i Bestillingsportalen kan forbedres, gi oss beskjed ved å opprette et issue i [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues). Noen ting er gjort slik av en grunn, andre ikke. La oss diskutere forslaget ditt og se hvordan Bestillingsportalen kan bli bedre for alle.
 
-## You've found a bug
+## Du har funnet en bug
 
-Bugs happen. When you find a bug, please have a look at the [issues list](https://github.com/Puzzlepart/bestillingsportalen/issues) to see if a similar bug has already been logged. If not, let us know what doesn't work and how we can reproduce it. If we can't reproduce your bug, we will ask you for clarification, which will only make it longer to fix it.
+Bugs skjer. Når du finner en bug, sjekk [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues) for å se om en lignende bug allerede er rapportert. Hvis ikke, gi oss beskjed om hva som ikke fungerer og hvordan vi kan reprodusere det. Hvis vi ikke kan reprodusere feilen, vil vi be deg om klargjøring, noe som kun forlenger tiden det tar å fikse den.
 
-## Fixing typos
+## Retting av skrivefeil
 
-Typos are embarrassing! Most PR's that fix typos will be accepted immediately. In order to make it easier to review the PR, please narrow the focus instead of sending a huge PR of fixes.
+Skrivefeil er pinlige! De fleste PR-er som retter skrivefeil aksepteres umiddelbart. For å gjøre det enklere å gå gjennom PR-en, snevre inn fokuset i stedet for å sende én stor PR med mange rettelser.
 
 ## Tips
 
-Before contributing:
+Før du bidrar:
 
-- create a feature branch for your change. If you'll get stuck on an issue or merging your PR will take a while, this will allow you to have a clean main branch that you can use for contributing other changes
+- Opprett en feature branch for endringen din. Hvis du står fast på et issue eller det vil ta tid å merge PR-en, sikrer dette at du har en ren main-branch som kan brukes til andre bidrag.
 
     ```sh
     git checkout -b my-contribution
     ```
 
-## DO's & DON'Ts
+## DO's og DON'Ts
 
-- **DO** follow the same project structure as the existing project.
-- **DO** highlight how the current behavior is broken when fixing bugs.
-- **DO** keep discussions focused. When a new or related topic comes up it's often better to create new issue than to side track the conversation.
-- **DO NOT** submit PR's for coding style changes.
-- **DO NOT** surprise us with big PR's. Instead file an issue & start a discussion so we can agree on a direction before you invest a large amount of time.
-- **DO NOT** commit code you didn't write.
-- **DO NOT** submit PR's that refactor existing code without a discussion first.
+- **DO** følg samme prosjektstruktur som eksisterende prosjekt.
+- **DO** fremhev hvordan gjeldende oppførsel er feil når du fikser bugs.
+- **DO** hold diskusjoner fokuserte. Når et nytt eller relatert tema dukker opp, er det ofte bedre å opprette et nytt issue enn å sidespore samtalen.
+- **DO NOT** send inn PR-er for kodestilendringer.
+- **DO NOT** overrask oss med store PR-er. Opprett heller et issue og start en diskusjon slik at vi kan bli enige om en retning før du investerer mye tid.
+- **DO NOT** commit kode du ikke har skrevet selv.
+- **DO NOT** send inn PR-er som refaktorerer eksisterende kode uten diskusjon først.

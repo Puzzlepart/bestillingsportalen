@@ -1,37 +1,40 @@
-# Cost Estimates
+# Kostnadsestimater
 
-## Assumptions
+## Forutsetninger
 
-The estimate below assumes:
+Estimatet nedenfor forutsetter:
 
-- 500 users in the tenant
+- 500 brukere i tenanten
 
-- Provisioning Logic App runs every hour (to create collaboration spaces for all approved requests)
+- Provisjonerings-Logic App kjører hver time (for å opprette samarbeidsområder for alle godkjente bestillinger)
 
-- Verify availability hits every time when the user creates the request, once per user per space.
+- «Verify availability» kalles hver gang en bruker oppretter en bestilling, én gang per bruker per område.
 
-## SKU recommendations
+## Anbefalte SKU-er
 
-The recommended SKUs for a production environment are:
+Anbefalte SKU-er for et produksjonsmiljø:
 
 - Logic Apps
 - API Connections
 - Automation Account
 - Azure Runbooks
 
-## Estimated load
+## Estimert belastning
 
-**Number of Space requests**: 500 users * 1 request/user/month = 500 request/month
+**Antall områdebestillinger**: 500 brukere × 1 bestilling/bruker/måned = 500 bestillinger/måned
 
-## Estimated cost
-**IMPORTANT:**  This is only an estimate, based on the assumptions above. Your actual costs may vary.
+## Estimert kostnad
 
-Prices were taken from the  [Pricing](https://azure.microsoft.com/en-us/pricing/) on 06 May 2020, for the West US region.
+**VIKTIG:** Dette er kun et estimat basert på forutsetningene ovenfor. Faktiske kostnader kan variere.
 
-Use the  [Azure Pricing Calculator](https://azure.com/e/37608b74af8a4e57bc5834321c2a2c23) to model different service tiers and usage patterns.
+**Merk: Disse estimatene er fra mai 2020 og reflekterer kanskje ikke gjeldende Azure-priser. Verifiser mot gjeldende [Azure-priser](https://azure.microsoft.com/en-us/pricing/) før du stoler på disse tallene.**
 
-| Resource | Tier |Load|Monthly price|
+Prisene er hentet fra [Pricing](https://azure.microsoft.com/en-us/pricing/) den 06. mai 2020, for regionen West US.
+
+Bruk [Azure Pricing Calculator](https://azure.com/e/37608b74af8a4e57bc5834321c2a2c23) for å modellere ulike servicenivåer og bruksmønstre.
+
+| Ressurs | Nivå | Belastning | Månedspris |
 |--|--|--|--
-| Azure Logic Apps | N/A | 1 action execution/day |$0.01|
-| Azure Automation | Process automation capability | 500 minutes of process automation and 744 hours of watchers are free each month. Charges applied only if free quote is consumed |$1.46|
-|Total| | | $1.47|
+| Azure Logic Apps | N/A | 1 handlingsutførelse/dag | $0,01 |
+| Azure Automation | Process automation | 500 minutter prosessautomatisering og 744 timer watchers er gratis per måned. Belastes kun hvis gratiskvoten overskrides | $1,46 |
+| Totalt | | | $1,47 |

@@ -8,7 +8,7 @@
         -Logic App
 
 .DESCRIPTION
-    Deploys the Bestillingsportalen solution (excluding the PowerApp and Flows).
+    Deploys the Bestillingsportalen solution (excluding Flows).
     This script uses the Azure CLI, Azure Az PowerShell and PnP PowerShell Modules to perform the deployment.
 
     As part of the deployment, the script will generate a secet for the Entra ID App created by the 'createadapp.ps1' script. 
@@ -487,8 +487,7 @@ function ConfigureSharePointSite {
             $newItem = $siteRequestsSettingsList.AddItem($listItemCreationInformation)
             $newitem["Title"] = $setting.Title
             $newitem["Description"] = $setting.Description
-            $newitem["PowerAppOnly"] = $setting.PowerAppOnly
-            # Hide site classifications option in Power App if no site classifications were found in the tenant
+            # Hide site classifications option if no site classifications were found in the tenant
             if ($null -eq $global:siteClassifications -and $setting.Title -eq "HideSiteClassifications") {
                 $newItem["Value"] = "true"
             }

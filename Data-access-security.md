@@ -1,42 +1,42 @@
-# Data Access & Security
+# Datatilgang og sikkerhet
 
-The Bestillingsportalen solution uses the **Microsoft Graph API** and the **SharePoint REST API** to perform provisioning of Groups, Sites, Teams and Viva Engage Communities.
+Bestillingsportalen bruker **Microsoft Graph API** og **SharePoint REST API** for å provisjonere grupper, områder, team og Viva Engage-fellesskap.
 
-Provisioning is carried out using an **Entra ID App Registration** which has the required permissions to the Microsoft Graph API assigned to it. For the most part **Application Permissions** are used with one exception - the application of sensitivity labels.
+Provisjoneringen utføres via en **Entra ID App Registration** som har de nødvendige tillatelsene til Microsoft Graph API. For det meste brukes **Application Permissions**, med ett unntak – anvendelse av sensitivitetsmerker.
 
-At the time of writing (July 2023), the Graph API does not support applying sensitivity labels to Groups and Teams using Application Permissions therefore a Service Account is used (no MFA) and **Delegated Permissions** configured to the relevant Graph endpoint.
+Per juli 2023 støttet ikke Graph API anvendelse av sensitivitetsmerker på grupper og team med Application Permissions. Denne begrensningen kan ha blitt fjernet siden – verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview). Inntil dette er bekreftet, brukes en tjenestekonto (uten MFA) med **Delegated Permissions** konfigurert mot det relevante Graph-endepunktet.
 
-If you choose to disable or not use the sensitivity label functionality, then this is not required.
+Hvis du velger å deaktivere eller ikke bruke sensitivitetsmerkefunksjonaliteten, er ikke dette nødvendig.
 
-The **Client ID** and **Client Secret** of the Entra ID app are stored in a dedicated Key Vault that is created for the Bestillingsportalen solution. These are then extracted for use in the Logic Apps using the Key Vault action, the action is set to hide the input and outputs so the secret value cannot be seen when viewing the run history.
+**Client ID** og **Client Secret** for Entra ID-appen lagres i en dedikert Key Vault som opprettes for Bestillingsportalen. Disse hentes deretter til bruk i Logic Apps via Key Vault-handlingen, som er konfigurert til å skjule input og output slik at secret-verdien ikke er synlig i kjørehistorikken.
 
-The full list of the required API permissions for the Microsoft Graph and SharePoint tenant can be found below.
+Den fullstendige listen over påkrevde API-tillatelser for Microsoft Graph og SharePoint-tenanten finner du nedenfor.
 
-## API Permissions
+## API-tillatelser
 
-The API permissions required for the Entra ID app are as follows:
+Påkrevde API-tillatelser for Entra ID-appen:
 
 ### Microsoft Graph
 
-| API Permission | Type | Description| Reason |
+| API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
-| Directory.Read.All | Application | Read directory data |Used to read Users, Groups and Teams from the tenant.|
-| Directory.ReadWrite.All | Application | Read and write directory data |Used to create guest users in Entra ID if they are requested.|
-| Group.ReadWrite.All | Delegated | Read and write all groups |Used to apply sensitivity labels to created groups/teams.|
-| Group.ReadWrite.All | Application | Read and write all groups |Used to create and update the properties of groups/teams.|
-| InformationProtectionPolicy.Read.All | Application | Read all published labels and label policies for an organization. |Used to syncronize sensivity labels in the tenant to a SharePoint list.|
-| Sites.FullControl.All | Application | Have full control of all site collections. | Update the properties of provisioned SharePoint sites. |
-| TeamsTemplates.Read.All | Application | Read all available Teams Templates |Used to read the teams templates in the tenant and syncronize them to a SharePoint list.|
-| Community.ReadWrite.All | Application | Read and write all Viva Engage communities. |Used to create Viva Engage communities.|
-| User.Invite.All | Application | Invite guest users to the organization |Used to invite guest users in Entra ID if they are requested.|
-| User.ReadWrite.All | Application | Read and write to all users' full profiles |Used to update guest users in Entra ID if they are requested.|
+| Directory.Read.All | Application | Lese katalogdata | Brukes til å lese Users, Groups og Teams fra tenanten. |
+| Directory.ReadWrite.All | Application | Lese og skrive katalogdata | Brukes til å opprette gjestebrukere i Entra ID hvis forespurt. |
+| Group.ReadWrite.All | Delegated | Lese og skrive alle grupper | Brukes til å anvende sensitivitetsmerker på opprettede grupper/team. |
+| Group.ReadWrite.All | Application | Lese og skrive alle grupper | Brukes til å opprette og oppdatere egenskaper på grupper/team. |
+| InformationProtectionPolicy.Read.All | Application | Lese alle publiserte merker og merkepolicyer for en organisasjon. | Brukes til å synkronisere sensitivitetsmerker fra tenanten til en SharePoint-liste. |
+| Sites.FullControl.All | Application | Full kontroll over alle områder. | Oppdatere egenskapene til provisjonerte SharePoint-områder. |
+| TeamsTemplates.Read.All | Application | Lese alle tilgjengelige Teams-maler | Brukes til å lese Teams-maler i tenanten og synkronisere dem til en SharePoint-liste. |
+| Community.ReadWrite.All | Application | Lese og skrive alle Viva Engage-fellesskap. | Brukes til å opprette Viva Engage-fellesskap. |
+| User.Invite.All | Application | Invitere gjestebrukere til organisasjonen | Brukes til å invitere gjestebrukere i Entra ID hvis forespurt. |
+| User.ReadWrite.All | Application | Lese og skrive til alle brukeres fulle profiler | Brukes til å oppdatere gjestebrukere i Entra ID hvis forespurt. |
 
 ### SharePoint
 
-| API Permission | Type | Description| Reason |
+| API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
-| Sites.FullControl.All | Application | Have full control of all site collections| Used to read and write to created SharePoint sites. |
+| Sites.FullControl.All | Application | Full kontroll over alle områder | Brukes til å lese og skrive til opprettede SharePoint-områder. |
 
-In addition to the above, the Entra ID App must be registered as a **SharePoint add-in** and granted **Full Control permissions** to the SharePoint tenant.
+I tillegg må Entra ID-appen registreres som en **SharePoint add-in** og få **Full Control**-tillatelser mot SharePoint-tenanten.
 
-This is required because, as part of the provisioning there is a check to see if a SharePoint site matching the URL already exists both as an active site but also in the tenant recycle bin.
+Dette er nødvendig fordi provisjoneringen sjekker om et SharePoint-område som matcher URL-en allerede finnes – både som et aktivt område og i tenantens papirkurv.

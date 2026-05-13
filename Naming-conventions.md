@@ -1,176 +1,169 @@
-# Naming Conventions
+# Navnekonvensjoner
 
-Bestillingsportalen includes the ability to define Naming Conventions/Policies for created Sites/Groups/Teams/Viva Engage communities.
+Bestillingsportalen inkluderer muligheten til å definere navnekonvensjoner/policyer for områder, grupper, Teams og Viva Engage-fellesskap som opprettes.
 
-When a user makes a request through the Power App, the naming convention will be applied and a preview of how this will look when combined with the title they have entered will be shown (See 'Space display name' below). 
+Når en bruker bestiller via Bestillingsportalen webdel eller Teams app, anvendes navnekonvensjonen, og en forhåndsvisning av hvordan navnet blir seende ut i kombinasjon med tittelen brukeren har angitt vises (se `Space display name` nedenfor).
 
 ![Naming conventions example screenshot](./images/NamingConventionsExample.png)
 
-Naming conventions can be configured at the following levels:
+Navnekonvensjoner kan konfigureres på følgende nivåer:
 
-1. Global - All requests will adhere to this naming convention if no additional convention is configured as per the below.
-2. Space - Define specific naming conventions for to each space type e.g. Team Site, Communication Site, Office 365 Group etc. Space types are the types of collaboration space a user can create and these reside in the 'Provisioning Types' list. When a user selects a type with a naming convention configured, this will be used.
-3. Teams Template - Define naming conventions specific to an individual Teams template. These can be set in the 'Teams Templates' list. A naming convention applied to a Teams template would override one configured for a Teams Team in the 'Provisioning Types' list.
+1. **Global** – Alle bestillinger følger denne navnekonvensjonen hvis ingen annen konvensjon er konfigurert som beskrevet nedenfor.
+2. **Space** – Definer spesifikke navnekonvensjoner for hver områdetype (f.eks. Team Site, Communication Site, Office 365 Group). Områdetypene er de samarbeidstypene en bruker kan opprette, og de ligger i `Provisioning Types`-listen. Når en bruker velger en type med egen navnekonvensjon konfigurert, brukes denne.
+3. **Teams Template** – Definer navnekonvensjoner spesifikt for en enkelt Teams-mal. Disse settes i `Teams Templates`-listen. En navnekonvensjon knyttet til en Teams-mal overstyrer den som er konfigurert for et Teams-team i `Provisioning Types`-listen.
 
-Global & Space Type - Requests created where **no** naming convention is assigned to the selected space type will use the 'Global' convention and where defined, space types will use their own naming convention.
+**Global og områdetype** – Bestillinger opprettet der **ingen** navnekonvensjon er knyttet til den valgte områdetypen, bruker `Global`-konvensjonen. Der områdetyper har en egen konvensjon definert, brukes den.
 
-Teams Template - Overrides Global and Space Type if the user selects a teams template that has a naming convention configured.
+**Teams-mal** – Overstyrer både global og områdetype hvis brukeren velger en Teams-mal med navnekonvensjon konfigurert.
 
-There is no UI in the Power App to configure this yet (we are working on this) so naming conventions must be set up in the SharePoint site for now.
+Det finnes foreløpig ikke grensesnitt i webdel eller Teams app for å konfigurere dette (vi jobber med det), så navnekonvensjoner må settes opp i SharePoint-området inntil videre.
 
-_Note - If no space types/teams templates have naming conventions configured and naming conventions have been enabled, the templates will use the Global configuration._
+_Merk – Hvis ingen områdetyper eller Teams-maler har navnekonvensjon konfigurert og navnekonvensjoner er aktivert, vil malene bruke `Global`-konfigurasjonen._
 
-
-## What does this look like?
+## Hvordan ser dette ut?
 
 **Teams:**
 
-When a team is created using a naming convention, it will appear as follows:
+Når et team opprettes med navnekonvensjon, vises det slik:
 
 ![Teams naming convention screenshot](./Images/TeamsNamingConvention.png)
 
-- In the example above 'GRP_' and 'PRJ_' are the configured prefixes.
+- I eksemplet over er `GRP_` og `PRJ_` konfigurerte prefikser.
+- Den midtre delen er områdets tittel som brukeren oppgir. Her har brukeren valgt å opprette et Teams-team.
+- Alle tre eksemplene bruker attributter som suffiks. De to første er brukerens avdeling, og det siste teamet viser brukerens stillingstittel (`JobTitle`).
+- Alle tre eksemplene bruker tekst (i tillegg til attributter) for å skille områdenavn/teamnavn med understreker. Dette er konfigurerbart – bindestreker osv. kan også brukes. **Eventuelle mellomrom i prefiks eller suffiks fjernes automatisk.**
 
-- The middle part is the Space Title that the user specifies when making a request. In this case the user has selected to create a teams team.
+**SharePoint-områder (Team Sites / Office 365 Groups / Communication Sites / Hub Sites og områder bak et team):**
 
-- All three examples above are using attributes for the suffix. The first two are the users' department and the last team in the list shows the users' Job Title.
-
-- All three examples are using text (in addition to attributes) to separate the space/team title with underscores. This is configurable so dashes etc. could be used. **Any spaces in the Prefix or Suffix should be automatically removed.**
-
-**SharePoint Sites (Team Sites/Office 365 Groups/Comms Sites/Hub Sites and those backing a team):**
-
-The Name and URL will follow that of the naming convention:
+Navnet og URL-en følger navnekonvensjonen:
 
 ![SharePoint site naming convention screenshot](./images/SPOSiteNamingConvention.png)
 
-The SharePoint site URL will have any spaces in the 'Space Title' removed.
+Mellomrom i områdets tittel fjernes i URL-en til SharePoint-området.
 
 **Viva Engage:**
 
-Viva Engage communities act the same as a teams team. The display name will contain spaces if specified in the space title and the alias for the group will have the spaces removed. 
+Viva Engage-fellesskap oppfører seg på samme måte som et Teams-team. Visningsnavnet beholder mellomrom hvis de er spesifisert i områdets tittel, men aliaset på gruppen får mellomrommene fjernet.
 
-e.g. VE_My Viva Engage Community_IT (Where IT is the users' department).
+F.eks.: `VE_My Viva Engage Community_IT` (der `IT` er brukerens avdeling).
 
 ![Viva Engage naming convention screenshot text](./images/VivaEngageNamingConvention.png)
 
 **Entra ID:**
 
-The group name and email address in Entra ID will match the specified naming convention. The group name will retain spaces but the email will have these automatically removed.
+Gruppenavnet og e-postadressen i Entra ID matcher den spesifiserte navnekonvensjonen. Gruppenavnet beholder mellomrom, mens e-posten får disse fjernet automatisk.
 
 ![Entra ID naming convention screenshot](./images/AADNamingConvention.png)
 
+## Konfigurasjon
 
-## Configuration
-
-To enable this functionality, the value of the **'UseNamingConventions** setting in the 'Provisioning Request Settings' list MUST be set to 'true'. By default this will be set to 'false' after deployment.
+For å aktivere funksjonaliteten MÅ verdien på innstillingen **`UseNamingConventions`** i `Provisioning Request Settings`-listen settes til `true`. Etter installasjon er denne satt til `false`.
 
 ![Use naming convention setting screenshot](./images/UseNamingConventions.png)
 
-***Global naming convention***
+### Global navnekonvensjon
 
-Before creating any naming conventions at the space type/Teams template level, it is important to set a global naming convention. 
+Før du oppretter navnekonvensjoner på områdetype-/Teams-mal-nivå, bør du sette en global navnekonvensjon.
 
-_Both a Prefix and/or Suffix can be set which will be prepended and appended to the Space Title entered by the user when requesting a space._
+_Både et prefiks og/eller suffiks kan settes, og disse legges foran og etter områdets tittel angitt av brukeren._
 
 ---
 
-To set a **global naming convention**, follow the steps below:
+For å sette en **global navnekonvensjon**, følg stegene nedenfor:
 
-1. Navigate to the 'Provisioning Request Settings' list in the SharePoint site.
-2. Edit the 'NamingConvention' list item and specify the following values (these are examples and can be replaced with your own):
+1. Gå til `Provisioning Request Settings`-listen i SharePoint-området.
+2. Rediger listeelementet `NamingConvention` og angi følgende verdier (dette er eksempler – kan byttes ut med dine egne):
 
-**Value** - Leave blank
-**PrefixAttribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example leave blank.
-**PrefixText** - Set to 'GRP_' (or any text you wish to use for the prefix). 
-**PrefixUseAttribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'No'.
-**SuffixAttribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example set it to 'Department' (The users' department). 
-**SuffixText** - Set to '_' for this example (or any text you wish to use for the suffix). 
-**SuffixUseAttribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'Yes'.
+**Value** – La stå tom.
+**PrefixAttribute** – La stå tom ELLER velg et attributt (fra brukerens profil). I dette eksemplet står det tomt.
+**PrefixText** – Sett til `GRP_` (eller annen tekst du vil bruke som prefiks).
+**PrefixUseAttribute** – Sett til `Yes` HVIS du valgte et attributt, ELLER `No` hvis ikke. I dette eksemplet: `No`.
+**SuffixAttribute** – La stå tom ELLER velg et attributt. I dette eksemplet: `Department` (brukerens avdeling).
+**SuffixText** – Sett til `_` i dette eksemplet (eller annen tekst).
+**SuffixUseAttribute** – Sett til `Yes` HVIS du valgte et attributt, ELLER `No` hvis ikke. I dette eksemplet: `Yes`.
 
-For all other fields please DO NOT edit the values.
+For alle andre felt: IKKE endre verdiene.
 
-_Note - If you use PrefixText AND a PrefixAttribute. The text will be appended onto the end of the attribute value. This is so that you can separate the attributes/text from the Space Title e.g. 'HR_'._ The same happens with SuffixText and SuffixAttribute.
+_Merk – Hvis du bruker PrefixText OG et PrefixAttribute, legges teksten til slutten av attributtverdien. Dette er slik at du kan skille attributtene/teksten fra områdets tittel, f.eks. `HR_`. Det samme gjelder SuffixText og SuffixAttribute._
 
 ![Naming convention configuration screenshot](./images/GlobalNamingConventionSetting.png)
 
-3. Save the list item.
+3. Lagre listeelementet.
 
-A global naming convention has now been configured. When a space is requested, it should look something like:
+En global navnekonvensjon er nå konfigurert. Når et område bestilles, skal det se slik ut:
 
-GRP_Space Title_UsersDepartment e.g. GRP_My New Site_HR
+`GRP_Space Title_UsersDepartment` f.eks. `GRP_My New Site_HR`
 
-Please now test the naming convention by creating a new request.
+Test navnekonvensjonen ved å opprette en ny bestilling.
 
-Please make sure that users making requests have configured values for the attribute you selected above otherwise the attribute you selected above will not have a value. So the user would need a value for JobTitle, Department, Company, Office, StateOrProvince, CountryOrRegion. 
+Sørg for at brukere som bestiller har verdier konfigurert for attributtet du valgte – ellers får ikke attributtet noen verdi. Brukeren må altså ha en verdi for `JobTitle`, `Department`, `Company`, `Office`, `StateOrProvince` eller `CountryOrRegion`.
 
 ---
 
-***Space type convention***
+### Navnekonvensjon per områdetype
 
-Space type conventions allow you to set specific naming conventions for each type of space a user can request i.e. Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site and a Viva Engage Community. These are the ones that are displayed on the 'Select template' screen in the Power App. If space types have naming conventions defined these will **override** the global one. 
+Navnekonvensjoner per områdetype lar deg sette spesifikke regler for hver type område en bruker kan bestille – Team Site, Office 365 Group, Microsoft Teams Team, Communication Site, Hub Site og Viva Engage Community. Disse vises på «Velg mal»-skjermen i Bestillingsportalen webdel eller Teams app. Hvis områdetyper har navnekonvensjoner definert, vil disse **overstyre** den globale.
 
-For this example, we will apply a specific naming convention to Communication Sites.
+I dette eksemplet anvender vi en spesifikk navnekonvensjon på Communication Sites.
 
-This functionality works in a similar way to the global naming convention so should be easy to follow:
+Funksjonaliteten fungerer på samme måte som den globale navnekonvensjonen:
 
-To set a **Space type naming convention**, follow the steps below:
+For å sette en **navnekonvensjon for en områdetype**, følg stegene nedenfor:
 
-1. Navigate to the 'Provisioning Types' list in the SharePoint site.
-2. Edit one of the list items, in this case we will choose 'Communication Site'.
-3. Configure the values as follows - 
+1. Gå til `Provisioning Types`-listen i SharePoint-området.
+2. Rediger ett av listeelementene. Her velger vi `Communication Site`.
+3. Konfigurer verdiene som følger:
 
-**Prefix Text** - Set to 'COMM_' (or any text you wish to use for the prefix). 
-**Prefix Use Attribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'No'.
-**Prefix Attribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example leave blank.
+**Prefix Text** – Sett til `COMM_` (eller annen tekst).
+**Prefix Use Attribute** – `Yes` HVIS du valgte et attributt, ELLER `No`. I dette eksemplet: `No`.
+**Prefix Attribute** – La stå tom ELLER velg et attributt. I dette eksemplet: tom.
 
-**SuffixText** - Set to '_' for this example (or any text you wish to use for the suffix). 
-**Suffix Attribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example set it to 'Department' (The users' department). 
-**Suffix Use Attribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'Yes'.
+**SuffixText** – Sett til `_` (eller annen tekst).
+**Suffix Attribute** – La stå tom ELLER velg et attributt. I dette eksemplet: `Department`.
+**Suffix Use Attribute** – `Yes` HVIS du valgte et attributt, ELLER `No`. I dette eksemplet: `Yes`.
 
-4. Save the list item.
+4. Lagre listeelementet.
 
 ![Space type naming convention screenshot](./images/SpaceTypeNamingConvention.png)
 
-An space type naming convention has now been configured for a Communication Site. When a Communication Site is chosen when a user creates a request, it should look something like:
+En navnekonvensjon for områdetype er nå konfigurert for Communication Site. Når en bruker velger Communication Site, skal navnet se slik ut:
 
-COMM_Space Title_UsersDepartment e.g. COMM_My New Communication Site_HR
+`COMM_Space Title_UsersDepartment` f.eks. `COMM_My New Communication Site_HR`
 
-Please now test the naming convention by creating a new request selecting 'Communication Site' on the 'Select template' screen.
+Test navnekonvensjonen ved å opprette en ny bestilling og velge `Communication Site` på «Velg mal»-skjermen.
 
 ---
 
-***Teams template naming convention***
+### Navnekonvensjon for Teams-maler
 
-Teams template naming conventions allow you to set specific naming conventions for teams templates (or types of teams). If templates have naming conventions defined these will **override** the global one AND those set at the space type level.
+Navnekonvensjoner for Teams-maler lar deg sette spesifikke regler for Teams-maler (eller typer Teams). Hvis maler har navnekonvensjoner definert, vil disse **overstyre** både den globale og områdetype-nivåets konvensjoner.
 
-For more details on how to create templates for use with Bestillingsportalen, please follow this documentation on GitHub - https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Teams-Templates. 
+For mer detaljer om hvordan du oppretter maler for bruk med Bestillingsportalen, se [Teams Templates](./Teams-templates.md).
 
-For this example, we will apply a naming convention to one of the Microsoft out of the box templates but you can define your own templates as per the documentation above and configure naming conventions against these.
+I dette eksemplet anvender vi en navnekonvensjon på en av Microsofts innebygde maler. Du kan også definere egne maler og sette navnekonvensjoner på disse.
 
-This functionality works in a similar way to the global naming convention so should be easy to follow:
+For å sette en **navnekonvensjon for en Teams-mal**, følg stegene nedenfor:
 
-To set a **Teams template naming convention**, follow the steps below:
+1. Gå til `Teams Templates`-listen i SharePoint-området.
+2. Rediger ett av listeelementene. Her velger vi `Manage a Project`.
+3. Konfigurer verdiene som følger:
 
-1. Navigate to the 'Teams Templates' list in the SharePoint site.
-2. Edit one of the list items, in this case we will choose 'Manage a Project'.
-3. Configure the values as follows - 
+**Prefix Text** – Sett til `DEPT_` (eller annen tekst).
+**Prefix Use Attribute** – `Yes` HVIS du valgte et attributt, ELLER `No`. I dette eksemplet: `No`.
+**Prefix Attribute** – La stå tom ELLER velg et attributt. I dette eksemplet: tom.
 
-**Prefix Text** - Set to 'DEPT_' (or any text you wish to use for the prefix). 
-**Prefix Use Attribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'No'.
-**Prefix Attribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example leave blank.
+**SuffixText** – Sett til `_` (eller annen tekst).
+**Suffix Attribute** – La stå tom ELLER velg et attributt. I dette eksemplet: `Department`.
+**Suffix Use Attribute** – `Yes` HVIS du valgte et attributt, ELLER `No`. I dette eksemplet: `Yes`.
 
-**SuffixText** - Set to '_' for this example (or any text you wish to use for the suffix). 
-**Suffix Attribute** - Leave blank OR select an attribute (from the users' profile) to use. In this example set it to 'Department' (The users' department). 
-**Suffix Use Attribute** - Set to 'Yes' IF you selected an attribute OR set to False if you did not define an attribute. For this example set it to 'Yes'.
-
-4. Save the list item.
+4. Lagre listeelementet.
 
 ![Teams template naming convention screenshot](./images/TeamsTemplateNamingConvention.png)
 
-A template naming convention has now been configured for the selected template. When a space is requested and the user selects the 'Departmental' teams template, it should look something like:
+En navnekonvensjon er nå konfigurert for den valgte malen. Når et område bestilles og brukeren velger `Departmental` Teams-malen, skal navnet se slik ut:
 
-DEPT_Team Name_UsersDepartment e.g. DEPT_My Project Team_HR
+`DEPT_Team Name_UsersDepartment` f.eks. `DEPT_My Project Team_HR`
 
-Please now test the naming convention by creating a new request selecting 'Use template' and choose the 'Departmental' template. 
+Test navnekonvensjonen ved å opprette en ny bestilling, velg `Use template` og `Departmental`-malen.
 
-_Note - If you wish to define a template that has no content. Update the value of 'Template Id' to 'standard'._
+_Merk – Hvis du ønsker å definere en mal uten innhold, oppdater verdien på `Template Id` til `standard`._

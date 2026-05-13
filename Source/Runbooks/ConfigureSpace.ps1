@@ -632,7 +632,14 @@ function SetMetadata {
                         if ($null -ne $propName -and $null -ne $propValue) {
                             try {
                                 Write-Output "Adding property bag value for '$propName'"
-                                Set-PnPPropertyBagValue -Key $propName -Value $propValue
+                                
+                                if ($prop.indexed -eq $true) {
+                                    Write-Output "Setting property '$propName' as indexed"
+                                    Set-PnPPropertyBagValue -Key $propName -Value $propValue -Indexed
+                                }
+                                else {
+                                    Set-PnPPropertyBagValue -Key $propName -Value $propValue
+                                }
                             }
                             catch {
                                 Write-Output "Error adding property bag value for '$propName': $($_.Exception.Message)"
@@ -671,9 +678,10 @@ function UpdateParentSite {
             Write-Output "Parent site specified: $parentSiteUrl" 
 
             Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-            $currentSite = Get-PnPSite -Includes Id, Title, Url
+            $currentSite = Get-PnPSite -Includes Id, Url
+            $currentWeb = Get-PnPWeb
             $currentSiteId = $currentSite.Id.ToString()
-            $currentSiteTitle = $currentSite.Title
+            $currentSiteTitle = $currentWeb.Title
             $currentSiteUrl = $currentSite.Url
 
             $hubSiteInfo = $null

@@ -1,63 +1,59 @@
-# Approval Flow
+# Godkjenningsflyt
 
-Bestillingsportalen includes a Power Automate flow ('Provisioning Request Approval') to handle approval of requests created by users.
+Bestillingsportalen inkluderer en Power Automate-flyt (`Provisioning Request Approval`) som håndterer godkjenning av bestillinger opprettet av brukere.
 
-Approval of requests in the solution can take place in two ways -
+Godkjenning av bestillinger kan skje på to måter:
 
-- Power Automate Approval action (Approval Email and Approvals app in Teams).
-- Microsoft Teams Adaptive Card Approval (Adaptive card posted into a Teams channel).
+- Power Automate Approval-handling (godkjennings-epost og Approvals-app i Teams).
+- Microsoft Teams Adaptive Card-godkjenning (adaptivt kort postet i en Teams-kanal).
 
-This flow runs when the status of a request in the **'Provisioning Requests'** list changes to **'Submitted'** (user submits the request in the Power App). 
+Flyten kjører når statusen på en bestilling i **`Provisioning Requests`**-listen endres til **`Submitted`** (brukeren sender inn bestillingen i Bestillingsportalen webdel eller Teams app).
 
-When you deploy the solution, be sure to follow the 'Step 5: Configure approval process' step of the [Deployment guide](/Deployment-guide.md) in order to set up approval. If you wish to change the approval method e.g. Move from Approvals to Teams adaptive cards, please follow the same step of the deployment guide. 
+Når du installerer løsningen, sørg for å følge «Steg 5: Konfigurer godkjenningsprosess»-steget i [Installasjonsveiledningen](/Deployment-guide.md) for å sette opp godkjenning. Hvis du vil endre godkjenningsmetoden – f.eks. bytte fra Approvals til Teams adaptive cards – følger du samme steg i veiledningen.
 
-## Approval Reminders
+## Påminnelser om godkjenning
 
-If the approval process is configured to use Approvals, reminder emails can be sent to the approver(s), these are configurable in the 'Provisioning Request Settings' list.
+Hvis godkjenningsprosessen er konfigurert til å bruke Approvals, kan påminnelses-eposter sendes til godkjenner(ne). Disse konfigureres i `Provisioning Request Settings`-listen.
 
 ![Approval reminder settings screenshot](/Images/ApprovalReminderSettings.png)
 
-Simply edit the list items and change the value as appropriate:
+Rediger listeelementene og endre verdien etter behov:
 
-- **EnableAppprovalReminderEmails** - Enable or disable the reminder emails to the approvers (true/false).
-- **DisableApprovalNotifications** - Disable the native Power Automate approval notification emails, useful if you wish to edit the flow and add your own custom notification email.
-- **ApprovalReminderInterval** - Interval (in days) before a reminder email is sent to the approvers.
+- **`EnableApprovalReminderEmails`** – Aktiver eller deaktiver påminnelses-eposter til godkjennerne (`true`/`false`).
+- **`DisableApprovalNotifications`** – Deaktiver de innebygde Power Automate-varslene om godkjenning. Nyttig hvis du vil redigere flyten og legge til en egen varselepost.
+- **`ApprovalReminderInterval`** – Intervall (i dager) før en påminnelses-epost sendes til godkjennerne.
 
-## Process
+## Prosess
 
-At a high level the 'Provisioning Request Approval' flow works as follows:
+På et overordnet nivå fungerer `Provisioning Request Approval`-flyten slik:
 
-1. Update status of the request item to 'Pending Approval'.
-2. Retrieve settings from the 'Provisioning Request Settings' list.
-3. Send either an approval task to the approver(s) OR post a Teams adaptive card.
-4. Wait for the approval and send reminders to the approver(s) depending on the reminder settings.
-5. Check approval response - update request status to 'Approved' or 'Rejected'.
-6. Concatenate approval comments.
-7. Send email and adaptive card in Teams to requestor to notify them of the outcome.
+1. Oppdaterer statusen på bestillingen til `Pending Approval`.
+2. Henter innstillinger fra `Provisioning Request Settings`-listen.
+3. Sender enten en godkjenningsoppgave til godkjenner(ne) ELLER poster et Teams adaptive card.
+4. Venter på godkjenning og sender påminnelser til godkjenner(ne) avhengig av påminnelsesinnstillingene.
+5. Sjekker godkjenningsresponsen – oppdaterer bestillingsstatusen til `Approved` eller `Rejected`.
+6. Konkatinerer godkjenningskommentarer.
+7. Sender epost og adaptive card i Teams til bestilleren for å varsle om utfallet.
 
-Requests that are 'Approved' will trigger provisioning.
+Bestillinger som blir `Approved` trigger provisjonering.
 
-Rejected requests can be edited by users in the Power App and resubmitted.
+Avviste bestillinger kan redigeres av brukere i webdel eller Teams app og sendes inn på nytt.
 
-As mentioned above, you may edit the approval flow **however this will create an unmanaged layer in the Bestillingsportalen Power Apps solution**. This means if the solution is upgraded in the future, updates to the approval flow will not be applied in your tenant.
+Som nevnt over kan du redigere godkjenningsflyten. Hvis løsningen oppgraderes i fremtiden, vil imidlertid ikke oppdateringer av godkjenningsflyten anvendes i tenanten din.
 
-## Approval of 'Public' spaces only
+## Godkjenning kun av `Public`-områder
 
-Bestillingsportalen can be configured to only require approval for 'Public' spaces. If configured, requests set to 'Private' will be auto approved by the approval flow.
+Bestillingsportalen kan konfigureres til kun å kreve godkjenning for `Public`-områder. Hvis konfigurert, vil bestillinger satt til `Private` automatisk godkjennes av godkjenningsflyten.
 
-A settings in the 'Provisioning Request Settings' enables/disables this functionality.
+En innstilling i `Provisioning Request Settings` aktiverer/deaktiverer funksjonaliteten.
 
-Simply update the value of the setting named **'EnablePublicSpaceApprovalOnly'** to enable (true) or disable (false) the functionality.
+Oppdater verdien på innstillingen **`EnablePublicSpaceApprovalOnly`** til `true` eller `false`.
 
-This is designed for those organizations where 'Private' spaces are deemed to have less risk than 'Public' spaces.
+Dette er designet for organisasjoner der `Private`-områder anses å ha lavere risiko enn `Public`-områder.
 
-**Please note - This option may not be available in your deployed version of Bestillingsportalen. If you wish to upgrade to the latest Bestillingsportalen Power App, you must follow the steps below To add this functionality for the approval flow to work.
+**Merk: Dette alternativet er kanskje ikke tilgjengelig i den installerte versjonen av Bestillingsportalen. For å oppgradere til nyeste versjon må du følge stegene nedenfor for å legge til funksjonaliteten slik at godkjenningsflyten fungerer.**
 
-1. Locate and navigate to the 'Provisioning Request Settings' list.
-2. Open the [SharePoint List Items](./Source/Settings/SharePoint%20List%20items.xlsx) spreadsheet.
-3. In the 'Provisioning Request Settings' worksheet locate the **'EnablePublicSpaceApprovalOnly'** setting and create the item in the settings list copying and pasting the Title, Value and Description.
-4. Enable or disable the functionality by setting the value column to 'true' or 'false'. 
-5. Import the latest Bestillingsportalen Power Apps solution (this will upgrade earlier versions). 
-
-
-
+1. Finn og gå til `Provisioning Request Settings`-listen.
+2. Åpne regnearket [SharePoint List Items](./Source/Settings/SharePoint%20List%20items.xlsx).
+3. I arkfanen `Provisioning Request Settings`, finn innstillingen **`EnablePublicSpaceApprovalOnly`** og opprett elementet i innstillings-listen ved å kopiere inn Title, Value og Description.
+4. Aktiver eller deaktiver funksjonaliteten ved å sette `Value`-kolonnen til `true` eller `false`.

@@ -1,129 +1,129 @@
 # Teams Templates
 
-Bestillingsportalen supports the creation of Teams based on templates defined in the Admin Center. The Admin Center templates power the native 'out of the box' Teams Templates functionality. 
+Bestillingsportalen støtter opprettelse av Teams basert på maler definert i Teams Admin Center. Admin Center-maler driver den innebygde «out of the box» Teams Templates-funksjonaliteten.
 
-In addition to the support of Admin Center based templates, Bestillingsportalen supports 'cloning' teams by defining these as a template.
+I tillegg til Admin Center-baserte maler støtter Bestillingsportalen «kloning» av Teams ved å definere disse som en mal.
 
-You may also create dedicated naming conventions for teams templates, please follow the [Naming conventions](./Naming-conventions.md) documentation for details on how to configure this.
+Du kan også opprette egne navnekonvensjoner for Teams-maler – følg [Navnekonvensjoner](./Naming-conventions.md)-dokumentasjonen for hvordan du konfigurerer dette.
 
-Please read on for more details on how you can configure this functionality. 
+Les videre for mer informasjon om hvordan du kan konfigurere funksjonaliteten.
 
-**_Templates created in the Admin Center can take up to 24 hours to be fully available in the Microsoft Graph so please wait before using them._**
-
-***
-
-**IMPORTANT - Graph API Endpoints used:**
-
-The creation of Teams from Admin Center defined templates uses the Beta endpoint of the Graph API. A group is created first using the v1.0 endpoint and then a team is added from the specified template. See [Graph API Reference - Create team](https://docs.microsoft.com/en-us/graph/api/team-post?view=graph-rest-beta&tabs=http) (Example 4).
-
-Cloning teams uses the v1.0 endpoints.
+**_Maler opprettet i Admin Center kan ta opptil 24 timer før de er fullt tilgjengelige i Microsoft Graph. Vent derfor før du bruker dem._**
 
 ***
 
-**Teams Templates list**
+**VIKTIG – Graph API-endepunkter som brukes:**
 
-The Teams Templates list (which can be found in the SharePoint site backing the Bestillingsportalen solution), defines a set of templates that users can choose when they make a request for a Team from a template. 
+Opprettelse av Teams fra Admin Center-maler bruker beta-endepunktet i Graph API. En gruppe opprettes først med v1.0-endepunktet, og deretter legges et team til fra den valgte malen. Se [Graph API Reference – Create team](https://learn.microsoft.com/en-us/graph/api/team-post?view=graph-rest-beta&tabs=http) (eksempel 4).
 
-This list should contain the 'out of the box' Microsoft provided templates when the solution is first deployed. This list is populated by a logic app, this is explained in the [Deployment guide](./Deployment-guide.md).
+Kloning av Teams bruker v1.0-endepunktene.
 
-You may delete list items for templates you do not require, however the logic app will add them again when it is executed so you may wish to disable this logic app once your required templates are in the list.
+***
 
-The Teams Templates list contains the following fields:
+**Teams Templates-listen**
 
-* **Title** - Title of the template
-* **Description** - Description of the template
-* **Template id** - ID of the template
-* **Team Id** - ID of a Team (Group ID) that you wish to designate as a template (to clone teams)
-* **Admin Center Template** - Identifies if the template has been created in the Admin Center
-* **Prefix Attribute** - Attribute to use for the prefix of a team created from this template
-* **Suffix Attribute** - Attribute to use for the suffix of a team created from this template
-* **Prefix Text** - Prefix text to be prepended to the name of a team created from this template
-* **Suffix Text** - Suffix text to be appended to the name of a team created from this template
-* **Prefix Use Attribute** - Whether or not to use an attribute for the prefix
-* **Suffix Use Attribute** - Whether or not to use an attribute for the suffix
+`Teams Templates`-listen (som finnes i SharePoint-området bak Bestillingsportalen) definerer settet med maler brukere kan velge blant når de bestiller et Team fra en mal.
 
-Please see the steps below for details on how to define your own templates.
+Listen skal inneholde Microsofts «out of the box»-maler når løsningen først installeres. Listen populeres av en Logic App – dette er forklart i [Installasjonsveiledningen](./Deployment-guide.md).
 
-## Admin Center Templates
+Du kan slette listeelementer for maler du ikke trenger. Logic App-en vil imidlertid legge dem til igjen ved neste kjøring, så du kan ønske å deaktivere Logic App-en når malene du trenger er i listen.
 
-As detailed in the [Deployment guide](./Deployment-guide.md),a logic app named 'GetTeamsTemplates' retrieves templates defined in the admin center. This uses the Graph API, specifically this beta endpoint - https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta&tabs=http.
+`Teams Templates`-listen inneholder følgende felt:
 
-At the time of writing, this API is only available in beta and is yet to be released to v1.0.
+* **Title** – Tittel på malen
+* **Description** – Beskrivelse av malen
+* **Template id** – ID til malen
+* **Team Id** – ID til et Team (Group ID) du ønsker å bruke som mal (for kloning)
+* **Admin Center Template** – Identifiserer om malen er opprettet i Admin Center
+* **Prefix Attribute** – Attributt brukt for prefiks på team opprettet fra denne malen
+* **Suffix Attribute** – Attributt brukt for suffiks på team opprettet fra denne malen
+* **Prefix Text** – Prefiks-tekst som legges til foran navnet på team opprettet fra denne malen
+* **Suffix Text** – Suffiks-tekst som legges til etter navnet på team opprettet fra denne malen
+* **Prefix Use Attribute** – Om attributt skal brukes som prefiks
+* **Suffix Use Attribute** – Om attributt skal brukes som suffiks
 
-**Only en-US locale templates are retrieved as at the time of writing. We will be adding support for localized templates in a future release.**
+Se stegene nedenfor for hvordan du definerer dine egne maler.
 
-### Step 1: Define the Template in the Admin Center
+## Admin Center-maler
 
-1. Navigate to the Teams Admin Center.
-2. Select 'Team templates' from the left hand menu (under 'Teams').
-3. Click the '+Add' button to create a new template.
-4. Choose whether to create a brand new template, use an existing team or start with an existing template.
-5. Fill out the details and click 'Next' (**_Note - only English (United States) is supported with Bestillingsportalen at the moment)_**
+Som beskrevet i [Installasjonsveiledningen](./Deployment-guide.md) henter en Logic App kalt `GetTeamsTemplates` maler definert i Admin Center. Denne bruker Graph API – nærmere bestemt beta-endepunktet: https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta&tabs=http.
+
+Dette API-et er foreløpig kun tilgjengelig på beta-endepunktet og er ennå ikke gjort tilgjengelig på v1.0. Sjekk [Graph API-referansen](https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta) for siste status.
+
+**Kun en-US-lokale maler hentes for øyeblikket. Støtte for lokaliserte maler kan bli lagt til i en fremtidig utgivelse.**
+
+### Steg 1: Definer malen i Admin Center
+
+1. Gå til Teams Admin Center.
+2. Velg `Team templates` fra venstre meny (under `Teams`).
+3. Klikk `+Add` for å opprette en ny mal.
+4. Velg om du vil lage en helt ny mal, bruke et eksisterende team eller starte med en eksisterende mal.
+5. Fyll ut detaljene og klikk `Next` (**_Merk – kun engelsk (USA) støttes for øyeblikket i Bestillingsportalen_**)
 
 ![Creating a template in the Admin Center](https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Images/template1.png)
 
-6. Create channels and configure apps for the template and click 'Submit'.
+6. Opprett kanaler og konfigurer apper for malen, og klikk `Submit`.
 
 ![Adding channels and apps to an Admin Center template](https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Images/template2.png)
 
-7. Once created, click on the template and copy the 'Template ID' value.
+7. Når opprettet, klikk på malen og kopier `Template ID`-verdien.
 
 ![Copying the template id](https://github.com/OfficeDev/microsoft-teams-apps-requestateam/wiki/Images/template3.png)
 
-### Step 2: Execute the GetTeamsTemplates Logic App
+### Steg 2: Kjør `GetTeamsTemplates` Logic App
 
-This logic app is configured to run weekly, this can be changed to suit your requirements. It is worth noting that any new templates added to the Admin Center will automatically be added to the Teams Templates SharePoint list when this logic app runs. 
+Logic App-en er konfigurert til å kjøre ukentlig – dette kan endres etter behov. Merk at nye maler lagt til i Admin Center automatisk blir lagt til i SharePoint-listen `Teams Templates` når Logic App-en kjører.
 
-They will therefore be available in the Bestillingsportalen Power App for selection by users. If you have templates you do not wish to display, please disable this logic app once you have executed it.
+Malene er dermed tilgjengelige i Bestillingsportalen webdel eller Teams app for valg. Hvis du har maler du ikke ønsker å vise, deaktiver Logic App-en etter at du har kjørt den.
 
-**_Note - After the above steps have been completed please WAIT 24 hours before running the logic app. It can take up to 24 hours for the template to be retrievable by the logic app. _**
+**_Merk – Når stegene over er fullført, VENT 24 timer før du kjører Logic App-en. Det kan ta opptil 24 timer før malen kan hentes av Logic App-en._**
 
-1. Navigate to the Azure Portal.
-2. Locate the resource group you created for Bestillingsportalen.
-3. Locate the GetTeamsTemplates Logic App.
-4. Click 'Run Trigger' > 'Run'.
-5. Check that the status of the Logic App displays succeeded. 
-6. Open the 'Teams Templates' list.
-7. Verify the template has been created as a list item. 
+1. Gå til Azure Portal.
+2. Finn ressursgruppen du opprettet for Bestillingsportalen.
+3. Finn Logic App-en `GetTeamsTemplates`.
+4. Klikk `Run Trigger > Run`.
+5. Sjekk at statusen på Logic App-en viser `succeeded`.
+6. Åpne listen `Teams Templates`.
+7. Verifiser at malen er opprettet som et listeelement.
 
 ![GetTeamsTemplates logic app screenshot](./images/GetTeamsTemplatesLA.png)
 
-Your template is now ready for use - make sure you refresh/reload the Bestillingsportalen Power App if you have it open. When a user requests a team from the new template it will be created with the predefined content you configured in the Admin Center. 
+Malen er nå klar til bruk – sørg for å oppfriske/laste inn Bestillingsportalen webdel eller Teams app på nytt hvis du har den åpen. Når en bruker bestiller et team fra den nye malen, vil det opprettes med det forhåndsdefinerte innholdet du konfigurerte i Admin Center.
 
-**_Please note - Changes to templates in the Admin Center will not change Teams that have been previously created from the template._**
+**_Merk – Endringer i maler i Admin Center vil ikke endre Teams som tidligere er opprettet fra malen._**
 
-## Cloning Teams
+## Kloning av Teams
 
-In addition to being able to create teams from Admin Center templates, Bestillingsportalen supports cloning of existing teams. 
+I tillegg til opprettelse fra Admin Center-maler støtter Bestillingsportalen kloning av eksisterende Teams.
 
-The cloning team functionality uses v1.0 of the Microsoft Graph, specifically [Clone a team](https://docs.microsoft.com/en-us/graph/api/team-clone?view=graph-rest-1.0&tabs=http) so may be preferable to the other form of templating in a Production environment.
+Kloning bruker v1.0 av Microsoft Graph – nærmere bestemt [Clone a team](https://learn.microsoft.com/en-us/graph/api/team-clone?view=graph-rest-1.0&tabs=http). Kloning kan være å foretrekke i et produksjonsmiljø.
 
-When the team is being cloned it is given the new Title, Description etc. that the user specifies when requesting the team. All original owners and members of the source team are removed and replaced with those that the user requested.
+Når et team klones, får det ny tittel, beskrivelse osv. som brukeren angir i bestillingen. Alle opprinnelige eiere og medlemmer av kildeteamet fjernes og erstattes med de brukeren har bestilt.
 
-This option also offers additional functionality over Admin Center templates including being able to clone tabs and channels.
+Dette alternativet gir ekstra funksjonalitet sammenlignet med Admin Center-maler, blant annet muligheten til å klone faner og kanaler.
 
-To use this functionality - follow the steps below.
+For å bruke denne funksjonaliteten, følg stegene nedenfor.
 
-### Step 1: Create a Team to use as a template
+### Steg 1: Opprett et team som skal brukes som mal
 
-1. Create a team using the 'out of the box' functionality of Microsoft Teams.
-2. Populate the team as you would like it - Channels, Apps, Tabs etc. (This is the content that will be cloned and set up as a new team).
-2. Copy the Group Id for the team. You can get the Group Id from the URL that is generated when you click 'Get link to team'.
+1. Opprett et team med den innebygde funksjonaliteten i Microsoft Teams.
+2. Populer teamet slik du ønsker – kanaler, apper, faner osv. (Dette er innholdet som klones og settes opp som nytt team.)
+2. Kopier Group Id for teamet. Du finner Group Id i URL-en som genereres når du klikker `Get link to team`.
 
-### Step 2: Add the template to the Bestillingsportalen Teams Templates list
+### Steg 2: Legg malen til i Bestillingsportalen sin Teams Templates-liste
 
-1. Navigate to the SharePoint site backing Bestillingsportalen.
-2. Open the 'Teams Templates' list.
-3. Create a new list item with the following values:
+1. Gå til SharePoint-området bak Bestillingsportalen.
+2. Åpne `Teams Templates`-listen.
+3. Opprett et nytt listeelement med følgende verdier:
 
-* Title - Title for the template - this is the title the users will see when they pick from the list of templates
-* Description - A description for the template
-* Template Id - Leave blank
-* Team Id - Paste the Group Id you copied earlier
-* Admin Center Template - No
+* Title – Tittel på malen (dette er det brukerne ser når de velger fra listen over maler)
+* Description – Beskrivelse av malen
+* Template Id – La stå tom
+* Team Id – Lim inn Group Id du kopierte tidligere
+* Admin Center Template – No
 
-The key is to populate the 'Team Id' column as opposed to 'Template Id'. This is how the provisioning determines if we are cloning a team or creating from an Admin Center template.
+Nøkkelen er å populere `Team Id`-kolonnen i stedet for `Template Id`. Dette er hvordan provisjoneringen avgjør om vi kloner et team eller oppretter fra en Admin Center-mal.
 
 ![Creating template for cloning team screenshot](./images/CloneTeamsTemplate.png)
 
-Your template is now ready for use. When a user raises a request which is approved, the team will be cloned and set up as a new team.
+Malen er nå klar til bruk. Når en bruker sender inn en bestilling som godkjennes, vil teamet klones og settes opp som et nytt team.

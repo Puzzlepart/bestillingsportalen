@@ -1,369 +1,377 @@
-# Upgrading Bestillingsportalen
+# Oppgradere Bestillingsportalen
 
-This guide explains how to upgrade an existing Bestillingsportalen installation to get the latest features and bug fixes without recreating your entire environment or losing your existing data.
+Denne veiledningen forklarer hvordan du oppgraderer en eksisterende Bestillingsportalen-installasjon for å få den nyeste funksjonaliteten og feilrettinger uten å bygge opp miljøet på nytt eller miste eksisterende data.
 
-## Overview
+## Oversikt
 
-The upgrade process allows you to:
-- Apply the latest PnP template updates (field definitions, content types, views, etc.)
-- Update the ProcessProvisionRequest Logic App with the latest workflow improvements
-- Preserve all existing list data (provisioning types, settings, requests, etc.)
-- Minimize downtime and configuration changes
+Oppgraderingsprosessen lar deg:
 
-## When to Use Upgrade Mode
+- Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
+- Oppdatere Logic App-en `ProcessProvisionRequest` med de nyeste arbeidsflyt-forbedringene
+- Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
+- Minimere nedetid og konfigurasjonsendringer
 
-Use upgrade mode when you want to:
-- Update an existing Bestillingsportalen installation to a newer version
-- Apply template changes without resetting list data
-- Update the core provisioning Logic App workflow
-- Get new features or bug fixes without a full redeployment
+## Når du skal bruke oppgraderingsmodus
 
-**Do NOT use upgrade mode for:**
-- Initial installation (use the standard deployment process)
-- Major breaking changes that require data migration
-- Complete environment rebuilds
+Bruk oppgraderingsmodus når du vil:
 
-## What Gets Updated
+- Oppdatere en eksisterende Bestillingsportalen-installasjon til en nyere versjon
+- Anvende mal-endringer uten å nullstille listedata
+- Oppdatere den sentrale provisjonerings-Logic App-en
+- Få ny funksjonalitet eller feilrettinger uten en full nyinstallasjon
 
-### ✅ Updated in Upgrade Mode
+**IKKE bruk oppgraderingsmodus for:**
 
-1. **PnP Template Application**
-   - Site columns and content types
-   - List schemas and field definitions
-   - Views and forms
-   - Navigation structure
-   - Web parts and page layouts
+- Førstegangs installasjon (bruk standard installasjonsprosess)
+- Større breaking changes som krever datamigrering
+- Komplette miljørebygginger
 
-2. **ProcessProvisionRequest Logic App**
-   - Complete workflow replacement with latest version
-   - Updated error handling
-   - New provisioning features
-   - Bug fixes and improvements
+## Hva som blir oppdatert
 
-### ❌ NOT Updated in Upgrade Mode
+### ✅ Oppdateres i oppgraderingsmodus
 
-1. **List Data** - All existing items are preserved:
+1. **Anvendelse av PnP-mal**
+   - Site columns og content types
+   - Liste-skjema og feltdefinisjoner
+   - Views og forms
+   - Navigasjonsstruktur
+   - Web parts og side-layouts
+
+2. **`ProcessProvisionRequest` Logic App**
+   - Komplett erstatning av arbeidsflyten med nyeste versjon
+   - Oppdatert feilhåndtering
+   - Ny provisjoneringsfunksjonalitet
+   - Feilrettinger og forbedringer
+
+### ❌ Oppdateres IKKE i oppgraderingsmodus
+
+1. **Listedata** – Alle eksisterende elementer beholdes:
    - Provisioning Request Settings
-   - Provisioning Types (custom types you've added)
+   - Provisioning Types (egne typer du har lagt til)
    - Site Templates
    - Hub Sites
    - Teams Templates
    - Time Zones
    - Locales
    - IP Labels
-   - Existing provisioning requests
+   - Eksisterende provisioning requests
 
-2. **Assets (Images/Icons)**:
-   - Provisioning Type images
-   - Provisioning Type icons
-   - Other uploaded files
+2. **Ressurser (bilder/ikoner):**
+   - Bilder for Provisioning Types
+   - Ikoner for Provisioning Types
+   - Andre opplastede filer
 
-3. **Other Azure Resources**:
+3. **Andre Azure-ressurser:**
    - Azure Automation Account
    - Runbooks
    - Key Vault
-   - Certificates
-   - Other Logic Apps (GetSiteTemplates, GetHubSites, etc.)
+   - Sertifikater
+   - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
 
-4. **Entra ID App**:
+4. **Entra ID-app:**
    - Application registration
    - App secrets
-   - Permissions
+   - Tilganger
 
-## Prerequisites
+## Forutsetninger
 
-Before starting the upgrade:
+Før du starter oppgraderingen:
 
-1. **Backup Your Environment**
-   - Export critical list data (especially custom Provisioning Types)
-   - Document any customizations you've made
-   - Take screenshots of important configurations
+1. **Sikkerhetskopier miljøet ditt**
+   - Eksporter kritiske listedata (spesielt egendefinerte Provisioning Types)
+   - Dokumenter eventuelle tilpasninger du har gjort
+   - Ta skjermbilder av viktige konfigurasjoner
 
-2. **Review Release Notes**
-   - Check what's new in the version you're upgrading to
-   - Review any breaking changes or migration steps
-   - Understand new features being added
+2. **Gjennomgå release notes**
+   - Sjekk hva som er nytt i versjonen du oppgraderer til
+   - Gjennomgå breaking changes eller migreringssteg
+   - Forstå ny funksjonalitet som legges til
 
-3. **Verify Permissions**
-   - Same permissions as initial deployment
-   - Site Collection Administrator on the Bestillingsportalen site
-   - Azure Contributor role on the resource group
-   - Application Administrator or similar for Entra ID
+3. **Verifiser tilganger**
+   - Samme tilganger som ved første installasjon
+   - Site Collection Administrator på Bestillingsportalen-området
+   - Azure Contributor-rolle på ressursgruppen
+   - Application Administrator eller tilsvarende for Entra ID
 
-4. **Have Your Parameters Ready**
-   - Use the same `parameters.json` file from your initial deployment
-   - Verify all values are still current
+4. **Ha parameterne klare**
+   - Bruk samme `parameters.json` som ved første installasjon
+   - Verifiser at alle verdiene fortsatt er gyldige
 
-## Upgrade Process
+## Oppgraderingsprosess
 
-### Step 1: Prepare Your Environment
+### Steg 1: Forbered miljøet
 
-1. Navigate to the Source/Scripts directory:
+1. Gå til `Source/Scripts`-mappen:
+
    ```bash
    cd Source/Scripts
    ```
 
-2. Ensure your `parameters.json` file is up to date with your current environment settings.
+2. Sørg for at `parameters.json` er oppdatert med gjeldende miljøinnstillinger.
 
-3. Review the latest changes in the repository to understand what will be updated.
+3. Gjennomgå nyeste endringer i repositoriet for å forstå hva som vil bli oppdatert.
 
-### Step 2: Run the Upgrade Deployment
+### Steg 2: Kjør oppgraderingen
 
-#### Option A: Automatic Upgrade (Recommended)
+#### Alternativ A: Automatisk oppgradering (anbefalt)
 
-Execute the deployment script with the `-Upgrade` flag:
+Kjør deploy-skriptet med `-Upgrade`-flagget:
 
 ```powershell
 ./deploy.ps1 -Upgrade
 ```
 
-You can combine with other skip flags as needed:
+Du kan kombinere med andre skip-flagg ved behov:
 
 ```powershell
-# Example: Skip certificate generation if already exists
+# Eksempel: Hopp over sertifikatgenerering hvis det allerede finnes
 ./deploy.ps1 -Upgrade -SkipGenerateCertificate
 
-# Example: Skip resource group creation
+# Eksempel: Hopp over opprettelse av ressursgruppe
 ./deploy.ps1 -Upgrade -SkipCreateResourceGroup
 ```
 
-#### Option B: Manual Logic App Update
+#### Alternativ B: Manuell Logic App-oppdatering
 
-If you prefer to manually update the Logic App (useful for review before applying changes):
+Hvis du foretrekker å oppdatere Logic App-en manuelt (nyttig for å gjennomgå endringer før de anvendes):
 
-1. Generate the Logic App JSON definition:
+1. Generer Logic App JSON-definisjonen:
+
    ```powershell
    ./generateProcessProvisionRequest.ps1
    ```
-   
-   The script will:
-   - Connect to SharePoint using the PnP app and certificate from your `parameters.json`
-   - Automatically retrieve the list IDs from your Bestillingsportalen site
-   - Generate `ProcessProvisionRequest.json` with all values populated
-   - Prompt for your PnP certificate password if needed
 
-2. (Optional) Generate without connecting to SharePoint:
+   Skriptet vil:
+   - Koble til SharePoint via PnP-appen og sertifikatet i `parameters.json`
+   - Hente liste-ID-ene automatisk fra Bestillingsportalen-området
+   - Generere `ProcessProvisionRequest.json` med alle verdier ferdig populert
+   - Be om passord for PnP-sertifikatet ved behov
+
+2. (Valgfritt) Generer uten å koble til SharePoint:
+
    ```powershell
    ./generateProcessProvisionRequest.ps1 -SkipListIds
    ```
-   This creates a file with placeholder values that you'll need to manually replace.
 
-3. Open the generated file and review the changes
+   Dette oppretter en fil med plassholderverdier som du må erstatte manuelt.
 
-4. In Azure Portal:
-   - Navigate to your ProcessProvisionRequest Logic App
-   - Click "Logic app code view"
-   - Copy the entire content from `ProcessProvisionRequest.json`
-   - Paste it into the Logic App code view (replace all existing code)
-   - Click "Save"
+3. Åpne den genererte filen og gå gjennom endringene.
 
-5. If you used Option B, you still need to apply the PnP template manually:
+4. I Azure Portal:
+   - Gå til `ProcessProvisionRequest` Logic App-en
+   - Klikk `Logic app code view`
+   - Kopier hele innholdet fra `ProcessProvisionRequest.json`
+   - Lim det inn i Logic App code view (erstatt all eksisterende kode)
+   - Klikk `Save`
+
+5. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
+
    ```powershell
-   # Connect using your PnP app credentials
+   # Koble til med PnP-app-legitimasjonen
    Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -CertificatePath <path-to-cert>
    Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation
    ```
 
-### Step 3: What Happens During Upgrade
+### Steg 3: Hva som skjer under oppgraderingen
 
-The script will:
+Skriptet vil:
 
-1. **Validate Parameters** - Check your parameters.json configuration
-2. **Connect to Services** - Sign in to Azure, Azure CLI, and PnP PowerShell
-3. **Apply PnP Template** - Update site structure WITHOUT modifying list data
-4. **Retrieve List IDs** - Get necessary list identifiers for Logic App configuration
-5. **Deploy ProcessProvisionRequest** - Replace the Logic App with the latest version
-6. **Complete** - Show success message
+1. **Validere parametere** – Sjekke `parameters.json`-konfigurasjonen
+2. **Koble til tjenester** – Logge inn på Azure, Azure CLI og PnP PowerShell
+3. **Anvende PnP-mal** – Oppdatere områdestrukturen UTEN å endre listedata
+4. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon
+5. **Installere `ProcessProvisionRequest`** – Erstatte Logic App-en med nyeste versjon
+6. **Fullføre** – Vise suksessmelding
 
-### Step 4: Post-Upgrade Verification
+### Steg 4: Verifisering etter oppgradering
 
-After the upgrade completes:
+Når oppgraderingen er fullført:
 
-1. **Verify Site Access**
-   - Navigate to your Bestillingsportalen site
-   - Confirm the site loads correctly
+1. **Verifiser områdetilgang**
+   - Gå til Bestillingsportalen-området ditt
+   - Bekreft at området lastes korrekt
 
-2. **Check List Data**
-   - Open Provisioning Types list - verify all your custom types are still there
-   - Check Provisioning Request Settings - confirm settings are preserved
-   - Review any in-progress or completed provisioning requests
+2. **Sjekk listedata**
+   - Åpne Provisioning Types-listen – verifiser at alle egendefinerte typer fortsatt finnes
+   - Sjekk Provisioning Request Settings – bekreft at innstillingene er beholdt
+   - Gjennomgå pågående eller fullførte provisioning requests
 
-3. **Test the Workflow**
-   - Create a test provisioning request (use a simple site type)
-   - Monitor the Logic App execution in Azure Portal
-   - Verify the site gets created successfully
+3. **Test arbeidsflyten**
+   - Opprett en test-bestilling (bruk en enkel områdetype)
+   - Overvåk Logic App-kjøringen i Azure Portal
+   - Verifiser at området opprettes korrekt
 
-4. **Review Logic App**
-   - Go to Azure Portal → Your Resource Group → ProcessProvisionRequest Logic App
-   - Check the run history
-   - Verify it's using the latest definition
+4. **Gjennomgå Logic App**
+   - Gå til Azure Portal → Ressursgruppe → `ProcessProvisionRequest` Logic App
+   - Sjekk kjørehistorikken
+   - Verifiser at den bruker nyeste definisjon
 
-5. **Check for New Features**
-   - Review what's new in this version
-   - Test any new functionality
-   - Update your documentation if needed
+5. **Sjekk ny funksjonalitet**
+   - Gjennomgå hva som er nytt i denne versjonen
+   - Test eventuell ny funksjonalitet
+   - Oppdater dokumentasjonen din ved behov
 
-## Common Upgrade Scenarios
+## Vanlige oppgraderingsscenarier
 
-### Upgrading from v1.x to v2.x
+### Anvende hotfixes
 
-If you're upgrading to a major version:
-1. Review the [Version2.md](Version2.md) documentation for breaking changes
-2. Plan for any data migrations needed
-3. Consider testing in a dev environment first
+For mindre feilrettinger:
 
-### Applying Hotfixes
+1. Hent siste endringer fra repositoriet
+2. Kjør med `-Upgrade`
+3. Verifiser at fiksen er anvendt
 
-For minor bug fixes:
-1. Pull the latest changes from the repository
-2. Run with `-Upgrade`
-3. Verify the fix is applied
+### Legge til ny funksjonalitet
 
-### Adding New Features
+Når ny funksjonalitet legges til i malen:
 
-When new features are added to the template:
-1. The PnP template will add new fields/lists automatically
-2. You may need to manually configure new provisioning types
-3. Update your Power App if UI changes are needed
+1. PnP-malen legger til nye felt/lister automatisk
+2. Du må kanskje konfigurere nye provisioning types manuelt
+3. Oppdater Bestillingsportalen webdel eller Teams app hvis grensesnitt-endringer er nødvendig
 
-## Troubleshooting
+## Feilsøking
 
-### Issue: "List not found" Error
+### Problem: «List not found»-feil
 
-**Cause:** The list structure doesn't match expected schema.
+**Årsak:** Listestrukturen matcher ikke forventet skjema.
 
-**Solution:**
-1. Verify you're running against the correct site
-2. Check that initial deployment completed successfully
-3. May need to reapply the full template without `-Upgrade`
+**Løsning:**
 
-### Issue: Logic App Deployment Fails
+1. Verifiser at du kjører mot riktig område
+2. Sjekk at første installasjon ble fullført korrekt
+3. Du må kanskje anvende hele malen på nytt uten `-Upgrade`
 
-**Cause:** Missing parameters or changed resource names.
+### Problem: Logic App-installasjon feiler
 
-**Solution:**
-1. Verify `parameters.json` has correct values
-2. Check that the automation account name matches (default: `bestillingsportalen-auto`)
-3. Ensure list IDs are being retrieved correctly
+**Årsak:** Manglende parametere eller endrede ressursnavn.
 
-### Issue: PnP Template Application Fails
+**Løsning:**
 
-**Cause:** Permission issues or conflicts with customizations.
+1. Verifiser at `parameters.json` har korrekte verdier
+2. Sjekk at Automation Account-navnet matcher (standard: `bestillingsportalen-auto`)
+3. Sørg for at liste-ID-er hentes korrekt
 
-**Solution:**
-1. Confirm you're a Site Collection Administrator
-2. Check for conflicting customizations
-3. Review PnP PowerShell connection and permissions
+### Problem: Anvendelse av PnP-mal feiler
 
-### Issue: Existing Requests Stop Working
+**Årsak:** Tilgangsproblemer eller konflikter med tilpasninger.
 
-**Cause:** Logic App update might have introduced breaking changes.
+**Løsning:**
 
-**Solution:**
-1. Check Logic App run history for specific errors
-2. Review the [CHANGELOG.md](CHANGELOG.md) for breaking changes
-3. May need to update Runbooks or API connections
-4. Check that all parameters are properly configured
+1. Bekreft at du er Site Collection Administrator
+2. Sjekk om det finnes konfliktende tilpasninger
+3. Gjennomgå PnP PowerShell-tilkobling og tilganger
 
-## Rollback Procedure
+### Problem: Eksisterende bestillinger slutter å fungere
 
-If the upgrade causes issues:
+**Årsak:** Oppdatering av Logic App kan ha introdusert breaking changes.
 
-### Rollback the Logic App
+**Løsning:**
 
-1. Go to Azure Portal → Resource Group → ProcessProvisionRequest Logic App
-2. Click "Versions" in the left menu
-3. Select the previous working version
-4. Click "Promote" to make it active
+1. Sjekk Logic App-kjørehistorikken for spesifikke feil
+2. Gjennomgå [CHANGELOG.md](CHANGELOG.md) for breaking changes
+3. Du må kanskje oppdatere runbooks eller API connections
+4. Sjekk at alle parametere er konfigurert korrekt
 
-### Rollback the PnP Template
+## Tilbakerullingsprosedyre
 
-Unfortunately, PnP template changes cannot be easily rolled back. Options:
+Hvis oppgraderingen skaper problemer:
 
-1. **Manual Reversion:**
-   - Identify what changed
-   - Manually revert fields/views/etc.
+### Tilbakerull Logic App-en
 
-2. **Restore from Backup:**
-   - If you have a site backup, restore it
-   - This will lose any requests created since backup
+1. Gå til Azure Portal → Ressursgruppe → `ProcessProvisionRequest` Logic App
+2. Klikk `Versions` i venstre meny
+3. Velg forrige fungerende versjon
+4. Klikk `Promote` for å gjøre den aktiv
 
-3. **Reapply Previous Version:**
-   - Checkout previous git commit
-   - Run `./deploy.ps1 -Upgrade` with the older template
+### Tilbakerull PnP-malen
 
-## Best Practices
+Dessverre kan PnP-mal-endringer ikke enkelt tilbakerulles. Alternativer:
 
-1. **Test First**
-   - If possible, test the upgrade in a dev/test environment
-   - Verify everything works before upgrading production
+1. **Manuell tilbakeføring:**
+   - Identifiser hva som ble endret
+   - Tilbakefør felt/views osv. manuelt
 
-2. **Schedule Maintenance Window**
-   - Notify users of the upgrade
-   - Perform during off-hours if possible
-   - Plan for 30-60 minutes of work
+2. **Gjenopprett fra sikkerhetskopi:**
+   - Hvis du har en sikkerhetskopi, gjenopprett den
+   - Du vil miste eventuelle bestillinger opprettet siden sikkerhetskopien
 
-3. **Keep Parameters Updated**
-   - Maintain your `parameters.json` file
-   - Document any custom values
+3. **Anvend forrige versjon på nytt:**
+   - Sjekk ut tidligere git commit
+   - Kjør `./deploy.ps1 -Upgrade` med den eldre malen
 
-4. **Monitor After Upgrade**
-   - Watch Logic App runs for the first few hours
-   - Be available to address user questions
-   - Check for any error notifications
+## Beste praksis
 
-5. **Document Your Customizations**
-   - Keep a record of custom provisioning types
-   - Note any template modifications
-   - Track manual configuration changes
+1. **Test først**
+   - Hvis mulig, test oppgraderingen i et dev/test-miljø
+   - Verifiser at alt fungerer før du oppgraderer produksjon
 
-## Upgrade Checklist
+2. **Planlegg vedlikeholdsvindu**
+   - Varsle brukere om oppgraderingen
+   - Utfør utenom arbeidstid hvis mulig
+   - Planlegg for 30–60 minutters arbeid
 
-Use this checklist for your upgrade:
+3. **Hold parametere oppdatert**
+   - Vedlikehold `parameters.json`-filen
+   - Dokumenter eventuelle egendefinerte verdier
 
-- [ ] Backup current environment
-- [ ] Review release notes and changelog
-- [ ] Update local repository to latest version
-- [ ] Verify `parameters.json` is current
-- [ ] Notify users of maintenance window
-- [ ] Run `./deploy.ps1 -Upgrade`
-- [ ] Verify site loads correctly
-- [ ] Check all lists and data are intact
-- [ ] Test Logic App with a sample request
-- [ ] Review Logic App run history
-- [ ] Test new features (if any)
-- [ ] Update documentation
-- [ ] Notify users upgrade is complete
+4. **Overvåk etter oppgradering**
+   - Følg Logic App-kjøringer de første timene
+   - Vær tilgjengelig for å adressere brukerspørsmål
+   - Sjekk for eventuelle feilvarsler
 
-## Getting Help
+5. **Dokumenter tilpasningene dine**
+   - Hold oversikt over egendefinerte provisioning types
+   - Noter mal-modifikasjoner
+   - Spor manuelle konfigurasjonsendringer
 
-If you encounter issues during upgrade:
+## Sjekkliste for oppgradering
 
-1. Check the [Error-handling.md](Error-handling.md) documentation
-2. Review the Logic App run history in Azure Portal
-3. Check the [CHANGELOG.md](CHANGELOG.md) for known issues
-4. Consult the [README.md](README.md) for general guidance
-5. Open an issue in the repository with:
-   - Version you're upgrading from/to
-   - Error messages
-   - Steps to reproduce
-   - Screenshots if applicable
+Bruk denne sjekklisten ved oppgradering:
 
-## Next Steps
+- [ ] Sikkerhetskopier nåværende miljø
+- [ ] Gjennomgå release notes og changelog
+- [ ] Oppdater lokalt repository til nyeste versjon
+- [ ] Verifiser at `parameters.json` er oppdatert
+- [ ] Varsle brukere om vedlikeholdsvindu
+- [ ] Kjør `./deploy.ps1 -Upgrade`
+- [ ] Verifiser at området lastes korrekt
+- [ ] Sjekk at alle lister og data er intakte
+- [ ] Test Logic App med en eksempel-bestilling
+- [ ] Gjennomgå Logic App-kjørehistorikken
+- [ ] Test ny funksjonalitet (hvis aktuelt)
+- [ ] Oppdater dokumentasjon
+- [ ] Varsle brukere om at oppgraderingen er fullført
 
-After a successful upgrade:
+## Få hjelp
 
-1. **Review New Features** - Check the changelog for what's new
-2. **Update Your Documentation** - Record the new version number
-3. **Train Users** - If there are UI or workflow changes
-4. **Plan Next Upgrade** - Stay current with future releases
-5. **Contribute Back** - Share your feedback and improvements
+Hvis du møter problemer under oppgraderingen:
+
+1. Sjekk [Error-handling.md](Error-handling.md)-dokumentasjonen
+2. Gjennomgå Logic App-kjørehistorikken i Azure Portal
+3. Sjekk [CHANGELOG.md](CHANGELOG.md) for kjente problemer
+4. Konsulter [README.md](README.md) for generell veiledning
+5. Opprett et issue i repositoriet med:
+   - Versjon du oppgraderer fra/til
+   - Feilmeldinger
+   - Steg for å reprodusere
+   - Skjermbilder hvis aktuelt
+
+## Neste steg
+
+Etter en vellykket oppgradering:
+
+1. **Gjennomgå ny funksjonalitet** – Sjekk changelog for hva som er nytt
+2. **Oppdater dokumentasjonen din** – Noter det nye versjonsnummeret
+3. **Lær opp brukere** – Hvis det er endringer i UI eller arbeidsflyt
+4. **Planlegg neste oppgradering** – Hold deg oppdatert på fremtidige releases
+5. **Bidra tilbake** – Del tilbakemeldinger og forbedringer
 
 ---
 
-**Related Documentation:**
-- [README.md](README.md) - Main documentation
-- [Deployment-guide.md](Deployment-guide.md) - Full deployment process
-- [CHANGELOG.md](CHANGELOG.md) - Version history
-- [Error-handling.md](Error-handling.md) - Troubleshooting guide
+**Relatert dokumentasjon:**
+
+- [README.md](README.md) – Hoveddokumentasjon
+- [Deployment-guide.md](Deployment-guide.md) – Full installasjonsprosess
+- [CHANGELOG.md](CHANGELOG.md) – Versjonshistorikk
+- [Error-handling.md](Error-handling.md) – Feilsøkingsveiledning

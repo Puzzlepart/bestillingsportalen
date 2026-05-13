@@ -1,44 +1,42 @@
 # Retention Labels
 
-Bestillingsportalen supports the application of retention labels to the SharePoint site backing a created collaboration space.
+Bestillingsportalen støtter anvendelse av oppbevaringsmerker (retention labels) på SharePoint-området som står bak et opprettet samarbeidsområde.
 
-The label will be applied to the **out of the box 'Documents' library only**.
+Merket anvendes kun på **det innebygde `Documents`-biblioteket**.
 
-To use this functionality retention labels must have been created in the Microsoft Purview Compliance Portal.
+For å bruke denne funksjonaliteten må oppbevaringsmerker være opprettet i Microsoft Purview Compliance Portal.
 
-**Allow 24 hours after creating and publishing labels before you follow this guide.**
+**Vent 24 timer etter at merker er opprettet og publisert før du følger denne veiledningen.**
 
-Once labels are created, you will need to enable this functionality in the Bestillingsportalen solution. Follow the steps below to do this. 
+Når merkene er opprettet, må du aktivere funksjonaliteten i Bestillingsportalen. Følg stegene nedenfor for å gjøre dette.
 
-We will first cover how the functionality works and then how to enable it.
+Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du aktiverer den.
 
-### What does this look like?
+### Hvordan ser dette ut?
 
-Retention labels are stored as list items in a SharePoint list named 'Retention Labels' in the SharePoint site backing Bestillingsportalen.
+Oppbevaringsmerker lagres som listeelementer i en SharePoint-liste kalt `Retention Labels` i SharePoint-området som står bak Bestillingsportalen.
 
-Labels need to be added manually to the SharePoint list named 'Retention Labels'. Ensure that the value of the 'Label Name' column **matches the exact name of the label in Purview**. 
+Merker må legges til manuelt i listen `Retention Labels`. Sørg for at verdien i kolonnen `Label Name` **matcher nøyaktig navnet på merket i Purview**.
 
 ![Retention labels list screenshot](./images/RetentionLabelsList.png)
 
-![Retention label in app screenshot](./images/RetentionLabelPA.png)
+Hvis funksjonaliteten er aktivert, vises merkene til brukeren i en kombinasjonsboks på «Datakategorisering»-steget.
 
-If the functionality is enabled, the labels are shown to the user in a combo box on the Data Classification step.
+Du kan angi et standardmerke og velge om brukeren skal måtte velge et merke ved å konfigurere innstillingene `DefaultRetentionLabel` og `RequireRetentionLabel` i `Provisioning Request Settings`-listen. Dette dekkes i Konfigurasjon-seksjonen.
 
-You can set a default label and choose whether to require the user to select a label by configuring the 'DefaultRetentionLabel' and 'RequireRetentionLabel' settings in the Site Request Settings list. This will be covered in the Configuration section of this documentation.
+## Aktivere funksjonaliteten
 
-## Enabling the functionality
+1. Gå til listen **`Provisioning Request Settings`** i SharePoint-området.
+2. Rediger listeelementet **`EnableRetentionLabels`** og sett Value-feltet til **`true`**. Standardverdien er `false`.
 
-1. Navigate to the **'Provisioning Request Settings'** list in the SharePoint site.
-2. Edit the **'EnableRetentionLabels'** list item and set the Value field to **'true'**. It will be set to 'false' by default.
+## Konfigurasjon
 
-## Configuration
+Når funksjonaliteten er aktivert, kan den konfigureres slik:
 
-Once enabled, this functionality can be configured as follows:
-
-1. Create your labels in the '**Retention Labels**' list by creating list items manually, ensure 'Label Name' matches the exact name of the label. 
-2. Set a default label (Optional) by setting the value of the **'DefaultRetentionLabel'** list item in the **'Site Request Settings'** list to the label name of your chosen label. The label name must **exactly** match a valid label name from the Retention Labels list. You can find the label name in the **'Label Name'** column.
-3. Choose whether to require the user to select a label (Optional). The default is **'false'** which means the user will not be required to select a label and the combo box can be left blank. If you wish to require (force) users to select a label, simply set the value of the **'RequireRetentionLabel'** list item to **'true'**.
+1. Opprett merkene dine i listen **`Retention Labels`** ved å opprette listeelementer manuelt. Sørg for at `Label Name` matcher nøyaktig navnet på merket.
+2. Angi et standardmerke (valgfritt) ved å sette verdien på listeelementet **`DefaultRetentionLabel`** i **`Provisioning Request Settings`**-listen til navnet på det valgte merket. Navnet må **nøyaktig** matche et gyldig merkenavn fra Retention Labels-listen. Du finner navnet i kolonnen **`Label Name`**.
+3. Velg om brukeren skal måtte velge et merke (valgfritt). Standardverdien er **`false`**, som betyr at brukeren ikke er tvunget til å velge et merke og kan la kombinasjonsboksen stå tom. For å kreve at brukere velger et merke, sett verdien på listeelementet **`RequireRetentionLabel`** til **`true`**.
 
 ![Retention label configuration in settings list screenshot](./images/RetentionLabelSettings.png)
 
-5. The functionality is now configured and when users launch the app to request spaces, they should see the Retention label combo box on the Data Classification screen.
+5. Funksjonaliteten er nå konfigurert, og når brukere starter Bestillingsportalen webdel eller Teams app for å bestille områder, vil de se kombinasjonsboksen for oppbevaringsmerke på «Datakategorisering»-skjermen.
