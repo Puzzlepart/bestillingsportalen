@@ -3,12 +3,12 @@ Source/Scripts/parameters.json
 .DS_Store
 
 # SPFx build artifacts
-SharePointFramework/**/node_modules/
-SharePointFramework/**/lib/
-SharePointFramework/**/dist/
-SharePointFramework/**/temp/
-SharePointFramework/**/.heft/
-SharePointFramework/**/release/
-SharePointFramework/**/sharepoint/
-SharePointFramework/**/*.sppkg
-SharePointFramework/**/*.scss.ts
+Source/SharePointFramework/**/node_modules/
+Source/SharePointFramework/**/lib/
+Source/SharePointFramework/**/dist/
+Source/SharePointFramework/**/temp/
+Source/SharePointFramework/**/.heft/
+Source/SharePointFramework/**/release/
+Source/SharePointFramework/**/sharepoint/
+Source/SharePointFramework/**/*.sppkg
+Source/SharePointFramework/**/*.scss.ts
