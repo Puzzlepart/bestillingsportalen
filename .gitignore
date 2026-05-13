@@ -5,6 +5,7 @@ Source/Scripts/parameters.json
 # SPFx build artifacts
 Source/SharePointFramework/**/node_modules/
 Source/SharePointFramework/**/lib/
+Source/SharePointFramework/**/lib-commonjs/
 Source/SharePointFramework/**/dist/
 Source/SharePointFramework/**/temp/
 Source/SharePointFramework/**/.heft/

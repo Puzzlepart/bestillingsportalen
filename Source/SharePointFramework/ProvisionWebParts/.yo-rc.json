@@ -4,7 +4,7 @@
     "environment": "spo",
     "version": "1.22.1",
     "libraryName": "bp-provision-web-parts",
-    "libraryId": "8c2f9a1e-7b6d-4d3f-9c2e-1e4a5b7c8d9f",
+    "libraryId": "00b53018-61b2-4576-b559-27df9321cfc8",
     "packageManager": "npm",
     "isDomainIsolated": false,
     "componentType": "webpart"

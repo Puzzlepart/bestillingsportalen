@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
-  "id": "a1b2c3d4-e5f6-4708-9c12-3f4a5b6c7d8e",
+  "id": "ebd25b34-b130-4365-ae30-f55c6506a530",
   "alias": "InviteGuestsWebPart",
   "componentType": "WebPart",
   "version": "*",

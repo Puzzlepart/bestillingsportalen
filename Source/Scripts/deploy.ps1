@@ -57,6 +57,7 @@ param
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipGenerateCertificate,
     [switch]$SkipDeployAPIConnections,
+    [switch]$SkipSPFxDeploy,
     [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
 )
 
@@ -884,21 +885,127 @@ function DeployARMTemplates {
     }
 }
 
-# Deploy only ProcessProvisionRequest logic app for upgrade scenarios
+# Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
 function DeployUpgradeLogicApp {
     try {
-        Write-Host "### UPGRADE MODE - DEPLOYING PROCESSPROVISIONREQUEST LOGIC APP ONLY ###" -ForegroundColor Yellow
+        Write-Host "### UPGRADE MODE - DEPLOYING UPGRADE LOGIC APPS ###" -ForegroundColor Yellow
         Write-Host "For upgrade documentation, see Upgrade.md" -ForegroundColor Cyan
-        
+
+        if ([string]::IsNullOrEmpty($global:requestsListId)) {
+            throw "Provisioning Requests list ID not found. Did the PnP template apply succeed?"
+        }
+        if ([string]::IsNullOrEmpty($global:guestRequestsListId)) {
+            throw "Guest Requests list ID not found. Did the PnP template apply succeed?"
+        }
+
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-        
+
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
-        
-        Write-Host "Finished deploying ProcessProvisionRequest logic app" -ForegroundColor Green
+
+        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId"
+
+        Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
     catch {
-        throw('Failed to deploy ProcessProvisionRequest logic app in upgrade mode: {0}', $_.Exception.Message)
+        throw('Failed to deploy logic apps in upgrade mode: {0}', $_.Exception.Message)
+    }
+}
+
+# Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
+# Each subfolder with config/package-solution.json is treated as a solution to deploy.
+function DeploySPFxPackages {
+    try {
+        Write-Host "### DEPLOYING SPFX SOLUTIONS ###" -ForegroundColor Yellow
+
+        $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
+        if (-not (Test-Path $spfxRoot)) {
+            Write-Host "No SharePointFramework folder at $spfxRoot - skipping SPFx deployment" -ForegroundColor Yellow
+            return
+        }
+
+        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm not installed. Install Node.js (https://nodejs.org) or use -SkipSPFxDeploy to skip SPFx build."
+        }
+
+        $spfxSolutions = Get-ChildItem -Path $spfxRoot -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName "config/package-solution.json")
+        }
+        if ($spfxSolutions.Count -eq 0) {
+            Write-Host "No SPFx solutions found under $spfxRoot" -ForegroundColor Yellow
+            return
+        }
+
+        # Need an admin connection to resolve the tenant app catalog URL
+        $adminUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
+        if ($pnpCertPassword.Length -eq 0) {
+            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+            }
+            else {
+                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value
+            }
+        }
+        else {
+            Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+        }
+
+        $appCatalogUrl = Get-PnPTenantAppCatalogUrl
+        if ([string]::IsNullOrEmpty($appCatalogUrl)) {
+            throw "Tenant app catalog not found. Create one in SharePoint admin center first."
+        }
+        Write-Host "Tenant app catalog: $appCatalogUrl" -ForegroundColor Yellow
+
+        # Connect to the app catalog for Add-PnPApp
+        if ($pnpCertPassword.Length -eq 0) {
+            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+            }
+            else {
+                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value
+            }
+        }
+        else {
+            Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+        }
+
+        foreach ($solution in $spfxSolutions) {
+            Write-Host ""
+            Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+
+            Push-Location $solution.FullName
+            try {
+                if (-not (Test-Path "node_modules")) {
+                    Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
+                    npm install
+                    if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                }
+
+                Write-Host "Running npm run build..." -ForegroundColor Yellow
+                npm run build
+                if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
+
+                $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
+                $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not $sppkg) {
+                    throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                }
+
+                Write-Host "Uploading $($sppkg.Name) to app catalog..." -ForegroundColor Yellow
+                $app = Add-PnPApp -Path $sppkg.FullName -Overwrite -Publish
+                Write-Host "Uploaded and published: $($app.Title)" -ForegroundColor Green
+            }
+            finally {
+                Pop-Location
+            }
+        }
+
+        Write-Host "### SPFX DEPLOYMENT COMPLETE ###" -ForegroundColor Green
+    }
+    catch {
+        throw('Failed to deploy SPFx packages: {0}', $_.Exception.Message)
     }
 }
 
@@ -1209,9 +1316,23 @@ if ($global:upgrade) {
     }
     
     DeployUpgradeLogicApp
-    
+
+    $spfxDeployed = $false
+    if (-not $SkipSPFxDeploy) {
+        DeploySPFxPackages
+        $spfxDeployed = $true
+    }
+    else {
+        Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+    }
+
     Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
-    Write-Host "The ProcessProvisionRequest Logic App has been updated with the latest version." -ForegroundColor Green
+    if ($spfxDeployed) {
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps and SPFx packages have been updated." -ForegroundColor Green
+    }
+    else {
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
+    }
     exit 0
 }
 
@@ -1272,5 +1393,13 @@ else {
 }
 
 Write-Host "Azure resources deployed`n### AZURE RESOURCES DEPLOYMENT COMPLETE ###" -ForegroundColor Green
+
+if (-not $SkipSPFxDeploy) {
+    DeploySPFxPackages
+}
+else {
+    Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+}
+
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
 Write-Host "### Don't forget to authorise the API Connections in the Azure Portal. ###" -ForegroundColor Green
