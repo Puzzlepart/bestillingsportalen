@@ -1,0 +1,12 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "isCreatingSolution": true,
+    "environment": "spo",
+    "version": "1.22.1",
+    "libraryName": "bp-provision-web-parts",
+    "libraryId": "8c2f9a1e-7b6d-4d3f-9c2e-1e4a5b7c8d9f",
+    "packageManager": "npm",
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

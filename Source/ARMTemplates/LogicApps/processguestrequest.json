@@ -1,0 +1,226 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "tenantId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "guestRequestsListId": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "Singlequote": "'"
+    },
+    "resources": [
+        {
+            "comments": "Logic app that processes Guest Request list items by calling ProcessGuests",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "ProcessGuestRequest",
+            "location": "[parameters('location')]",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_an_item_is_created": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "evaluatedRecurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "splitOn": "@triggerBody()?['value']",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                    }
+                                },
+                                "method": "GET",
+                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/onnewitems')]"
+                            },
+                            "conditions": [
+                                {
+                                    "expression": "@equals(triggerBody()?['Status']?['Value'],'Pending')"
+                                }
+                            ]
+                        }
+                    },
+                    "actions": {
+                        "Try": {
+                            "type": "Scope",
+                            "actions": {
+                                "Process_Guests": {
+                                    "runAfter": {},
+                                    "type": "Workflow",
+                                    "inputs": {
+                                        "body": {
+                                            "CompanyName": "",
+                                            "EmailAccentColor": "",
+                                            "Guests": "@triggerBody()?['Title']",
+                                            "LogoPath": "",
+                                            "SiteTitle": "@triggerBody()?['SiteTitle']",
+                                            "SiteUrl": "@{triggerBody()?['SiteUrl']?['Url']}"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Logic/workflows/ProcessGuests')]"
+                                            }
+                                        }
+                                    }
+                                },
+                                "Parse_Guests_JSON": {
+                                    "runAfter": {
+                                        "Process_Guests": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Process_Guests')",
+                                        "schema": {
+                                            "items": {
+                                                "properties": {
+                                                    "GuestEmail": { "type": "string" },
+                                                    "GuestId": { "type": "string" },
+                                                    "InviteRedeemUrl": { "type": "string" }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    }
+                                },
+                                "Set_first_guest_result": {
+                                    "runAfter": {
+                                        "Parse_Guests_JSON": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@first(body('Parse_Guests_JSON'))"
+                                },
+                                "Update_item_as_Invited": {
+                                    "runAfter": {
+                                        "Set_first_guest_result": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                        "body": {
+                                            "Status": "Invited",
+                                            "GuestId": "@{outputs('Set_first_guest_result')?['GuestId']}",
+                                            "InviteRedeemUrl": "@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}",
+                                            "ErrorMessage": ""
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "Catch": {
+                            "runAfter": {
+                                "Try": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            },
+                            "type": "Scope",
+                            "actions": {
+                                "Filter_failed_actions": {
+                                    "runAfter": {},
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Try')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    }
+                                },
+                                "Compose_error_message": {
+                                    "runAfter": {
+                                        "Filter_failed_actions": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@{coalesce(first(body('Filter_failed_actions'))?['error']?['message'], first(body('Filter_failed_actions'))?['code'], 'Unknown error')}"
+                                },
+                                "Update_item_as_Failed": {
+                                    "runAfter": {
+                                        "Compose_error_message": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                        "body": {
+                                            "Status": "Failed",
+                                            "ErrorMessage": "@{outputs('Compose_error_message')}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "sharepointonline": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'sharepointonline')]",
+                                "connectionName": "sharepointonline",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

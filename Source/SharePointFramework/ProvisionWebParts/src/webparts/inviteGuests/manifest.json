@@ -1,0 +1,28 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "a1b2c3d4-e5f6-4708-9c12-3f4a5b6c7d8e",
+  "alias": "InviteGuestsWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab"],
+  "supportsThemeVariants": true,
+  "preconfiguredEntries": [
+    {
+      "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+      "group": { "default": "Other" },
+      "title": { "default": "Inviter gjester", "en-us": "Invite guests" },
+      "description": {
+        "default": "Inviter eksterne gjester til området og se status på tidligere invitasjoner.",
+        "en-us": "Invite external guests to this site and view the status of previous invitations."
+      },
+      "officeFabricIconFontName": "AddFriend",
+      "properties": {
+        "title": "Inviter gjester",
+        "guestRequestListTitle": "Guest Requests",
+        "guestRequestSiteUrl": ""
+      }
+    }
+  ]
+}

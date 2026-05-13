@@ -1,0 +1,42 @@
+<pnp:ListInstance Title="Guest Requests" Description="Forespørsler om invitasjon av eksterne gjester opprettet av InviteGuests-webdelen." DocumentTemplate="" OnQuickLaunch="false" TemplateType="100" Url="Lists/GuestRequests" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/GuestRequests/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/GuestRequests/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/GuestRequests/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:Views>
+    <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="AllItems" Url="{site}/Lists/GuestRequests/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <ViewFields>
+        <FieldRef Name="ID" />
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="Status" />
+        <FieldRef Name="SiteUrl" />
+        <FieldRef Name="SiteTitle" />
+        <FieldRef Name="GuestId" />
+        <FieldRef Name="ErrorMessage" />
+        <FieldRef Name="RequestedBy" />
+        <FieldRef Name="Created" />
+      </ViewFields>
+      <Query>
+        <OrderBy>
+          <FieldRef Name="Created" Ascending="FALSE" />
+        </OrderBy>
+      </Query>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <Aggregations Value="Off" />
+      <JSLink>clienttemplates.js</JSLink>
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field Type="URL" DisplayName="Site URL" Format="Hyperlink" ID="{4d3a1f5e-7c2b-4d9a-9b1e-3a4c5d6e7f80}" StaticName="SiteUrl" Name="SiteUrl" />
+    <Field Type="Text" DisplayName="Site Title" MaxLength="255" ID="{5e4b2a6f-8d3c-4eab-ac2f-4b5c6d7e8f91}" StaticName="SiteTitle" Name="SiteTitle" />
+    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{6f5c3b70-9e4d-4fbc-bd30-5c6d7e8f9012}" StaticName="Status" Name="Status">
+      <Default>Pending</Default>
+      <CHOICES>
+        <CHOICE>Pending</CHOICE>
+        <CHOICE>Invited</CHOICE>
+        <CHOICE>Failed</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Text" DisplayName="Guest Id" MaxLength="255" ID="{7065d481-af5e-4acd-ce41-6d7e8f901234}" StaticName="GuestId" Name="GuestId" />
+    <Field Type="Note" DisplayName="Invite Redeem Url" NumLines="3" RichText="FALSE" ID="{8176e592-b06f-4bde-df52-7e8f90123456}" StaticName="InviteRedeemUrl" Name="InviteRedeemUrl" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="Note" DisplayName="Error Message" NumLines="6" RichText="FALSE" ID="{9287f6a3-c170-4cef-e063-8f9012345678}" StaticName="ErrorMessage" Name="ErrorMessage" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{a3980b14-d281-4d01-f174-9012345678ab}" StaticName="RequestedBy" Name="RequestedBy" />
+  </pnp:Fields>
+</pnp:ListInstance>

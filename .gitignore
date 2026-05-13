@@ -1,3 +1,14 @@
 Source/Scripts/parameters copy.json
 Source/Scripts/parameters.json
 .DS_Store
+
+# SPFx build artifacts
+SharePointFramework/**/node_modules/
+SharePointFramework/**/lib/
+SharePointFramework/**/dist/
+SharePointFramework/**/temp/
+SharePointFramework/**/.heft/
+SharePointFramework/**/release/
+SharePointFramework/**/sharepoint/
+SharePointFramework/**/*.sppkg
+SharePointFramework/**/*.scss.ts

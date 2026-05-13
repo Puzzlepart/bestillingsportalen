@@ -102,6 +102,7 @@ $teamsTemplatesListName = "Teams Templates"
 $timeZonesListName = "Time Zones"
 $localesListName = "Locales"
 $ipLabelsListName = "IP Labels"
+$guestRequestsListName = "Guest Requests"
 
 #  Folder names
 $provRequestsFolderName = "Provisioning Request"
@@ -128,6 +129,7 @@ $global:requestsSettingsListId = $null
 $global:siteTemplatesListId = $null
 $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
+$global:guestRequestsListId = $null
 $global:appId = $null
 $global:appSecret = $null
 $global:appServicePrincipalId = $null
@@ -393,7 +395,12 @@ function ConfigureSharePointSite {
             $context.Load($ipLabelsList)
             $context.ExecuteQuery()
             $global:ipLabelsListId = $ipLabelsList.Id
-            
+
+            $guestRequestsList = Get-PnPList $guestRequestsListName
+            $context.Load($guestRequestsList)
+            $context.ExecuteQuery()
+            $global:guestRequestsListId = $guestRequestsList.Id
+
             Write-Host "Finished site configuration in upgrade mode" -ForegroundColor Green
             return
         }
@@ -665,6 +672,12 @@ function ConfigureSharePointSite {
         $context.ExecuteQuery()
         $global:ipLabelsListId = $ipLabelsList.Id
 
+        # Get id of the guest requests list
+        $guestRequestsList = Get-PnPList $guestRequestsListName
+        $context.Load($guestRequestsList)
+        $context.ExecuteQuery()
+        $global:guestRequestsListId = $guestRequestsList.Id
+
         Write-Host "Configuring Service Account permissions"
         Add-PnPSiteCollectionAdmin -Owners $parameters.serviceAccountUPN.value
 
@@ -837,9 +850,13 @@ function DeployARMTemplates {
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "certName=$($parameters.certName.Value)"
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-        
+
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
-    
+
+        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId"
+
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "certName=$($parameters.certName.Value)"
@@ -1170,6 +1187,11 @@ else {
     $context.Load($ipLabelsList)
     $context.ExecuteQuery()
     $global:ipLabelsListId = $ipLabelsList.Id
+
+    $guestRequestsList = Get-PnPList $guestRequestsListName
+    $context.Load($guestRequestsList)
+    $context.ExecuteQuery()
+    $global:guestRequestsListId = $guestRequestsList.Id
 }
 
 # Skip Azure resource deployment in upgrade mode - only deploy Logic App
