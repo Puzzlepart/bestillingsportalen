@@ -212,8 +212,8 @@
                     "$connections": {
                         "value": {
                             "sharepointonline": {
-                                "connectionId": "[resourceId('Microsoft.Web/connections', 'sharepointonline')]",
-                                "connectionName": "sharepointonline",
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-spo')]",
+                                "connectionName": "bestillingsportalen-spo",
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
                             }
                         }

@@ -136,6 +136,7 @@ $global:appSecret = $null
 $global:appServicePrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
+$global:skipApplyTemplate = $false
 
 # Validates if a parameter in the json file is valid
 function IsValidParam {
@@ -322,10 +323,13 @@ function CreateRequestsSharePointSite {
             Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
-            Write-Host "Site already exists! Do you wish to overwrite?" -ForegroundColor Red
-            $overwrite = Read-Host " ( y (overwrite) / n (exit) )"
+            Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
+            Write-Host "  y = re-apply template (updates lists, fields and settings on the existing site)" -ForegroundColor Cyan
+            Write-Host "  n = skip template apply, but continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+            $overwrite = Read-Host " ( y / n )"
             if ($overwrite -ne "y") {
-                break
+                $global:skipApplyTemplate = $true
+                Write-Host "Template apply will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
         }
     }
@@ -341,15 +345,21 @@ function ConfigureSharePointSite {
 
         Write-Host "### BESTILLINGSPORTALEN SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
 
-        If ($parameters.skipApplySPOTemplate.Value) { 
+        If ($parameters.skipApplySPOTemplate.Value -or $global:skipApplyTemplate) {
 
-            Write-Host "You chose to skip applying the provisioning template" -ForegroundColor Yellow
+            Write-Host "Skipping provisioning template apply" -ForegroundColor Yellow
         }
         else {
-            
+
             Write-Host "Applying provisioning template..." -ForegroundColor Yellow
 
-            Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
+            if ($global:upgrade) {
+                # Preserve existing navigation in upgrade mode - apply schema/settings only
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath)
+            }
+            else {
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
+            }
 
             Write-Host "Applied template" -ForegroundColor Green
         }
@@ -1152,7 +1162,13 @@ if ($global:upgrade) {
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
-    Write-Host "  - Deploy ONLY the ProcessProvisionRequest Logic App" -ForegroundColor Cyan
+    Write-Host "  - Deploy the ProcessProvisionRequest and ProcessGuestRequest Logic Apps" -ForegroundColor Cyan
+    if (-not $SkipSPFxDeploy) {
+        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
+    }
+    else {
+        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+    }
     Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
     Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan
     Write-Host "" -ForegroundColor Yellow
