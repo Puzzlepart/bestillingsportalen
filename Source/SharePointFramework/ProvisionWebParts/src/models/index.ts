@@ -1,1 +1,1 @@
-export * from './IGuestRequest';
+export * from './IGuestRequest'

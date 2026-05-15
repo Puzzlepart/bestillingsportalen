@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from 'react'
 import {
   DataGrid,
   DataGridBody,
@@ -8,17 +8,17 @@ import {
   DataGridRow,
   Spinner,
   type DataGridProps
-} from '@fluentui/react-components';
+} from '@fluentui/react-components'
 
-import * as strings from 'ProvisionWebPartsStrings';
-import styles from './InviteStatus.module.scss';
-import { Commands } from './Commands';
-import { useColumns } from './useColumns';
-import { useInviteStatus } from './useInviteStatus';
-import type { InviteStatusRow } from './types';
+import * as strings from 'ProvisionWebPartsStrings'
+import styles from './InviteStatus.module.scss'
+import { Commands } from './Commands'
+import { useColumns } from './useColumns'
+import { useInviteStatus } from './useInviteStatus'
+import type { InviteStatusRow } from './types'
 
 export const StatusGrid: React.FC = () => {
-  const columns = useColumns();
+  const columns = useColumns()
   const {
     rows,
     search,
@@ -29,17 +29,17 @@ export const StatusGrid: React.FC = () => {
     onRefresh,
     onRetry,
     loading
-  } = useInviteStatus();
+  } = useInviteStatus()
 
   const onSelectionChange: DataGridProps['onSelectionChange'] = (_e, data) => {
-    const next = Array.from(data.selectedItems)[0];
-    setSelectedId(typeof next === 'number' ? next : undefined);
-  };
+    const next = Array.from(data.selectedItems)[0]
+    setSelectedId(typeof next === 'number' ? next : undefined)
+  }
 
   const selectedItems = React.useMemo<Set<number>>(
     () => (selectedId !== undefined ? new Set([selectedId]) : new Set()),
     [selectedId]
-  );
+  )
 
   return (
     <>
@@ -54,7 +54,7 @@ export const StatusGrid: React.FC = () => {
 
       {loading && rows.length === 0 ? (
         <div className={styles.loading}>
-          <Spinner labelPosition="after" label={strings.RefreshButton} />
+          <Spinner labelPosition='after' label={strings.RefreshButton} />
         </div>
       ) : rows.length === 0 ? (
         <div className={styles.empty}>{strings.StatusEmpty}</div>
@@ -64,16 +64,17 @@ export const StatusGrid: React.FC = () => {
             items={rows}
             columns={columns}
             sortable
-            selectionMode="single"
+            selectionMode='single'
             selectedItems={selectedItems}
             onSelectionChange={onSelectionChange}
             getRowId={(item: InviteStatusRow) => item.Id}
-            focusMode="composite"
-            resizableColumns
-          >
+            focusMode='composite'
+            resizableColumns>
             <DataGridHeader>
               <DataGridRow>
-                {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
+                {({ renderHeaderCell }) => (
+                  <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
+                )}
               </DataGridRow>
             </DataGridHeader>
             <DataGridBody<InviteStatusRow>>
@@ -87,5 +88,5 @@ export const StatusGrid: React.FC = () => {
         </div>
       )}
     </>
-  );
-};
+  )
+}

@@ -1,1 +1,1 @@
-export * from './GuestRequestService';
+export * from './GuestRequestService'

@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from 'react'
 import {
   Button,
   FluentProvider,
@@ -10,38 +10,38 @@ import {
   useId,
   useToastController,
   webLightTheme
-} from '@fluentui/react-components';
-import { PersonAdd24Regular } from '@fluentui/react-icons';
+} from '@fluentui/react-components'
+import { PersonAdd24Regular } from '@fluentui/react-icons'
 
-import * as strings from 'ProvisionWebPartsStrings';
-import styles from './InviteGuests.module.scss';
-import { InviteGuestsContext } from './context';
-import { useInviteGuests } from './useInviteGuests';
-import { InviteDrawer } from './InviteDrawer';
-import { InviteStatus } from './InviteStatus';
-import { WebPartTitle } from '../WebPartTitle';
-import type { IInviteGuestsProps } from './types';
+import * as strings from 'ProvisionWebPartsStrings'
+import styles from './InviteGuests.module.scss'
+import { InviteGuestsContext } from './context'
+import { useInviteGuests } from './useInviteGuests'
+import { InviteDrawer } from './InviteDrawer'
+import { InviteStatus } from './InviteStatus'
+import { WebPartTitle } from '../WebPartTitle'
+import type { IInviteGuestsProps } from './types'
 
 export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
-  const { title, description, displayMode, service, siteUrl, siteTitle, currentUser } = props;
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const state = useInviteGuests({ service, siteUrl, siteTitle });
+  const { title, description, displayMode, service, siteUrl, siteTitle, currentUser } = props
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const state = useInviteGuests({ service, siteUrl, siteTitle })
 
-  const toasterId = useId('invite-guests-toaster');
-  const { dispatchToast } = useToastController(toasterId);
+  const toasterId = useId('invite-guests-toaster')
+  const { dispatchToast } = useToastController(toasterId)
 
   const onInvite = React.useCallback(
     async (emails: string[]) => {
       try {
-        await state.invite(emails);
-        setDrawerOpen(false);
+        await state.invite(emails)
+        setDrawerOpen(false)
         dispatchToast(
           <Toast>
             <ToastTitle>{strings.ToastSuccessTitle}</ToastTitle>
             <ToastBody>{strings.ToastSuccessBody}</ToastBody>
           </Toast>,
           { intent: 'success' }
-        );
+        )
       } catch (e) {
         dispatchToast(
           <Toast>
@@ -49,11 +49,11 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
             <ToastBody>{(e as Error).message || strings.ToastErrorBody}</ToastBody>
           </Toast>,
           { intent: 'error' }
-        );
+        )
       }
     },
     [state, dispatchToast]
-  );
+  )
 
   const contextValue = React.useMemo(
     () => ({
@@ -69,23 +69,22 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       retry: state.retry
     }),
     [siteUrl, siteTitle, currentUser, service, state, onInvite]
-  );
+  )
 
   return (
-    <IdPrefixProvider value="bp-ig-">
+    <IdPrefixProvider value='bp-ig-'>
       <FluentProvider theme={webLightTheme}>
         <InviteGuestsContext.Provider value={contextValue}>
           <div className={styles.inviteGuests}>
             <div className={styles.titleRow}>
               <WebPartTitle title={title} description={description} />
               <Button
-                appearance="subtle"
+                appearance='subtle'
                 icon={<PersonAdd24Regular />}
-                iconPosition="before"
+                iconPosition='before'
                 onClick={() => setDrawerOpen(true)}
                 style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
-                aria-haspopup="dialog"
-              >
+                aria-haspopup='dialog'>
                 {strings.InviteButton}
               </Button>
             </div>
@@ -95,10 +94,10 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
             <InviteStatus mode={displayMode} />
 
             <InviteDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
-            <Toaster toasterId={toasterId} position="bottom-end" />
+            <Toaster toasterId={toasterId} position='bottom-end' />
           </div>
         </InviteGuestsContext.Provider>
       </FluentProvider>
     </IdPrefixProvider>
-  );
-};
+  )
+}

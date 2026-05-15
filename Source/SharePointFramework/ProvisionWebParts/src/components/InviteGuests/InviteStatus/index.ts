@@ -1,1 +1,1 @@
-export * from './InviteStatus';
+export * from './InviteStatus'

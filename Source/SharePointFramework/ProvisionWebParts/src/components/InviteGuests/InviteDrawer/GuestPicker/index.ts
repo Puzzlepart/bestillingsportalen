@@ -1,1 +1,1 @@
-export * from './GuestPicker';
+export * from './GuestPicker'

@@ -11,7 +11,12 @@
     "start": "heft start --clean",
     "clean": "heft clean",
     "test": "heft test",
-    "eject-webpack": "heft eject-webpack"
+    "eject-webpack": "heft eject-webpack",
+    "lint": "eslint --ext .ts,.tsx ./src --color --fix",
+    "lint:check": "eslint --ext .ts,.tsx ./src --color",
+    "prettier": "prettier \"**/*.{ts,tsx,scss,json,md,yaml,yml}\" --write --log-level warn --config ../.prettierrc.yaml --ignore-path ../.prettierignore",
+    "prettier:check": "prettier \"**/*.{ts,tsx,scss,json,md,yaml,yml}\" --check --config ../.prettierrc.yaml --ignore-path ../.prettierignore",
+    "format": "npm run prettier && npm run lint"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.72.10",
@@ -43,7 +48,11 @@
     "@types/react-dom": "17.0.17",
     "@typescript-eslint/parser": "8.46.2",
     "eslint": "8.57.0",
+    "eslint-config-prettier": "9.1.2",
+    "eslint-plugin-prettier": "5.5.5",
     "eslint-plugin-react-hooks": "4.6.2",
+    "eslint-plugin-unused-imports": "3.2.0",
+    "prettier": "3.8.3",
     "typescript": "~5.8.0"
   }
 }

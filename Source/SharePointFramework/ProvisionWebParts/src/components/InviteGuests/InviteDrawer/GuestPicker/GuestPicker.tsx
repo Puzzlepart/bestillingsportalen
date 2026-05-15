@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from 'react'
 import {
   Avatar,
   Tag,
@@ -8,58 +8,55 @@ import {
   TagPickerInput,
   TagPickerList,
   type TagPickerProps
-} from '@fluentui/react-components';
+} from '@fluentui/react-components'
 
-import * as strings from 'ProvisionWebPartsStrings';
-import { FieldContainer } from '../../../FieldContainer';
-import type { IGuestPickerProps } from '../types';
+import * as strings from 'ProvisionWebPartsStrings'
+import { FieldContainer } from '../../../FieldContainer'
+import type { IGuestPickerProps } from '../types'
 
-const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
 export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, disabled }) => {
-  const [query, setQuery] = React.useState('');
+  const [query, setQuery] = React.useState('')
 
   const validationMessage = React.useMemo(() => {
-    if (!query) return undefined;
-    return isValidEmail(query) ? undefined : strings.GuestPickerInvalidEmail;
-  }, [query]);
+    if (!query) return undefined
+    return isValidEmail(query) ? undefined : strings.GuestPickerInvalidEmail
+  }, [query])
 
   const onOptionSelect: TagPickerProps['onOptionSelect'] = (_e, data) => {
-    const next = data.selectedOptions.filter((v) => isValidEmail(v));
-    onChange(Array.from(new Set(next)));
-    setQuery('');
-  };
+    const next = data.selectedOptions.filter((v) => isValidEmail(v))
+    onChange(Array.from(new Set(next)))
+    setQuery('')
+  }
 
   const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && isValidEmail(query)) {
-      e.preventDefault();
-      const next = Array.from(new Set([...selected, query.trim().toLowerCase()]));
-      onChange(next);
-      setQuery('');
+      e.preventDefault()
+      const next = Array.from(new Set([...selected, query.trim().toLowerCase()]))
+      onChange(next)
+      setQuery('')
     }
-  };
+  }
 
   return (
     <FieldContainer
       label={strings.GuestPickerLabel}
       validationState={validationMessage ? 'error' : 'none'}
-      validationMessage={validationMessage}
-    >
+      validationMessage={validationMessage}>
       <TagPicker
         selectedOptions={selected}
         onOptionSelect={onOptionSelect}
         disabled={disabled}
-        noPopover
-      >
+        noPopover>
         <TagPickerControl>
           <TagPickerGroup>
             {selected.map((email) => (
               <Tag
                 key={email}
-                shape="rounded"
-                media={<Avatar aria-hidden name={email} color="colorful" />}
-                value={email}
-              >
+                shape='rounded'
+                media={<Avatar aria-hidden name={email} color='colorful' />}
+                value={email}>
                 {email}
               </Tag>
             ))}
@@ -75,5 +72,5 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
         <TagPickerList />
       </TagPicker>
     </FieldContainer>
-  );
-};
+  )
+}

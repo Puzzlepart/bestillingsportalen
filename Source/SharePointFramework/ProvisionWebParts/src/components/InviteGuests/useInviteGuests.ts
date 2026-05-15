@@ -1,59 +1,63 @@
-import * as React from 'react';
-import type { GuestRequestService } from '../../services/GuestRequestService';
-import type { IGuestRequest } from '../../models/IGuestRequest';
+import * as React from 'react'
+import type { GuestRequestService } from '../../services/GuestRequestService'
+import type { IGuestRequest } from '../../models/IGuestRequest'
 
 interface IUseInviteGuestsArgs {
-  service: GuestRequestService;
-  siteUrl: string;
-  siteTitle: string;
+  service: GuestRequestService
+  siteUrl: string
+  siteTitle: string
 }
 
 interface IUseInviteGuestsResult {
-  requests: IGuestRequest[];
-  loading: boolean;
-  error: string | undefined;
-  refresh: () => Promise<void>;
-  invite: (emails: string[]) => Promise<void>;
-  retry: (itemId: number) => Promise<void>;
+  requests: IGuestRequest[]
+  loading: boolean
+  error: string | undefined
+  refresh: () => Promise<void>
+  invite: (emails: string[]) => Promise<void>
+  retry: (itemId: number) => Promise<void>
 }
 
-export function useInviteGuests({ service, siteUrl, siteTitle }: IUseInviteGuestsArgs): IUseInviteGuestsResult {
-  const [requests, setRequests] = React.useState<IGuestRequest[]>([]);
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | undefined>(undefined);
+export function useInviteGuests({
+  service,
+  siteUrl,
+  siteTitle
+}: IUseInviteGuestsArgs): IUseInviteGuestsResult {
+  const [requests, setRequests] = React.useState<IGuestRequest[]>([])
+  const [loading, setLoading] = React.useState<boolean>(true)
+  const [error, setError] = React.useState<string | undefined>(undefined)
 
   const refresh = React.useCallback(async (): Promise<void> => {
-    setLoading(true);
-    setError(undefined);
+    setLoading(true)
+    setError(undefined)
     try {
-      const items = await service.getForSite(siteUrl);
-      setRequests(items);
+      const items = await service.getForSite(siteUrl)
+      setRequests(items)
     } catch (e) {
-      setError((e as Error).message);
+      setError((e as Error).message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [service, siteUrl]);
+  }, [service, siteUrl])
 
   const invite = React.useCallback(
     async (emails: string[]): Promise<void> => {
-      const created = await service.createMany(emails, siteUrl, siteTitle);
-      setRequests((prev) => [...created, ...prev]);
+      const created = await service.createMany(emails, siteUrl, siteTitle)
+      setRequests((prev) => [...created, ...prev])
     },
     [service, siteUrl, siteTitle]
-  );
+  )
 
   const retry = React.useCallback(
     async (itemId: number): Promise<void> => {
-      await service.retry(itemId);
-      await refresh();
+      await service.retry(itemId)
+      await refresh()
     },
     [service, refresh]
-  );
+  )
 
   React.useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void refresh()
+  }, [refresh])
 
-  return { requests, loading, error, refresh, invite, retry };
+  return { requests, loading, error, refresh, invite, retry }
 }

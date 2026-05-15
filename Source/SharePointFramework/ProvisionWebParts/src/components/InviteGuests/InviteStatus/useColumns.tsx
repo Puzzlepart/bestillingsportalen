@@ -1,15 +1,15 @@
-import * as React from 'react';
-import { createTableColumn, type TableColumnDefinition } from '@fluentui/react-components';
+import * as React from 'react'
+import { createTableColumn, type TableColumnDefinition } from '@fluentui/react-components'
 
-import * as strings from 'ProvisionWebPartsStrings';
-import { StatusBadge } from './StatusBadge';
-import type { InviteStatusRow } from './types';
+import * as strings from 'ProvisionWebPartsStrings'
+import { StatusBadge } from './StatusBadge'
+import type { InviteStatusRow } from './types'
 
 const formatDate = (iso: string): string => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleString();
-};
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleString()
+}
 
 export function useColumns(): TableColumnDefinition<InviteStatusRow>[] {
   return React.useMemo<TableColumnDefinition<InviteStatusRow>[]>(
@@ -40,5 +40,5 @@ export function useColumns(): TableColumnDefinition<InviteStatusRow>[] {
       })
     ],
     []
-  );
+  )
 }

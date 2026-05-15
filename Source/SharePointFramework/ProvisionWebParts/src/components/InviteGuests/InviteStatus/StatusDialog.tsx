@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from 'react'
 import {
   Button,
   Dialog,
@@ -7,38 +7,33 @@ import {
   DialogSurface,
   DialogTitle,
   DialogTrigger
-} from '@fluentui/react-components';
-import { Dismiss24Regular } from '@fluentui/react-icons';
+} from '@fluentui/react-components'
+import { Dismiss24Regular } from '@fluentui/react-icons'
 
-import * as strings from 'ProvisionWebPartsStrings';
-import styles from './InviteStatus.module.scss';
-import { StatusGrid } from './StatusGrid';
+import * as strings from 'ProvisionWebPartsStrings'
+import styles from './InviteStatus.module.scss'
+import { StatusGrid } from './StatusGrid'
 
 interface IStatusDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 export const StatusDialog: React.FC<IStatusDialogProps> = ({ open, onOpenChange }) => {
   return (
-    <Dialog
-      modalType="non-modal"
-      open={open}
-      onOpenChange={(_, data) => onOpenChange(data.open)}
-    >
+    <Dialog modalType='non-modal' open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
       <DialogSurface className={styles.dialogSurface}>
         <DialogBody>
           <DialogTitle
             action={
-              <DialogTrigger action="close" disableButtonEnhancement>
+              <DialogTrigger action='close' disableButtonEnhancement>
                 <Button
-                  appearance="subtle"
+                  appearance='subtle'
                   aria-label={strings.CloseButton}
                   icon={<Dismiss24Regular />}
                 />
               </DialogTrigger>
-            }
-          >
+            }>
             {strings.StatusDialogTitle}
           </DialogTitle>
           <DialogContent className={styles.dialogContent}>
@@ -47,5 +42,5 @@ export const StatusDialog: React.FC<IStatusDialogProps> = ({ open, onOpenChange 
         </DialogBody>
       </DialogSurface>
     </Dialog>
-  );
-};
+  )
+}

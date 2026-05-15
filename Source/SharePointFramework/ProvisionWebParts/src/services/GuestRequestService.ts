@@ -1,5 +1,5 @@
-import type { SPFI } from '@pnp/sp';
-import type { IGuestRequest, INewGuestRequest, GuestRequestStatus } from '../models/IGuestRequest';
+import type { SPFI } from '@pnp/sp'
+import type { IGuestRequest, INewGuestRequest, GuestRequestStatus } from '../models/IGuestRequest'
 
 const SELECT = [
   'Id',
@@ -15,11 +15,14 @@ const SELECT = [
   'RequestedBy/Id',
   'RequestedBy/Title',
   'RequestedBy/EMail'
-];
-const EXPAND = ['RequestedBy'];
+]
+const EXPAND = ['RequestedBy']
 
 export class GuestRequestService {
-  constructor(private readonly sp: SPFI, private readonly listTitle: string) {}
+  constructor(
+    private readonly sp: SPFI,
+    private readonly listTitle: string
+  ) {}
 
   public async getForSite(siteUrl: string): Promise<IGuestRequest[]> {
     return (await this.sp.web.lists
@@ -28,13 +31,17 @@ export class GuestRequestService {
       .expand(...EXPAND)
       .filter(`SiteUrl eq '${siteUrl.replace(/'/g, "''")}'`)
       .orderBy('Created', false)
-      .top(500)()) as IGuestRequest[];
+      .top(500)()) as IGuestRequest[]
   }
 
-  public async createMany(emails: string[], siteUrl: string, siteTitle: string): Promise<IGuestRequest[]> {
-    const list = this.sp.web.lists.getByTitle(this.listTitle);
-    const currentUserId = (await this.sp.web.currentUser.select('Id')()).Id;
-    const results: IGuestRequest[] = [];
+  public async createMany(
+    emails: string[],
+    siteUrl: string,
+    siteTitle: string
+  ): Promise<IGuestRequest[]> {
+    const list = this.sp.web.lists.getByTitle(this.listTitle)
+    const currentUserId = (await this.sp.web.currentUser.select('Id')()).Id
+    const results: IGuestRequest[] = []
     for (const email of emails) {
       const payload: INewGuestRequest = {
         Title: email,
@@ -42,19 +49,26 @@ export class GuestRequestService {
         SiteTitle: siteTitle,
         Status: 'Pending',
         RequestedById: currentUserId
-      };
-      const add = await list.items.add(payload);
-      const itemId = (add as { data?: { Id: number } }).data?.Id ?? (add as unknown as { Id: number }).Id;
-      const created = (await list.items.getById(itemId).select(...SELECT).expand(...EXPAND)()) as IGuestRequest;
-      results.push(created);
+      }
+      const add = await list.items.add(payload)
+      const itemId =
+        (add as { data?: { Id: number } }).data?.Id ?? (add as unknown as { Id: number }).Id
+      const created = (await list.items
+        .getById(itemId)
+        .select(...SELECT)
+        .expand(...EXPAND)()) as IGuestRequest
+      results.push(created)
     }
-    return results;
+    return results
   }
 
   public async retry(itemId: number): Promise<void> {
-    await this.sp.web.lists.getByTitle(this.listTitle).items.getById(itemId).update({
-      Status: 'Pending' as GuestRequestStatus,
-      ErrorMessage: ''
-    });
+    await this.sp.web.lists
+      .getByTitle(this.listTitle)
+      .items.getById(itemId)
+      .update({
+        Status: 'Pending' as GuestRequestStatus,
+        ErrorMessage: ''
+      })
   }
 }

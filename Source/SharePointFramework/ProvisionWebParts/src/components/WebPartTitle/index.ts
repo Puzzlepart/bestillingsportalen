@@ -1,2 +1,2 @@
-export * from './WebPartTitle';
-export * from './types';
+export * from './WebPartTitle'
+export * from './types'
