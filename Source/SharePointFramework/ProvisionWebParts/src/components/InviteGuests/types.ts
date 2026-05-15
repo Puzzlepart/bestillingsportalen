@@ -8,8 +8,12 @@ export interface ICurrentUser {
   email: string;
 }
 
+export type InviteStatusDisplayMode = 'inline' | 'dialog';
+
 export interface IInviteGuestsProps {
   title: string;
+  description?: string;
+  displayMode: InviteStatusDisplayMode;
   siteUrl: string;
   siteTitle: string;
   currentUser: ICurrentUser;

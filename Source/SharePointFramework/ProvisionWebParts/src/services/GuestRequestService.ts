@@ -26,20 +26,22 @@ export class GuestRequestService {
       .getByTitle(this.listTitle)
       .items.select(...SELECT)
       .expand(...EXPAND)
-      .filter(`SiteUrl/Url eq '${siteUrl.replace(/'/g, "''")}'`)
+      .filter(`SiteUrl eq '${siteUrl.replace(/'/g, "''")}'`)
       .orderBy('Created', false)
       .top(500)()) as IGuestRequest[];
   }
 
   public async createMany(emails: string[], siteUrl: string, siteTitle: string): Promise<IGuestRequest[]> {
     const list = this.sp.web.lists.getByTitle(this.listTitle);
+    const currentUserId = (await this.sp.web.currentUser.select('Id')()).Id;
     const results: IGuestRequest[] = [];
     for (const email of emails) {
       const payload: INewGuestRequest = {
         Title: email,
-        SiteUrl: { Url: siteUrl, Description: siteTitle },
+        SiteUrl: siteUrl,
         SiteTitle: siteTitle,
-        Status: 'Pending'
+        Status: 'Pending',
+        RequestedById: currentUserId
       };
       const add = await list.items.add(payload);
       const itemId = (add as { data?: { Id: number } }).data?.Id ?? (add as unknown as { Id: number }).Id;

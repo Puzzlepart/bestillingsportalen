@@ -24,7 +24,7 @@
     </View>
   </pnp:Views>
   <pnp:Fields>
-    <Field Type="URL" DisplayName="Site URL" Format="Hyperlink" ID="{4d3a1f5e-7c2b-4d9a-9b1e-3a4c5d6e7f80}" StaticName="SiteUrl" Name="SiteUrl" />
+    <Field Type="Text" DisplayName="Site URL" MaxLength="255" ID="{4d3a1f5e-7c2b-4d9a-9b1e-3a4c5d6e7f80}" StaticName="SiteUrl" Name="SiteUrl" />
     <Field Type="Text" DisplayName="Site Title" MaxLength="255" ID="{5e4b2a6f-8d3c-4eab-ac2f-4b5c6d7e8f91}" StaticName="SiteTitle" Name="SiteTitle" />
     <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{6f5c3b70-9e4d-4fbc-bd30-5c6d7e8f9012}" StaticName="Status" Name="Status">
       <Default>Pending</Default>

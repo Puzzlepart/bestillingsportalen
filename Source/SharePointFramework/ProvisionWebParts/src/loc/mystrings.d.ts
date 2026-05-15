@@ -2,6 +2,17 @@ declare interface IProvisionWebPartsStrings {
   PropertyPaneDescription: string;
   BasicGroupName: string;
   TitleFieldLabel: string;
+  DescriptionFieldLabel: string;
+  WebPartTitleInfoLabelTitle: string;
+  DisplayModeFieldLabel: string;
+  DisplayModeInlineLabel: string;
+  DisplayModeDialogLabel: string;
+  ViewStatusButton: string;
+  StatusDialogTitle: string;
+  StatusSummaryTotal: string;
+  StatusSummaryPending: string;
+  StatusSummaryFailed: string;
+  CloseButton: string;
   GuestRequestListTitleFieldLabel: string;
   GuestRequestListTitleFieldDescription: string;
   GuestRequestSiteUrlFieldLabel: string;

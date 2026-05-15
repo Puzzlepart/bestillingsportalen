@@ -19,10 +19,11 @@ import { InviteGuestsContext } from './context';
 import { useInviteGuests } from './useInviteGuests';
 import { InviteDrawer } from './InviteDrawer';
 import { InviteStatus } from './InviteStatus';
+import { WebPartTitle } from '../WebPartTitle';
 import type { IInviteGuestsProps } from './types';
 
 export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
-  const { title, service, siteUrl, siteTitle, currentUser } = props;
+  const { title, description, displayMode, service, siteUrl, siteTitle, currentUser } = props;
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const state = useInviteGuests({ service, siteUrl, siteTitle });
 
@@ -75,20 +76,23 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       <FluentProvider theme={webLightTheme}>
         <InviteGuestsContext.Provider value={contextValue}>
           <div className={styles.inviteGuests}>
-            <header className={styles.header}>
-              <h2 className={styles.title}>{title}</h2>
+            <div className={styles.titleRow}>
+              <WebPartTitle title={title} description={description} />
               <Button
-                appearance="primary"
+                appearance="subtle"
                 icon={<PersonAdd24Regular />}
+                iconPosition="before"
                 onClick={() => setDrawerOpen(true)}
+                style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
+                aria-haspopup="dialog"
               >
                 {strings.InviteButton}
               </Button>
-            </header>
+            </div>
 
             {state.error && <div className={styles.error}>{state.error}</div>}
 
-            <InviteStatus />
+            <InviteStatus mode={displayMode} />
 
             <InviteDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
             <Toaster toasterId={toasterId} position="bottom-end" />

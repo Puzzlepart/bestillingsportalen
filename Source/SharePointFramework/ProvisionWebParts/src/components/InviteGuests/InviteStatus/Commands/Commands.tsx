@@ -27,7 +27,7 @@ export const Commands: React.FC<ICommandsProps> = ({
   refreshing
 }) => {
   return (
-    <Toolbar aria-label="Invite status commands">
+    <Toolbar aria-label="Invite status commands" style={{ flexWrap: 'wrap', rowGap: 4 }}>
       <ToolbarButton
         appearance="subtle"
         icon={<ArrowClockwise24Regular />}
@@ -49,7 +49,7 @@ export const Commands: React.FC<ICommandsProps> = ({
         placeholder={strings.StatusSearchPlaceholder}
         value={search}
         onChange={(_, data) => onSearchChange(data.value)}
-        style={{ minWidth: 220 }}
+        style={{ minWidth: 140, flex: '1 1 140px' }}
       />
     </Toolbar>
   );

@@ -90,7 +90,7 @@
                                             "Guests": "@triggerBody()?['Title']",
                                             "LogoPath": "",
                                             "SiteTitle": "@triggerBody()?['SiteTitle']",
-                                            "SiteUrl": "@{triggerBody()?['SiteUrl']?['Url']}"
+                                            "SiteUrl": "@{triggerBody()?['SiteUrl']}"
                                         },
                                         "host": {
                                             "triggerName": "manual",

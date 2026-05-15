@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .heading {
@@ -27,4 +28,30 @@
 .grid {
   border: 1px solid var(--colorNeutralStroke2, #d1d1d1);
   border-radius: 4px;
+  overflow-x: auto;
+}
+
+.dialogTrigger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dialogSurface {
+  max-width: min(1140px, 95vw);
+  width: 100%;
+}
+
+.dialogContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
 }

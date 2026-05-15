@@ -3,6 +3,7 @@ import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
   type IPropertyPaneConfiguration,
+  PropertyPaneChoiceGroup,
   PropertyPaneTextField
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
@@ -10,6 +11,7 @@ import { spfi, SPFI, SPFx } from '@pnp/sp';
 import '@pnp/sp/webs';
 import '@pnp/sp/lists';
 import '@pnp/sp/items';
+import '@pnp/sp/site-users/web';
 
 import * as strings from 'ProvisionWebPartsStrings';
 import { InviteGuests } from '../../components/InviteGuests';
@@ -18,6 +20,8 @@ import { GuestRequestService } from '../../services/GuestRequestService';
 
 export interface IInviteGuestsWebPartProps {
   title: string;
+  description: string;
+  displayMode: 'inline' | 'dialog';
   guestRequestListTitle: string;
   guestRequestSiteUrl: string;
 }
@@ -35,6 +39,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   public render(): void {
     const element: React.ReactElement<IInviteGuestsProps> = React.createElement(InviteGuests, {
       title: this.properties.title,
+      description: this.properties.description,
+      displayMode: this.properties.displayMode || 'dialog',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       currentUser: {
@@ -66,6 +72,17 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
               groupName: strings.BasicGroupName,
               groupFields: [
                 PropertyPaneTextField('title', { label: strings.TitleFieldLabel }),
+                PropertyPaneTextField('description', {
+                  label: strings.DescriptionFieldLabel,
+                  multiline: true
+                }),
+                PropertyPaneChoiceGroup('displayMode', {
+                  label: strings.DisplayModeFieldLabel,
+                  options: [
+                    { key: 'inline', text: strings.DisplayModeInlineLabel },
+                    { key: 'dialog', text: strings.DisplayModeDialogLabel }
+                  ]
+                }),
                 PropertyPaneTextField('guestRequestSiteUrl', {
                   label: strings.GuestRequestSiteUrlFieldLabel,
                   description: strings.GuestRequestSiteUrlFieldDescription

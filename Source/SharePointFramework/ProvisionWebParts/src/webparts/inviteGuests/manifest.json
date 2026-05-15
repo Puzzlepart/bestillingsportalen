@@ -20,6 +20,8 @@
       "officeFabricIconFontName": "AddFriend",
       "properties": {
         "title": "Gjesteinvitasjon",
+        "description": "Inviter eksterne gjester til området og se status på tidligere invitasjoner.",
+        "displayMode": "dialog",
         "guestRequestListTitle": "Guest Requests",
         "guestRequestSiteUrl": ""
       }

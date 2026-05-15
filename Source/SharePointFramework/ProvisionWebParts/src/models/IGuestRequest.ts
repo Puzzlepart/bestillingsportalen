@@ -1,14 +1,9 @@
 export type GuestRequestStatus = 'Pending' | 'Invited' | 'Failed';
 
-export interface ISpUrlField {
-  Url: string;
-  Description?: string;
-}
-
 export interface IGuestRequest {
   Id: number;
   Title: string;
-  SiteUrl: ISpUrlField;
+  SiteUrl: string;
   SiteTitle: string;
   Status: GuestRequestStatus;
   GuestId?: string;
@@ -25,7 +20,8 @@ export interface IGuestRequest {
 
 export interface INewGuestRequest {
   Title: string;
-  SiteUrl: ISpUrlField;
+  SiteUrl: string;
   SiteTitle: string;
   Status: GuestRequestStatus;
+  RequestedById?: number;
 }

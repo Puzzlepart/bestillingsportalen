@@ -1,7 +1,6 @@
 import * as React from 'react';
 import {
   Avatar,
-  Field,
   Tag,
   TagPicker,
   TagPickerControl,
@@ -12,6 +11,7 @@ import {
 } from '@fluentui/react-components';
 
 import * as strings from 'ProvisionWebPartsStrings';
+import { FieldContainer } from '../../../FieldContainer';
 import type { IGuestPickerProps } from '../types';
 
 const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -40,7 +40,7 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
   };
 
   return (
-    <Field
+    <FieldContainer
       label={strings.GuestPickerLabel}
       validationState={validationMessage ? 'error' : 'none'}
       validationMessage={validationMessage}
@@ -74,6 +74,6 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
         </TagPickerControl>
         <TagPickerList />
       </TagPicker>
-    </Field>
+    </FieldContainer>
   );
 };
