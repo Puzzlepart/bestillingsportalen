@@ -12,14 +12,14 @@
     {
       "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
       "group": { "default": "Other" },
-      "title": { "default": "Inviter gjester", "en-us": "Invite guests" },
+      "title": { "default": "Gjesteinvitasjon", "en-us": "Guest Invitation" },
       "description": {
         "default": "Inviter eksterne gjester til området og se status på tidligere invitasjoner.",
         "en-us": "Invite external guests to this site and view the status of previous invitations."
       },
       "officeFabricIconFontName": "AddFriend",
       "properties": {
-        "title": "Inviter gjester",
+        "title": "Gjesteinvitasjon",
         "guestRequestListTitle": "Guest Requests",
         "guestRequestSiteUrl": ""
       }
