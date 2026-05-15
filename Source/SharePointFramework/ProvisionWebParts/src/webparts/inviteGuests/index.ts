@@ -41,6 +41,18 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   }
 
   public render(): void {
+    // SharePoint chrome can pre-register an older Tabster instance on
+    // window.__tabsterInstance that lacks the attrHandlers Map (added in
+    // tabster v8.8). Our bundled Fluent UI v9 components then crash inside
+    // getModalizer/getGroupper with "Cannot read properties of undefined
+    // (reading 'set')". Idempotent polyfill so subsequent renders are no-ops.
+    const tabsterInstance = (
+      window as unknown as { __tabsterInstance?: { attrHandlers?: Map<string, unknown> } }
+    ).__tabsterInstance
+    if (tabsterInstance && !tabsterInstance.attrHandlers) {
+      tabsterInstance.attrHandlers = new Map()
+    }
+
     const element: React.ReactElement<IInviteGuestsProps> = React.createElement(InviteGuests, {
       title: this.properties.title,
       description: this.properties.description,

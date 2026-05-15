@@ -27,7 +27,9 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const state = useInviteGuests({ service, siteUrl, siteTitle })
 
-  const toasterId = useId('invite-guests-toaster')
+  const fluentProviderId = useId('fp-bp-guest-invite')
+  const fluentProviderToasterId = useId('fp-bp-guest-invite-toaster')
+  const toasterId = useId('bp-guest-invite-toaster-')
   const { dispatchToast } = useToastController(toasterId)
 
   const onInvite = React.useCallback(
@@ -72,7 +74,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
   )
 
   return (
-    <IdPrefixProvider value='bp-ig-'>
+    <IdPrefixProvider value={fluentProviderId}>
       <FluentProvider theme={webLightTheme}>
         <InviteGuestsContext.Provider value={contextValue}>
           <div className={styles.inviteGuests}>
@@ -94,10 +96,14 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
             <InviteStatus mode={displayMode} />
 
             <InviteDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
-            <Toaster toasterId={toasterId} position='bottom-end' />
           </div>
         </InviteGuestsContext.Provider>
       </FluentProvider>
+      <IdPrefixProvider value={fluentProviderToasterId}>
+        <FluentProvider theme={webLightTheme}>
+          <Toaster toasterId={toasterId} position='bottom-end' />
+        </FluentProvider>
+      </IdPrefixProvider>
     </IdPrefixProvider>
   )
 }
