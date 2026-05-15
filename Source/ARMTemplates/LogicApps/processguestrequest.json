@@ -147,7 +147,8 @@
                                         "method": "PATCH",
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
                                         "body": {
-                                            "Status": "Invited",
+                                            "Title": "@triggerBody()?['Title']",
+                                            "Status": { "Value": "Invited" },
                                             "GuestId": "@{outputs('Set_first_guest_result')?['GuestId']}",
                                             "InviteRedeemUrl": "@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}",
                                             "ErrorMessage": ""
@@ -198,7 +199,8 @@
                                         "method": "PATCH",
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
                                         "body": {
-                                            "Status": "Failed",
+                                            "Title": "@triggerBody()?['Title']",
+                                            "Status": { "Value": "Failed" },
                                             "ErrorMessage": "@{outputs('Compose_error_message')}"
                                         }
                                     }
