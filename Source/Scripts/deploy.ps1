@@ -876,6 +876,13 @@ function DeployARMTemplates {
 
 # Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
+function DeployLocalRunbooks {
+    Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
+    Write-Host "Finished deploying local runbooks" -ForegroundColor Green
+    Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
+}
+
 function DeployUpgradeLogicApp {
     try {
         Write-Host "### UPGRADE MODE - DEPLOYING UPGRADE LOGIC APPS ###" -ForegroundColor Yellow
@@ -1309,7 +1316,10 @@ if ($global:upgrade) {
     if (-not ([string]::IsNullOrEmpty($app))) {
         $global:appId = $app.appId
     }
-    
+
+    # Ensure new runbooks (e.g. AddGuestToSite in 1.11.0) exist BEFORE the Logic Apps
+    # that invoke them are deployed.
+    DeployLocalRunbooks
     DeployUpgradeLogicApp
 
     $spfxDeployed = $false
@@ -1361,19 +1371,13 @@ if (-not $SkipBicepDeploy) {
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
     CreateAutomationRoleAssignments
     AssignManagedIdentityPermissions
+    DeployLocalRunbooks
     Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
 }
 else {
     Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
 }
 
-# Always deploy local runbooks: even when -SkipBicepDeploy is used in upgrade mode,
-# new runbooks added in this version (e.g. AddGuestToSite in 1.11.0) must be created
-# in the Automation Account so Logic Apps can invoke them.
-Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
-az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
-Write-Host "Finished deploying local runbooks" -ForegroundColor Green
-Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
 if (-not $SkipGenerateCertificate) {
     GenerateSelfSignedCertificate
 }
