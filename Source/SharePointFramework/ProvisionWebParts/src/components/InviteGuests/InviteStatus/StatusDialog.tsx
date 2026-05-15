@@ -20,8 +20,9 @@ interface IStatusDialogProps {
 }
 
 export const StatusDialog: React.FC<IStatusDialogProps> = ({ open, onOpenChange }) => {
+  if (!open) return null
   return (
-    <Dialog modalType='non-modal' open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
+    <Dialog modalType='modal' open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
       <DialogSurface className={styles.dialogSurface}>
         <DialogBody>
           <DialogTitle

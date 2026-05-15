@@ -5,6 +5,11 @@ import * as strings from 'ProvisionWebPartsStrings'
 import styles from './WebPartTitle.module.scss'
 import type { IWebPartTitleProps } from './types'
 
+const formatTooltip = (description: string): string => {
+  const template = strings.WebPartTitleInfoLabelTitle
+  return template ? template.replace('{0}', description) : description
+}
+
 export const WebPartTitle: React.FC<IWebPartTitleProps> = ({ title, description }) => {
   if (!title && !description) return null
 
@@ -16,9 +21,7 @@ export const WebPartTitle: React.FC<IWebPartTitleProps> = ({ title, description 
         </span>
       </h2>
       {description && (
-        <div
-          className={styles.infoLabel}
-          title={strings.WebPartTitleInfoLabelTitle.replace('{0}', description)}>
+        <div className={styles.infoLabel} title={formatTooltip(description)}>
           <InfoLabel
             size='large'
             info={

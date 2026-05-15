@@ -5,7 +5,8 @@ import * as strings from 'ProvisionWebPartsStrings'
 import styles from './InviteStatus.module.scss'
 import { useInviteGuestsContext } from '../context'
 
-const format = (template: string, value: number): string => template.replace('{0}', String(value))
+const format = (template: string | undefined, value: number): string =>
+  template ? template.replace('{0}', String(value)) : String(value)
 
 export const StatusSummary: React.FC = () => {
   const ctx = useInviteGuestsContext()

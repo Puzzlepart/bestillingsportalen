@@ -9,7 +9,6 @@ import {
   TagPickerList,
   type TagPickerProps
 } from '@fluentui/react-components'
-
 import * as strings from 'ProvisionWebPartsStrings'
 import { FieldContainer } from '../../../FieldContainer'
 import type { IGuestPickerProps } from '../types'
@@ -42,6 +41,7 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
   return (
     <FieldContainer
       label={strings.GuestPickerLabel}
+      iconName='Guest'
       validationState={validationMessage ? 'error' : 'none'}
       validationMessage={validationMessage}>
       <TagPicker
