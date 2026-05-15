@@ -8,6 +8,10 @@
         <FieldRef Name="Status" />
         <FieldRef Name="SiteUrl" />
         <FieldRef Name="SiteTitle" />
+        <FieldRef Name="M365GroupRole" />
+        <FieldRef Name="SPGroupAction" />
+        <FieldRef Name="SPGroupName" />
+        <FieldRef Name="SPPermissionLevel" />
         <FieldRef Name="GuestId" />
         <FieldRef Name="ErrorMessage" />
         <FieldRef Name="RequestedBy" />
@@ -38,5 +42,29 @@
     <Field Type="Note" DisplayName="Invite Redeem Url" NumLines="3" RichText="FALSE" ID="{8176e592-b06f-4bde-df52-7e8f90123456}" StaticName="InviteRedeemUrl" Name="InviteRedeemUrl" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="Note" DisplayName="Error Message" NumLines="6" RichText="FALSE" ID="{9287f6a3-c170-4cef-e063-8f9012345678}" StaticName="ErrorMessage" Name="ErrorMessage" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{a3980b14-d281-4d01-f174-9012345678ab}" StaticName="RequestedBy" Name="RequestedBy" />
+    <Field Type="Choice" DisplayName="M365 Group Role" Format="Dropdown" FillInChoice="FALSE" ID="{b4a91c25-e392-4e12-1285-a123456789bc}" StaticName="M365GroupRole" Name="M365GroupRole">
+      <Default>Guest</Default>
+      <CHOICES>
+        <CHOICE>None</CHOICE>
+        <CHOICE>Guest</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Choice" DisplayName="SP Group Action" Format="Dropdown" FillInChoice="FALSE" ID="{c5ba2d36-f4a3-4f23-2396-b234567890cd}" StaticName="SPGroupAction" Name="SPGroupAction">
+      <Default>None</Default>
+      <CHOICES>
+        <CHOICE>None</CHOICE>
+        <CHOICE>AddToExisting</CHOICE>
+        <CHOICE>CreateNew</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Text" DisplayName="SP Group Name" MaxLength="255" ID="{d6cb3e47-05b4-4034-34a7-c34567890def}" StaticName="SPGroupName" Name="SPGroupName" />
+    <Field Type="Choice" DisplayName="SP Permission Level" Format="Dropdown" FillInChoice="FALSE" ID="{e7dc4f58-16c5-4145-45b8-d456789012ef}" StaticName="SPPermissionLevel" Name="SPPermissionLevel">
+      <CHOICES>
+        <CHOICE>Read</CHOICE>
+        <CHOICE>Contribute</CHOICE>
+        <CHOICE>Edit</CHOICE>
+        <CHOICE>Full Control</CHOICE>
+      </CHOICES>
+    </Field>
   </pnp:Fields>
 </pnp:ListInstance>

@@ -1,5 +1,10 @@
 import type { SPFI } from '@pnp/sp'
-import type { IGuestRequest, INewGuestRequest, GuestRequestStatus } from '../models/IGuestRequest'
+import type {
+  GuestRequestStatus,
+  IGuestRequest,
+  IInviteSettings,
+  INewGuestRequest
+} from '../models/IGuestRequest'
 
 const SELECT = [
   'Id',
@@ -10,6 +15,10 @@ const SELECT = [
   'GuestId',
   'InviteRedeemUrl',
   'ErrorMessage',
+  'M365GroupRole',
+  'SPGroupAction',
+  'SPGroupName',
+  'SPPermissionLevel',
   'Created',
   'Modified',
   'RequestedBy/Id',
@@ -37,7 +46,8 @@ export class GuestRequestService {
   public async createMany(
     emails: string[],
     siteUrl: string,
-    siteTitle: string
+    siteTitle: string,
+    settings: IInviteSettings
   ): Promise<IGuestRequest[]> {
     const list = this.sp.web.lists.getByTitle(this.listTitle)
     const currentUserId = (await this.sp.web.currentUser.select('Id')()).Id
@@ -48,6 +58,10 @@ export class GuestRequestService {
         SiteUrl: siteUrl,
         SiteTitle: siteTitle,
         Status: 'Pending',
+        M365GroupRole: settings.m365GroupRole,
+        SPGroupAction: settings.spGroupAction,
+        SPGroupName: settings.spGroupName,
+        SPPermissionLevel: settings.spPermissionLevel,
         RequestedById: currentUserId
       }
       const add = await list.items.add(payload)

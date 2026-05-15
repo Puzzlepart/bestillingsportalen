@@ -47,6 +47,33 @@ declare interface IProvisionWebPartsStrings {
   ToastSuccessBody: string
   ToastErrorTitle: string
   ToastErrorBody: string
+
+  M365GroupSectionTitle: string
+  M365GroupRoleGuestLabel: string
+  M365GroupRoleGuestDescription: string
+  M365GroupNotConnectedTitle: string
+  M365GroupNotConnectedDescription: string
+
+  SPGroupSectionTitle: string
+  SPGroupActionNoneLabel: string
+  SPGroupActionExistingLabel: string
+  SPGroupActionNewLabel: string
+  SPGroupExistingPickerLabel: string
+  SPGroupExistingPickerPlaceholder: string
+  SPGroupNewNameLabel: string
+  SPGroupNewNamePlaceholder: string
+  SPGroupNewPermissionLabel: string
+  SPGroupNewNameRequired: string
+
+  SPPermissionRead: string
+  SPPermissionContribute: string
+  SPPermissionEdit: string
+  SPPermissionFullControl: string
+
+  ColumnM365GroupRole: string
+  ColumnSPGroupAction: string
+  ColumnSPGroupName: string
+  ColumnSPPermissionLevel: string
 }
 
 declare module 'ProvisionWebPartsStrings' {

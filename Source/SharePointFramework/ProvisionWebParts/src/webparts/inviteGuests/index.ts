@@ -12,11 +12,12 @@ import '@pnp/sp/webs'
 import '@pnp/sp/lists'
 import '@pnp/sp/items'
 import '@pnp/sp/site-users/web'
+import '@pnp/sp/site-groups/web'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import { InviteGuests } from '../../components/InviteGuests'
 import type { IInviteGuestsProps } from '../../components/InviteGuests/types'
-import { GuestRequestService } from '../../services/GuestRequestService'
+import { GuestRequestService, SiteService } from '../../services'
 
 export interface IInviteGuestsWebPartProps {
   title: string
@@ -28,15 +29,18 @@ export interface IInviteGuestsWebPartProps {
 
 export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGuestsWebPartProps> {
   private _service!: GuestRequestService
+  private _siteService!: SiteService
 
   protected onInit(): Promise<void> {
     const targetSiteUrl =
       (this.properties.guestRequestSiteUrl || '').trim() || this.context.pageContext.web.absoluteUrl
-    const sp: SPFI = spfi(targetSiteUrl).using(SPFx(this.context))
+    const adminSp: SPFI = spfi(targetSiteUrl).using(SPFx(this.context))
     this._service = new GuestRequestService(
-      sp,
+      adminSp,
       this.properties.guestRequestListTitle || 'Guest Requests'
     )
+    const currentSp: SPFI = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
+    this._siteService = new SiteService(currentSp)
     return Promise.resolve()
   }
 
@@ -65,6 +69,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
         email: this.context.pageContext.user.email
       },
       service: this._service,
+      siteService: this._siteService,
       themeProvider: this.context.serviceScope
     })
     ReactDom.render(element, this.domElement)

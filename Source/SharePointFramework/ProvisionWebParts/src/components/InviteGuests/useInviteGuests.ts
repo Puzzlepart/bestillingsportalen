@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { GuestRequestService } from '../../services/GuestRequestService'
-import type { IGuestRequest } from '../../models/IGuestRequest'
+import type { IGuestRequest, IInviteSettings } from '../../models/IGuestRequest'
 
 interface IUseInviteGuestsArgs {
   service: GuestRequestService
@@ -13,7 +13,7 @@ interface IUseInviteGuestsResult {
   loading: boolean
   error: string | undefined
   refresh: () => Promise<void>
-  invite: (emails: string[]) => Promise<void>
+  invite: (emails: string[], settings: IInviteSettings) => Promise<void>
   retry: (itemId: number) => Promise<void>
 }
 
@@ -40,8 +40,8 @@ export function useInviteGuests({
   }, [service, siteUrl])
 
   const invite = React.useCallback(
-    async (emails: string[]): Promise<void> => {
-      const created = await service.createMany(emails, siteUrl, siteTitle)
+    async (emails: string[], settings: IInviteSettings): Promise<void> => {
+      const created = await service.createMany(emails, siteUrl, siteTitle, settings)
       setRequests((prev) => [...created, ...prev])
     },
     [service, siteUrl, siteTitle]

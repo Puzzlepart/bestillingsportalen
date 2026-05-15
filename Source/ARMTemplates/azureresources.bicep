@@ -155,6 +155,10 @@ resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks
   }
 }
 
+// AddGuestToSite and other runbooks owned by this repo are defined in runbooks.bicep
+// so they can be deployed independently in upgrade mode without re-running the full
+// azureresources stack.
+
 // Variables
 resource tenantIdVariable 'Microsoft.Automation/automationAccounts/variables@2019-06-01' = {
   parent: automationAccount

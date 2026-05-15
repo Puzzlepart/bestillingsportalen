@@ -47,6 +47,33 @@ define([], function () {
     ToastSuccessTitle: 'Invitations sent',
     ToastSuccessBody: 'The requests have been recorded and are being processed in the background.',
     ToastErrorTitle: 'Could not send invitations',
-    ToastErrorBody: 'An error occurred. Check the console for details.'
+    ToastErrorBody: 'An error occurred. Check the console for details.',
+
+    M365GroupSectionTitle: 'Role in the Microsoft 365 group',
+    M365GroupRoleGuestLabel: 'Guest (external)',
+    M365GroupRoleGuestDescription: 'The user is added as a guest to the Microsoft 365 group connected to this site. Guests have limited access and cannot share content with people outside the group. The site owner can revoke access at any time.',
+    M365GroupNotConnectedTitle: 'Not available',
+    M365GroupNotConnectedDescription: 'This site is not connected to a Microsoft 365 group. Use the SharePoint user group below to grant access.',
+
+    SPGroupSectionTitle: 'SharePoint user group (optional)',
+    SPGroupActionNoneLabel: 'Do not add to a SharePoint group',
+    SPGroupActionExistingLabel: 'Add to an existing group',
+    SPGroupActionNewLabel: 'Create a new group',
+    SPGroupExistingPickerLabel: 'Choose group',
+    SPGroupExistingPickerPlaceholder: 'Pick a SharePoint group …',
+    SPGroupNewNameLabel: 'New group name',
+    SPGroupNewNamePlaceholder: 'e.g. External collaborators',
+    SPGroupNewPermissionLabel: 'Permission level',
+    SPGroupNewNameRequired: 'Group name is required',
+
+    SPPermissionRead: 'Read',
+    SPPermissionContribute: 'Contribute',
+    SPPermissionEdit: 'Edit',
+    SPPermissionFullControl: 'Full Control',
+
+    ColumnM365GroupRole: 'M365 role',
+    ColumnSPGroupAction: 'SP group action',
+    ColumnSPGroupName: 'SP group',
+    ColumnSPPermissionLevel: 'Permission level'
   };
 });

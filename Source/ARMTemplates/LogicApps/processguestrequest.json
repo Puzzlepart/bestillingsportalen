@@ -25,6 +25,10 @@
         "guestRequestsListId": {
             "defaultValue": "",
             "type": "string"
+        },
+        "automationAccountName": {
+            "defaultValue": "",
+            "type": "string"
         }
     },
     "variables": {
@@ -154,6 +158,40 @@
                                             "ErrorMessage": ""
                                         }
                                     }
+                                },
+                                "Add_Guest_To_Site": {
+                                    "runAfter": {
+                                        "Update_item_as_Invited": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PUT",
+                                        "path": "[concat('/subscriptions/@{encodeURIComponent(''',parameters('subscriptionId'),''')}/resourceGroups/@{encodeURIComponent(''',parameters('resourceGroupName'),''')}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(''',parameters('automationAccountName'),''')}/jobs')]",
+                                        "queries": {
+                                            "runbookName": "AddGuestToSite",
+                                            "wait": true,
+                                            "x-ms-api-version": "2015-10-31"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "parameters": {
+                                                    "siteUrl": "@triggerBody()?['SiteUrl']",
+                                                    "guestEmail": "@triggerBody()?['Title']",
+                                                    "m365GroupRole": "@{triggerBody()?['M365GroupRole']?['Value']}",
+                                                    "spGroupAction": "@{triggerBody()?['SPGroupAction']?['Value']}",
+                                                    "spGroupName": "@{triggerBody()?['SPGroupName']}",
+                                                    "spPermissionLevel": "@{triggerBody()?['SPPermissionLevel']?['Value']}"
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -217,6 +255,11 @@
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-spo')]",
                                 "connectionName": "bestillingsportalen-spo",
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
+                            },
+                            "azureautomation": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-automation')]",
+                                "connectionName": "bestillingsportalen-automation",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
                             }
                         }
                     }

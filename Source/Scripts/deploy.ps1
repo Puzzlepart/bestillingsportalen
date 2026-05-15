@@ -845,7 +845,7 @@ function DeployARMTemplates {
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName"
 
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
@@ -894,7 +894,7 @@ function DeployUpgradeLogicApp {
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
@@ -1364,8 +1364,16 @@ if (-not $SkipBicepDeploy) {
     Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
 }
 else {
-    Write-Host "Skipping Bicep deployment" -ForegroundColor Yellow
+    Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
 }
+
+# Always deploy local runbooks: even when -SkipBicepDeploy is used in upgrade mode,
+# new runbooks added in this version (e.g. AddGuestToSite in 1.11.0) must be created
+# in the Automation Account so Logic Apps can invoke them.
+Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
+az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
+Write-Host "Finished deploying local runbooks" -ForegroundColor Green
+Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
 if (-not $SkipGenerateCertificate) {
     GenerateSelfSignedCertificate
 }

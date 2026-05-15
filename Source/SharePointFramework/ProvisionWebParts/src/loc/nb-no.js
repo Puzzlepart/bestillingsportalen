@@ -47,6 +47,33 @@ define([], function () {
     ToastSuccessTitle: 'Invitasjoner sendt',
     ToastSuccessBody: 'Forespørslene er registrert og behandles nå i bakgrunnen.',
     ToastErrorTitle: 'Kunne ikke sende invitasjoner',
-    ToastErrorBody: 'En feil oppstod. Sjekk konsollen for detaljer.'
+    ToastErrorBody: 'En feil oppstod. Sjekk konsollen for detaljer.',
+
+    M365GroupSectionTitle: 'Rolle i Microsoft 365-gruppen',
+    M365GroupRoleGuestLabel: 'Gjest (ekstern)',
+    M365GroupRoleGuestDescription: 'Brukeren legges til som gjest i Microsoft 365-gruppen som er koblet til området. Gjester har begrenset tilgang og kan ikke dele innhold med personer utenfor gruppen. Eier av området kan til enhver tid fjerne tilgang.',
+    M365GroupNotConnectedTitle: 'Ikke tilgjengelig',
+    M365GroupNotConnectedDescription: 'Dette området har ingen tilknyttet Microsoft 365-gruppe. Bruk SharePoint-brukergruppe nedenfor for å gi tilgang.',
+
+    SPGroupSectionTitle: 'SharePoint-brukergruppe (valgfritt)',
+    SPGroupActionNoneLabel: 'Ikke legg til i SharePoint-gruppe',
+    SPGroupActionExistingLabel: 'Legg til i eksisterende gruppe',
+    SPGroupActionNewLabel: 'Opprett ny gruppe',
+    SPGroupExistingPickerLabel: 'Velg gruppe',
+    SPGroupExistingPickerPlaceholder: 'Velg en SharePoint-gruppe …',
+    SPGroupNewNameLabel: 'Navn på ny gruppe',
+    SPGroupNewNamePlaceholder: 'F.eks. Eksterne samarbeidspartnere',
+    SPGroupNewPermissionLabel: 'Tilgangsnivå',
+    SPGroupNewNameRequired: 'Gruppenavn er påkrevd',
+
+    SPPermissionRead: 'Lesetilgang',
+    SPPermissionContribute: 'Bidra',
+    SPPermissionEdit: 'Redigering',
+    SPPermissionFullControl: 'Full kontroll',
+
+    ColumnM365GroupRole: 'M365-rolle',
+    ColumnSPGroupAction: 'SP-gruppehandling',
+    ColumnSPGroupName: 'SP-gruppe',
+    ColumnSPPermissionLevel: 'Tilgangsnivå'
   };
 });

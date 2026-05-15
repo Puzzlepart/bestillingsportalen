@@ -20,10 +20,12 @@ import { useInviteGuests } from './useInviteGuests'
 import { InviteDrawer } from './InviteDrawer'
 import { InviteStatus } from './InviteStatus'
 import { WebPartTitle } from '../WebPartTitle'
+import type { IInviteSettings } from '../../models/IGuestRequest'
 import type { IInviteGuestsProps } from './types'
 
 export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
-  const { title, description, displayMode, service, siteUrl, siteTitle, currentUser } = props
+  const { title, description, displayMode, service, siteService, siteUrl, siteTitle, currentUser } =
+    props
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const state = useInviteGuests({ service, siteUrl, siteTitle })
 
@@ -33,9 +35,9 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
   const { dispatchToast } = useToastController(toasterId)
 
   const onInvite = React.useCallback(
-    async (emails: string[]) => {
+    async (emails: string[], settings: IInviteSettings) => {
       try {
-        await state.invite(emails)
+        await state.invite(emails, settings)
         setDrawerOpen(false)
         dispatchToast(
           <Toast>
@@ -63,6 +65,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       siteTitle,
       currentUser,
       service,
+      siteService,
       requests: state.requests,
       loading: state.loading,
       error: state.error,
@@ -70,7 +73,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       invite: onInvite,
       retry: state.retry
     }),
-    [siteUrl, siteTitle, currentUser, service, state, onInvite]
+    [siteUrl, siteTitle, currentUser, service, siteService, state, onInvite]
   )
 
   return (

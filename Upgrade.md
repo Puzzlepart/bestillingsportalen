@@ -43,7 +43,14 @@ Bruk oppgraderingsmodus når du vil:
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
-3. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
+3. **Runbooks (lokale)** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
+   - Nye runbook-RESSURSER opprettes (f.eks. `AddGuestToSite` i 1.11.0)
+   - Eksisterende runbook-INNHOLD oppdateres bare hvis `publishContentLink.version` er bumpet i `runbooks.bicep`
+   - **Manuell paste for `AddGuestToSite`**: Bicep-templaten har foreløpig en placeholder-URI (ConfigureSpace.ps1) inntil dette repoet blir public. Etter førstegangs deploy må du åpne Azure Portal → Automation Account → Runbooks → `AddGuestToSite` → Edit, lime inn innhold fra [Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1), og publisere. Senere upgrade-runs beholder den manuelt-limte koden så lenge `version` ikke bumpes.
+
+4. **Upstream runbooks** (`ConfigureSpace`, `GetSiteTemplates`) — bare hvis `azureresources.bicep` deployes (IKKE med `-SkipBicepDeploy`)
+
+5. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
    - `npm install` (kun ved første gang / hvis `node_modules` mangler) + `npm run build`
    - `.sppkg` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`
@@ -69,7 +76,7 @@ Bruk oppgraderingsmodus når du vil:
 
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
-   - Runbooks
+   - Innhold i eksisterende runbooks (Bicep `publishContentLink` re-importerer kun ved bumpet version i `azureresources.bicep`)
    - Key Vault
    - Sertifikater
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)

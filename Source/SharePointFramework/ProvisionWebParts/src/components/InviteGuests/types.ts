@@ -1,6 +1,6 @@
 import type { ServiceScope } from '@microsoft/sp-core-library'
-import type { GuestRequestService } from '../../services/GuestRequestService'
-import type { IGuestRequest } from '../../models/IGuestRequest'
+import type { GuestRequestService, SiteService } from '../../services'
+import type { IGuestRequest, IInviteSettings } from '../../models/IGuestRequest'
 
 export interface ICurrentUser {
   loginName: string
@@ -18,6 +18,7 @@ export interface IInviteGuestsProps {
   siteTitle: string
   currentUser: ICurrentUser
   service: GuestRequestService
+  siteService: SiteService
   themeProvider: ServiceScope
 }
 
@@ -26,10 +27,11 @@ export interface IInviteGuestsContext {
   siteTitle: string
   currentUser: ICurrentUser
   service: GuestRequestService
+  siteService: SiteService
   requests: IGuestRequest[]
   loading: boolean
   error: string | undefined
   refresh: () => Promise<void>
-  invite: (emails: string[]) => Promise<void>
+  invite: (emails: string[], settings: IInviteSettings) => Promise<void>
   retry: (itemId: number) => Promise<void>
 }
