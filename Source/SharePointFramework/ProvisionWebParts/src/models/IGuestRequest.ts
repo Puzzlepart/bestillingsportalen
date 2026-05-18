@@ -1,6 +1,6 @@
 export type GuestRequestStatus = 'Pending' | 'Invited' | 'Failed'
 
-export type M365GroupRole = 'None' | 'Guest'
+export type M365GroupRole = 'None' | 'Visitor' | 'Member' | 'Owner'
 
 export type SPGroupAction = 'None' | 'AddToExisting' | 'CreateNew'
 

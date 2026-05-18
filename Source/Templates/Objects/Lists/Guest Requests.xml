@@ -30,7 +30,7 @@
   <pnp:Fields>
     <Field Type="Text" DisplayName="Site URL" MaxLength="255" ID="{4d3a1f5e-7c2b-4d9a-9b1e-3a4c5d6e7f80}" StaticName="SiteUrl" Name="SiteUrl" />
     <Field Type="Text" DisplayName="Site Title" MaxLength="255" ID="{5e4b2a6f-8d3c-4eab-ac2f-4b5c6d7e8f91}" StaticName="SiteTitle" Name="SiteTitle" />
-    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{6f5c3b70-9e4d-4fbc-bd30-5c6d7e8f9012}" StaticName="Status" Name="Status">
+    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{6f5c3b70-9e4d-4fbc-bd30-5c6d7e8f9012}" StaticName="Status" Name="Status" CustomFormatter="{&quot;$schema&quot;:&quot;https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json&quot;,&quot;elmType&quot;:&quot;div&quot;,&quot;style&quot;:{&quot;box-sizing&quot;:&quot;border-box&quot;,&quot;padding&quot;:&quot;0 2px&quot;,&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;},&quot;attributes&quot;:{&quot;class&quot;:{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Pending&quot;]},&quot;sp-css-backgroundColor-BgGold sp-css-borderColor-GoldFont sp-field-fontSizeSmall sp-css-color-GoldFont sp-css-color-GoldFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Invited&quot;]},&quot;sp-css-backgroundColor-BgMintGreen sp-field-fontSizeSmall sp-css-color-MintGreenFont sp-css-color-MintGreenFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Failed&quot;]},&quot;sp-css-backgroundColor-BgCoral sp-css-borderColor-CoralFont sp-field-fontSizeSmall sp-css-color-CoralFont sp-css-color-CoralFont&quot;,&quot;&quot;]}]}]}},&quot;children&quot;:[{&quot;elmType&quot;:&quot;span&quot;,&quot;style&quot;:{&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;,&quot;padding&quot;:&quot;0 3px&quot;},&quot;txtContent&quot;:&quot;[$Status]&quot;,&quot;attributes&quot;:{&quot;class&quot;:{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Pending&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-GoldFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Invited&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-MintGreenFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Failed&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-CoralFont&quot;,&quot;&quot;]}]}]}}}]}">
       <Default>Pending</Default>
       <CHOICES>
         <CHOICE>Pending</CHOICE>
@@ -43,10 +43,12 @@
     <Field Type="Note" DisplayName="Error Message" NumLines="6" RichText="FALSE" ID="{9287f6a3-c170-4cef-e063-8f9012345678}" StaticName="ErrorMessage" Name="ErrorMessage" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{a3980b14-d281-4d01-f174-9012345678ab}" StaticName="RequestedBy" Name="RequestedBy" />
     <Field Type="Choice" DisplayName="M365 Group Role" Format="Dropdown" FillInChoice="FALSE" ID="{b4a91c25-e392-4e12-1285-a123456789bc}" StaticName="M365GroupRole" Name="M365GroupRole">
-      <Default>Guest</Default>
+      <Default>Visitor</Default>
       <CHOICES>
         <CHOICE>None</CHOICE>
-        <CHOICE>Guest</CHOICE>
+        <CHOICE>Visitor</CHOICE>
+        <CHOICE>Member</CHOICE>
+        <CHOICE>Owner</CHOICE>
       </CHOICES>
     </Field>
     <Field Type="Choice" DisplayName="SP Group Action" Format="Dropdown" FillInChoice="FALSE" ID="{c5ba2d36-f4a3-4f23-2396-b234567890cd}" StaticName="SPGroupAction" Name="SPGroupAction">

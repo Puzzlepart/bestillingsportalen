@@ -51,7 +51,7 @@ Helt ny støtteliste for gjesteinvitasjon-flyten. Opprettes via PnP-templaten ([
 - InviteRedeemUrl: Innløsings-URL.
 - ErrorMessage: Feilmelding ved `Status=Failed`.
 - RequestedBy: Brukeren som initierte invitasjonen.
-- **M365GroupRole** (Choice: `None`/`Guest`): Rolle på den tilkoblede Microsoft 365-gruppen. `Guest` legger til som gjestemedlem på M365-gruppen, automatisk hoppet over hvis siten ikke er gruppe-koblet.
+- **M365GroupRole** (Choice: `None`/`Visitor`/`Member`/`Owner`, default `Visitor`): Rolle gjesten skal ha på området. På M365-gruppe-koblede områder håndteres `Owner` og `Member` via Graph (`Add-PnPMicrosoft365GroupOwner`/`Member`); `Visitor` håndteres alltid via SP `AssociatedVisitorGroup`. På klassiske/Communication-områder håndteres alle tre rollene via tilsvarende SP `AssociatedOwner`/`Member`/`VisitorGroup`.
 - **SPGroupAction** (Choice: `None`/`AddToExisting`/`CreateNew`): Hva som skal skje med en valgfri SharePoint-brukergruppe-tilføyelse.
 - **SPGroupName** (Text): Navn på eksisterende eller ny SP-gruppe (avhengig av `SPGroupAction`).
 - **SPPermissionLevel** (Choice: `Read`/`Contribute`/`Edit`/`Full Control`): Tilgangsnivå når `SPGroupAction = CreateNew`.
@@ -66,7 +66,11 @@ Steg 1 — **EnsureUser**: en fersk B2B-gjest finnes i Entra ID, men ikke i mål
 
 Steg 2 — to uavhengige tilføyelser basert på Guest Request-feltene:
 
-1. **M365-gruppe-tilføyelse** (`M365GroupRole = 'Guest'`): legger gjesten som medlem på den koblede M365-gruppen via `Add-PnPMicrosoft365GroupMember -Users $guestEmail`. Hoppes over hvis siten ikke har M365-gruppe.
+1. **Områderolle** (`M365GroupRole`): hybrid-routing basert på om siten er M365-gruppe-koblet:
+   - `None`: hopp over
+   - `Visitor`: alltid `Get-PnPGroup -AssociatedVisitorGroup` + `Add-PnPGroupMember`
+   - `Member`: gruppe-koblet → `Add-PnPMicrosoft365GroupMember -Identity $web.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedMemberGroup` + `Add-PnPGroupMember`
+   - `Owner`: gruppe-koblet → `Add-PnPMicrosoft365GroupOwner -Identity $web.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedOwnerGroup` + `Add-PnPGroupMember`
 2. **SP-gruppe-tilføyelse** (`SPGroupAction`):
    - `None`: hopp over
    - `AddToExisting`: `Get-PnPGroup -Identity <SPGroupName>` + `Add-PnPGroupMember -LoginName <ensuredLoginName> -Identity <group>`
@@ -83,6 +87,6 @@ Foreløpig peker `uri` på `pnp/provision-assist-m365`s `ConfigureSpace.ps1` som
 Nytt SPFx 1.22-prosjekt under `Source/SharePointFramework/ProvisionWebParts/` (Heft-basert toolchain, Fluent UI v9, PnPjs 4.x). Speiler mappestrukturen til Puzzlepart `prosjektportalen365` (shared `src/components/`, `src/loc/`, `src/webparts/<name>/index.ts` + `manifest.json`).
 
 - **InviteGuests-webdel**: Lar brukere invitere eksterne gjester direkte fra et SharePoint-område. UX bygget på `OverlayDrawer` + `TagPicker` (basert på PP365 `ProvisionDrawer/Guest`-mønster) og `DataGrid` for statusvisning (basert på PP365 `ProvisionStatus`-mønsteret).
-  - **`M365GroupRoleSection`**: Viser hvilken rolle gjesten får på M365-gruppen. Seksjonen skjules helt hvis siten ikke er gruppe-koblet (Communication site / klassisk).
+  - **`M365GroupRoleSection`**: Radio-velger for områderolle (`Ingen`/`Besøkende`/`Medlem`/`Eier`, default `Besøkende`). Vises alltid og fungerer på alle site-typer — runbooken håndterer hybrid-routing (Graph-cmdletene for Owner/Member på gruppe-koblede siter; SP-associated-gruppene ellers).
   - **`SPGroupSection`** (valgfritt): Radio-valg mellom "ingen", "legg til i eksisterende gruppe" (dropdown fra `SiteService.getSiteGroups`) eller "opprett ny gruppe" (navn + permission level). Default-valg: `AddToExisting` med sitens associated Visitors-gruppe pre-valgt (fra `SiteService.getSiteContext().associatedVisitorGroupTitle`), faller tilbake til `None` hvis siten mangler Visitors-gruppe.
   - **`SiteService`**: Spør gjeldende side (ikke admin-siten) om M365-gruppe-status, associated Visitors-gruppe og tilgjengelige SP-grupper. Webparten har dermed to PnPjs `SPFI`-instanser: én mot Bestillingsportalen-siten (Guest Requests-liste), én mot gjeldende site (gruppe-info).

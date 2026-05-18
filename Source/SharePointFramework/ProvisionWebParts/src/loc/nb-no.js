@@ -50,9 +50,12 @@ define([], function () {
     ToastErrorTitle: 'Kunne ikke sende invitasjoner',
     ToastErrorBody: 'En feil oppstod. Sjekk konsollen for detaljer.',
 
-    M365GroupSectionTitle: 'Rolle i Microsoft 365-gruppen',
-    M365GroupRoleGuestLabel: 'Gjest (ekstern)',
-    M365GroupRoleGuestDescription: 'Brukeren legges til som gjest i Microsoft 365-gruppen som er koblet til området. Gjester har begrenset tilgang og kan ikke dele innhold med personer utenfor gruppen. Eier av området kan til enhver tid fjerne tilgang.',
+    M365GroupSectionTitle: 'Rolle på området',
+    M365GroupRoleNoneLabel: 'Ingen rolle',
+    M365GroupRoleVisitorLabel: 'Besøkende',
+    M365GroupRoleMemberLabel: 'Medlem',
+    M365GroupRoleOwnerLabel: 'Eier',
+    M365GroupRoleSectionDescription: 'På Microsoft 365-gruppe-koblede områder håndteres Eier og Medlem via gruppen (synces automatisk); Besøkende håndteres alltid via SharePoint-gruppen. På andre områdetyper håndteres alle rollene direkte via SharePoint-gruppene.',
 
     SPGroupSectionTitle: 'SharePoint-brukergruppe (valgfritt)',
     SPGroupActionNoneLabel: 'Ikke legg til i SharePoint-gruppe',

@@ -19,9 +19,11 @@ interface IUseInviteDrawerResult {
   selected: string[]
   setSelected: (next: string[]) => void
 
-  isGroupConnected: boolean
   siteGroups: ISiteGroup[]
   loadingContext: boolean
+
+  m365GroupRole: M365GroupRole
+  setM365GroupRole: (role: M365GroupRole) => void
 
   spGroupAction: SPGroupAction
   spGroupName: string | undefined
@@ -46,9 +48,10 @@ export function useInviteDrawer({
   const [submitting, setSubmitting] = React.useState(false)
   const [submitAttempted, setSubmitAttempted] = React.useState(false)
 
-  const [isGroupConnected, setIsGroupConnected] = React.useState(false)
   const [siteGroups, setSiteGroups] = React.useState<ISiteGroup[]>([])
   const [loadingContext, setLoadingContext] = React.useState(false)
+
+  const [m365GroupRole, setM365GroupRole] = React.useState<M365GroupRole>('Visitor')
 
   const [spGroupAction, setSpGroupAction] = React.useState<SPGroupAction>('None')
   const [spGroupName, setSpGroupName] = React.useState<string | undefined>(undefined)
@@ -59,6 +62,7 @@ export function useInviteDrawer({
   React.useEffect(() => {
     if (!open) {
       setSelected([])
+      setM365GroupRole('Visitor')
       setSpGroupAction('None')
       setSpGroupName(undefined)
       setSpPermissionLevel('Read')
@@ -74,7 +78,6 @@ export function useInviteDrawer({
           ctx.siteService.getSiteGroups()
         ])
         if (cancelled) return
-        setIsGroupConnected(siteContext.isGroupConnected)
         setSiteGroups(groups)
         if (siteContext.associatedVisitorGroupTitle) {
           setSpGroupAction('AddToExisting')
@@ -111,7 +114,6 @@ export function useInviteDrawer({
     if (selected.length === 0) return
     setSubmitAttempted(true)
     if (!isSettingsValid) return
-    const m365GroupRole: M365GroupRole = isGroupConnected ? 'Guest' : 'None'
     const settings: IInviteSettings = {
       m365GroupRole,
       spGroupAction,
@@ -124,15 +126,7 @@ export function useInviteDrawer({
     } finally {
       setSubmitting(false)
     }
-  }, [
-    selected,
-    isSettingsValid,
-    isGroupConnected,
-    spGroupAction,
-    spGroupName,
-    spPermissionLevel,
-    ctx
-  ])
+  }, [selected, isSettingsValid, m365GroupRole, spGroupAction, spGroupName, spPermissionLevel, ctx])
 
   const cancel = React.useCallback(() => onOpenChange(false), [onOpenChange])
 
@@ -141,9 +135,10 @@ export function useInviteDrawer({
   return {
     selected,
     setSelected,
-    isGroupConnected,
     siteGroups,
     loadingContext,
+    m365GroupRole,
+    setM365GroupRole,
     spGroupAction,
     spGroupName,
     spPermissionLevel,

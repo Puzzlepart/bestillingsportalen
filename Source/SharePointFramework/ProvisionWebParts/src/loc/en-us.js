@@ -50,9 +50,12 @@ define([], function () {
     ToastErrorTitle: 'Could not send invitations',
     ToastErrorBody: 'An error occurred. Check the console for details.',
 
-    M365GroupSectionTitle: 'Role in the Microsoft 365 group',
-    M365GroupRoleGuestLabel: 'Guest (external)',
-    M365GroupRoleGuestDescription: 'The user is added as a guest to the Microsoft 365 group connected to this site. Guests have limited access and cannot share content with people outside the group. The site owner can revoke access at any time.',
+    M365GroupSectionTitle: 'Site role',
+    M365GroupRoleNoneLabel: 'No role',
+    M365GroupRoleVisitorLabel: 'Visitor',
+    M365GroupRoleMemberLabel: 'Member',
+    M365GroupRoleOwnerLabel: 'Owner',
+    M365GroupRoleSectionDescription: 'On Microsoft 365 group-connected sites Owner and Member are handled via the group (auto-synced); Visitor is always handled via the SharePoint group. On other site types, all roles are handled directly via the SharePoint groups.',
 
     SPGroupSectionTitle: 'SharePoint user group (optional)',
     SPGroupActionNoneLabel: 'Do not add to a SharePoint group',

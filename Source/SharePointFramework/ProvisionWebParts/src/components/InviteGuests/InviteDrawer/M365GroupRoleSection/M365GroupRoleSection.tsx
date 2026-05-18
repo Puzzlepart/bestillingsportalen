@@ -1,20 +1,34 @@
 import * as React from 'react'
-import { Badge } from '@fluentui/react-components'
-import { PersonRegular } from '@fluentui/react-icons'
+import { Radio, RadioGroup } from '@fluentui/react-components'
 
 import * as strings from 'ProvisionWebPartsStrings'
+import type { M365GroupRole } from '../../../../models/IGuestRequest'
 import styles from './M365GroupRoleSection.module.scss'
 
-export const M365GroupRoleSection: React.FC = () => {
+interface IM365GroupRoleSectionProps {
+  role: M365GroupRole
+  onChange: (role: M365GroupRole) => void
+  disabled?: boolean
+}
+
+export const M365GroupRoleSection: React.FC<IM365GroupRoleSectionProps> = ({
+  role,
+  onChange,
+  disabled
+}) => {
   return (
     <section className={styles.section}>
       <h4 className={styles.title}>{strings.M365GroupSectionTitle}</h4>
-      <div className={styles.roleRow}>
-        <Badge appearance='tint' color='informative' icon={<PersonRegular />}>
-          {strings.M365GroupRoleGuestLabel}
-        </Badge>
-      </div>
-      <p className={styles.description}>{strings.M365GroupRoleGuestDescription}</p>
+      <RadioGroup
+        value={role}
+        onChange={(_, data) => onChange(data.value as M365GroupRole)}
+        disabled={disabled}>
+        <Radio value='None' label={strings.M365GroupRoleNoneLabel} />
+        <Radio value='Visitor' label={strings.M365GroupRoleVisitorLabel} />
+        <Radio value='Member' label={strings.M365GroupRoleMemberLabel} />
+        <Radio value='Owner' label={strings.M365GroupRoleOwnerLabel} />
+      </RadioGroup>
+      <p className={styles.description}>{strings.M365GroupRoleSectionDescription}</p>
     </section>
   )
 }

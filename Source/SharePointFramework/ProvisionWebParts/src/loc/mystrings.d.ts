@@ -50,8 +50,11 @@ declare interface IProvisionWebPartsStrings {
   ToastErrorBody: string
 
   M365GroupSectionTitle: string
-  M365GroupRoleGuestLabel: string
-  M365GroupRoleGuestDescription: string
+  M365GroupRoleNoneLabel: string
+  M365GroupRoleVisitorLabel: string
+  M365GroupRoleMemberLabel: string
+  M365GroupRoleOwnerLabel: string
+  M365GroupRoleSectionDescription: string
 
   SPGroupSectionTitle: string
   SPGroupActionNoneLabel: string

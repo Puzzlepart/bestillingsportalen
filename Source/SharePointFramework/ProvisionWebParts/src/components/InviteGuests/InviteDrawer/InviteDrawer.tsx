@@ -22,9 +22,10 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
   const {
     selected,
     setSelected,
-    isGroupConnected,
     siteGroups,
     loadingContext,
+    m365GroupRole,
+    setM365GroupRole,
     spGroupAction,
     spGroupName,
     spPermissionLevel,
@@ -62,7 +63,11 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
         <div className={styles.body}>
           <p className={styles.description}>{strings.InviteDrawerDescription}</p>
           <GuestPicker selected={selected} onChange={setSelected} disabled={submitting} />
-          {isGroupConnected && <M365GroupRoleSection />}
+          <M365GroupRoleSection
+            role={m365GroupRole}
+            onChange={setM365GroupRole}
+            disabled={submitting}
+          />
           <SPGroupSection
             action={spGroupAction}
             groupName={spGroupName}
