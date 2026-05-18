@@ -1338,6 +1338,13 @@ if ($global:upgrade) {
     # Ensure new runbooks (e.g. AddGuestToSite in 1.11.0) exist BEFORE the Logic Apps
     # that invoke them are deployed.
     DeployLocalRunbooks
+
+    # Idempotent — grants Sites.FullControl.All + Group.ReadWrite.All to the
+    # automation account's system-assigned managed identity if not already
+    # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
+    # Pre-1.11.0 deploys may have skipped this in upgrade mode.
+    AssignManagedIdentityPermissions
+
     DeployUpgradeLogicApp
 
     $spfxDeployed = $false
