@@ -60,13 +60,17 @@ Helt ny støtteliste for gjesteinvitasjon-flyten. Opprettes via PnP-templaten ([
 
 ### AddGuestToSite (ny i 1.11.0)
 
-Lokal runbook ([Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1)) som kalles av `ProcessGuestRequest` Logic App etter at en gjest er invitert via Graph. Authentiserer mot SP via system-assigned managed identity (PnP). To uavhengige steg basert på Guest Request-feltene:
+Lokal runbook ([Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1)) som kalles av `ProcessGuestRequest` Logic App etter at en gjest er invitert via Graph. Authentiserer mot SP via system-assigned managed identity (PnP).
 
-1. **M365-gruppe-tilføyelse** (`M365GroupRole = 'Guest'`): legger gjesten som medlem på den koblede M365-gruppen via `Add-PnPMicrosoft365GroupMember`. Hoppes over hvis siten ikke har M365-gruppe.
+Steg 1 — **EnsureUser**: en fersk B2B-gjest finnes i Entra ID, men ikke i målsitens user info-liste. `Add-PnPUser -LoginName $guestEmail` materialiserer gjesten som SP-prinsipal og returnerer `LoginName` (claims-encoded UPN) som brukes videre. Uten dette feiler `Add-PnPGroupMember` med "Cannot bind argument to parameter 'LoginName' because it is an empty string."
+
+Steg 2 — to uavhengige tilføyelser basert på Guest Request-feltene:
+
+1. **M365-gruppe-tilføyelse** (`M365GroupRole = 'Guest'`): legger gjesten som medlem på den koblede M365-gruppen via `Add-PnPMicrosoft365GroupMember -Users $guestEmail`. Hoppes over hvis siten ikke har M365-gruppe.
 2. **SP-gruppe-tilføyelse** (`SPGroupAction`):
    - `None`: hopp over
-   - `AddToExisting`: `Add-PnPUserToGroup -Identity <SPGroupName>`
-   - `CreateNew`: `New-PnPGroup` + `Set-PnPGroupPermissions -AddRole <SPPermissionLevel>` + `Add-PnPUserToGroup`
+   - `AddToExisting`: `Get-PnPGroup -Identity <SPGroupName>` + `Add-PnPGroupMember -LoginName <ensuredLoginName> -Identity <group>`
+   - `CreateNew`: `New-PnPGroup` + `Set-PnPGroupPermissions -AddRole <SPPermissionLevel>` + `Add-PnPGroupMember`
 
 Runbook-ressursen opprettes via [Source/ARMTemplates/runbooks.bicep](Source/ARMTemplates/runbooks.bicep) (egen Bicep-fil kun for runbooks som "eies" av dette repoet — i motsetning til `ConfigureSpace`/`GetSiteTemplates` som ligger i `azureresources.bicep` og pulles fra `pnp/provision-assist-m365`). `runbooks.bicep` deployes ALLTID av `deploy.ps1`, også når `-SkipBicepDeploy` brukes i upgrade-mode, slik at nye runbooks får opprettet ressursen sin.
 
@@ -79,6 +83,6 @@ Foreløpig peker `uri` på `pnp/provision-assist-m365`s `ConfigureSpace.ps1` som
 Nytt SPFx 1.22-prosjekt under `Source/SharePointFramework/ProvisionWebParts/` (Heft-basert toolchain, Fluent UI v9, PnPjs 4.x). Speiler mappestrukturen til Puzzlepart `prosjektportalen365` (shared `src/components/`, `src/loc/`, `src/webparts/<name>/index.ts` + `manifest.json`).
 
 - **InviteGuests-webdel**: Lar brukere invitere eksterne gjester direkte fra et SharePoint-område. UX bygget på `OverlayDrawer` + `TagPicker` (basert på PP365 `ProvisionDrawer/Guest`-mønster) og `DataGrid` for statusvisning (basert på PP365 `ProvisionStatus`-mønsteret).
-  - **`M365GroupRoleSection`**: Viser hvilken rolle gjesten får på M365-gruppen. Disabled/grayed seksjon hvis siten ikke er gruppe-koblet (Communication site / klassisk).
-  - **`SPGroupSection`** (valgfritt): Radio-valg mellom "ingen", "legg til i eksisterende gruppe" (dropdown fra `SiteService.getSiteGroups`) eller "opprett ny gruppe" (navn + permission level).
-  - **`SiteService`**: Spør gjeldende side (ikke admin-siten) om M365-gruppe-status og tilgjengelige SP-grupper. Webparten har dermed to PnPjs `SPFI`-instanser: én mot Bestillingsportalen-siten (Guest Requests-liste), én mot gjeldende site (gruppe-info).
+  - **`M365GroupRoleSection`**: Viser hvilken rolle gjesten får på M365-gruppen. Seksjonen skjules helt hvis siten ikke er gruppe-koblet (Communication site / klassisk).
+  - **`SPGroupSection`** (valgfritt): Radio-valg mellom "ingen", "legg til i eksisterende gruppe" (dropdown fra `SiteService.getSiteGroups`) eller "opprett ny gruppe" (navn + permission level). Default-valg: `AddToExisting` med sitens associated Visitors-gruppe pre-valgt (fra `SiteService.getSiteContext().associatedVisitorGroupTitle`), faller tilbake til `None` hvis siten mangler Visitors-gruppe.
+  - **`SiteService`**: Spør gjeldende side (ikke admin-siten) om M365-gruppe-status, associated Visitors-gruppe og tilgjengelige SP-grupper. Webparten har dermed to PnPjs `SPFI`-instanser: én mot Bestillingsportalen-siten (Guest Requests-liste), én mot gjeldende site (gruppe-info).

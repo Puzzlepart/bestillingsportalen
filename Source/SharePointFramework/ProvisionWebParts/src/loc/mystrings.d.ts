@@ -24,6 +24,7 @@ declare interface IProvisionWebPartsStrings {
   GuestPickerLabel: string
   GuestPickerPlaceholder: string
   GuestPickerInvalidEmail: string
+  GuestPickerNoOptionsText: string
   CancelButton: string
   SendInvitationsButton: string
   RefreshButton: string
@@ -51,8 +52,6 @@ declare interface IProvisionWebPartsStrings {
   M365GroupSectionTitle: string
   M365GroupRoleGuestLabel: string
   M365GroupRoleGuestDescription: string
-  M365GroupNotConnectedTitle: string
-  M365GroupNotConnectedDescription: string
 
   SPGroupSectionTitle: string
   SPGroupActionNoneLabel: string

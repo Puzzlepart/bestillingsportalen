@@ -11,6 +11,8 @@ export interface ISiteGroup {
 export interface ISiteContext {
   isGroupConnected: boolean
   groupId?: string
+  associatedVisitorGroupId?: number
+  associatedVisitorGroupTitle?: string
 }
 
 /**
@@ -23,12 +25,20 @@ export class SiteService {
   constructor(private readonly sp: SPFI) {}
 
   public async getSiteContext(): Promise<ISiteContext> {
-    const web = (await this.sp.web.select('Id', 'GroupId')()) as {
-      Id: string
-      GroupId?: string
-    }
+    const [web, visitorGroup] = await Promise.all([
+      this.sp.web.select('Id', 'GroupId')() as Promise<{ Id: string; GroupId?: string }>,
+      this.sp.web.associatedVisitorGroup
+        .select('Id', 'Title')()
+        .then((g) => g as { Id: number; Title: string })
+        .catch(() => undefined)
+    ])
     const isGroupConnected = !!web.GroupId && web.GroupId !== '00000000-0000-0000-0000-000000000000'
-    return { isGroupConnected, groupId: isGroupConnected ? web.GroupId : undefined }
+    return {
+      isGroupConnected,
+      groupId: isGroupConnected ? web.GroupId : undefined,
+      associatedVisitorGroupId: visitorGroup?.Id,
+      associatedVisitorGroupTitle: visitorGroup?.Title
+    }
   }
 
   public async getSiteGroups(): Promise<ISiteGroup[]> {

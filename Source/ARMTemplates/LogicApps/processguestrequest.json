@@ -135,7 +135,7 @@
                                     "type": "Compose",
                                     "inputs": "@first(body('Parse_Guests_JSON'))"
                                 },
-                                "Update_item_as_Invited": {
+                                "Store_guest_info": {
                                     "runAfter": {
                                         "Set_first_guest_result": [
                                             "Succeeded"
@@ -152,7 +152,6 @@
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
                                         "body": {
                                             "Title": "@triggerBody()?['Title']",
-                                            "Status": { "Value": "Invited" },
                                             "GuestId": "@{outputs('Set_first_guest_result')?['GuestId']}",
                                             "InviteRedeemUrl": "@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}",
                                             "ErrorMessage": ""
@@ -161,7 +160,7 @@
                                 },
                                 "Add_Guest_To_Site": {
                                     "runAfter": {
-                                        "Update_item_as_Invited": [
+                                        "Store_guest_info": [
                                             "Succeeded"
                                         ]
                                     },
@@ -188,6 +187,70 @@
                                                     "spGroupAction": "@{triggerBody()?['SPGroupAction']?['Value']}",
                                                     "spGroupName": "@{triggerBody()?['SPGroupName']}",
                                                     "spPermissionLevel": "@{triggerBody()?['SPPermissionLevel']?['Value']}"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "Check_runbook_status": {
+                                    "runAfter": {
+                                        "Add_Guest_To_Site": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "If",
+                                    "expression": {
+                                        "equals": [
+                                            "@body('Add_Guest_To_Site')?['properties']?['status']",
+                                            "Failed"
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Compose_runbook_error": {
+                                            "runAfter": {},
+                                            "type": "Compose",
+                                            "inputs": "@{coalesce(body('Add_Guest_To_Site')?['properties']?['exception'], 'AddGuestToSite runbook failed without exception detail')}"
+                                        },
+                                        "Update_item_as_Runbook_Failed": {
+                                            "runAfter": {
+                                                "Compose_runbook_error": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "PATCH",
+                                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                                "body": {
+                                                    "Title": "@triggerBody()?['Title']",
+                                                    "Status": { "Value": "Failed" },
+                                                    "ErrorMessage": "@{outputs('Compose_runbook_error')}"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Update_item_as_Invited": {
+                                                "runAfter": {},
+                                                "type": "ApiConnection",
+                                                "inputs": {
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "PATCH",
+                                                    "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                                    "body": {
+                                                        "Title": "@triggerBody()?['Title']",
+                                                        "Status": { "Value": "Invited" }
+                                                    }
                                                 }
                                             }
                                         }

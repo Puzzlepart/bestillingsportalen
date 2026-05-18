@@ -15,6 +15,12 @@
          and adds the guest to it.
        - 'None' skips the SharePoint group step entirely.
 
+    NB: A freshly invited B2B guest does not yet exist in the target site's user info
+    list, so `Add-PnPGroupMember -LoginName <email>` may fail. We call CSOM
+    `Web.EnsureUser()` first (no PnP cmdlet wraps it) to materialize the guest as a
+    SharePoint principal, then pass the returned claims-encoded LoginName to the
+    group cmdlets.
+
     Authenticates via the Azure Automation account's system-assigned managed identity.
 #>
 [CmdletBinding()]
@@ -30,18 +36,39 @@ Param
 
 $ErrorActionPreference = 'Stop'
 
-Write-Output "AddGuestToSite started for $guestEmail on $siteUrl"
-Write-Output "Settings: m365GroupRole=$m365GroupRole, spGroupAction=$spGroupAction, spGroupName='$spGroupName', spPermissionLevel='$spPermissionLevel'"
+Write-Output "AddGuestToSite started for '$guestEmail' on '$siteUrl'"
+Write-Output "Settings: m365GroupRole='$m365GroupRole', spGroupAction='$spGroupAction', spGroupName='$spGroupName', spPermissionLevel='$spPermissionLevel'"
+
+if ([string]::IsNullOrWhiteSpace($siteUrl)) {
+    throw "siteUrl parameter is empty. Verify the Logic App passes 'SiteUrl' from the list item."
+}
+if ([string]::IsNullOrWhiteSpace($guestEmail)) {
+    throw "guestEmail parameter is empty. Verify the Logic App passes 'Title' from the list item."
+}
 
 try {
     Connect-PnPOnline -Url $siteUrl -ManagedIdentity
     Write-Output 'Connected to SharePoint Online'
 
+    # Materialize the guest as a SharePoint principal on this site so the group cmdlets
+    # can resolve them. PnP.PowerShell does not expose an EnsureUser cmdlet, so we drop
+    # to the underlying CSOM context. After Invoke-PnPQuery the user info entry exists
+    # and $ensuredUser.LoginName is the claims-encoded UPN we pass downstream.
+    $pnpContext = Get-PnPContext
+    $ensuredUser = $pnpContext.Web.EnsureUser($guestEmail)
+    $pnpContext.Load($ensuredUser)
+    Invoke-PnPQuery
+    if (-not $ensuredUser -or [string]::IsNullOrWhiteSpace($ensuredUser.LoginName)) {
+        throw "EnsureUser returned no LoginName for '$guestEmail' — the guest cannot be resolved on this site."
+    }
+    $guestLoginName = $ensuredUser.LoginName
+    Write-Output "Ensured guest on site. LoginName='$guestLoginName'"
+
     if ($m365GroupRole -eq 'Guest') {
         $web = Get-PnPWeb -Includes 'GroupId'
         $groupId = $web.GroupId
         if ($groupId -and $groupId -ne [Guid]::Empty) {
-            Write-Output "Adding $guestEmail as guest member of M365 group $groupId"
+            Write-Output "Adding '$guestEmail' as guest member of M365 group $groupId"
             Add-PnPMicrosoft365GroupMember -Identity $groupId -Users $guestEmail
             Write-Output 'Added to M365 group'
         }
@@ -55,8 +82,10 @@ try {
             if ([string]::IsNullOrWhiteSpace($spGroupName)) {
                 throw 'spGroupName is required when spGroupAction = AddToExisting'
             }
-            Write-Output "Adding $guestEmail to existing SharePoint group '$spGroupName'"
-            Add-PnPUserToGroup -LoginName $guestEmail -Identity $spGroupName
+            Write-Output "Resolving existing SharePoint group '$spGroupName'"
+            $group = Get-PnPGroup -Identity $spGroupName
+            Write-Output "Adding '$guestLoginName' to '$($group.Title)'"
+            Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
             Write-Output 'Added to existing SP group'
         }
         'CreateNew' {
@@ -66,17 +95,18 @@ try {
             if ([string]::IsNullOrWhiteSpace($spPermissionLevel)) {
                 throw 'spPermissionLevel is required when spGroupAction = CreateNew'
             }
-            $existing = Get-PnPGroup -Identity $spGroupName -ErrorAction SilentlyContinue
-            if ($existing) {
+            $group = Get-PnPGroup -Identity $spGroupName -ErrorAction SilentlyContinue
+            if ($group) {
                 Write-Output "SharePoint group '$spGroupName' already exists; reusing"
             }
             else {
                 Write-Output "Creating new SharePoint group '$spGroupName' with permission '$spPermissionLevel'"
-                $newGroup = New-PnPGroup -Title $spGroupName
-                Set-PnPGroupPermissions -Identity $newGroup.Title -AddRole $spPermissionLevel
+                $group = New-PnPGroup -Title $spGroupName
+                Set-PnPGroupPermissions -Identity $group.Title -AddRole $spPermissionLevel
             }
-            Add-PnPUserToGroup -LoginName $guestEmail -Identity $spGroupName
-            Write-Output "Added $guestEmail to '$spGroupName'"
+            Write-Output "Adding '$guestLoginName' to '$($group.Title)'"
+            Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
+            Write-Output "Added to '$spGroupName'"
         }
         'None' {
             Write-Output 'No SharePoint group action requested'

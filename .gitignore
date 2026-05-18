@@ -13,3 +13,5 @@ Source/SharePointFramework/**/release/
 Source/SharePointFramework/**/sharepoint/
 Source/SharePointFramework/**/*.sppkg
 Source/SharePointFramework/**/*.scss.ts
+
+Source/SharePointFramework/ProvisionWebParts/jest-output/

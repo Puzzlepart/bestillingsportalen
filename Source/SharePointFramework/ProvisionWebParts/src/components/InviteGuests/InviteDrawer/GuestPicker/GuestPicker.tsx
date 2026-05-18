@@ -7,6 +7,8 @@ import {
   TagPickerGroup,
   TagPickerInput,
   TagPickerList,
+  TagPickerOption,
+  useTagPickerFilter,
   type TagPickerProps
 } from '@fluentui/react-components'
 import * as strings from 'ProvisionWebPartsStrings'
@@ -24,19 +26,29 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
   }, [query])
 
   const onOptionSelect: TagPickerProps['onOptionSelect'] = (_e, data) => {
-    const next = data.selectedOptions.filter((v) => isValidEmail(v))
-    onChange(Array.from(new Set(next)))
+    if (data.value === 'no-matches') return
+    if (!isValidEmail(data.value)) return
+    onChange(Array.from(new Set(data.selectedOptions.filter(isValidEmail))))
     setQuery('')
   }
 
-  const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && isValidEmail(query)) {
-      e.preventDefault()
-      const next = Array.from(new Set([...selected, query.trim().toLowerCase()]))
-      onChange(next)
-      setQuery('')
-    }
-  }
+  const children = useTagPickerFilter({
+    query,
+    options: [query],
+    noOptionsElement: (
+      <TagPickerOption value='no-matches'>{strings.GuestPickerNoOptionsText}</TagPickerOption>
+    ),
+    renderOption: (option) => (
+      <TagPickerOption
+        key={option}
+        value={option}
+        media={<Avatar aria-hidden name={option} color='colorful' />}>
+        {option}
+      </TagPickerOption>
+    ),
+    filter: (option) =>
+      selected.indexOf(option) === -1 && option.toLowerCase().indexOf(query.toLowerCase()) !== -1
+  })
 
   return (
     <FieldContainer
@@ -44,11 +56,7 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
       iconName='Guest'
       validationState={validationMessage ? 'error' : 'none'}
       validationMessage={validationMessage}>
-      <TagPicker
-        selectedOptions={selected}
-        onOptionSelect={onOptionSelect}
-        disabled={disabled}
-        noPopover>
+      <TagPicker selectedOptions={selected} onOptionSelect={onOptionSelect} disabled={disabled}>
         <TagPickerControl>
           <TagPickerGroup>
             {selected.map((email) => (
@@ -65,11 +73,10 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
             placeholder={strings.GuestPickerPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
-            onKeyDown={onKeyDown}
             aria-label={strings.GuestPickerLabel}
           />
         </TagPickerControl>
-        <TagPickerList />
+        <TagPickerList>{children}</TagPickerList>
       </TagPicker>
     </FieldContainer>
   )

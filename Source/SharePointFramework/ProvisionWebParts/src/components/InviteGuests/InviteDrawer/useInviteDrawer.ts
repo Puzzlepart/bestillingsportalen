@@ -76,6 +76,10 @@ export function useInviteDrawer({
         if (cancelled) return
         setIsGroupConnected(siteContext.isGroupConnected)
         setSiteGroups(groups)
+        if (siteContext.associatedVisitorGroupTitle) {
+          setSpGroupAction('AddToExisting')
+          setSpGroupName(siteContext.associatedVisitorGroupTitle)
+        }
       } finally {
         if (!cancelled) setLoadingContext(false)
       }
