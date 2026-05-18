@@ -17,12 +17,16 @@ import '@pnp/sp/site-groups/web'
 import * as strings from 'ProvisionWebPartsStrings'
 import { InviteGuests } from '../../components/InviteGuests'
 import type { IInviteGuestsProps } from '../../components/InviteGuests/types'
-import { GuestRequestService, SiteService } from '../../services'
+import { GraphService, GuestRequestService, SiteService } from '../../services'
 
 export interface IInviteGuestsWebPartProps {
   title: string
   description: string
   displayMode: 'inline' | 'dialog'
+  inviteMode: 'Single' | 'Multi'
+  inviteAccessLevel: 'Owner' | 'Member' | 'Anyone'
+  perGuestProfileMode: 'Disabled' | 'Optional' | 'Enforced'
+  perGuestRoleMode: 'Disabled' | 'Optional' | 'Enforced'
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -30,8 +34,9 @@ export interface IInviteGuestsWebPartProps {
 export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGuestsWebPartProps> {
   private _service!: GuestRequestService
   private _siteService!: SiteService
+  private _graphService!: GraphService
 
-  protected onInit(): Promise<void> {
+  protected async onInit(): Promise<void> {
     const targetSiteUrl =
       (this.properties.guestRequestSiteUrl || '').trim() || this.context.pageContext.web.absoluteUrl
     const adminSp: SPFI = spfi(targetSiteUrl).using(SPFx(this.context))
@@ -41,7 +46,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
     )
     const currentSp: SPFI = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
     this._siteService = new SiteService(currentSp)
-    return Promise.resolve()
+    const graphClient = await this.context.msGraphClientFactory.getClient('3')
+    this._graphService = new GraphService(graphClient)
   }
 
   public render(): void {
@@ -61,6 +67,10 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       title: this.properties.title,
       description: this.properties.description,
       displayMode: this.properties.displayMode || 'dialog',
+      inviteMode: this.properties.inviteMode || 'Multi',
+      inviteAccessLevel: this.properties.inviteAccessLevel || 'Owner',
+      perGuestProfileMode: this.properties.perGuestProfileMode || 'Optional',
+      perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       currentUser: {
@@ -70,6 +80,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       },
       service: this._service,
       siteService: this._siteService,
+      graphService: this._graphService,
       themeProvider: this.context.serviceScope
     })
     ReactDom.render(element, this.domElement)
@@ -102,6 +113,37 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   options: [
                     { key: 'inline', text: strings.DisplayModeInlineLabel },
                     { key: 'dialog', text: strings.DisplayModeDialogLabel }
+                  ]
+                }),
+                PropertyPaneChoiceGroup('inviteMode', {
+                  label: strings.InviteModeFieldLabel,
+                  options: [
+                    { key: 'Single', text: strings.InviteModeSingleLabel },
+                    { key: 'Multi', text: strings.InviteModeMultiLabel }
+                  ]
+                }),
+                PropertyPaneChoiceGroup('inviteAccessLevel', {
+                  label: strings.InviteAccessLevelFieldLabel,
+                  options: [
+                    { key: 'Owner', text: strings.InviteAccessLevelOwnerLabel },
+                    { key: 'Member', text: strings.InviteAccessLevelMemberLabel },
+                    { key: 'Anyone', text: strings.InviteAccessLevelAnyoneLabel }
+                  ]
+                }),
+                PropertyPaneChoiceGroup('perGuestProfileMode', {
+                  label: strings.PerGuestProfileModeFieldLabel,
+                  options: [
+                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
+                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
+                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
+                  ]
+                }),
+                PropertyPaneChoiceGroup('perGuestRoleMode', {
+                  label: strings.PerGuestRoleModeFieldLabel,
+                  options: [
+                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
+                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
+                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
                   ]
                 }),
                 PropertyPaneTextField('guestRequestSiteUrl', {

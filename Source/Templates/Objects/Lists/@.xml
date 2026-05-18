@@ -1,15 +1,15 @@
 <pnp:Lists xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
-  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Business Units.xml" />
+  <!-- <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Business Units.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Hub Sites.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/IP Labels.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Locales.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/PnP Templates.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Request Settings.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Requests.xml" />
-  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Types.xml" />
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Types.xml" /> -->
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Guest Requests.xml" />
-  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Retention Labels.xml" />
+  <!-- <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Retention Labels.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Site Templates.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Teams Templates.xml" />
-  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Time Zones.xml" />
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Time Zones.xml" /> -->
 </pnp:Lists>

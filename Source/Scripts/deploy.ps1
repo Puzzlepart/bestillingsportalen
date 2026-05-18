@@ -771,46 +771,64 @@ function CreateAutomationRoleAssignments {
 }
 
 function AssignManagedIdentityPermissions {
-    # NEED TO ADD CODE TO CHECK IF THE PERMISSIONS EXIST FIRST
+    Write-Host "Assigning app roles to managed identity ($automationAccountName)..." -ForegroundColor Yellow
 
-    try {
-        Write-Host "Assigning SharePoint app role to managed identity" -ForegroundColor Yellow
+    $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
+    if ($null -eq $paAutoServicePrincipal) {
+        throw "Could not find service principal for automation account '$automationAccountName'. Ensure azureresources.bicep has been deployed so the system-assigned managed identity exists."
+    }
 
-        # Get service principal for the automation account
-        $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
+    $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
+    $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
 
-        $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
-        $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
+    $existing = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
 
-        # Get the app role we need to assign
-        $spoFullControlAppRole = $spoResource.AppRole | Where-Object DisplayName -eq 'Have full control of all site collections'
-        
-        # Group.ReadWrite.All
-        # TODO: Check to see that the graph role is working and is set next time we deploy
-        $graphReadWriteAppRole = $graphResource.AppRole | Where-Object DisplayName -eq 'Group.ReadWrite.All'
+    # Idempotent — checked per AppRoleId (not just per resource), so re-runs add
+    # only what's missing. Used by upgrade mode too so role grants stay in sync
+    # as the runbooks evolve (e.g. AddGuestToSite added in 1.11.0 needs Group.ReadWrite.All).
+    $rolesToGrant = @(
+        @{
+            ResourceSp  = $spoResource
+            RoleName    = 'Sites.FullControl.All'
+            DisplayName = 'Have full control of all site collections'
+        },
+        @{
+            ResourceSp  = $graphResource
+            RoleName    = 'Group.ReadWrite.All'
+            DisplayName = 'Read and write all groups'
+        }
+    )
 
-        # Get existing role assignments
-        $roles = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
-
-        # Check that the role assigments do not already exist
-        $existingSpoRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $spoResource.Id }
-        $existingGraphRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $graphResource.Id }
-
-        if ($null -eq $existingSpoRoleAssignment) {
-            # Assign SharePoint app roles to the service principal
-            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $spoFullControlAppRole.Id -ResourceId $spoResource.Id
+    foreach ($role in $rolesToGrant) {
+        if ($null -eq $role.ResourceSp) {
+            Write-Host "  WARN: Resource service principal for '$($role.RoleName)' was not found in the tenant. Skipping." -ForegroundColor Red
+            continue
         }
 
-        if ($null -eq $existingGraphRoleAssignment) {
-            # Assign Graph app roles to the service principal
-            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $graphReadWriteAppRole.Id -ResourceId $graphResource.Id
+        $appRole = $role.ResourceSp.AppRole | Where-Object { $_.Value -eq $role.RoleName -or $_.DisplayName -eq $role.DisplayName }
+        if ($null -eq $appRole) {
+            Write-Host "  WARN: Could not find app role '$($role.RoleName)' on $($role.ResourceSp.DisplayName)." -ForegroundColor Red
+            continue
         }
 
-        Write-Host "Finished assigning SharePoint and Graph app roles to managed identity" -ForegroundColor Green
+        $alreadyAssigned = $existing | Where-Object { $_.AppRoleId -eq $appRole.Id }
+        if ($null -ne $alreadyAssigned) {
+            Write-Host "  $($role.RoleName) already assigned to $($role.ResourceSp.DisplayName). Skipping." -ForegroundColor Gray
+            continue
+        }
+
+        Write-Host "  Granting $($role.RoleName) on $($role.ResourceSp.DisplayName)..." -ForegroundColor Yellow
+        try {
+            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $appRole.Id -ResourceId $role.ResourceSp.Id | Out-Null
+            Write-Host "  $($role.RoleName) granted." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  ERROR granting $($role.RoleName): $($_.Exception.Message)" -ForegroundColor Red
+            throw
+        }
     }
-    catch {
-        throw('Failed to assign graph and SharePoint app roles to the managed identity {0}', $_.Exception.Message)
-    }
+
+    Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
 }
 
 

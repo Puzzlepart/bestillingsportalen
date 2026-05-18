@@ -1,8 +1,8 @@
 import type { SPFI } from '@pnp/sp'
 import type {
   GuestRequestStatus,
+  IGuestInput,
   IGuestRequest,
-  IInviteSettings,
   INewGuestRequest
 } from '../models/IGuestRequest'
 
@@ -15,6 +15,9 @@ const SELECT = [
   'GuestId',
   'InviteRedeemUrl',
   'ErrorMessage',
+  'FirstName',
+  'LastName',
+  'Company',
   'M365GroupRole',
   'SPGroupAction',
   'SPGroupName',
@@ -44,24 +47,26 @@ export class GuestRequestService {
   }
 
   public async createMany(
-    emails: string[],
+    guests: IGuestInput[],
     siteUrl: string,
-    siteTitle: string,
-    settings: IInviteSettings
+    siteTitle: string
   ): Promise<IGuestRequest[]> {
     const list = this.sp.web.lists.getByTitle(this.listTitle)
     const currentUserId = (await this.sp.web.currentUser.select('Id')()).Id
     const results: IGuestRequest[] = []
-    for (const email of emails) {
+    for (const guest of guests) {
       const payload: INewGuestRequest = {
-        Title: email,
+        Title: guest.email,
         SiteUrl: siteUrl,
         SiteTitle: siteTitle,
         Status: 'Pending',
-        M365GroupRole: settings.m365GroupRole,
-        SPGroupAction: settings.spGroupAction,
-        SPGroupName: settings.spGroupName,
-        SPPermissionLevel: settings.spPermissionLevel,
+        FirstName: guest.firstName || undefined,
+        LastName: guest.lastName || undefined,
+        Company: guest.company || undefined,
+        M365GroupRole: guest.m365GroupRole ?? 'None',
+        SPGroupAction: guest.spGroupAction ?? 'None',
+        SPGroupName: guest.spGroupName,
+        SPPermissionLevel: guest.spPermissionLevel,
         RequestedById: currentUserId
       }
       const add = await list.items.add(payload)

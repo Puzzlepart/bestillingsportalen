@@ -5,39 +5,60 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerHeaderTitle,
+  MessageBar,
+  MessageBarBody,
   OverlayDrawer,
-  Spinner
+  Spinner,
+  Switch
 } from '@fluentui/react-components'
 import { Dismiss24Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import styles from './InviteDrawer.module.scss'
 import { GuestPicker } from './GuestPicker'
+import { GuestProfileForm } from './GuestProfileForm'
+import { GuestTabList } from './GuestTabList'
 import { M365GroupRoleSection } from './M365GroupRoleSection'
 import { SPGroupSection } from './SPGroupSection'
 import { useInviteDrawer } from './useInviteDrawer'
+import { useInviteGuestsContext } from '../context'
 import type { IInviteDrawerProps } from './types'
 
 export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange }) => {
+  const { inviteMode, perGuestProfileMode, perGuestRoleMode } = useInviteGuestsContext()
   const {
-    selected,
-    setSelected,
+    guests,
+    addGuest,
+    removeGuest,
+    updateGuest,
+    activeGuestEmail,
+    setActiveGuestEmail,
+    activeGuest,
     siteGroups,
     loadingContext,
-    m365GroupRole,
-    setM365GroupRole,
-    spGroupAction,
-    spGroupName,
-    spPermissionLevel,
-    spGroupNameValidationMessage,
-    setSpGroupAction,
-    setSpGroupName,
-    setSpPermissionLevel,
+    perGuestProfile,
+    setUserPerGuestProfile,
+    perGuestRole,
+    setUserPerGuestRole,
+    sharedM365GroupRole,
+    setSharedM365GroupRole,
+    sharedSpGroupAction,
+    sharedSpGroupName,
+    sharedSpPermissionLevel,
+    sharedSpGroupNameValidationMessage,
+    setSharedSpGroupAction,
+    setSharedSpGroupName,
+    setSharedSpPermissionLevel,
     submitting,
     submitDisabled,
     submit,
     cancel
   } = useInviteDrawer({ open, onOpenChange })
+
+  const guestEmails = React.useMemo(() => guests.map((g) => g.email), [guests])
+  const showTabList =
+    inviteMode === 'Multi' && guests.length >= 2 && (perGuestProfile || perGuestRole)
+  const showToggleRow = perGuestProfileMode === 'Optional' || perGuestRoleMode === 'Optional'
 
   return (
     <OverlayDrawer
@@ -62,24 +83,102 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
       <DrawerBody>
         <div className={styles.body}>
           <p className={styles.description}>{strings.InviteDrawerDescription}</p>
-          <GuestPicker selected={selected} onChange={setSelected} disabled={submitting} />
-          <M365GroupRoleSection
-            role={m365GroupRole}
-            onChange={setM365GroupRole}
+
+          {showToggleRow && (
+            <div className={styles.toggleRow}>
+              {perGuestProfileMode === 'Optional' && (
+                <Switch
+                  label={strings.PerGuestProfileLabel}
+                  checked={perGuestProfile}
+                  onChange={(_, d) => setUserPerGuestProfile(d.checked)}
+                  disabled={submitting}
+                />
+              )}
+              {perGuestRoleMode === 'Optional' && (
+                <Switch
+                  label={strings.PerGuestRoleLabel}
+                  checked={perGuestRole}
+                  onChange={(_, d) => setUserPerGuestRole(d.checked)}
+                  disabled={submitting}
+                />
+              )}
+            </div>
+          )}
+
+          <GuestPicker
+            mode={inviteMode}
+            guests={guestEmails}
+            onAdd={addGuest}
+            onRemove={removeGuest}
             disabled={submitting}
           />
-          <SPGroupSection
-            action={spGroupAction}
-            groupName={spGroupName}
-            permissionLevel={spPermissionLevel}
-            siteGroups={siteGroups}
-            loading={loadingContext}
-            disabled={submitting}
-            nameValidationMessage={spGroupNameValidationMessage}
-            onActionChange={setSpGroupAction}
-            onGroupNameChange={setSpGroupName}
-            onPermissionLevelChange={setSpPermissionLevel}
-          />
+
+          {showTabList && (
+            <GuestTabList
+              guests={guests}
+              activeEmail={activeGuestEmail}
+              onSelect={setActiveGuestEmail}
+            />
+          )}
+
+          {activeGuest && perGuestProfile && (
+            <GuestProfileForm
+              guest={activeGuest}
+              onChange={(partial) => updateGuest(activeGuest.email, partial)}
+              disabled={submitting}
+            />
+          )}
+
+          {activeGuest && perGuestRole && (
+            <>
+              <M365GroupRoleSection
+                role={activeGuest.m365GroupRole ?? 'Visitor'}
+                onChange={(r) => updateGuest(activeGuest.email, { m365GroupRole: r })}
+                disabled={submitting}
+              />
+              <SPGroupSection
+                action={activeGuest.spGroupAction ?? 'None'}
+                groupName={activeGuest.spGroupName}
+                permissionLevel={activeGuest.spPermissionLevel}
+                siteGroups={siteGroups}
+                loading={loadingContext}
+                disabled={submitting}
+                onActionChange={(a) =>
+                  updateGuest(activeGuest.email, { spGroupAction: a, spGroupName: undefined })
+                }
+                onGroupNameChange={(n) => updateGuest(activeGuest.email, { spGroupName: n })}
+                onPermissionLevelChange={(l) =>
+                  updateGuest(activeGuest.email, { spPermissionLevel: l })
+                }
+              />
+            </>
+          )}
+
+          {!perGuestRole && (
+            <>
+              <M365GroupRoleSection
+                role={sharedM365GroupRole}
+                onChange={setSharedM365GroupRole}
+                disabled={submitting}
+              />
+              <SPGroupSection
+                action={sharedSpGroupAction}
+                groupName={sharedSpGroupName}
+                permissionLevel={sharedSpPermissionLevel}
+                siteGroups={siteGroups}
+                loading={loadingContext}
+                disabled={submitting}
+                nameValidationMessage={sharedSpGroupNameValidationMessage}
+                onActionChange={setSharedSpGroupAction}
+                onGroupNameChange={setSharedSpGroupName}
+                onPermissionLevelChange={setSharedSpPermissionLevel}
+              />
+            </>
+          )}
+
+          <MessageBar intent='info'>
+            <MessageBarBody>{strings.AccessInfoBanner}</MessageBarBody>
+          </MessageBar>
         </div>
       </DrawerBody>
 

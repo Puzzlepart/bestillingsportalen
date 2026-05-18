@@ -1,6 +1,7 @@
 import * as React from 'react'
 import {
   Avatar,
+  Input,
   Tag,
   TagPicker,
   TagPickerControl,
@@ -9,6 +10,7 @@ import {
   TagPickerList,
   TagPickerOption,
   useTagPickerFilter,
+  type InputProps,
   type TagPickerProps
 } from '@fluentui/react-components'
 import * as strings from 'ProvisionWebPartsStrings'
@@ -17,7 +19,13 @@ import type { IGuestPickerProps } from '../types'
 
 const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
-export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, disabled }) => {
+export const GuestPicker: React.FC<IGuestPickerProps> = ({
+  mode,
+  guests,
+  onAdd,
+  onRemove,
+  disabled
+}) => {
   const [query, setQuery] = React.useState('')
 
   const validationMessage = React.useMemo(() => {
@@ -25,11 +33,55 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
     return isValidEmail(query) ? undefined : strings.GuestPickerInvalidEmail
   }, [query])
 
+  if (mode === 'Single') {
+    const value = guests[0] ?? ''
+    const onSingleChange: InputProps['onChange'] = (_e, data) => {
+      const next = (data.value || '').trim().toLowerCase()
+      if (value && value !== next) onRemove(value)
+      if (next && isValidEmail(next)) onAdd(next)
+    }
+    return (
+      <FieldContainer
+        label={strings.GuestPickerLabel}
+        iconName='Guest'
+        description={strings.GuestPickerHelperText}
+        validationState={value && !isValidEmail(value) ? 'error' : 'none'}
+        validationMessage={
+          value && !isValidEmail(value) ? strings.GuestPickerInvalidEmail : undefined
+        }>
+        <Input
+          type='email'
+          value={value}
+          onChange={onSingleChange}
+          placeholder={strings.GuestPickerPlaceholder}
+          disabled={disabled}
+        />
+      </FieldContainer>
+    )
+  }
+
   const onOptionSelect: TagPickerProps['onOptionSelect'] = (_e, data) => {
     if (data.value === 'no-matches') return
     if (!isValidEmail(data.value)) return
-    onChange(Array.from(new Set(data.selectedOptions.filter(isValidEmail))))
+    if (guests.indexOf(data.value) === -1) onAdd(data.value)
+    else onRemove(data.value)
     setQuery('')
+  }
+
+  const onMultiInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const value = e.currentTarget.value
+    if (/[,;\n]/.test(value)) {
+      const parts = value
+        .split(/[,;\n]+/)
+        .map((p) => p.trim().toLowerCase())
+        .filter((p) => p && isValidEmail(p))
+      parts.forEach((p) => {
+        if (guests.indexOf(p) === -1) onAdd(p)
+      })
+      setQuery('')
+      return
+    }
+    setQuery(value)
   }
 
   const children = useTagPickerFilter({
@@ -47,19 +99,20 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
       </TagPickerOption>
     ),
     filter: (option) =>
-      selected.indexOf(option) === -1 && option.toLowerCase().indexOf(query.toLowerCase()) !== -1
+      guests.indexOf(option) === -1 && option.toLowerCase().indexOf(query.toLowerCase()) !== -1
   })
 
   return (
     <FieldContainer
       label={strings.GuestPickerLabel}
       iconName='Guest'
+      description={strings.GuestPickerHelperText}
       validationState={validationMessage ? 'error' : 'none'}
       validationMessage={validationMessage}>
-      <TagPicker selectedOptions={selected} onOptionSelect={onOptionSelect} disabled={disabled}>
+      <TagPicker selectedOptions={guests} onOptionSelect={onOptionSelect} disabled={disabled}>
         <TagPickerControl>
           <TagPickerGroup>
-            {selected.map((email) => (
+            {guests.map((email) => (
               <Tag
                 key={email}
                 shape='rounded'
@@ -72,7 +125,7 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({ selected, onChange, d
           <TagPickerInput
             placeholder={strings.GuestPickerPlaceholder}
             value={query}
-            onChange={(e) => setQuery(e.currentTarget.value)}
+            onChange={onMultiInputChange}
             aria-label={strings.GuestPickerLabel}
           />
         </TagPickerControl>

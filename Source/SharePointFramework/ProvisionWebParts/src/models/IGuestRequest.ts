@@ -15,6 +15,9 @@ export interface IGuestRequest {
   GuestId?: string
   InviteRedeemUrl?: string
   ErrorMessage?: string
+  FirstName?: string
+  LastName?: string
+  Company?: string
   M365GroupRole?: M365GroupRole
   SPGroupAction?: SPGroupAction
   SPGroupName?: string
@@ -33,6 +36,9 @@ export interface INewGuestRequest {
   SiteUrl: string
   SiteTitle: string
   Status: GuestRequestStatus
+  FirstName?: string
+  LastName?: string
+  Company?: string
   M365GroupRole: M365GroupRole
   SPGroupAction: SPGroupAction
   SPGroupName?: string
@@ -46,3 +52,19 @@ export interface IInviteSettings {
   spGroupName?: string
   spPermissionLevel?: SPPermissionLevel
 }
+
+export interface IGuestInput {
+  email: string
+  firstName: string
+  lastName: string
+  company: string
+  exists: boolean
+  loading: boolean
+  displayName?: string
+  m365GroupRole?: M365GroupRole
+  spGroupAction?: SPGroupAction
+  spGroupName?: string
+  spPermissionLevel?: SPPermissionLevel
+}
+
+export type FeatureToggleMode = 'Disabled' | 'Optional' | 'Enforced'

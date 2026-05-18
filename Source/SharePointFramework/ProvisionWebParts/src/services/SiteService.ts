@@ -1,5 +1,7 @@
 import type { SPFI } from '@pnp/sp'
 
+export type UserAccessLevel = 'Owner' | 'Member' | 'Other'
+
 export interface ISiteGroup {
   Id: number
   Title: string
@@ -47,5 +49,31 @@ export class SiteService {
       .filter('PrincipalType eq 8')
       .top(500)()) as ISiteGroup[]
     return groups.sort((a, b) => a.Title.localeCompare(b.Title))
+  }
+
+  /**
+   * Determines current user's relationship to the site by checking membership
+   * in the associated Owner and Member groups (which on M365-group-connected
+   * sites are synced with the M365 group's Owners and Members respectively).
+   * Site collection admins are always treated as 'Owner'.
+   */
+  public async getCurrentUserAccessLevel(): Promise<UserAccessLevel> {
+    const [currentUser, ownerGroup, memberGroup] = await Promise.all([
+      this.sp.web.currentUser.select('Id', 'IsSiteAdmin')() as Promise<{
+        Id: number
+        IsSiteAdmin: boolean
+      }>,
+      this.sp.web.associatedOwnerGroup
+        .select('Id')()
+        .catch(() => undefined) as Promise<{ Id: number } | undefined>,
+      this.sp.web.associatedMemberGroup
+        .select('Id')()
+        .catch(() => undefined) as Promise<{ Id: number } | undefined>
+    ])
+    if (currentUser.IsSiteAdmin) return 'Owner'
+    const userGroups = (await this.sp.web.currentUser.groups.select('Id')()) as { Id: number }[]
+    if (ownerGroup && userGroups.some((g) => g.Id === ownerGroup.Id)) return 'Owner'
+    if (memberGroup && userGroups.some((g) => g.Id === memberGroup.Id)) return 'Member'
+    return 'Other'
   }
 }

@@ -44,6 +44,9 @@
 Helt ny støtteliste for gjesteinvitasjon-flyten. Opprettes via PnP-templaten ([Source/Templates/Objects/Lists/Guest Requests.xml](Source/Templates/Objects/Lists/Guest%20Requests.xml)) og prosesseres av `ProcessGuestRequest` Logic App. Brukes av den nye `InviteGuests`-webdelen.
 
 - Title: E-postadressen til gjesten som skal inviteres.
+- **FirstName** (Text, valgfri): Fornavn på gjesten — settes fra Graph-oppslag eller manuell input i drawer-en, sendes til Graph som `invitedUserDisplayName` (sammen med LastName).
+- **LastName** (Text, valgfri): Etternavn — samme som FirstName.
+- **Company** (Text, valgfri): Selskap/organisasjon — kun lagret som metadata på listen, ikke videre.
 - SiteUrl: URL til området gjesten skal inviteres til.
 - SiteTitle: Tittel på området (vises i invitasjons-e-posten).
 - Status: `Pending` / `Invited` / `Failed`.
@@ -69,8 +72,8 @@ Steg 2 — to uavhengige tilføyelser basert på Guest Request-feltene:
 1. **Områderolle** (`M365GroupRole`): hybrid-routing basert på om siten er M365-gruppe-koblet:
    - `None`: hopp over
    - `Visitor`: alltid `Get-PnPGroup -AssociatedVisitorGroup` + `Add-PnPGroupMember`
-   - `Member`: gruppe-koblet → `Add-PnPMicrosoft365GroupMember -Identity $web.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedMemberGroup` + `Add-PnPGroupMember`
-   - `Owner`: gruppe-koblet → `Add-PnPMicrosoft365GroupOwner -Identity $web.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedOwnerGroup` + `Add-PnPGroupMember`
+   - `Member`: gruppe-koblet → `Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedMemberGroup` + `Add-PnPGroupMember`
+   - `Owner`: gruppe-koblet → `Add-PnPMicrosoft365GroupOwner -Identity $site.GroupId -Users $guestEmail`; ellers → `Get-PnPGroup -AssociatedOwnerGroup` + `Add-PnPGroupMember`
 2. **SP-gruppe-tilføyelse** (`SPGroupAction`):
    - `None`: hopp over
    - `AddToExisting`: `Get-PnPGroup -Identity <SPGroupName>` + `Add-PnPGroupMember -LoginName <ensuredLoginName> -Identity <group>`
@@ -87,6 +90,10 @@ Foreløpig peker `uri` på `pnp/provision-assist-m365`s `ConfigureSpace.ps1` som
 Nytt SPFx 1.22-prosjekt under `Source/SharePointFramework/ProvisionWebParts/` (Heft-basert toolchain, Fluent UI v9, PnPjs 4.x). Speiler mappestrukturen til Puzzlepart `prosjektportalen365` (shared `src/components/`, `src/loc/`, `src/webparts/<name>/index.ts` + `manifest.json`).
 
 - **InviteGuests-webdel**: Lar brukere invitere eksterne gjester direkte fra et SharePoint-område. UX bygget på `OverlayDrawer` + `TagPicker` (basert på PP365 `ProvisionDrawer/Guest`-mønster) og `DataGrid` for statusvisning (basert på PP365 `ProvisionStatus`-mønsteret).
+  - **`inviteMode`-property** (`Single`/`Multi`, default `Single`): Single bruker en enkel `<Input>` for én gjest; Multi beholder TagPicker for flere e-poster. I Multi når 2+ gjester er valgt vises `<GuestTabList>` med én Tab per gjest for å redigere profil-data per gjest.
+  - **`inviteAccessLevel`-property** (`Owner`/`Member`/`Anyone`, default `Owner`): Styrer hvem som kan se Inviter-knappen. `Owner` = kun medlemmer av sitens AssociatedOwnerGroup (= M365-gruppe-eiere på gruppe-koblede siter) eller site collection admins; `Member` = også AssociatedMemberGroup; `Anyone` = alle med tilgang til området. Brukere uten tilgang ser webdelens tittel + status-liste, men ikke selve Inviter-knappen. `SiteService.getCurrentUserAccessLevel()` sjekker via `web.currentUser.groups` mot AssociatedOwner/MemberGroup-ID-ene.
+  - **`GuestProfileForm`**: Fornavn / Etternavn (to-kolonne) + Selskap/organisasjon per gjest. `Fornavn`/`Etternavn` blir readonly med "Finnes i Entra ID"-badge når Graph-oppslag finner brukeren; Selskap er alltid editerbart.
+  - **`GraphService`**: Slår opp e-post via `MSGraphClientV3` mot `/users?$filter=mail eq … or userPrincipalName eq … or otherMails/any(o:o eq …)`. Krever `User.ReadBasic.All`-permission på SPFx-løsningen (registrert i `package-solution.json`, må godkjennes i SharePoint Admin → API access etter første deploy).
   - **`M365GroupRoleSection`**: Radio-velger for områderolle (`Ingen`/`Besøkende`/`Medlem`/`Eier`, default `Besøkende`). Vises alltid og fungerer på alle site-typer — runbooken håndterer hybrid-routing (Graph-cmdletene for Owner/Member på gruppe-koblede siter; SP-associated-gruppene ellers).
   - **`SPGroupSection`** (valgfritt): Radio-valg mellom "ingen", "legg til i eksisterende gruppe" (dropdown fra `SiteService.getSiteGroups`) eller "opprett ny gruppe" (navn + permission level). Default-valg: `AddToExisting` med sitens associated Visitors-gruppe pre-valgt (fra `SiteService.getSiteContext().associatedVisitorGroupTitle`), faller tilbake til `None` hvis siten mangler Visitors-gruppe.
   - **`SiteService`**: Spør gjeldende side (ikke admin-siten) om M365-gruppe-status, associated Visitors-gruppe og tilgjengelige SP-grupper. Webparten har dermed to PnPjs `SPFI`-instanser: én mot Bestillingsportalen-siten (Guest Requests-liste), én mot gjeldende site (gruppe-info).

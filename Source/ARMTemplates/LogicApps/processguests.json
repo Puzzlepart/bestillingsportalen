@@ -68,6 +68,15 @@
                                         },
                                         "SiteUrl": {
                                             "type": "string"
+                                        },
+                                        "FirstName": {
+                                            "type": "string"
+                                        },
+                                        "LastName": {
+                                            "type": "string"
+                                        },
+                                        "Company": {
+                                            "type": "string"
                                         }
                                     },
                                     "type": "object"
@@ -285,6 +294,7 @@
                                                 "body": {
                                                     "inviteRedirectUrl": "@{triggerBody()?['SiteUrl']}",
                                                     "invitedUserEmailAddress": "@{items('Loop_through_Guests')}",
+                                                    "invitedUserDisplayName": "@{trim(concat(coalesce(triggerBody()?['FirstName'], ''), ' ', coalesce(triggerBody()?['LastName'], '')))}",
                                                     "invitedUserMessageInfo": {
                                                         "customizedMessageBody": "You have been invited to collaborate with Contoso. <a href='www.google.com'>Here is a test link</a>Please redeem the invite using the button below to access Test",
                                                         "messageLanguage": "string"

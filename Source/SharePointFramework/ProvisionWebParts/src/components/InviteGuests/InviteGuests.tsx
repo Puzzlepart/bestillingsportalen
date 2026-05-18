@@ -20,14 +20,52 @@ import { useInviteGuests } from './useInviteGuests'
 import { InviteDrawer } from './InviteDrawer'
 import { InviteStatus } from './InviteStatus'
 import { WebPartTitle } from '../WebPartTitle'
-import type { IInviteSettings } from '../../models/IGuestRequest'
+import type { IGuestInput } from '../../models/IGuestRequest'
 import type { IInviteGuestsProps } from './types'
 
 export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
-  const { title, description, displayMode, service, siteService, siteUrl, siteTitle, currentUser } =
-    props
+  const {
+    title,
+    description,
+    displayMode,
+    inviteMode,
+    inviteAccessLevel,
+    perGuestProfileMode,
+    perGuestRoleMode,
+    service,
+    siteService,
+    graphService,
+    siteUrl,
+    siteTitle,
+    currentUser
+  } = props
   const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const [canInvite, setCanInvite] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
   const state = useInviteGuests({ service, siteUrl, siteTitle })
+
+  React.useEffect(() => {
+    if (inviteAccessLevel === 'Anyone') {
+      setCanInvite(true)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const level = await siteService.getCurrentUserAccessLevel()
+        if (cancelled) return
+        const allowed =
+          inviteAccessLevel === 'Owner'
+            ? level === 'Owner'
+            : level === 'Owner' || level === 'Member'
+        setCanInvite(allowed)
+      } catch {
+        if (!cancelled) setCanInvite(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [inviteAccessLevel, siteService])
 
   const fluentProviderId = useId('fp-bp-guest-invite')
   const fluentProviderToasterId = useId('fp-bp-guest-invite-toaster')
@@ -35,9 +73,9 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
   const { dispatchToast } = useToastController(toasterId)
 
   const onInvite = React.useCallback(
-    async (emails: string[], settings: IInviteSettings) => {
+    async (guests: IGuestInput[]) => {
       try {
-        await state.invite(emails, settings)
+        await state.invite(guests)
         setDrawerOpen(false)
         dispatchToast(
           <Toast>
@@ -63,9 +101,13 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     () => ({
       siteUrl,
       siteTitle,
+      inviteMode,
+      perGuestProfileMode,
+      perGuestRoleMode,
       currentUser,
       service,
       siteService,
+      graphService,
       requests: state.requests,
       loading: state.loading,
       error: state.error,
@@ -73,7 +115,19 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       invite: onInvite,
       retry: state.retry
     }),
-    [siteUrl, siteTitle, currentUser, service, siteService, state, onInvite]
+    [
+      siteUrl,
+      siteTitle,
+      inviteMode,
+      perGuestProfileMode,
+      perGuestRoleMode,
+      currentUser,
+      service,
+      siteService,
+      graphService,
+      state,
+      onInvite
+    ]
   )
 
   return (
@@ -83,15 +137,17 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
           <div className={styles.inviteGuests}>
             <div className={styles.titleRow}>
               <WebPartTitle title={title} description={description} />
-              <Button
-                appearance='subtle'
-                icon={<PersonAdd24Regular />}
-                iconPosition='before'
-                onClick={() => setDrawerOpen(true)}
-                style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
-                aria-haspopup='dialog'>
-                {strings.InviteButton}
-              </Button>
+              {canInvite && (
+                <Button
+                  appearance='subtle'
+                  icon={<PersonAdd24Regular />}
+                  iconPosition='before'
+                  onClick={() => setDrawerOpen(true)}
+                  style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
+                  aria-haspopup='dialog'>
+                  {strings.InviteButton}
+                </Button>
+              )}
             </div>
 
             {state.error && <div className={styles.error}>{state.error}</div>}

@@ -7,6 +7,20 @@ declare interface IProvisionWebPartsStrings {
   DisplayModeFieldLabel: string
   DisplayModeInlineLabel: string
   DisplayModeDialogLabel: string
+  InviteModeFieldLabel: string
+  InviteModeSingleLabel: string
+  InviteModeMultiLabel: string
+  InviteAccessLevelFieldLabel: string
+  InviteAccessLevelOwnerLabel: string
+  InviteAccessLevelMemberLabel: string
+  InviteAccessLevelAnyoneLabel: string
+  PerGuestProfileModeFieldLabel: string
+  PerGuestRoleModeFieldLabel: string
+  FeatureModeDisabledLabel: string
+  FeatureModeOptionalLabel: string
+  FeatureModeEnforcedLabel: string
+  PerGuestProfileLabel: string
+  PerGuestRoleLabel: string
   ViewStatusButton: string
   StatusDialogTitle: string
   StatusSummaryTotal: string
@@ -25,6 +39,17 @@ declare interface IProvisionWebPartsStrings {
   GuestPickerPlaceholder: string
   GuestPickerInvalidEmail: string
   GuestPickerNoOptionsText: string
+  GuestPickerHelperText: string
+  FirstNameLabel: string
+  FirstNameDescription: string
+  LastNameLabel: string
+  LastNameDescription: string
+  CompanyLabel: string
+  CompanyDescription: string
+  GuestExistsBadge: string
+  GuestExistsMissingDetails: string
+  NoValuePlaceholder: string
+  AccessInfoBanner: string
   CancelButton: string
   SendInvitationsButton: string
   RefreshButton: string

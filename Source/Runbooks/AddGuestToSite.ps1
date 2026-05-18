@@ -32,8 +32,8 @@ Invoke-PnPQuery
 $guestLoginName = $ensuredUser.LoginName
 Write-Output "Ensured guest on site. LoginName='$guestLoginName'"
 
-$web = Get-PnPWeb -Includes 'GroupId'
-$isGroupConnected = $web.GroupId -and $web.GroupId -ne [Guid]::Empty
+$site = Get-PnPSite -Includes GroupId
+$isGroupConnected = $site.GroupId -ne [Guid]::Empty
 
 # Hybrid: on M365-group-connected sites the SP Owner/Member groups are auto-managed
 # (synced from the M365 group), so we use Graph cmdlets. Visitors is always SP-only.
@@ -49,8 +49,8 @@ switch ($m365GroupRole) {
     }
     'Member' {
         if ($isGroupConnected) {
-            Add-PnPMicrosoft365GroupMember -Identity $web.GroupId -Users $guestEmail
-            Write-Output "Added '$guestEmail' as Member to M365 group $($web.GroupId)"
+            Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestEmail
+            Write-Output "Added '$guestEmail' as Member to M365 group $($site.GroupId)"
         }
         else {
             $group = Get-PnPGroup -AssociatedMemberGroup
@@ -60,8 +60,8 @@ switch ($m365GroupRole) {
     }
     'Owner' {
         if ($isGroupConnected) {
-            Add-PnPMicrosoft365GroupOwner -Identity $web.GroupId -Users $guestEmail
-            Write-Output "Added '$guestEmail' as Owner to M365 group $($web.GroupId)"
+            Add-PnPMicrosoft365GroupOwner -Identity $site.GroupId -Users $guestEmail
+            Write-Output "Added '$guestEmail' as Owner to M365 group $($site.GroupId)"
         }
         else {
             $group = Get-PnPGroup -AssociatedOwnerGroup

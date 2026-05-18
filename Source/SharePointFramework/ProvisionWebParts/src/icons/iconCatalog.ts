@@ -1,4 +1,12 @@
-import { type FluentIcon, GuestFilled, GuestRegular } from '@fluentui/react-icons'
+import {
+  BuildingFilled,
+  BuildingRegular,
+  type FluentIcon,
+  GuestFilled,
+  GuestRegular,
+  PersonFilled,
+  PersonRegular
+} from '@fluentui/react-icons'
 
 interface IIconBundle {
   regular: FluentIcon
@@ -13,5 +21,13 @@ export const iconCatalog: Record<string, IIconBundle> = {
   Guest: {
     regular: GuestRegular,
     filled: GuestFilled
+  },
+  Person: {
+    regular: PersonRegular,
+    filled: PersonFilled
+  },
+  Building: {
+    regular: BuildingRegular,
+    filled: BuildingFilled
   }
 }
