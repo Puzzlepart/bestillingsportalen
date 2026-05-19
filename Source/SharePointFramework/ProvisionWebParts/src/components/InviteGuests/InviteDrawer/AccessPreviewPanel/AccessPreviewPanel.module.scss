@@ -1,0 +1,17 @@
+.bar {
+  align-items: flex-start;
+}
+
+.list {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.footer {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  font-style: italic;
+}

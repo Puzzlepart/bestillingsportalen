@@ -5,8 +5,6 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerHeaderTitle,
-  MessageBar,
-  MessageBarBody,
   OverlayDrawer,
   Spinner,
   Switch
@@ -15,6 +13,7 @@ import { Dismiss24Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import styles from './InviteDrawer.module.scss'
+import { AccessPreviewPanel } from './AccessPreviewPanel'
 import { GuestPicker } from './GuestPicker'
 import { GuestProfileForm } from './GuestProfileForm'
 import { GuestTabList } from './GuestTabList'
@@ -36,6 +35,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     activeGuest,
     siteGroups,
     loadingContext,
+    isGroupConnected,
     perGuestProfile,
     setUserPerGuestProfile,
     perGuestRole,
@@ -151,6 +151,13 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   updateGuest(activeGuest.email, { spPermissionLevel: l })
                 }
               />
+              <AccessPreviewPanel
+                role={activeGuest.m365GroupRole ?? 'Visitor'}
+                spGroupAction={activeGuest.spGroupAction ?? 'None'}
+                spGroupName={activeGuest.spGroupName}
+                spPermissionLevel={activeGuest.spPermissionLevel}
+                isGroupConnected={isGroupConnected}
+              />
             </>
           )}
 
@@ -173,12 +180,15 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                 onGroupNameChange={setSharedSpGroupName}
                 onPermissionLevelChange={setSharedSpPermissionLevel}
               />
+              <AccessPreviewPanel
+                role={sharedM365GroupRole}
+                spGroupAction={sharedSpGroupAction}
+                spGroupName={sharedSpGroupName}
+                spPermissionLevel={sharedSpPermissionLevel}
+                isGroupConnected={isGroupConnected}
+              />
             </>
           )}
-
-          <MessageBar intent='info'>
-            <MessageBarBody>{strings.AccessInfoBanner}</MessageBarBody>
-          </MessageBar>
         </div>
       </DrawerBody>
 

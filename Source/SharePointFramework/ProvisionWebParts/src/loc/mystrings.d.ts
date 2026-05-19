@@ -49,7 +49,19 @@ declare interface IProvisionWebPartsStrings {
   GuestExistsBadge: string
   GuestExistsMissingDetails: string
   NoValuePlaceholder: string
-  AccessInfoBanner: string
+  AccessPreviewTitle: string
+  AccessPreviewWarningFooter: string
+  AccessFullAdminGroupConnected: string
+  AccessFullAdminSiteOnly: string
+  AccessSiteEdit: string
+  AccessSiteRead: string
+  AccessNoM365: string
+  AccessTeamsMember: string
+  AccessOneNotePlannerCalendar: string
+  AccessCanInviteOthers: string
+  AccessNotGroupConnectedNote: string
+  AccessSpGroupAddTemplate: string
+  AccessSpGroupCreateTemplate: string
   CancelButton: string
   SendInvitationsButton: string
   RefreshButton: string

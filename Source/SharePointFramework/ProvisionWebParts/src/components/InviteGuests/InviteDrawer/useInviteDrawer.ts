@@ -29,6 +29,7 @@ interface IUseInviteDrawerResult {
 
   siteGroups: ISiteGroup[]
   loadingContext: boolean
+  isGroupConnected: boolean
 
   perGuestProfile: boolean
   setUserPerGuestProfile: (value: boolean) => void
@@ -84,6 +85,7 @@ export function useInviteDrawer({
 
   const [siteGroups, setSiteGroups] = React.useState<ISiteGroup[]>([])
   const [loadingContext, setLoadingContext] = React.useState(false)
+  const [isGroupConnected, setIsGroupConnected] = React.useState(false)
 
   const [userPerGuestProfile, setUserPerGuestProfile] = React.useState(false)
   const [userPerGuestRole, setUserPerGuestRole] = React.useState(false)
@@ -112,6 +114,7 @@ export function useInviteDrawer({
         ])
         if (cancelled) return
         setSiteGroups(groups)
+        setIsGroupConnected(siteContext.isGroupConnected)
         if (siteContext.associatedVisitorGroupTitle) {
           setShared((prev) => ({
             ...prev,
@@ -271,6 +274,7 @@ export function useInviteDrawer({
     activeGuest,
     siteGroups,
     loadingContext,
+    isGroupConnected,
     perGuestProfile,
     setUserPerGuestProfile,
     perGuestRole,
