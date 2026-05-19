@@ -48,7 +48,7 @@ define([], function () {
     CompanyLabel: 'Company / organization',
     CompanyDescription: 'The company or organization the guest represents.',
     GuestExistsBadge: 'Exists in Entra ID',
-    GuestExistsMissingDetails: 'Exists in Entra ID, but missing first name and/or last name. Ask an administrator to update the user profile.',
+    GuestExistsMissingDetails: 'Exists in Entra ID, but missing first name and/or last name. Ask an administrator to update the user profile if needed.',
     NoValuePlaceholder: 'No value',
     AccessPreviewTitle: 'Access the guest will receive:',
     AccessPreviewWarningFooter: 'Consider whether this is necessary — a more limited role gives safer external access.',

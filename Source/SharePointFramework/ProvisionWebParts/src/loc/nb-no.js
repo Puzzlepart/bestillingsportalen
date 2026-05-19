@@ -48,7 +48,7 @@ define([], function () {
     CompanyLabel: 'Selskap / organisasjon',
     CompanyDescription: 'Selskapet eller organisasjonen gjesten representerer.',
     GuestExistsBadge: 'Finnes i Entra ID',
-    GuestExistsMissingDetails: 'Finnes i Entra ID, men mangler fornavn og/eller etternavn. Be en administrator om å oppdatere brukerens profil.',
+    GuestExistsMissingDetails: 'Finnes i Entra ID, men mangler fornavn og/eller etternavn. Be en administrator om å oppdatere brukerens profil dersom nødvendig.',
     NoValuePlaceholder: 'Ingen verdi',
     AccessPreviewTitle: 'Tilgang gjesten får:',
     AccessPreviewWarningFooter: 'Vurder om dette er nødvendig — en mer begrenset rolle gir tryggere ekstern tilgang.',

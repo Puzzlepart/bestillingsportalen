@@ -27,17 +27,20 @@ export class SiteService {
   constructor(private readonly sp: SPFI) {}
 
   public async getSiteContext(): Promise<ISiteContext> {
-    const [web, visitorGroup] = await Promise.all([
-      this.sp.web.select('Id', 'GroupId')() as Promise<{ Id: string; GroupId?: string }>,
+    // GroupId lives on the Site object (not Web). Selecting it from web returns
+    // undefined silently — has bitten us before in the AddGuestToSite runbook.
+    const [site, visitorGroup] = await Promise.all([
+      this.sp.site.select('GroupId')() as Promise<{ GroupId?: string }>,
       this.sp.web.associatedVisitorGroup
         .select('Id', 'Title')()
         .then((g) => g as { Id: number; Title: string })
         .catch(() => undefined)
     ])
-    const isGroupConnected = !!web.GroupId && web.GroupId !== '00000000-0000-0000-0000-000000000000'
+    const isGroupConnected =
+      !!site.GroupId && site.GroupId !== '00000000-0000-0000-0000-000000000000'
     return {
       isGroupConnected,
-      groupId: isGroupConnected ? web.GroupId : undefined,
+      groupId: isGroupConnected ? site.GroupId : undefined,
       associatedVisitorGroupId: visitorGroup?.Id,
       associatedVisitorGroupTitle: visitorGroup?.Title
     }
