@@ -65,6 +65,8 @@ define([], function () {
     ColumnRequestedBy: 'Forespurt av',
     ColumnCreated: 'Sendt',
     ColumnError: 'Feilmelding',
+    CopyRedeemUrlLabel: 'Kopier invitasjonslenke',
+    CopyRedeemUrlCopied: 'Kopiert!',
 
     StatusPending: 'Venter',
     StatusInvited: 'Invitert',

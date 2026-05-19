@@ -73,11 +73,6 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
-      currentUser: {
-        loginName: this.context.pageContext.user.loginName,
-        displayName: this.context.pageContext.user.displayName,
-        email: this.context.pageContext.user.email
-      },
       service: this._service,
       siteService: this._siteService,
       graphService: this._graphService,

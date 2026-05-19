@@ -15,9 +15,8 @@ import {
 } from '@fluentui/react-components'
 import * as strings from 'ProvisionWebPartsStrings'
 import { FieldContainer } from '../../../FieldContainer'
+import { isValidEmail } from '../../../../utils'
 import type { IGuestPickerProps } from '../types'
-
-const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
 export const GuestPicker: React.FC<IGuestPickerProps> = ({
   mode,

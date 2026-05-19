@@ -65,6 +65,8 @@ define([], function () {
     ColumnRequestedBy: 'Requested by',
     ColumnCreated: 'Sent',
     ColumnError: 'Error',
+    CopyRedeemUrlLabel: 'Copy invitation link',
+    CopyRedeemUrlCopied: 'Copied!',
 
     StatusPending: 'Pending',
     StatusInvited: 'Invited',

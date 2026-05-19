@@ -64,6 +64,8 @@ declare interface IProvisionWebPartsStrings {
   ColumnRequestedBy: string
   ColumnCreated: string
   ColumnError: string
+  CopyRedeemUrlLabel: string
+  CopyRedeemUrlCopied: string
 
   StatusPending: string
   StatusInvited: string

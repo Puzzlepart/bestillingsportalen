@@ -10,6 +10,7 @@ import type {
   SPPermissionLevel
 } from '../../../models/IGuestRequest'
 import type { ISiteGroup } from '../../../services'
+import { isValidEmail } from '../../../utils'
 
 interface IUseInviteDrawerArgs {
   open: boolean
@@ -51,12 +52,24 @@ interface IUseInviteDrawerResult {
   cancel: () => void
 }
 
-const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
-
 const resolveToggle = (mode: FeatureToggleMode, userValue: boolean): boolean => {
   if (mode === 'Enforced') return true
   if (mode === 'Disabled') return false
   return userValue
+}
+
+interface ISharedSettings {
+  m365GroupRole: M365GroupRole
+  spGroupAction: SPGroupAction
+  spGroupName: string | undefined
+  spPermissionLevel: SPPermissionLevel | undefined
+}
+
+const INITIAL_SHARED: ISharedSettings = {
+  m365GroupRole: 'Visitor',
+  spGroupAction: 'None',
+  spGroupName: undefined,
+  spPermissionLevel: 'Read'
 }
 
 export function useInviteDrawer({
@@ -77,12 +90,7 @@ export function useInviteDrawer({
   const perGuestProfile = resolveToggle(ctx.perGuestProfileMode, userPerGuestProfile)
   const perGuestRole = resolveToggle(ctx.perGuestRoleMode, userPerGuestRole)
 
-  const [sharedM365GroupRole, setSharedM365GroupRole] = React.useState<M365GroupRole>('Visitor')
-  const [sharedSpGroupAction, setSharedSpGroupAction] = React.useState<SPGroupAction>('None')
-  const [sharedSpGroupName, setSharedSpGroupName] = React.useState<string | undefined>(undefined)
-  const [sharedSpPermissionLevel, setSharedSpPermissionLevel] = React.useState<
-    SPPermissionLevel | undefined
-  >('Read')
+  const [shared, setShared] = React.useState<ISharedSettings>(INITIAL_SHARED)
 
   React.useEffect(() => {
     if (!open) {
@@ -90,10 +98,7 @@ export function useInviteDrawer({
       setActiveGuestEmail(undefined)
       setUserPerGuestProfile(false)
       setUserPerGuestRole(false)
-      setSharedM365GroupRole('Visitor')
-      setSharedSpGroupAction('None')
-      setSharedSpGroupName(undefined)
-      setSharedSpPermissionLevel('Read')
+      setShared(INITIAL_SHARED)
       setSubmitAttempted(false)
       return
     }
@@ -108,8 +113,11 @@ export function useInviteDrawer({
         if (cancelled) return
         setSiteGroups(groups)
         if (siteContext.associatedVisitorGroupTitle) {
-          setSharedSpGroupAction('AddToExisting')
-          setSharedSpGroupName(siteContext.associatedVisitorGroupTitle)
+          setShared((prev) => ({
+            ...prev,
+            spGroupAction: 'AddToExisting',
+            spGroupName: siteContext.associatedVisitorGroupTitle
+          }))
         }
       } finally {
         if (!cancelled) setLoadingContext(false)
@@ -179,19 +187,30 @@ export function useInviteDrawer({
     [guests, activeGuestEmail]
   )
 
-  const onSharedSpGroupActionChange = React.useCallback((action: SPGroupAction) => {
-    setSharedSpGroupAction(action)
-    setSharedSpGroupName(undefined)
+  const setSharedM365GroupRole = React.useCallback((m365GroupRole: M365GroupRole) => {
+    setShared((prev) => ({ ...prev, m365GroupRole }))
+  }, [])
+
+  const setSharedSpGroupAction = React.useCallback((spGroupAction: SPGroupAction) => {
+    setShared((prev) => ({ ...prev, spGroupAction, spGroupName: undefined }))
     setSubmitAttempted(false)
+  }, [])
+
+  const setSharedSpGroupName = React.useCallback((spGroupName: string | undefined) => {
+    setShared((prev) => ({ ...prev, spGroupName }))
+  }, [])
+
+  const setSharedSpPermissionLevel = React.useCallback((spPermissionLevel: SPPermissionLevel) => {
+    setShared((prev) => ({ ...prev, spPermissionLevel }))
   }, [])
 
   const sharedSpGroupNameValidationMessage = React.useMemo(() => {
     if (!submitAttempted) return undefined
     if (perGuestRole) return undefined
-    if (sharedSpGroupAction === 'None') return undefined
-    if (!sharedSpGroupName || !sharedSpGroupName.trim()) return strings.SPGroupNewNameRequired
+    if (shared.spGroupAction === 'None') return undefined
+    if (!shared.spGroupName || !shared.spGroupName.trim()) return strings.SPGroupNewNameRequired
     return undefined
-  }, [submitAttempted, perGuestRole, sharedSpGroupAction, sharedSpGroupName])
+  }, [submitAttempted, perGuestRole, shared.spGroupAction, shared.spGroupName])
 
   const isSettingsValid = React.useMemo(() => {
     if (perGuestRole) {
@@ -201,9 +220,9 @@ export function useInviteDrawer({
         return !!g.spGroupName && g.spGroupName.trim().length > 0
       })
     }
-    if (sharedSpGroupAction === 'None') return true
-    return !!sharedSpGroupName && sharedSpGroupName.trim().length > 0
-  }, [perGuestRole, guests, sharedSpGroupAction, sharedSpGroupName])
+    if (shared.spGroupAction === 'None') return true
+    return !!shared.spGroupName && shared.spGroupName.trim().length > 0
+  }, [perGuestRole, guests, shared.spGroupAction, shared.spGroupName])
 
   const submit = React.useCallback(async (): Promise<void> => {
     if (guests.length === 0) return
@@ -222,11 +241,11 @@ export function useInviteDrawer({
               g.spGroupAction === 'CreateNew' ? (g.spPermissionLevel ?? 'Read') : undefined
           }
         : {
-            m365GroupRole: sharedM365GroupRole,
-            spGroupAction: sharedSpGroupAction,
-            spGroupName: sharedSpGroupAction !== 'None' ? sharedSpGroupName : undefined,
+            m365GroupRole: shared.m365GroupRole,
+            spGroupAction: shared.spGroupAction,
+            spGroupName: shared.spGroupAction !== 'None' ? shared.spGroupName : undefined,
             spPermissionLevel:
-              sharedSpGroupAction === 'CreateNew' ? sharedSpPermissionLevel : undefined
+              shared.spGroupAction === 'CreateNew' ? shared.spPermissionLevel : undefined
           }
       return { ...g, ...profile, ...role }
     })
@@ -236,17 +255,7 @@ export function useInviteDrawer({
     } finally {
       setSubmitting(false)
     }
-  }, [
-    guests,
-    isSettingsValid,
-    perGuestProfile,
-    perGuestRole,
-    sharedM365GroupRole,
-    sharedSpGroupAction,
-    sharedSpGroupName,
-    sharedSpPermissionLevel,
-    ctx
-  ])
+  }, [guests, isSettingsValid, perGuestProfile, perGuestRole, shared, ctx])
 
   const cancel = React.useCallback(() => onOpenChange(false), [onOpenChange])
 
@@ -266,13 +275,13 @@ export function useInviteDrawer({
     setUserPerGuestProfile,
     perGuestRole,
     setUserPerGuestRole,
-    sharedM365GroupRole,
+    sharedM365GroupRole: shared.m365GroupRole,
     setSharedM365GroupRole,
-    sharedSpGroupAction,
-    sharedSpGroupName,
-    sharedSpPermissionLevel,
+    sharedSpGroupAction: shared.spGroupAction,
+    sharedSpGroupName: shared.spGroupName,
+    sharedSpPermissionLevel: shared.spPermissionLevel,
     sharedSpGroupNameValidationMessage,
-    setSharedSpGroupAction: onSharedSpGroupActionChange,
+    setSharedSpGroupAction,
     setSharedSpGroupName,
     setSharedSpPermissionLevel,
     submitting,

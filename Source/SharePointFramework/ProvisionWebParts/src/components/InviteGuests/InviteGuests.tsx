@@ -36,8 +36,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     siteService,
     graphService,
     siteUrl,
-    siteTitle,
-    currentUser
+    siteTitle
   } = props
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [canInvite, setCanInvite] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
@@ -104,7 +103,6 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       inviteMode,
       perGuestProfileMode,
       perGuestRoleMode,
-      currentUser,
       service,
       siteService,
       graphService,
@@ -121,7 +119,6 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       inviteMode,
       perGuestProfileMode,
       perGuestRoleMode,
-      currentUser,
       service,
       siteService,
       graphService,

@@ -81,7 +81,138 @@
                         }
                     },
                     "actions": {
+                        "Get_Owner_Group_Users": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "method": "GET",
+                                    "uri": "_api/web/associatedOwnerGroup/users?$select=Email"
+                                },
+                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(triggerBody()?[',variables('singlequote'),'SiteUrl',variables('singlequote'),']))}/httprequest')]",
+                                "headers": {
+                                    "Accept": "application/json; odata=nometadata"
+                                }
+                            }
+                        },
+                        "Get_Member_Group_Users": {
+                            "runAfter": {
+                                "Get_Owner_Group_Users": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "method": "GET",
+                                    "uri": "_api/web/associatedMemberGroup/users?$select=Email"
+                                },
+                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(triggerBody()?[',variables('singlequote'),'SiteUrl',variables('singlequote'),']))}/httprequest')]",
+                                "headers": {
+                                    "Accept": "application/json; odata=nometadata"
+                                }
+                            }
+                        },
+                        "Select_Owner_Emails": {
+                            "runAfter": {
+                                "Get_Member_Group_Users": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@coalesce(body('Get_Owner_Group_Users')?['value'], json('[]'))",
+                                "select": "@toLower(coalesce(item()?['Email'], ''))"
+                            }
+                        },
+                        "Select_Member_Emails": {
+                            "runAfter": {
+                                "Select_Owner_Emails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@coalesce(body('Get_Member_Group_Users')?['value'], json('[]'))",
+                                "select": "@toLower(coalesce(item()?['Email'], ''))"
+                            }
+                        },
+                        "Compose_Authorized_Emails": {
+                            "runAfter": {
+                                "Select_Member_Emails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": "@union(body('Select_Owner_Emails'), body('Select_Member_Emails'))"
+                        },
+                        "Authorization_Guard": {
+                            "runAfter": {
+                                "Compose_Authorized_Emails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "If",
+                            "expression": {
+                                "not": [
+                                    {
+                                        "contains": [
+                                            "@outputs('Compose_Authorized_Emails')",
+                                            "@toLower(coalesce(triggerBody()?['RequestedBy']?['Email'], ''))"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "actions": {
+                                "Update_item_as_NotAuthorized": {
+                                    "runAfter": {},
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                        "body": {
+                                            "Title": "@triggerBody()?['Title']",
+                                            "Status": { "Value": "Failed" },
+                                            "ErrorMessage": "Forespurt av @{triggerBody()?['RequestedBy']?['Email']} som ikke er medlem av Owner- eller Member-gruppen på området. Invitasjon avvist."
+                                        }
+                                    }
+                                },
+                                "Terminate_unauthorized": {
+                                    "runAfter": {
+                                        "Update_item_as_NotAuthorized": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Succeeded"
+                                    }
+                                }
+                            }
+                        },
                         "Try": {
+                            "runAfter": {
+                                "Authorization_Guard": [
+                                    "Succeeded"
+                                ]
+                            },
                             "type": "Scope",
                             "actions": {
                                 "Process_Guests": {

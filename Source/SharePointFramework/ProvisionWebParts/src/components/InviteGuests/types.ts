@@ -2,12 +2,6 @@ import type { ServiceScope } from '@microsoft/sp-core-library'
 import type { GraphService, GuestRequestService, SiteService } from '../../services'
 import type { FeatureToggleMode, IGuestInput, IGuestRequest } from '../../models/IGuestRequest'
 
-export interface ICurrentUser {
-  loginName: string
-  displayName: string
-  email: string
-}
-
 export type InviteStatusDisplayMode = 'inline' | 'dialog'
 
 export type InviteMode = 'Single' | 'Multi'
@@ -24,7 +18,6 @@ export interface IInviteGuestsProps {
   perGuestRoleMode: FeatureToggleMode
   siteUrl: string
   siteTitle: string
-  currentUser: ICurrentUser
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService
@@ -37,7 +30,6 @@ export interface IInviteGuestsContext {
   inviteMode: InviteMode
   perGuestProfileMode: FeatureToggleMode
   perGuestRoleMode: FeatureToggleMode
-  currentUser: ICurrentUser
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService

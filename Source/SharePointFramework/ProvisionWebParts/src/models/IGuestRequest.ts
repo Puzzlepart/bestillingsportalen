@@ -46,13 +46,6 @@ export interface INewGuestRequest {
   RequestedById?: number
 }
 
-export interface IInviteSettings {
-  m365GroupRole: M365GroupRole
-  spGroupAction: SPGroupAction
-  spGroupName?: string
-  spPermissionLevel?: SPPermissionLevel
-}
-
 export interface IGuestInput {
   email: string
   firstName: string
@@ -60,6 +53,7 @@ export interface IGuestInput {
   company: string
   exists: boolean
   loading: boolean
+  /** UI-only: returned from Graph lookup and shown in GuestTabList tab label. Never persisted to the list. */
   displayName?: string
   m365GroupRole?: M365GroupRole
   spGroupAction?: SPGroupAction
