@@ -22,6 +22,7 @@ define([], function () {
     FeatureModeEnforcedLabel: 'Påkrevd (alltid på)',
     PerGuestProfileLabel: 'Detaljer per gjest',
     PerGuestRoleLabel: 'Rolle og brukergruppe per gjest',
+    ViewSettingsLabel: 'Visningsvalg',
     ViewStatusButton: 'Se invitasjonsstatus',
     StatusDialogTitle: 'Invitasjonsstatus',
     StatusSummaryTotal: '{0} totalt',

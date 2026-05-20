@@ -1,15 +1,19 @@
 import * as React from 'react'
 import {
   Button,
+  CounterBadge,
   DrawerBody,
   DrawerFooter,
   DrawerHeader,
   DrawerHeaderTitle,
   OverlayDrawer,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
   Spinner,
   Switch
 } from '@fluentui/react-components'
-import { Dismiss24Regular } from '@fluentui/react-icons'
+import { Dismiss24Regular, Options24Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import styles from './InviteDrawer.module.scss'
@@ -59,6 +63,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
   const showTabList =
     inviteMode === 'Multi' && guests.length >= 2 && (perGuestProfile || perGuestRole)
   const showToggleRow = perGuestProfileMode === 'Optional' || perGuestRoleMode === 'Optional'
+  const activeToggleCount = (perGuestProfile ? 1 : 0) + (perGuestRole ? 1 : 0)
 
   return (
     <OverlayDrawer
@@ -69,12 +74,53 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
       <DrawerHeader>
         <DrawerHeaderTitle
           action={
-            <Button
-              appearance='subtle'
-              aria-label={strings.CancelButton}
-              icon={<Dismiss24Regular />}
-              onClick={cancel}
-            />
+            <div className={styles.headerActions}>
+              {showToggleRow && (
+                <Popover>
+                  <PopoverTrigger>
+                    <Button
+                      appearance='subtle'
+                      icon={<Options24Regular />}
+                      aria-label={strings.ViewSettingsLabel}>
+                      {activeToggleCount > 0 && (
+                        <CounterBadge
+                          count={activeToggleCount}
+                          size='small'
+                          appearance='filled'
+                          color='brand'
+                        />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverSurface>
+                    <div className={styles.popoverBody}>
+                      {perGuestProfileMode === 'Optional' && (
+                        <Switch
+                          label={strings.PerGuestProfileLabel}
+                          checked={perGuestProfile}
+                          onChange={(_, d) => setUserPerGuestProfile(d.checked)}
+                          disabled={submitting}
+                        />
+                      )}
+                      {perGuestRoleMode === 'Optional' && (
+                        <Switch
+                          label={strings.PerGuestRoleLabel}
+                          checked={perGuestRole}
+                          onChange={(_, d) => setUserPerGuestRole(d.checked)}
+                          disabled={submitting}
+                        />
+                      )}
+                    </div>
+                  </PopoverSurface>
+                </Popover>
+              )}
+              <Button
+                appearance='subtle'
+                aria-label={strings.CancelButton}
+                icon={<Dismiss24Regular />}
+                onClick={cancel}
+              />
+            </div>
           }>
           {strings.InviteDrawerHeader}
         </DrawerHeaderTitle>
@@ -83,27 +129,6 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
       <DrawerBody>
         <div className={styles.body}>
           <p className={styles.description}>{strings.InviteDrawerDescription}</p>
-
-          {showToggleRow && (
-            <div className={styles.toggleRow}>
-              {perGuestProfileMode === 'Optional' && (
-                <Switch
-                  label={strings.PerGuestProfileLabel}
-                  checked={perGuestProfile}
-                  onChange={(_, d) => setUserPerGuestProfile(d.checked)}
-                  disabled={submitting}
-                />
-              )}
-              {perGuestRoleMode === 'Optional' && (
-                <Switch
-                  label={strings.PerGuestRoleLabel}
-                  checked={perGuestRole}
-                  onChange={(_, d) => setUserPerGuestRole(d.checked)}
-                  disabled={submitting}
-                />
-              )}
-            </div>
-          )}
 
           <GuestPicker
             mode={inviteMode}

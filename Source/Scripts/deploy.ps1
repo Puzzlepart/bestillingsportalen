@@ -785,7 +785,10 @@ function AssignManagedIdentityPermissions {
 
     # Idempotent — checked per AppRoleId (not just per resource), so re-runs add
     # only what's missing. Used by upgrade mode too so role grants stay in sync
-    # as the runbooks evolve (e.g. AddGuestToSite added in 1.11.0 needs Group.ReadWrite.All).
+    # as the runbooks evolve. AddGuestToSite needs Group.ReadWrite.All (mutate group
+    # membership) AND User.Read.All (Add-PnPMicrosoft365GroupMember resolves the
+    # guest by email via GET /users/{email} before posting members/$ref — without
+    # User.Read.All this lookup returns 403 Insufficient privileges).
     $rolesToGrant = @(
         @{
             ResourceSp  = $spoResource
@@ -796,6 +799,11 @@ function AssignManagedIdentityPermissions {
             ResourceSp  = $graphResource
             RoleName    = 'Group.ReadWrite.All'
             DisplayName = 'Read and write all groups'
+        },
+        @{
+            ResourceSp  = $graphResource
+            RoleName    = 'User.Read.All'
+            DisplayName = "Read all users' full profiles"
         }
     )
 
@@ -863,7 +871,7 @@ function DeployARMTemplates {
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
 
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
@@ -919,7 +927,7 @@ function DeployUpgradeLogicApp {
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }

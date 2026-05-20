@@ -65,12 +65,19 @@ Helt ny støtteliste for gjesteinvitasjon-flyten. Opprettes via PnP-templaten ([
 
 Wrapper-Logic App ([Source/ARMTemplates/LogicApps/processguestrequest.json](Source/ARMTemplates/LogicApps/processguestrequest.json)) som trigges når et nytt item opprettes på `Guest Requests`-listen (SharePoint-connector, 1-min polling, trigger-condition `Status==Pending`). Flyt:
 
-1. **Server-side autorisasjonsjekk** (før Try-blokken):
-   - `Get_Owner_Group_Users` + `Get_Member_Group_Users` — to SP REST-kall via `httprequest`-aksjonen mot målsitens `_api/web/associatedOwnerGroup/users` og `_api/web/associatedMemberGroup/users`
-   - `Select_Owner_Emails` + `Select_Member_Emails` — projiserer til lowercased e-postlister
-   - `Compose_Authorized_Emails` — union av begge listene
-   - `Authorization_Guard` (If): hvis `RequestedBy.Email` _ikke_ er i union-en, sett `Status=Failed` med tydelig melding og `Terminate` workflowen (status Succeeded — håndtert exception, ikke system-feil). Hindrer at brukere som omgår webdel-UI (f.eks. via REST direkte) får invitert gjester de ikke har rett til.
-2. **Try-Catch** (uendret kjerne-flyt): kaller `ProcessGuests` Logic App → lagrer GuestId/InviteRedeemUrl → kjører `AddGuestToSite` runbook → `Check_runbook_status` If sjekker `body('Add_Guest_To_Site')?.properties?.status` (Azure Automation-connector returnerer alltid HTTP 200) og setter `Status` til `Invited` eller `Failed` med runbook-exception. Catch-blokken fanger feil før runbook (Process_Guests, Store_guest_info) og setter `Status=Failed`.
+1. **Try-Catch** (kjerne-flyt): kaller `ProcessGuests` Logic App → lagrer GuestId/InviteRedeemUrl → kjører `AddGuestToSite` runbook → `Check_runbook_status` If sjekker `body('Add_Guest_To_Site')?.properties?.status` (Azure Automation-connector returnerer alltid HTTP 200) og setter `Status` til `Invited` eller `Failed` med runbook-exception. Catch-blokken fanger feil før runbook (Process_Guests, Store_guest_info) og setter `Status=Failed`.
+2. **Site-fokusert e-post med to varianter** (kun else-branchen av `Check_runbook_status`, etter `Update_item_as_Invited`): `Check_if_guest_is_new` If grener på `@empty(outputs('Set_first_guest_result')?['InviteRedeemUrl'])`. Begge varianter bruker Office 365 Outlook-connector (`POST /Mail`), samme HTML-template, og hilsen tilpasses med `triggerBody()?['FirstName']` om satt. Branding via `variables('CompanyName')` (initialisert fra ARM-parameteren `tenantName`, tildelt via `spoTenantName` i deploy.ps1). Gjenbruker `bestillingsportalen-o365`-connection som `ProcessProvisionRequest` allerede oppretter via `apiconnections.json`.
+   - **Ny i tenanten** (yes-branch, `InviteRedeemUrl` ikke-tom): `Send_guest_invitation_email` — emne «Du har fått tilgang til {SiteTitle}», CTA «Kom i gang» som peker på `outputs('Set_first_guest_result')?['InviteRedeemUrl']`. Gjesten må akseptere tenant-invitasjonen via redeem-flyten.
+   - **Eksisterende tenant-gjest** (else-branch, `InviteRedeemUrl` tom): `Send_site_access_email` — samme emne, men CTA «Gå til området» som peker rett på `triggerBody()?['SiteUrl']`. Ingen invitasjon å akseptere — gjesten er allerede i tenanten og kan gå direkte til området. Dekker scenariet der en bruker som tidligere ble invitert (kanskje til et helt annet område) nå legges til vårt nye område via flyten.
+
+   Diverger fra `ProcessProvisionRequest`s `Send_guest_invitation_email`-mønster ved å legge til else-grenen for eksisterende-gjest-tilfellet (upstream sender kun for nye gjester).
+
+**Sikkerhetsmodell**: Autorisasjon enforces av to ting i kombinasjon:
+
+- **SPFx-UI-sjekk** (`SiteService.getCurrentUserAccessLevel()` + `inviteAccessLevel`-property): bestemmer hvem som ser Inviter-knappen i webdelen
+- **Listetillatelser på `Guest Requests`**: må låses i admin-siten så kun trusted brukere kan opprette items direkte (forhindrer REST-bypass av UI-sjekken)
+
+Tidligere forsøk på en server-side autorisasjonsjekk i Logic App-en (SP REST mot målsitens AssociatedOwnerGroup/AssociatedMemberGroup) ble fjernet — SP-connectoren authentiserer som connection-brukeren, som ofte ikke har tilgang til målsiten → 403. List-tillatelser er den reelle sikkerhetsgrensen.
 
 ### ProcessGuests (forket fra `pnp/provision-assist-m365`)
 
@@ -90,6 +97,8 @@ Loopen `Loop_through_Guests` fra opprinnelig `pnp/provision-assist-m365`-templat
 ### AddGuestToSite (ny i 1.11.0)
 
 Lokal runbook ([Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1)) som kalles av `ProcessGuestRequest` Logic App etter at en gjest er invitert via Graph. Authentiserer mot SP via system-assigned managed identity (PnP).
+
+Managed identityen trenger tre app-roller (tildelt automatisk av `deploy.ps1` via `AssignManagedIdentityPermissions`): `Office 365 SharePoint Online — Sites.FullControl.All` (for å håndtere SP-grupper på vilkårlige site collections), `Microsoft Graph — Group.ReadWrite.All` (for å mutere M365-gruppe-medlemskap) og `Microsoft Graph — User.Read.All` (fordi `Add-PnPMicrosoft365GroupMember`/`Owner` resolver gjesten via `GET /users/{email}` før den poster `members/$ref` — uten dette returnerer brukeroppslaget 403 «Insufficient privileges»).
 
 Steg 1 — **EnsureUser**: en fersk B2B-gjest finnes i Entra ID, men ikke i målsitens user info-liste. PnP.PowerShell har ingen cmdlet-wrapper for EnsureUser, så vi bruker CSOM direkte: `$pnpContext.Web.EnsureUser($guestEmail)` + `Invoke-PnPQuery` materialiserer gjesten som SP-prinsipal og returnerer `LoginName` (claims-encoded UPN) som brukes videre. Uten dette feiler `Add-PnPGroupMember` med "Cannot bind argument to parameter 'LoginName' because it is an empty string."
 

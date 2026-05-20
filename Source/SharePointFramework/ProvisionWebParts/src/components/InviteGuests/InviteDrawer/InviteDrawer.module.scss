@@ -17,8 +17,15 @@
   gap: 8px;
 }
 
-.toggleRow {
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.popoverBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
+  min-width: 240px;
 }

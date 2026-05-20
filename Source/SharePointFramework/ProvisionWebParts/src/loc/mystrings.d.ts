@@ -21,6 +21,7 @@ declare interface IProvisionWebPartsStrings {
   FeatureModeEnforcedLabel: string
   PerGuestProfileLabel: string
   PerGuestRoleLabel: string
+  ViewSettingsLabel: string
   ViewStatusButton: string
   StatusDialogTitle: string
   StatusSummaryTotal: string

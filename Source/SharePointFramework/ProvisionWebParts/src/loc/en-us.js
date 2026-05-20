@@ -22,6 +22,7 @@ define([], function () {
     FeatureModeEnforcedLabel: 'Enforced (always on)',
     PerGuestProfileLabel: 'Per-guest details',
     PerGuestRoleLabel: 'Per-guest role and group',
+    ViewSettingsLabel: 'View options',
     ViewStatusButton: 'View invitation status',
     StatusDialogTitle: 'Invitation status',
     StatusSummaryTotal: '{0} total',
