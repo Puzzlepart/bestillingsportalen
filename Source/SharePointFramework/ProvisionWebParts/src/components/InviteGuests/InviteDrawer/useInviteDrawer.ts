@@ -66,13 +66,6 @@ interface ISharedSettings {
   spPermissionLevel: SPPermissionLevel | undefined
 }
 
-const INITIAL_SHARED: ISharedSettings = {
-  m365GroupRole: 'Visitor',
-  spGroupAction: 'None',
-  spGroupName: undefined,
-  spPermissionLevel: 'Read'
-}
-
 export function useInviteDrawer({
   open,
   onOpenChange
@@ -92,7 +85,17 @@ export function useInviteDrawer({
   const perGuestProfile = resolveToggle(ctx.perGuestProfileMode, userPerGuestProfile)
   const perGuestRole = resolveToggle(ctx.perGuestRoleMode, userPerGuestRole)
 
-  const [shared, setShared] = React.useState<ISharedSettings>(INITIAL_SHARED)
+  const initialShared = React.useMemo<ISharedSettings>(
+    () => ({
+      m365GroupRole: ctx.defaultM365GroupRole,
+      spGroupAction: ctx.defaultSpGroupAction,
+      spGroupName: undefined,
+      spPermissionLevel: ctx.defaultSpPermissionLevel
+    }),
+    [ctx.defaultM365GroupRole, ctx.defaultSpGroupAction, ctx.defaultSpPermissionLevel]
+  )
+
+  const [shared, setShared] = React.useState<ISharedSettings>(initialShared)
 
   React.useEffect(() => {
     if (!open) {
@@ -100,7 +103,7 @@ export function useInviteDrawer({
       setActiveGuestEmail(undefined)
       setUserPerGuestProfile(false)
       setUserPerGuestRole(false)
-      setShared(INITIAL_SHARED)
+      setShared(initialShared)
       setSubmitAttempted(false)
       return
     }
@@ -115,10 +118,13 @@ export function useInviteDrawer({
         if (cancelled) return
         setSiteGroups(groups)
         setIsGroupConnected(siteContext.isGroupConnected)
-        if (siteContext.associatedVisitorGroupTitle) {
+        if (
+          ctx.autoSelectVisitorGroup &&
+          ctx.defaultSpGroupAction === 'AddToExisting' &&
+          siteContext.associatedVisitorGroupTitle
+        ) {
           setShared((prev) => ({
             ...prev,
-            spGroupAction: 'AddToExisting',
             spGroupName: siteContext.associatedVisitorGroupTitle
           }))
         }
@@ -129,7 +135,7 @@ export function useInviteDrawer({
     return () => {
       cancelled = true
     }
-  }, [open, ctx.siteService])
+  }, [open, ctx.siteService, ctx.autoSelectVisitorGroup, ctx.defaultSpGroupAction, initialShared])
 
   const guestsRef = React.useRef<IGuestInput[]>([])
   React.useEffect(() => {

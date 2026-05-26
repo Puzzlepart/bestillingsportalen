@@ -1,6 +1,13 @@
 import type { ServiceScope } from '@microsoft/sp-core-library'
 import type { GraphService, GuestRequestService, SiteService } from '../../services'
-import type { FeatureToggleMode, IGuestInput, IGuestRequest } from '../../models/IGuestRequest'
+import type {
+  FeatureToggleMode,
+  IGuestInput,
+  IGuestRequest,
+  M365GroupRole,
+  SPGroupAction,
+  SPPermissionLevel
+} from '../../models/IGuestRequest'
 
 export type InviteStatusDisplayMode = 'inline' | 'dialog'
 
@@ -16,6 +23,18 @@ export interface IInviteGuestsProps {
   inviteAccessLevel: InviteAccessLevel
   perGuestProfileMode: FeatureToggleMode
   perGuestRoleMode: FeatureToggleMode
+  defaultM365GroupRole: M365GroupRole
+  defaultSpGroupAction: SPGroupAction
+  defaultSpPermissionLevel: SPPermissionLevel
+  autoSelectVisitorGroup: boolean
+  showAccessPreview: boolean
+  showStatusSummary: boolean
+  showCopyRedeemUrl: boolean
+  showRetryButton: boolean
+  showColumnM365Role: boolean
+  showColumnSPGroupAction: boolean
+  showColumnSPGroupName: boolean
+  showColumnSPPermissionLevel: boolean
   siteUrl: string
   siteTitle: string
   service: GuestRequestService
@@ -30,6 +49,18 @@ export interface IInviteGuestsContext {
   inviteMode: InviteMode
   perGuestProfileMode: FeatureToggleMode
   perGuestRoleMode: FeatureToggleMode
+  defaultM365GroupRole: M365GroupRole
+  defaultSpGroupAction: SPGroupAction
+  defaultSpPermissionLevel: SPPermissionLevel
+  autoSelectVisitorGroup: boolean
+  showAccessPreview: boolean
+  showStatusSummary: boolean
+  showCopyRedeemUrl: boolean
+  showRetryButton: boolean
+  showColumnM365Role: boolean
+  showColumnSPGroupAction: boolean
+  showColumnSPGroupName: boolean
+  showColumnSPPermissionLevel: boolean
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService

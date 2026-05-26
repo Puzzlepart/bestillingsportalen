@@ -12,13 +12,15 @@ import {
 
 import * as strings from 'ProvisionWebPartsStrings'
 import styles from './InviteStatus.module.scss'
+import { useInviteGuestsContext } from '../context'
 import { Commands } from './Commands'
 import { useColumns } from './useColumns'
 import { useInviteStatus } from './useInviteStatus'
 import type { InviteStatusRow } from './types'
 
 export const StatusGrid: React.FC = () => {
-  const columns = useColumns()
+  const { columns, columnSizingOptions, defaultSortState, getCellFocusMode } = useColumns()
+  const { showRetryButton } = useInviteGuestsContext()
   const {
     rows,
     search,
@@ -43,50 +45,63 @@ export const StatusGrid: React.FC = () => {
 
   return (
     <>
-      <Commands
-        search={search}
-        onSearchChange={setSearch}
-        onRefresh={() => void onRefresh()}
-        onRetry={() => void onRetry()}
-        retryEnabled={retryEnabled}
-        refreshing={loading}
-      />
-
-      {loading && rows.length === 0 ? (
-        <div className={styles.loading}>
-          <Spinner labelPosition='after' label={strings.RefreshButton} />
-        </div>
-      ) : rows.length === 0 ? (
-        <div className={styles.empty}>{strings.StatusEmpty}</div>
+      <div className={styles.description}>{strings.StatusDialogDescription}</div>
+      {loading ? (
+        <Spinner
+          size='extra-tiny'
+          label={strings.StatusDialogSpinnerLabel}
+          style={{ padding: 10 }}
+        />
       ) : (
-        <div className={styles.grid}>
-          <DataGrid
-            items={rows}
-            columns={columns}
-            sortable
-            selectionMode='single'
-            selectedItems={selectedItems}
-            onSelectionChange={onSelectionChange}
-            getRowId={(item: InviteStatusRow) => item.Id}
-            focusMode='composite'
-            resizableColumns>
-            <DataGridHeader>
-              <DataGridRow>
-                {({ renderHeaderCell }) => (
-                  <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
+        <Commands
+          search={search}
+          onSearchChange={setSearch}
+          onRefresh={() => void onRefresh()}
+          onRetry={() => void onRetry()}
+          retryEnabled={retryEnabled}
+          refreshing={loading}
+          showRetryButton={showRetryButton}
+        />
+      )}
+      <DataGrid
+        items={rows}
+        columns={columns}
+        defaultSortState={defaultSortState}
+        sortable
+        resizableColumns
+        columnSizingOptions={columnSizingOptions}
+        resizableColumnsOptions={{ autoFitColumns: false }}
+        selectionMode='single'
+        selectedItems={selectedItems}
+        onSelectionChange={onSelectionChange}
+        getRowId={(item: InviteStatusRow) => item.Id}>
+        <DataGridHeader>
+          <DataGridRow>
+            {({ renderHeaderCell }) => (
+              <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
+            )}
+          </DataGridRow>
+        </DataGridHeader>
+        {rows.length === 0 ? (
+          <div className={styles.message}>
+            {search.trim()
+              ? strings.StatusDialogNoSearchResultsLabel
+              : strings.StatusDialogNoResultsLabel}
+          </div>
+        ) : (
+          <DataGridBody<InviteStatusRow>>
+            {({ item, rowId }) => (
+              <DataGridRow<InviteStatusRow> key={rowId}>
+                {({ renderCell, columnId }) => (
+                  <DataGridCell focusMode={getCellFocusMode(columnId)}>
+                    {renderCell(item)}
+                  </DataGridCell>
                 )}
               </DataGridRow>
-            </DataGridHeader>
-            <DataGridBody<InviteStatusRow>>
-              {({ item, rowId }) => (
-                <DataGridRow<InviteStatusRow> key={rowId}>
-                  {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
-                </DataGridRow>
-              )}
-            </DataGridBody>
-          </DataGrid>
-        </div>
-      )}
+            )}
+          </DataGridBody>
+        )}
+      </DataGrid>
     </>
   )
 }

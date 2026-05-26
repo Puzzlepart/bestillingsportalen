@@ -4,7 +4,9 @@ import { Version } from '@microsoft/sp-core-library'
 import {
   type IPropertyPaneConfiguration,
   PropertyPaneChoiceGroup,
-  PropertyPaneTextField
+  PropertyPaneDropdown,
+  PropertyPaneTextField,
+  PropertyPaneToggle
 } from '@microsoft/sp-property-pane'
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base'
 import { spfi, SPFI, SPFx } from '@pnp/sp'
@@ -28,6 +30,18 @@ export interface IInviteGuestsWebPartProps {
   inviteAccessLevel: 'Owner' | 'Member' | 'Anyone'
   perGuestProfileMode: 'Disabled' | 'Optional' | 'Enforced'
   perGuestRoleMode: 'Disabled' | 'Optional' | 'Enforced'
+  defaultM365GroupRole: 'None' | 'Visitor' | 'Member' | 'Owner'
+  defaultSpGroupAction: 'None' | 'AddToExisting' | 'CreateNew'
+  defaultSpPermissionLevel: 'Read' | 'Contribute' | 'Edit' | 'Full Control'
+  autoSelectVisitorGroup: boolean
+  showAccessPreview: boolean
+  showStatusSummary: boolean
+  showCopyRedeemUrl: boolean
+  showRetryButton: boolean
+  showColumnM365Role: boolean
+  showColumnSPGroupAction: boolean
+  showColumnSPGroupName: boolean
+  showColumnSPPermissionLevel: boolean
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -72,6 +86,18 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       inviteAccessLevel: this.properties.inviteAccessLevel || 'Owner',
       perGuestProfileMode: this.properties.perGuestProfileMode || 'Optional',
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
+      defaultM365GroupRole: this.properties.defaultM365GroupRole || 'Visitor',
+      defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
+      defaultSpPermissionLevel: this.properties.defaultSpPermissionLevel || 'Read',
+      autoSelectVisitorGroup: this.properties.autoSelectVisitorGroup !== false,
+      showAccessPreview: this.properties.showAccessPreview !== false,
+      showStatusSummary: this.properties.showStatusSummary !== false,
+      showCopyRedeemUrl: this.properties.showCopyRedeemUrl !== false,
+      showRetryButton: this.properties.showRetryButton !== false,
+      showColumnM365Role: this.properties.showColumnM365Role === true,
+      showColumnSPGroupAction: this.properties.showColumnSPGroupAction === true,
+      showColumnSPGroupName: this.properties.showColumnSPGroupName === true,
+      showColumnSPPermissionLevel: this.properties.showColumnSPPermissionLevel === true,
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -91,13 +117,15 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
+    const defaultSpGroupAction = this.properties.defaultSpGroupAction || 'AddToExisting'
     return {
       pages: [
         {
           header: { description: strings.PropertyPaneDescription },
+          displayGroupsAsAccordion: true,
           groups: [
             {
-              groupName: strings.BasicGroupName,
+              groupName: strings.GeneralGroupName,
               groupFields: [
                 PropertyPaneTextField('title', { label: strings.TitleFieldLabel }),
                 PropertyPaneTextField('description', {
@@ -125,7 +153,12 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Member', text: strings.InviteAccessLevelMemberLabel },
                     { key: 'Anyone', text: strings.InviteAccessLevelAnyoneLabel }
                   ]
-                }),
+                })
+              ]
+            },
+            {
+              groupName: strings.PerGuestGroupName,
+              groupFields: [
                 PropertyPaneChoiceGroup('perGuestProfileMode', {
                   label: strings.PerGuestProfileModeFieldLabel,
                   options: [
@@ -141,7 +174,98 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Optional', text: strings.FeatureModeOptionalLabel },
                     { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
                   ]
+                })
+              ]
+            },
+            {
+              groupName: strings.DefaultsGroupName,
+              isCollapsed: true,
+              groupFields: [
+                PropertyPaneDropdown('defaultM365GroupRole', {
+                  label: strings.DefaultM365GroupRoleFieldLabel,
+                  options: [
+                    { key: 'None', text: strings.M365GroupRoleNoneLabel },
+                    { key: 'Visitor', text: strings.M365GroupRoleVisitorLabel },
+                    { key: 'Member', text: strings.M365GroupRoleMemberLabel },
+                    { key: 'Owner', text: strings.M365GroupRoleOwnerLabel }
+                  ]
                 }),
+                PropertyPaneDropdown('defaultSpGroupAction', {
+                  label: strings.DefaultSpGroupActionFieldLabel,
+                  options: [
+                    { key: 'None', text: strings.SPGroupActionNoneLabel },
+                    { key: 'AddToExisting', text: strings.SPGroupActionExistingLabel },
+                    { key: 'CreateNew', text: strings.SPGroupActionNewLabel }
+                  ]
+                }),
+                PropertyPaneDropdown('defaultSpPermissionLevel', {
+                  label: strings.DefaultSpPermissionLevelFieldLabel,
+                  options: [
+                    { key: 'Read', text: strings.SPPermissionRead },
+                    { key: 'Contribute', text: strings.SPPermissionContribute },
+                    { key: 'Edit', text: strings.SPPermissionEdit },
+                    { key: 'Full Control', text: strings.SPPermissionFullControl }
+                  ],
+                  disabled: defaultSpGroupAction !== 'CreateNew'
+                }),
+                PropertyPaneToggle('autoSelectVisitorGroup', {
+                  label: strings.AutoSelectVisitorGroupFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff,
+                  disabled: defaultSpGroupAction !== 'AddToExisting'
+                })
+              ]
+            },
+            {
+              groupName: strings.ShowHideGroupName,
+              isCollapsed: true,
+              groupFields: [
+                PropertyPaneToggle('showAccessPreview', {
+                  label: strings.ShowAccessPreviewFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showStatusSummary', {
+                  label: strings.ShowStatusSummaryFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showCopyRedeemUrl', {
+                  label: strings.ShowCopyRedeemUrlFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showRetryButton', {
+                  label: strings.ShowRetryButtonFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showColumnM365Role', {
+                  label: strings.ShowColumnM365RoleFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showColumnSPGroupAction', {
+                  label: strings.ShowColumnSPGroupActionFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showColumnSPGroupName', {
+                  label: strings.ShowColumnSPGroupNameFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showColumnSPPermissionLevel', {
+                  label: strings.ShowColumnSPPermissionLevelFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                })
+              ]
+            },
+            {
+              groupName: strings.AdvancedGroupName,
+              isCollapsed: true,
+              groupFields: [
                 PropertyPaneTextField('guestRequestSiteUrl', {
                   label: strings.GuestRequestSiteUrlFieldLabel,
                   description: strings.GuestRequestSiteUrlFieldDescription

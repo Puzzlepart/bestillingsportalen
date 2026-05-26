@@ -11,6 +11,7 @@ interface ICommandsProps {
   onRetry: () => void
   retryEnabled: boolean
   refreshing: boolean
+  showRetryButton: boolean
 }
 
 export const Commands: React.FC<ICommandsProps> = ({
@@ -19,7 +20,8 @@ export const Commands: React.FC<ICommandsProps> = ({
   onRefresh,
   onRetry,
   retryEnabled,
-  refreshing
+  refreshing,
+  showRetryButton
 }) => {
   return (
     <Toolbar aria-label='Invite status commands' style={{ flexWrap: 'wrap', rowGap: 4 }}>
@@ -30,13 +32,15 @@ export const Commands: React.FC<ICommandsProps> = ({
         disabled={refreshing}>
         {strings.RefreshButton}
       </ToolbarButton>
-      <ToolbarButton
-        appearance='subtle'
-        icon={<ArrowSync24Regular />}
-        onClick={onRetry}
-        disabled={!retryEnabled}>
-        {strings.RetryButton}
-      </ToolbarButton>
+      {showRetryButton && (
+        <ToolbarButton
+          appearance='subtle'
+          icon={<ArrowSync24Regular />}
+          onClick={onRetry}
+          disabled={!retryEnabled}>
+          {strings.RetryButton}
+        </ToolbarButton>
+      )}
       <ToolbarDivider />
       <SearchBox
         placeholder={strings.StatusSearchPlaceholder}

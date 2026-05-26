@@ -28,7 +28,8 @@ import { useInviteGuestsContext } from '../context'
 import type { IInviteDrawerProps } from './types'
 
 export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange }) => {
-  const { inviteMode, perGuestProfileMode, perGuestRoleMode } = useInviteGuestsContext()
+  const { inviteMode, perGuestProfileMode, perGuestRoleMode, showAccessPreview } =
+    useInviteGuestsContext()
   const {
     guests,
     addGuest,
@@ -176,13 +177,15 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   updateGuest(activeGuest.email, { spPermissionLevel: l })
                 }
               />
-              <AccessPreviewPanel
-                role={activeGuest.m365GroupRole ?? 'Visitor'}
-                spGroupAction={activeGuest.spGroupAction ?? 'None'}
-                spGroupName={activeGuest.spGroupName}
-                spPermissionLevel={activeGuest.spPermissionLevel}
-                isGroupConnected={isGroupConnected}
-              />
+              {showAccessPreview && (
+                <AccessPreviewPanel
+                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  spGroupAction={activeGuest.spGroupAction ?? 'None'}
+                  spGroupName={activeGuest.spGroupName}
+                  spPermissionLevel={activeGuest.spPermissionLevel}
+                  isGroupConnected={isGroupConnected}
+                />
+              )}
             </>
           )}
 
@@ -205,13 +208,15 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                 onGroupNameChange={setSharedSpGroupName}
                 onPermissionLevelChange={setSharedSpPermissionLevel}
               />
-              <AccessPreviewPanel
-                role={sharedM365GroupRole}
-                spGroupAction={sharedSpGroupAction}
-                spGroupName={sharedSpGroupName}
-                spPermissionLevel={sharedSpPermissionLevel}
-                isGroupConnected={isGroupConnected}
-              />
+              {showAccessPreview && (
+                <AccessPreviewPanel
+                  role={sharedM365GroupRole}
+                  spGroupAction={sharedSpGroupAction}
+                  spGroupName={sharedSpGroupName}
+                  spPermissionLevel={sharedSpPermissionLevel}
+                  isGroupConnected={isGroupConnected}
+                />
+              )}
             </>
           )}
         </div>

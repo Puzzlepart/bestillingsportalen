@@ -1,6 +1,29 @@
 declare interface IProvisionWebPartsStrings {
   PropertyPaneDescription: string
   BasicGroupName: string
+  GeneralGroupName: string
+  PerGuestGroupName: string
+  DefaultsGroupName: string
+  ShowHideGroupName: string
+  AdvancedGroupName: string
+  BooleanOn: string
+  BooleanOff: string
+  DefaultM365GroupRoleFieldLabel: string
+  DefaultM365GroupRoleFieldDescription: string
+  DefaultSpGroupActionFieldLabel: string
+  DefaultSpGroupActionFieldDescription: string
+  DefaultSpPermissionLevelFieldLabel: string
+  DefaultSpPermissionLevelFieldDescription: string
+  AutoSelectVisitorGroupFieldLabel: string
+  AutoSelectVisitorGroupFieldDescription: string
+  ShowAccessPreviewFieldLabel: string
+  ShowStatusSummaryFieldLabel: string
+  ShowCopyRedeemUrlFieldLabel: string
+  ShowRetryButtonFieldLabel: string
+  ShowColumnM365RoleFieldLabel: string
+  ShowColumnSPGroupActionFieldLabel: string
+  ShowColumnSPGroupNameFieldLabel: string
+  ShowColumnSPPermissionLevelFieldLabel: string
   TitleFieldLabel: string
   DescriptionFieldLabel: string
   WebPartTitleInfoLabelTitle: string
@@ -71,6 +94,10 @@ declare interface IProvisionWebPartsStrings {
   StatusHeader: string
   StatusEmpty: string
   StatusSearchPlaceholder: string
+  StatusDialogDescription: string
+  StatusDialogNoResultsLabel: string
+  StatusDialogNoSearchResultsLabel: string
+  StatusDialogSpinnerLabel: string
 
   ColumnEmail: string
   ColumnStatus: string
