@@ -8,7 +8,12 @@ export interface ISiteGroup {
   LoginName: string
   Description?: string
   PrincipalType?: number
+  PermissionLevel?: string
 }
+
+// System-managed groups SharePoint auto-creates that admins should never assign
+// guests to. Filtered out of the SP group dropdown.
+const SYSTEM_GROUP_PREFIXES = ['Limited Access System Group', 'SharingLinks']
 
 export interface ISiteContext {
   isGroupConnected: boolean
@@ -47,11 +52,31 @@ export class SiteService {
   }
 
   public async getSiteGroups(): Promise<ISiteGroup[]> {
-    const groups = (await this.sp.web.siteGroups
-      .select('Id', 'Title', 'LoginName', 'Description', 'PrincipalType')
-      .filter('PrincipalType eq 8')
-      .top(500)()) as ISiteGroup[]
-    return groups.sort((a, b) => a.Title.localeCompare(b.Title))
+    const [groups, roleAssignments] = await Promise.all([
+      this.sp.web.siteGroups
+        .select('Id', 'Title', 'LoginName', 'Description', 'PrincipalType')
+        .filter('PrincipalType eq 8')
+        .top(500)() as Promise<ISiteGroup[]>,
+      this.sp.web.roleAssignments
+        .expand('RoleDefinitionBindings')
+        .select('PrincipalId', 'RoleDefinitionBindings/Name')
+        .top(500)() as Promise<
+        { PrincipalId: number; RoleDefinitionBindings: { Name: string }[] }[]
+      >
+    ])
+    // 'Limited Access' is the implicit grant SP adds when a principal has
+    // permissions on a child item — not meaningful as a group-level role.
+    const permissionsByPrincipalId = new Map<number, string>()
+    for (const ra of roleAssignments) {
+      const names = ra.RoleDefinitionBindings.map((r) => r.Name)
+        .filter((n) => n !== 'Limited Access')
+        .join(', ')
+      if (names) permissionsByPrincipalId.set(ra.PrincipalId, names)
+    }
+    return groups
+      .filter((g) => !SYSTEM_GROUP_PREFIXES.some((p) => g.Title.startsWith(p)))
+      .map((g) => ({ ...g, PermissionLevel: permissionsByPrincipalId.get(g.Id) }))
+      .sort((a, b) => a.Title.localeCompare(b.Title))
   }
 
   /**

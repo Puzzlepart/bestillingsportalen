@@ -25,8 +25,11 @@ export interface IInviteGuestsProps {
   perGuestRoleMode: FeatureToggleMode
   defaultM365GroupRole: M365GroupRole
   defaultSpGroupAction: SPGroupAction
+  defaultSpGroupName: string
   defaultSpPermissionLevel: SPPermissionLevel
   autoSelectVisitorGroup: boolean
+  lockM365GroupRole: boolean
+  lockSpGroupAction: boolean
   showAccessPreview: boolean
   showStatusSummary: boolean
   showCopyRedeemUrl: boolean
@@ -35,6 +38,8 @@ export interface IInviteGuestsProps {
   showColumnSPGroupAction: boolean
   showColumnSPGroupName: boolean
   showColumnSPPermissionLevel: boolean
+  showM365GroupRoleSection: boolean
+  showSPGroupSection: boolean
   siteUrl: string
   siteTitle: string
   service: GuestRequestService
@@ -51,8 +56,11 @@ export interface IInviteGuestsContext {
   perGuestRoleMode: FeatureToggleMode
   defaultM365GroupRole: M365GroupRole
   defaultSpGroupAction: SPGroupAction
+  defaultSpGroupName: string
   defaultSpPermissionLevel: SPPermissionLevel
   autoSelectVisitorGroup: boolean
+  lockM365GroupRole: boolean
+  lockSpGroupAction: boolean
   showAccessPreview: boolean
   showStatusSummary: boolean
   showCopyRedeemUrl: boolean
@@ -61,6 +69,8 @@ export interface IInviteGuestsContext {
   showColumnSPGroupAction: boolean
   showColumnSPGroupName: boolean
   showColumnSPPermissionLevel: boolean
+  showM365GroupRoleSection: boolean
+  showSPGroupSection: boolean
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService

@@ -89,10 +89,15 @@ export function useInviteDrawer({
     () => ({
       m365GroupRole: ctx.defaultM365GroupRole,
       spGroupAction: ctx.defaultSpGroupAction,
-      spGroupName: undefined,
+      spGroupName: ctx.defaultSpGroupName ? ctx.defaultSpGroupName : undefined,
       spPermissionLevel: ctx.defaultSpPermissionLevel
     }),
-    [ctx.defaultM365GroupRole, ctx.defaultSpGroupAction, ctx.defaultSpPermissionLevel]
+    [
+      ctx.defaultM365GroupRole,
+      ctx.defaultSpGroupAction,
+      ctx.defaultSpGroupName,
+      ctx.defaultSpPermissionLevel
+    ]
   )
 
   const [shared, setShared] = React.useState<ISharedSettings>(initialShared)
@@ -118,9 +123,12 @@ export function useInviteDrawer({
         if (cancelled) return
         setSiteGroups(groups)
         setIsGroupConnected(siteContext.isGroupConnected)
+        // Explicit defaultSpGroupName takes precedence; otherwise fall back to
+        // the site's Visitors group when auto-select is on.
         if (
-          ctx.autoSelectVisitorGroup &&
           ctx.defaultSpGroupAction === 'AddToExisting' &&
+          !ctx.defaultSpGroupName &&
+          ctx.autoSelectVisitorGroup &&
           siteContext.associatedVisitorGroupTitle
         ) {
           setShared((prev) => ({
@@ -135,7 +143,14 @@ export function useInviteDrawer({
     return () => {
       cancelled = true
     }
-  }, [open, ctx.siteService, ctx.autoSelectVisitorGroup, ctx.defaultSpGroupAction, initialShared])
+  }, [
+    open,
+    ctx.siteService,
+    ctx.autoSelectVisitorGroup,
+    ctx.defaultSpGroupAction,
+    ctx.defaultSpGroupName,
+    initialShared
+  ])
 
   const guestsRef = React.useRef<IGuestInput[]>([])
   React.useEffect(() => {

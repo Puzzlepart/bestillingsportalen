@@ -28,8 +28,16 @@ import { useInviteGuestsContext } from '../context'
 import type { IInviteDrawerProps } from './types'
 
 export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange }) => {
-  const { inviteMode, perGuestProfileMode, perGuestRoleMode, showAccessPreview } =
-    useInviteGuestsContext()
+  const {
+    inviteMode,
+    perGuestProfileMode,
+    perGuestRoleMode,
+    showAccessPreview,
+    showM365GroupRoleSection,
+    showSPGroupSection,
+    lockM365GroupRole,
+    lockSpGroupAction
+  } = useInviteGuestsContext()
   const {
     guests,
     addGuest,
@@ -157,26 +165,32 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
 
           {activeGuest && perGuestRole && (
             <>
-              <M365GroupRoleSection
-                role={activeGuest.m365GroupRole ?? 'Visitor'}
-                onChange={(r) => updateGuest(activeGuest.email, { m365GroupRole: r })}
-                disabled={submitting}
-              />
-              <SPGroupSection
-                action={activeGuest.spGroupAction ?? 'None'}
-                groupName={activeGuest.spGroupName}
-                permissionLevel={activeGuest.spPermissionLevel}
-                siteGroups={siteGroups}
-                loading={loadingContext}
-                disabled={submitting}
-                onActionChange={(a) =>
-                  updateGuest(activeGuest.email, { spGroupAction: a, spGroupName: undefined })
-                }
-                onGroupNameChange={(n) => updateGuest(activeGuest.email, { spGroupName: n })}
-                onPermissionLevelChange={(l) =>
-                  updateGuest(activeGuest.email, { spPermissionLevel: l })
-                }
-              />
+              {showM365GroupRoleSection && (
+                <M365GroupRoleSection
+                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  onChange={(r) => updateGuest(activeGuest.email, { m365GroupRole: r })}
+                  disabled={submitting}
+                  locked={lockM365GroupRole}
+                />
+              )}
+              {showSPGroupSection && (
+                <SPGroupSection
+                  action={activeGuest.spGroupAction ?? 'None'}
+                  groupName={activeGuest.spGroupName}
+                  permissionLevel={activeGuest.spPermissionLevel}
+                  siteGroups={siteGroups}
+                  loading={loadingContext}
+                  disabled={submitting}
+                  locked={lockSpGroupAction}
+                  onActionChange={(a) =>
+                    updateGuest(activeGuest.email, { spGroupAction: a, spGroupName: undefined })
+                  }
+                  onGroupNameChange={(n) => updateGuest(activeGuest.email, { spGroupName: n })}
+                  onPermissionLevelChange={(l) =>
+                    updateGuest(activeGuest.email, { spPermissionLevel: l })
+                  }
+                />
+              )}
               {showAccessPreview && (
                 <AccessPreviewPanel
                   role={activeGuest.m365GroupRole ?? 'Visitor'}
@@ -191,23 +205,29 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
 
           {!perGuestRole && (
             <>
-              <M365GroupRoleSection
-                role={sharedM365GroupRole}
-                onChange={setSharedM365GroupRole}
-                disabled={submitting}
-              />
-              <SPGroupSection
-                action={sharedSpGroupAction}
-                groupName={sharedSpGroupName}
-                permissionLevel={sharedSpPermissionLevel}
-                siteGroups={siteGroups}
-                loading={loadingContext}
-                disabled={submitting}
-                nameValidationMessage={sharedSpGroupNameValidationMessage}
-                onActionChange={setSharedSpGroupAction}
-                onGroupNameChange={setSharedSpGroupName}
-                onPermissionLevelChange={setSharedSpPermissionLevel}
-              />
+              {showM365GroupRoleSection && (
+                <M365GroupRoleSection
+                  role={sharedM365GroupRole}
+                  onChange={setSharedM365GroupRole}
+                  disabled={submitting}
+                  locked={lockM365GroupRole}
+                />
+              )}
+              {showSPGroupSection && (
+                <SPGroupSection
+                  action={sharedSpGroupAction}
+                  groupName={sharedSpGroupName}
+                  permissionLevel={sharedSpPermissionLevel}
+                  siteGroups={siteGroups}
+                  loading={loadingContext}
+                  disabled={submitting}
+                  locked={lockSpGroupAction}
+                  nameValidationMessage={sharedSpGroupNameValidationMessage}
+                  onActionChange={setSharedSpGroupAction}
+                  onGroupNameChange={setSharedSpGroupName}
+                  onPermissionLevelChange={setSharedSpPermissionLevel}
+                />
+              )}
               {showAccessPreview && (
                 <AccessPreviewPanel
                   role={sharedM365GroupRole}

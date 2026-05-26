@@ -63,45 +63,47 @@ export const StatusGrid: React.FC = () => {
           showRetryButton={showRetryButton}
         />
       )}
-      <DataGrid
-        items={rows}
-        columns={columns}
-        defaultSortState={defaultSortState}
-        sortable
-        resizableColumns
-        columnSizingOptions={columnSizingOptions}
-        resizableColumnsOptions={{ autoFitColumns: false }}
-        selectionMode='single'
-        selectedItems={selectedItems}
-        onSelectionChange={onSelectionChange}
-        getRowId={(item: InviteStatusRow) => item.Id}>
-        <DataGridHeader>
-          <DataGridRow>
-            {({ renderHeaderCell }) => (
-              <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
-            )}
-          </DataGridRow>
-        </DataGridHeader>
-        {rows.length === 0 ? (
-          <div className={styles.message}>
-            {search.trim()
-              ? strings.StatusDialogNoSearchResultsLabel
-              : strings.StatusDialogNoResultsLabel}
-          </div>
-        ) : (
-          <DataGridBody<InviteStatusRow>>
-            {({ item, rowId }) => (
-              <DataGridRow<InviteStatusRow> key={rowId}>
-                {({ renderCell, columnId }) => (
-                  <DataGridCell focusMode={getCellFocusMode(columnId)}>
-                    {renderCell(item)}
-                  </DataGridCell>
-                )}
-              </DataGridRow>
-            )}
-          </DataGridBody>
-        )}
-      </DataGrid>
+      <div className={styles.gridScroll}>
+        <DataGrid
+          items={rows}
+          columns={columns}
+          defaultSortState={defaultSortState}
+          sortable
+          resizableColumns
+          columnSizingOptions={columnSizingOptions}
+          resizableColumnsOptions={{ autoFitColumns: false }}
+          selectionMode='single'
+          selectedItems={selectedItems}
+          onSelectionChange={onSelectionChange}
+          getRowId={(item: InviteStatusRow) => item.Id}>
+          <DataGridHeader>
+            <DataGridRow>
+              {({ renderHeaderCell }) => (
+                <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
+              )}
+            </DataGridRow>
+          </DataGridHeader>
+          {rows.length === 0 ? (
+            <div className={styles.message}>
+              {search.trim()
+                ? strings.StatusDialogNoSearchResultsLabel
+                : strings.StatusDialogNoResultsLabel}
+            </div>
+          ) : (
+            <DataGridBody<InviteStatusRow>>
+              {({ item, rowId }) => (
+                <DataGridRow<InviteStatusRow> key={rowId}>
+                  {({ renderCell, columnId }) => (
+                    <DataGridCell focusMode={getCellFocusMode(columnId)}>
+                      {renderCell(item)}
+                    </DataGridCell>
+                  )}
+                </DataGridRow>
+              )}
+            </DataGridBody>
+          )}
+        </DataGrid>
+      </div>
     </>
   )
 }

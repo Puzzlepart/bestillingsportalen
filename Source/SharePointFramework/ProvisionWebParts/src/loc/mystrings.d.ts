@@ -2,9 +2,12 @@ declare interface IProvisionWebPartsStrings {
   PropertyPaneDescription: string
   BasicGroupName: string
   GeneralGroupName: string
+  InviteSettingsGroupName: string
   PerGuestGroupName: string
   DefaultsGroupName: string
   ShowHideGroupName: string
+  DrawerShowHideGroupName: string
+  StatusShowHideGroupName: string
   AdvancedGroupName: string
   BooleanOn: string
   BooleanOff: string
@@ -12,10 +15,18 @@ declare interface IProvisionWebPartsStrings {
   DefaultM365GroupRoleFieldDescription: string
   DefaultSpGroupActionFieldLabel: string
   DefaultSpGroupActionFieldDescription: string
+  DefaultSpGroupNameFieldLabel: string
+  DefaultSpGroupNameFieldDescription: string
   DefaultSpPermissionLevelFieldLabel: string
   DefaultSpPermissionLevelFieldDescription: string
   AutoSelectVisitorGroupFieldLabel: string
   AutoSelectVisitorGroupFieldDescription: string
+  LockM365GroupRoleFieldLabel: string
+  LockM365GroupRoleFieldDescription: string
+  LockSpGroupActionFieldLabel: string
+  LockSpGroupActionFieldDescription: string
+  LockedRoleLabel: string
+  LockedActionLabel: string
   ShowAccessPreviewFieldLabel: string
   ShowStatusSummaryFieldLabel: string
   ShowCopyRedeemUrlFieldLabel: string
@@ -24,6 +35,8 @@ declare interface IProvisionWebPartsStrings {
   ShowColumnSPGroupActionFieldLabel: string
   ShowColumnSPGroupNameFieldLabel: string
   ShowColumnSPPermissionLevelFieldLabel: string
+  ShowM365GroupRoleSectionFieldLabel: string
+  ShowSPGroupSectionFieldLabel: string
   TitleFieldLabel: string
   DescriptionFieldLabel: string
   WebPartTitleInfoLabelTitle: string
@@ -87,6 +100,7 @@ declare interface IProvisionWebPartsStrings {
   AccessSpGroupAddTemplate: string
   AccessSpGroupCreateTemplate: string
   CancelButton: string
+  ClearFieldLabel: string
   SendInvitationsButton: string
   RefreshButton: string
   RetryButton: string

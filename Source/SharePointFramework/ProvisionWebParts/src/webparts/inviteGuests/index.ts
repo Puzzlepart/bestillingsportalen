@@ -16,6 +16,7 @@ import '@pnp/sp/lists'
 import '@pnp/sp/items'
 import '@pnp/sp/site-users/web'
 import '@pnp/sp/site-groups/web'
+import '@pnp/sp/security'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import { InviteGuests } from '../../components/InviteGuests'
@@ -32,8 +33,11 @@ export interface IInviteGuestsWebPartProps {
   perGuestRoleMode: 'Disabled' | 'Optional' | 'Enforced'
   defaultM365GroupRole: 'None' | 'Visitor' | 'Member' | 'Owner'
   defaultSpGroupAction: 'None' | 'AddToExisting' | 'CreateNew'
+  defaultSpGroupName: string
   defaultSpPermissionLevel: 'Read' | 'Contribute' | 'Edit' | 'Full Control'
   autoSelectVisitorGroup: boolean
+  lockM365GroupRole: boolean
+  lockSpGroupAction: boolean
   showAccessPreview: boolean
   showStatusSummary: boolean
   showCopyRedeemUrl: boolean
@@ -42,6 +46,8 @@ export interface IInviteGuestsWebPartProps {
   showColumnSPGroupAction: boolean
   showColumnSPGroupName: boolean
   showColumnSPPermissionLevel: boolean
+  showM365GroupRoleSection: boolean
+  showSPGroupSection: boolean
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -88,8 +94,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
       defaultM365GroupRole: this.properties.defaultM365GroupRole || 'Visitor',
       defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
+      defaultSpGroupName: this.properties.defaultSpGroupName || '',
       defaultSpPermissionLevel: this.properties.defaultSpPermissionLevel || 'Read',
       autoSelectVisitorGroup: this.properties.autoSelectVisitorGroup !== false,
+      lockM365GroupRole: this.properties.lockM365GroupRole === true,
+      lockSpGroupAction: this.properties.lockSpGroupAction === true,
       showAccessPreview: this.properties.showAccessPreview !== false,
       showStatusSummary: this.properties.showStatusSummary !== false,
       showCopyRedeemUrl: this.properties.showCopyRedeemUrl !== false,
@@ -98,6 +107,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       showColumnSPGroupAction: this.properties.showColumnSPGroupAction === true,
       showColumnSPGroupName: this.properties.showColumnSPGroupName === true,
       showColumnSPPermissionLevel: this.properties.showColumnSPPermissionLevel === true,
+      showM365GroupRoleSection: this.properties.showM365GroupRoleSection !== false,
+      showSPGroupSection: this.properties.showSPGroupSection !== false,
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -131,7 +142,12 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                 PropertyPaneTextField('description', {
                   label: strings.DescriptionFieldLabel,
                   multiline: true
-                }),
+                })
+              ]
+            },
+            {
+              groupName: strings.InviteSettingsGroupName,
+              groupFields: [
                 PropertyPaneChoiceGroup('displayMode', {
                   label: strings.DisplayModeFieldLabel,
                   options: [
@@ -198,6 +214,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'CreateNew', text: strings.SPGroupActionNewLabel }
                   ]
                 }),
+                PropertyPaneTextField('defaultSpGroupName', {
+                  label: strings.DefaultSpGroupNameFieldLabel,
+                  description: strings.DefaultSpGroupNameFieldDescription,
+                  disabled: defaultSpGroupAction !== 'AddToExisting'
+                }),
                 PropertyPaneDropdown('defaultSpPermissionLevel', {
                   label: strings.DefaultSpPermissionLevelFieldLabel,
                   options: [
@@ -213,11 +234,21 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff,
                   disabled: defaultSpGroupAction !== 'AddToExisting'
+                }),
+                PropertyPaneToggle('lockM365GroupRole', {
+                  label: strings.LockM365GroupRoleFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('lockSpGroupAction', {
+                  label: strings.LockSpGroupActionFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
                 })
               ]
             },
             {
-              groupName: strings.ShowHideGroupName,
+              groupName: strings.DrawerShowHideGroupName,
               isCollapsed: true,
               groupFields: [
                 PropertyPaneToggle('showAccessPreview', {
@@ -225,6 +256,22 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                PropertyPaneToggle('showM365GroupRoleSection', {
+                  label: strings.ShowM365GroupRoleSectionFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showSPGroupSection', {
+                  label: strings.ShowSPGroupSectionFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                })
+              ]
+            },
+            {
+              groupName: strings.StatusShowHideGroupName,
+              isCollapsed: true,
+              groupFields: [
                 PropertyPaneToggle('showStatusSummary', {
                   label: strings.ShowStatusSummaryFieldLabel,
                   onText: strings.BooleanOn,

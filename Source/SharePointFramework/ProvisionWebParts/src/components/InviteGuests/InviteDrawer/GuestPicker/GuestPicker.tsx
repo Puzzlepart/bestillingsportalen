@@ -1,6 +1,7 @@
 import * as React from 'react'
 import {
   Avatar,
+  Button,
   Input,
   Tag,
   TagPicker,
@@ -13,6 +14,7 @@ import {
   type InputProps,
   type TagPickerProps
 } from '@fluentui/react-components'
+import { DismissCircle20Regular } from '@fluentui/react-icons'
 import * as strings from 'ProvisionWebPartsStrings'
 import { FieldContainer } from '../../../FieldContainer'
 import { isValidEmail } from '../../../../utils'
@@ -54,6 +56,18 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({
           onChange={onSingleChange}
           placeholder={strings.GuestPickerPlaceholder}
           disabled={disabled}
+          contentAfter={
+            value ? (
+              <Button
+                appearance='transparent'
+                size='small'
+                icon={<DismissCircle20Regular />}
+                aria-label={strings.ClearFieldLabel}
+                onClick={() => onRemove(value)}
+                disabled={disabled}
+              />
+            ) : undefined
+          }
         />
       </FieldContainer>
     )
@@ -109,7 +123,22 @@ export const GuestPicker: React.FC<IGuestPickerProps> = ({
       validationState={validationMessage ? 'error' : 'none'}
       validationMessage={validationMessage}>
       <TagPicker selectedOptions={guests} onOptionSelect={onOptionSelect} disabled={disabled}>
-        <TagPickerControl>
+        <TagPickerControl
+          secondaryAction={
+            query || guests.length > 0 ? (
+              <Button
+                appearance='transparent'
+                size='small'
+                icon={<DismissCircle20Regular />}
+                aria-label={strings.ClearFieldLabel}
+                onClick={() => {
+                  guests.forEach((g) => onRemove(g))
+                  setQuery('')
+                }}
+                disabled={disabled}
+              />
+            ) : undefined
+          }>
           <TagPickerGroup>
             {guests.map((email) => (
               <Tag
