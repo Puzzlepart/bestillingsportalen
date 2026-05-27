@@ -49,6 +49,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     showColumnSPPermissionLevel,
     showM365GroupRoleSection,
     showSPGroupSection,
+    hiddenSpGroups,
     service,
     siteService,
     graphService,
@@ -57,11 +58,13 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
   } = props
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [canInvite, setCanInvite] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
+  const [accessChecked, setAccessChecked] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
   const state = useInviteGuests({ service, siteUrl, siteTitle })
 
   React.useEffect(() => {
     if (inviteAccessLevel === 'Anyone') {
       setCanInvite(true)
+      setAccessChecked(true)
       return
     }
     let cancelled = false
@@ -76,6 +79,8 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
         setCanInvite(allowed)
       } catch {
         if (!cancelled) setCanInvite(false)
+      } finally {
+        if (!cancelled) setAccessChecked(true)
       }
     })()
     return () => {
@@ -137,6 +142,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showColumnSPPermissionLevel,
       showM365GroupRoleSection,
       showSPGroupSection,
+      hiddenSpGroups,
       service,
       siteService,
       graphService,
@@ -170,6 +176,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showColumnSPPermissionLevel,
       showM365GroupRoleSection,
       showSPGroupSection,
+      hiddenSpGroups,
       service,
       siteService,
       graphService,
@@ -177,6 +184,14 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       onInvite
     ]
   )
+
+  // Render nothing until the access check resolves, and nothing at all for users
+  // who don't meet the inviteAccessLevel requirement. This deliberately swallows
+  // access-related errors (e.g. a guest 403-ing on the status list / site groups)
+  // — only users allowed to invite ever see the web part or its error state.
+  if (!accessChecked || !canInvite) {
+    return null
+  }
 
   return (
     <IdPrefixProvider value={fluentProviderId}>
@@ -239,5 +254,6 @@ InviteGuests.defaultProps = {
   showColumnSPGroupName: true,
   showColumnSPPermissionLevel: false,
   showM365GroupRoleSection: true,
-  showSPGroupSection: true
+  showSPGroupSection: true,
+  hiddenSpGroups: ''
 } satisfies Partial<IInviteGuestsProps>

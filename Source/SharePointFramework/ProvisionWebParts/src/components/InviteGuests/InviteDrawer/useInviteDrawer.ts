@@ -116,9 +116,15 @@ export function useInviteDrawer({
     setLoadingContext(true)
     void (async () => {
       try {
+        const hiddenTerms = ctx.hiddenSpGroups
+          ? ctx.hiddenSpGroups
+              .split(/[,;\n]+/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : []
         const [siteContext, groups] = await Promise.all([
           ctx.siteService.getSiteContext(),
-          ctx.siteService.getSiteGroups()
+          ctx.siteService.getSiteGroups(hiddenTerms)
         ])
         if (cancelled) return
         setSiteGroups(groups)
@@ -149,6 +155,7 @@ export function useInviteDrawer({
     ctx.autoSelectVisitorGroup,
     ctx.defaultSpGroupAction,
     ctx.defaultSpGroupName,
+    ctx.hiddenSpGroups,
     initialShared
   ])
 

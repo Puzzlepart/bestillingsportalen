@@ -1,5 +1,13 @@
 import * as React from 'react'
-import { Dropdown, Input, Option, Radio, RadioGroup, Spinner } from '@fluentui/react-components'
+import {
+  Dropdown,
+  Input,
+  Option,
+  Radio,
+  RadioGroup,
+  Spinner,
+  Tooltip
+} from '@fluentui/react-components'
 import { LockClosed16Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
@@ -60,6 +68,13 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
     <div className={styles.optionFields}>
       {loading ? (
         <Spinner size='tiny' label={strings.SPGroupExistingPickerPlaceholder} />
+      ) : locked && groupName ? (
+        <span className={styles.lockedValue}>
+          <Tooltip content={strings.LockedFieldTooltip} relationship='label'>
+            <LockClosed16Regular tabIndex={0} />
+          </Tooltip>
+          {formatLockedLabel(strings.LockedGroupNameLabel, groupName)}
+        </span>
       ) : (
         <FieldContainer
           label={strings.SPGroupExistingPickerLabel}
@@ -134,7 +149,9 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
       {locked ? (
         <>
           <span className={styles.lockedValue}>
-            <LockClosed16Regular aria-hidden />
+            <Tooltip content={strings.LockedFieldTooltip} relationship='label'>
+              <LockClosed16Regular tabIndex={0} />
+            </Tooltip>
             {formatLockedLabel(strings.LockedActionLabel, actionLabel(action))}
           </span>
           {(addToExistingFields || createNewFields) && (

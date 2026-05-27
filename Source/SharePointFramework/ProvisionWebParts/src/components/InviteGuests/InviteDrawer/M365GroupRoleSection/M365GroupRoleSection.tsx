@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Radio, RadioGroup } from '@fluentui/react-components'
+import { Radio, RadioGroup, Tooltip } from '@fluentui/react-components'
 import { LockClosed16Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
@@ -40,7 +40,9 @@ export const M365GroupRoleSection: React.FC<IM365GroupRoleSectionProps> = ({
       <h4 className={styles.title}>{strings.M365GroupSectionTitle}</h4>
       {locked ? (
         <span className={styles.lockedValue}>
-          <LockClosed16Regular aria-hidden />
+          <Tooltip content={strings.LockedFieldTooltip} relationship='label'>
+            <LockClosed16Regular tabIndex={0} />
+          </Tooltip>
           {formatLockedLabel(strings.LockedRoleLabel, roleLabel(role))}
         </span>
       ) : (

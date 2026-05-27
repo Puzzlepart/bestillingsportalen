@@ -27,6 +27,8 @@ declare interface IProvisionWebPartsStrings {
   LockSpGroupActionFieldDescription: string
   LockedRoleLabel: string
   LockedActionLabel: string
+  LockedGroupNameLabel: string
+  LockedFieldTooltip: string
   ShowAccessPreviewFieldLabel: string
   ShowStatusSummaryFieldLabel: string
   ShowCopyRedeemUrlFieldLabel: string
@@ -68,6 +70,8 @@ declare interface IProvisionWebPartsStrings {
   GuestRequestListTitleFieldDescription: string
   GuestRequestSiteUrlFieldLabel: string
   GuestRequestSiteUrlFieldDescription: string
+  HiddenSpGroupsFieldLabel: string
+  HiddenSpGroupsFieldDescription: string
 
   InviteButton: string
   InviteDrawerHeader: string

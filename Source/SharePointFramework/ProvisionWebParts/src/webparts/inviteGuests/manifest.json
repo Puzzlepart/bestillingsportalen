@@ -43,6 +43,7 @@
         "showColumnSPPermissionLevel": false,
         "showM365GroupRoleSection": true,
         "showSPGroupSection": true,
+        "hiddenSpGroups": "",
         "guestRequestListTitle": "Guest Requests",
         "guestRequestSiteUrl": ""
       }

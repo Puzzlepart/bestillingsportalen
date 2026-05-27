@@ -48,6 +48,7 @@ export interface IInviteGuestsWebPartProps {
   showColumnSPPermissionLevel: boolean
   showM365GroupRoleSection: boolean
   showSPGroupSection: boolean
+  hiddenSpGroups: string
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -109,6 +110,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       showColumnSPPermissionLevel: this.properties.showColumnSPPermissionLevel === true,
       showM365GroupRoleSection: this.properties.showM365GroupRoleSection !== false,
       showSPGroupSection: this.properties.showSPGroupSection !== false,
+      hiddenSpGroups: this.properties.hiddenSpGroups || '',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -168,27 +170,6 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Owner', text: strings.InviteAccessLevelOwnerLabel },
                     { key: 'Member', text: strings.InviteAccessLevelMemberLabel },
                     { key: 'Anyone', text: strings.InviteAccessLevelAnyoneLabel }
-                  ]
-                })
-              ]
-            },
-            {
-              groupName: strings.PerGuestGroupName,
-              groupFields: [
-                PropertyPaneChoiceGroup('perGuestProfileMode', {
-                  label: strings.PerGuestProfileModeFieldLabel,
-                  options: [
-                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
-                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
-                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
-                  ]
-                }),
-                PropertyPaneChoiceGroup('perGuestRoleMode', {
-                  label: strings.PerGuestRoleModeFieldLabel,
-                  options: [
-                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
-                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
-                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
                   ]
                 })
               ]
@@ -310,9 +291,36 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
               ]
             },
             {
+              groupName: strings.PerGuestGroupName,
+              isCollapsed: true,
+              groupFields: [
+                PropertyPaneChoiceGroup('perGuestProfileMode', {
+                  label: strings.PerGuestProfileModeFieldLabel,
+                  options: [
+                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
+                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
+                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
+                  ]
+                }),
+                PropertyPaneChoiceGroup('perGuestRoleMode', {
+                  label: strings.PerGuestRoleModeFieldLabel,
+                  options: [
+                    { key: 'Disabled', text: strings.FeatureModeDisabledLabel },
+                    { key: 'Optional', text: strings.FeatureModeOptionalLabel },
+                    { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
+                  ]
+                })
+              ]
+            },
+            {
               groupName: strings.AdvancedGroupName,
               isCollapsed: true,
               groupFields: [
+                PropertyPaneTextField('hiddenSpGroups', {
+                  label: strings.HiddenSpGroupsFieldLabel,
+                  description: strings.HiddenSpGroupsFieldDescription,
+                  multiline: true
+                }),
                 PropertyPaneTextField('guestRequestSiteUrl', {
                   label: strings.GuestRequestSiteUrlFieldLabel,
                   description: strings.GuestRequestSiteUrlFieldDescription
