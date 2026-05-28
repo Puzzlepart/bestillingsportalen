@@ -5,10 +5,22 @@
   padding: 16px;
 }
 
+@media (max-width: 600px) {
+  .inviteGuests {
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
 .titleRow {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.inviteButton {
+  align-self: flex-start;
+  justify-content: flex-start;
 }
 
 .empty {

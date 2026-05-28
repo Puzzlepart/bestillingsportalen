@@ -41,7 +41,7 @@ export const M365GroupRoleSection: React.FC<IM365GroupRoleSectionProps> = ({
       {locked ? (
         <span className={styles.lockedValue}>
           <Tooltip content={strings.LockedFieldTooltip} relationship='label'>
-            <LockClosed16Regular tabIndex={0} />
+            <LockClosed16Regular role='img' aria-label={strings.LockedFieldTooltip} tabIndex={0} />
           </Tooltip>
           {formatLockedLabel(strings.LockedRoleLabel, roleLabel(role))}
         </span>

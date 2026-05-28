@@ -50,7 +50,7 @@ export const StatusGrid: React.FC = () => {
         <Spinner
           size='extra-tiny'
           label={strings.StatusDialogSpinnerLabel}
-          style={{ padding: 10 }}
+          className={styles.gridSpinner}
         />
       ) : (
         <Commands

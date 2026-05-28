@@ -40,7 +40,7 @@ export const InviteStatus: React.FC<IInviteStatusProps> = ({ mode }) => {
           icon={<Open24Regular />}
           iconPosition='before'
           onClick={() => setDialogOpen(true)}
-          style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
+          className={styles.viewStatusButton}
           aria-haspopup='dialog'>
           {strings.ViewStatusButton}
         </Button>
@@ -50,7 +50,7 @@ export const InviteStatus: React.FC<IInviteStatusProps> = ({ mode }) => {
         open={dialogOpen}
         onOpenChange={(_, data) => setDialogOpen(data.open)}>
         <DialogSurface className={styles.dialogSurface}>
-          <DialogBody style={{ maxHeight: 'calc(100vh - 236px)' }}>
+          <DialogBody className={styles.dialogBody}>
             <DialogTitle
               action={
                 <DialogTrigger action='close' disableButtonEnhancement>

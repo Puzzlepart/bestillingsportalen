@@ -3,6 +3,7 @@ import { SearchBox, Toolbar, ToolbarButton, ToolbarDivider } from '@fluentui/rea
 import { ArrowClockwise24Regular, ArrowSync24Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
+import styles from './Commands.module.scss'
 
 interface ICommandsProps {
   search: string
@@ -24,7 +25,7 @@ export const Commands: React.FC<ICommandsProps> = ({
   showRetryButton
 }) => {
   return (
-    <Toolbar aria-label='Invite status commands' style={{ flexWrap: 'wrap', rowGap: 4 }}>
+    <Toolbar aria-label='Invite status commands' className={styles.toolbar}>
       <ToolbarButton
         appearance='subtle'
         icon={<ArrowClockwise24Regular />}
@@ -46,7 +47,7 @@ export const Commands: React.FC<ICommandsProps> = ({
         placeholder={strings.StatusSearchPlaceholder}
         value={search}
         onChange={(_, data) => onSearchChange(data.value)}
-        style={{ minWidth: 140, flex: '1 1 140px' }}
+        className={styles.searchBox}
       />
     </Toolbar>
   )

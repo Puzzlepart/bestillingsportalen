@@ -99,7 +99,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
         await state.invite(guests)
         setDrawerOpen(false)
         dispatchToast(
-          <Toast>
+          <Toast appearance='inverted'>
             <ToastTitle>{strings.ToastSuccessTitle}</ToastTitle>
             <ToastBody>{strings.ToastSuccessBody}</ToastBody>
           </Toast>,
@@ -107,7 +107,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
         )
       } catch (e) {
         dispatchToast(
-          <Toast>
+          <Toast appearance='inverted'>
             <ToastTitle>{strings.ToastErrorTitle}</ToastTitle>
             <ToastBody>{(e as Error).message || strings.ToastErrorBody}</ToastBody>
           </Toast>,
@@ -206,14 +206,18 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
                   icon={<PersonAdd24Regular />}
                   iconPosition='before'
                   onClick={() => setDrawerOpen(true)}
-                  style={{ alignSelf: 'flex-start', justifyContent: 'flex-start' }}
+                  className={styles.inviteButton}
                   aria-haspopup='dialog'>
                   {strings.InviteButton}
                 </Button>
               )}
             </div>
 
-            {state.error && <div className={styles.error}>{state.error}</div>}
+            {state.error && (
+              <div className={styles.error} role='alert'>
+                {state.error}
+              </div>
+            )}
 
             <InviteStatus mode={displayMode} />
 
