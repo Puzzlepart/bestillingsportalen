@@ -2,6 +2,8 @@
 
 Fra tid til annen må du oppdatere/fornye client secret-en som brukes i Entra ID-appen for Bestillingsportalen. Dette kan være fordi secret-en har utløpt, eller fordi du ønsker å generere en ny.
 
+> **Client secret vs. sertifikat:** Client secret-en og sertifikatet er to forskjellige credentials som fornyes hver for seg. Dette dokumentet dekker **client secret-en**. En «certificate thumbprint»-feil i Logic Apps handler om **sertifikatet** – se [Renewing-certificate.md](Renewing-certificate.md).
+
 Når du installerer Bestillingsportalen, har secret-en som genereres for Entra ID-appen en standard utløpstid på 1 år fra datoen installasjonsskriptet ble kjørt.
 
 Secret-en brukes flere steder i Bestillingsportalen:
