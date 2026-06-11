@@ -50,6 +50,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     showM365GroupRoleSection,
     showSPGroupSection,
     hiddenSpGroups,
+    allowedSpGroups,
     service,
     siteService,
     graphService,
@@ -143,6 +144,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showM365GroupRoleSection,
       showSPGroupSection,
       hiddenSpGroups,
+      allowedSpGroups,
       service,
       siteService,
       graphService,
@@ -177,6 +179,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showM365GroupRoleSection,
       showSPGroupSection,
       hiddenSpGroups,
+      allowedSpGroups,
       service,
       siteService,
       graphService,
@@ -259,5 +262,6 @@ InviteGuests.defaultProps = {
   showColumnSPPermissionLevel: false,
   showM365GroupRoleSection: true,
   showSPGroupSection: true,
-  hiddenSpGroups: ''
+  hiddenSpGroups: '',
+  allowedSpGroups: ''
 } satisfies Partial<IInviteGuestsProps>

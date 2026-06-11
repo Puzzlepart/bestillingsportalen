@@ -41,6 +41,7 @@ export interface IInviteGuestsProps {
   showM365GroupRoleSection: boolean
   showSPGroupSection: boolean
   hiddenSpGroups: string
+  allowedSpGroups: string
   siteUrl: string
   siteTitle: string
   service: GuestRequestService
@@ -73,6 +74,7 @@ export interface IInviteGuestsContext {
   showM365GroupRoleSection: boolean
   showSPGroupSection: boolean
   hiddenSpGroups: string
+  allowedSpGroups: string
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService

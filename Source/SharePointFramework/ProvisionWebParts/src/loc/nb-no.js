@@ -73,6 +73,8 @@ define([], function () {
     GuestRequestSiteUrlFieldDescription: 'URL til området hvor Guest Requests-listen ligger (typisk Bestillingsportalen). Tomt = gjeldende område.',
     HiddenSpGroupsFieldLabel: 'Skjul SharePoint-grupper',
     HiddenSpGroupsFieldDescription: 'Komma- eller linjeseparert liste over grupper som skal skjules fra gruppevelgeren. Matcher på gruppenavn (delvis treff) eller tilgangsnivå (eksakt). Eksempel: Eiere, Full kontroll.',
+    AllowedSpGroupsFieldLabel: 'Vis kun SharePoint-grupper',
+    AllowedSpGroupsFieldDescription: 'Komma- eller linjeseparert liste. Hvis utfylt vises KUN grupper som matcher (på gruppenavn delvis, eller tilgangsnivå eksakt). Tomt = vis alle. Kombineres med «Skjul SharePoint-grupper» (skjul vinner). Eksempel: Eksterne, Read.',
 
     InviteButton: 'Inviter gjester',
     InviteDrawerHeader: 'Inviter gjester til området',

@@ -72,6 +72,8 @@ declare interface IProvisionWebPartsStrings {
   GuestRequestSiteUrlFieldDescription: string
   HiddenSpGroupsFieldLabel: string
   HiddenSpGroupsFieldDescription: string
+  AllowedSpGroupsFieldLabel: string
+  AllowedSpGroupsFieldDescription: string
 
   InviteButton: string
   InviteDrawerHeader: string

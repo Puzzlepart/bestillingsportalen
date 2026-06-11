@@ -122,9 +122,15 @@ export function useInviteDrawer({
               .map((s) => s.trim())
               .filter(Boolean)
           : []
+        const allowedTerms = ctx.allowedSpGroups
+          ? ctx.allowedSpGroups
+              .split(/[,;\n]+/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : []
         const [siteContext, groups] = await Promise.all([
           ctx.siteService.getSiteContext(),
-          ctx.siteService.getSiteGroups(hiddenTerms)
+          ctx.siteService.getSiteGroups(hiddenTerms, allowedTerms)
         ])
         if (cancelled) return
         setSiteGroups(groups)
@@ -156,6 +162,7 @@ export function useInviteDrawer({
     ctx.defaultSpGroupAction,
     ctx.defaultSpGroupName,
     ctx.hiddenSpGroups,
+    ctx.allowedSpGroups,
     initialShared
   ])
 

@@ -73,6 +73,8 @@ define([], function () {
     GuestRequestSiteUrlFieldDescription: 'URL of the site where the Guest Requests list lives (typically Bestillingsportalen). Leave blank to use the current site.',
     HiddenSpGroupsFieldLabel: 'Hide SharePoint groups',
     HiddenSpGroupsFieldDescription: 'Comma- or newline-separated list of groups to hide from the group picker. Matches on group name (partial) or permission level (exact). Example: Owners, Full Control.',
+    AllowedSpGroupsFieldLabel: 'Show only SharePoint groups',
+    AllowedSpGroupsFieldDescription: 'Comma- or newline-separated list. When set, shows ONLY matching groups (name partial, or permission level exact). Empty = show all. Combined with "Hide SharePoint groups" (hide wins). Example: External, Read.',
 
     InviteButton: 'Invite guests',
     InviteDrawerHeader: 'Invite guests to this site',

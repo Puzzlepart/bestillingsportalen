@@ -44,6 +44,7 @@
         "showM365GroupRoleSection": true,
         "showSPGroupSection": true,
         "hiddenSpGroups": "",
+        "allowedSpGroups": "",
         "guestRequestListTitle": "Guest Requests",
         "guestRequestSiteUrl": ""
       }

@@ -49,6 +49,7 @@ export interface IInviteGuestsWebPartProps {
   showM365GroupRoleSection: boolean
   showSPGroupSection: boolean
   hiddenSpGroups: string
+  allowedSpGroups: string
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -111,6 +112,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       showM365GroupRoleSection: this.properties.showM365GroupRoleSection !== false,
       showSPGroupSection: this.properties.showSPGroupSection !== false,
       hiddenSpGroups: this.properties.hiddenSpGroups || '',
+      allowedSpGroups: this.properties.allowedSpGroups || '',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -316,6 +318,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
               groupName: strings.AdvancedGroupName,
               isCollapsed: true,
               groupFields: [
+                PropertyPaneTextField('allowedSpGroups', {
+                  label: strings.AllowedSpGroupsFieldLabel,
+                  description: strings.AllowedSpGroupsFieldDescription,
+                  multiline: true
+                }),
                 PropertyPaneTextField('hiddenSpGroups', {
                   label: strings.HiddenSpGroupsFieldLabel,
                   description: strings.HiddenSpGroupsFieldDescription,

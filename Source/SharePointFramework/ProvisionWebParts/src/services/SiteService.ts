@@ -51,7 +51,10 @@ export class SiteService {
     }
   }
 
-  public async getSiteGroups(hiddenTerms: string[] = []): Promise<ISiteGroup[]> {
+  public async getSiteGroups(
+    hiddenTerms: string[] = [],
+    allowedTerms: string[] = []
+  ): Promise<ISiteGroup[]> {
     const [groups, roleAssignments] = await Promise.all([
       this.sp.web.siteGroups
         .select('Id', 'Title', 'LoginName', 'Description', 'PrincipalType')
@@ -73,9 +76,17 @@ export class SiteService {
         .join(', ')
       if (names) permissionsByPrincipalId.set(ra.PrincipalId, names)
     }
-    // Admin-configured hidden terms: a group is hidden when its title contains
-    // a term (partial, case-insensitive) or its permission level equals one
-    // (exact, case-insensitive).
+    // Admin-configured allow/hidden terms: a group matches a term when its title
+    // contains the term (partial, case-insensitive) or its permission level
+    // equals one (exact, case-insensitive). The allowlist is an inverse filter
+    // with empty-means-all: when no allowed terms are set every group passes.
+    const normalizedAllowed = allowedTerms.map((t) => t.trim().toLowerCase()).filter(Boolean)
+    const isAllowed = (g: ISiteGroup): boolean => {
+      if (normalizedAllowed.length === 0) return true
+      const title = g.Title.toLowerCase()
+      const permission = (g.PermissionLevel ?? '').toLowerCase()
+      return normalizedAllowed.some((term) => title.includes(term) || permission === term)
+    }
     const normalizedHidden = hiddenTerms.map((t) => t.trim().toLowerCase()).filter(Boolean)
     const isHidden = (g: ISiteGroup): boolean => {
       if (normalizedHidden.length === 0) return false
@@ -86,6 +97,7 @@ export class SiteService {
     return groups
       .filter((g) => !SYSTEM_GROUP_PREFIXES.some((p) => g.Title.startsWith(p)))
       .map((g) => ({ ...g, PermissionLevel: permissionsByPrincipalId.get(g.Id) }))
+      .filter((g) => isAllowed(g))
       .filter((g) => !isHidden(g))
       .sort((a, b) => a.Title.localeCompare(b.Title))
   }
