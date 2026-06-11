@@ -16,8 +16,9 @@ For å komme i gang trenger du:
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å kjøre `createentraidapp.ps1`-skriptet og opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
-- Et sertifikat (self-signed er greit) for Microsoft Graph og SharePoint REST API-autentisering (**valgfritt** – installasjonsskriptet kan opprette et self-signed cert for deg).
 - App Registration for PnP PowerShell (se nedenfor).
+
+> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor ikke noe sertifikat, og client secret opprettes kun hvis sensitivitetsmerke-funksjonaliteten aktiveres. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
 
 #### PnP PowerShell App Registration
 
@@ -91,11 +92,7 @@ Beskrivelse av hver parameter:
 
 - `appName` – Navn på Entra ID-appen som opprettes, f.eks. `Bestillingsportalen`.
 
-- `createSelfSignedCert` – Angir om et self-signed sertifikat skal opprettes som del av installasjonen. Hvis `true`, opprettes et self-signed cert via Azure CLI med navnet i `certName`.
-
-- `certName` – Navn på det self-signed sertifikatet, f.eks. `cert-bestillingsportalen`. Hvis du lager ditt eget sertifikat, er denne parameteren fortsatt påkrevd og skal matche navnet på sertifikatet ditt.
-
-- `certValidityDays` – Antall dager sertifikatet er gyldig (hvis `createSelfSignedCert` er `true`). Standard er 365 dager.
+- `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
 
@@ -107,7 +104,7 @@ Beskrivelse av hver parameter:
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
-- `KeyVaultName` – Navn på Key Vault som installasjonsskriptet oppretter. Key Vault lagrer `app id` og `secret` for Entra ID-appen. Navnet må være unikt på tvers av Azure-regionen du installerer i. Hvis en Key Vault med samme navn eksisterer ***i*** det aktuelle abonnementet, kan den brukes. **MERK – HVIS DU BRUKER EN EKSISTERENDE KEY VAULT, VIL DEN BLI OVERSKREVET OG KONFIGURASJON SOM ROLE ASSIGNMENTS GÅR TAPT. VI ANBEFALER EN DEDIKERT KEY VAULT FOR Bestillingsportalen.** Skriptet validerer at navnet er tilgjengelig, og hvis ikke må et annet navn oppgis.
+- `KeyVaultName` – Navn på Key Vault som installasjonsskriptet oppretter. Key Vault lagrer `app id` og `secret` for Entra ID-appen samt tjenestekonto-credentials (alle kun i bruk når sensitivitetsmerke-funksjonaliteten er aktivert). Navnet må være unikt på tvers av Azure-regionen du installerer i. Hvis en Key Vault med samme navn eksisterer ***i*** det aktuelle abonnementet, kan den brukes. **MERK – HVIS DU BRUKER EN EKSISTERENDE KEY VAULT, VIL DEN BLI OVERSKREVET OG KONFIGURASJON SOM ROLE ASSIGNMENTS GÅR TAPT. VI ANBEFALER EN DEDIKERT KEY VAULT FOR Bestillingsportalen.** Skriptet validerer at navnet er tilgjengelig, og hvis ikke må et annet navn oppgis.
 
 - `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merk – dette krever en tjenestekonto UTEN MFA. Kan være samme tjenestekonto som over.
 
@@ -131,9 +128,9 @@ Første steg er å kjøre det dedikerte skriptet som oppretter Entra ID-appen og
 
 Neste steg er å kjøre deploy-skriptet.
 
-**Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet og også er SharePoint Administrator.**
+**Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet, er SharePoint Administrator, og kan tildele app-roller til managed identities.**
 
-**Installasjonsskriptet genererer en secret for Entra ID-appen opprettet over. Standard utløpstid for denne secret-en er 1 år. For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
+**Hvis sensitivitetsmerke-funksjonaliteten aktiveres, genererer installasjonsskriptet en secret for Entra ID-appen opprettet over (standard utløpstid 1 år, brukes kun av ROPC-flyten for sensitivitetsmerker). For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
 
 Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om autentisering flere ganger.
 

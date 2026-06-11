@@ -6,14 +6,6 @@
             "defaultValue": "",
             "type": "string"
         },
-        "appId": {
-            "defaultValue": "",
-            "type": "string"
-        },
-        "appSecret": {
-            "defaultValue": "",
-            "type": "string"
-        },
         "tenantId": {
             "defaultValue": "",
             "type": "string"
@@ -75,12 +67,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - Azure Automation",
-                "parameterValues": {
-                    "token:clientId": "[parameters('appId')]",
-                    "token:clientSecret": "[parameters('appSecret')]",
-                    "token:TenantId": "[parameters('tenantId')]",
-                    "token:grantType": "client_credentials"
-                },
+                "parameterValueType": "Alternative",
                 "api": {
                     "id": "[concat('subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
                 }
@@ -106,12 +93,9 @@
             "location": "[parameters('location')]",
             "properties": {
                 "displayName": "Bestillingsportalen - Key Vault",
-                "parameterValues": {
-                    "vaultName": "[parameters('keyvaultName')]",
-                    "token:clientId": "[parameters('appId')]",
-                    "token:clientSecret": "[parameters('appSecret')]",
-                    "token:TenantId": "[parameters('tenantId')]",
-                    "token:grantType": "client_credentials"
+                "parameterValueType": "Alternative",
+                "alternativeParameterValues": {
+                    "vaultName": "[parameters('keyvaultName')]"
                 },
                 "api": {
                     "id": "[concat('subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"

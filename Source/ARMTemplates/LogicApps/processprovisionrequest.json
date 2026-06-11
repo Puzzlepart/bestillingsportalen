@@ -42,7 +42,7 @@
             "defaultValue": "",
             "type": "string"
         },
-        "certName": {
+        "uamiName": {
             "defaultValue": "",
             "type": "string"
         },
@@ -52,7 +52,8 @@
         }
     },
     "variables": {
-        "Singlequote": "'"
+        "Singlequote": "'",
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
     },
     "resources": [
         {
@@ -61,6 +62,12 @@
             "apiVersion": "2017-07-01",
             "name": "ProcessProvisionRequest",
             "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
             "properties": {
                 "state": "Enabled",
                 "definition": {
@@ -121,11 +128,8 @@
                                                 "body": "@variables('SiteTemplateRequestBody')",
                                                 "authentication": {
                                                     "audience": "[parameters('spoRootSiteUrl')]",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 }
                                             }
                                         },
@@ -208,11 +212,8 @@
                                                 },
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 }
                                             }
                                         },
@@ -354,11 +355,8 @@
                                                 "method": "DELETE",
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 }
                                             }
                                         },
@@ -741,11 +739,8 @@
                                                             "inputs": {
                                                                 "authentication": {
                                                                     "audience": "https://graph.microsoft.com",
-                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                    "password": "@null",
-                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                    "tenant": "@variables('TenantID')",
-                                                                    "type": "ActiveDirectoryOAuth"
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
                                                                 },
                                                                 "body": {
                                                                     "funSettings": {
@@ -828,11 +823,8 @@
                                                                 "inputs": {
                                                                     "authentication": {
                                                                         "audience": "https://graph.microsoft.com",
-                                                                        "clientId": "@body('Get_Client_ID')?['value']",
-                                                                        "password": "@null",
-                                                                        "pfx": "@body('Get_Certificate')?['value']",
-                                                                        "tenant": "@variables('TenantID')",
-                                                                        "type": "ActiveDirectoryOAuth"
+                                                                        "identity": "[variables('uamiId')]",
+                                                                        "type": "ManagedServiceIdentity"
                                                                     },
                                                                     "body": {
                                                                         "group@odata.bind": "https://graph.microsoft.com/v1.0/groups('@{body('Parse_group_JSON')?['id']}')",
@@ -1003,11 +995,8 @@
                                             "inputs": {
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 },
                                                 "body": "@variables('MembersRequestBody')",
                                                 "headers": {
@@ -1053,11 +1042,8 @@
                                                 "inputs": {
                                                     "authentication": {
                                                         "audience": "https://graph.microsoft.com",
-                                                        "clientId": "@body('Get_Client_ID')?['value']",
-                                                        "password": "@null",
-                                                        "pfx": "@body('Get_Certificate')?['value']",
-                                                        "tenant": "@variables('TenantID')",
-                                                        "type": "ActiveDirectoryOAuth"
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
                                                     },
                                                     "body": {
                                                         "classification": "@if(empty(triggerBody()?['Classification']),null,triggerBody()?['Classification'])",
@@ -1152,11 +1138,8 @@
                                                 "inputs": {
                                                     "authentication": {
                                                         "audience": "[parameters('spoRootSiteUrl')]",
-                                                        "clientId": "@body('Get_Client_ID')?['value']",
-                                                        "password": "@null",
-                                                        "pfx": "@body('Get_Certificate')?['value']",
-                                                        "tenant": "@variables('TenantID')",
-                                                        "type": "ActiveDirectoryOAuth"
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
                                                     },
                                                     "body": "@variables('SiteCreationBody')",
                                                     "headers": {
@@ -1215,13 +1198,9 @@
                                                                             "content-type": "application/json"
                                                                         },
                                                                         "authentication": {
-                                                                            "type": "ActiveDirectoryOAuth",
-                                                                            "authority": "",
-                                                                            "tenant": "@{variables('TenantID')}",
                                                                             "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                            "password": ""
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
                                                                         }
                                                                     }
                                                                 },
@@ -1239,13 +1218,9 @@
                                                                             "content-type": "application/json"
                                                                         },
                                                                         "authentication": {
-                                                                            "type": "ActiveDirectoryOAuth",
-                                                                            "authority": "",
-                                                                            "tenant": "@{variables('TenantID')}",
                                                                             "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                            "password": ""
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
                                                                         }
                                                                     }
                                                                 },
@@ -1264,12 +1239,9 @@
                                                                                     "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_members_-_viva_engage_group')}"
                                                                                 },
                                                                                 "authentication": {
-                                                                                    "type": "ActiveDirectoryOAuth",
-                                                                                    "tenant": "@{variables('TenantID')}",
                                                                                     "audience": "https://graph.microsoft.com",
-                                                                                    "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                                    "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                                    "password": "@{null}"
+                                                                                    "identity": "[variables('uamiId')]",
+                                                                                    "type": "ManagedServiceIdentity"
                                                                                 }
                                                                             }
                                                                         }
@@ -1298,13 +1270,9 @@
                                                                                             "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_Owners_-_Viva_engage_group')?['ID']}"
                                                                                         },
                                                                                         "authentication": {
-                                                                                            "type": "ActiveDirectoryOAuth",
-                                                                                            "authority": "",
-                                                                                            "tenant": "@{variables('TenantID')}",
                                                                                             "audience": "https://graph.microsoft.com",
-                                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                                            "password": ""
+                                                                                            "identity": "[variables('uamiId')]",
+                                                                                            "type": "ManagedServiceIdentity"
                                                                                         }
                                                                                     },
                                                                                     "description": "Use the graph to add the owners to the unified group. This will sync with Viva engage and the owners will become Viva engage community admins."
@@ -1768,12 +1736,9 @@
                                                                             "owners@odata.bind": "@variables('OwnersGraph')"
                                                                         },
                                                                         "authentication": {
-                                                                            "type": "ActiveDirectoryOAuth",
-                                                                            "tenant": "@{variables('TenantID')}",
                                                                             "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                            "password": "@{null}"
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
                                                                         }
                                                                     },
                                                                     "runtimeConfiguration": {
@@ -1857,12 +1822,9 @@
                                                                             "content-type": "application/json"
                                                                         },
                                                                         "authentication": {
-                                                                            "type": "ActiveDirectoryOAuth",
-                                                                            "tenant": "@{variables('TenantID')}",
                                                                             "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                            "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                            "password": "@{null}"
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
                                                                         }
                                                                     },
                                                                     "runtimeConfiguration": {
@@ -1919,12 +1881,9 @@
                                                                                     "content-type": "application/json"
                                                                                 },
                                                                                 "authentication": {
-                                                                                    "type": "ActiveDirectoryOAuth",
-                                                                                    "tenant": "@{variables('TenantID')}",
                                                                                     "audience": "https://graph.microsoft.com",
-                                                                                    "clientId": "@{body('Get_Client_ID')?['value']}",
-                                                                                    "pfx": "@{body('Get_Certificate')?['value']}",
-                                                                                    "password": "@{null}"
+                                                                                    "identity": "[variables('uamiId')]",
+                                                                                    "type": "ManagedServiceIdentity"
                                                                                 }
                                                                             },
                                                                             "runtimeConfiguration": {
@@ -2236,23 +2195,6 @@
                             "type": "Compose",
                             "inputs": "@join(variables('Visitors'),',')"
                         },
-                        "Get_Certificate": {
-                            "runAfter": {
-                                "Get_Client_Secret": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "GET",
-                                "path": "[concat('/secrets/@{encodeURIComponent(',variables('singlequote'),parameters('certName'),variables('singlequote'),')}/value')]"
-                            }
-                        },
                         "Get_Client_ID": {
                             "runAfter": {
                                 "Initialize_CommunityID_variable": [
@@ -2533,7 +2475,7 @@
                         },
                         "Get_service_account_user_profile": {
                             "runAfter": {
-                                "Get_Certificate": [
+                                "Get_Client_Secret": [
                                     "Succeeded"
                                 ]
                             },
@@ -3466,11 +3408,8 @@
                                                                     "inputs": {
                                                                         "authentication": {
                                                                             "audience": "https://graph.microsoft.com",
-                                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                                            "password": "@null",
-                                                                            "pfx": "@body('Get_Certificate')?['value']",
-                                                                            "tenant": "@variables('TenantID')",
-                                                                            "type": "ActiveDirectoryOAuth"
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
                                                                         },
                                                                         "body": {
                                                                             "@@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/@{items('Loop_through_guests_in_Guests_JSON')['GuestId']}"
@@ -3860,11 +3799,8 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com",
-                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                            "password": "@null",
-                                                            "pfx": "@body('Get_Certificate')?['value']",
-                                                            "tenant": "@variables('TenantID')",
-                                                            "type": "ActiveDirectoryOAuth"
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
                                                         },
                                                         "headers": {
                                                             "content-type": "application/json"
@@ -3883,11 +3819,8 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com",
-                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                            "password": "@null",
-                                                            "pfx": "@body('Get_Certificate')?['value']",
-                                                            "tenant": "@variables('TenantID')",
-                                                            "type": "ActiveDirectoryOAuth"
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
                                                         },
                                                         "headers": {
                                                             "content-type": "application/json"
@@ -4184,11 +4117,8 @@
                                                             "inputs": {
                                                                 "authentication": {
                                                                     "audience": "https://graph.microsoft.com",
-                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                    "password": "@null",
-                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                    "tenant": "@variables('TenantID')",
-                                                                    "type": "ActiveDirectoryOAuth"
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
                                                                 },
                                                                 "headers": {
                                                                     "content-type": "application/json"
@@ -4203,11 +4133,8 @@
                                                             "inputs": {
                                                                 "authentication": {
                                                                     "audience": "https://graph.microsoft.com",
-                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                    "password": "@null",
-                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                    "tenant": "@variables('TenantID')",
-                                                                    "type": "ActiveDirectoryOAuth"
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
                                                                 },
                                                                 "headers": {
                                                                     "content-type": "application/json"
@@ -4227,11 +4154,8 @@
                                                                             "inputs": {
                                                                                 "authentication": {
                                                                                     "audience": "https://graph.microsoft.com",
-                                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                                    "password": "@null",
-                                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                                    "tenant": "@variables('TenantID')",
-                                                                                    "type": "ActiveDirectoryOAuth"
+                                                                                    "identity": "[variables('uamiId')]",
+                                                                                    "type": "ManagedServiceIdentity"
                                                                                 },
                                                                                 "body": {
                                                                                     "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_MemberIDs_array')}"
@@ -4292,11 +4216,8 @@
                                                                             "inputs": {
                                                                                 "authentication": {
                                                                                     "audience": "https://graph.microsoft.com",
-                                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                                    "password": "@null",
-                                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                                    "tenant": "@variables('TenantID')",
-                                                                                    "type": "ActiveDirectoryOAuth"
+                                                                                    "identity": "[variables('uamiId')]",
+                                                                                    "type": "ManagedServiceIdentity"
                                                                                 },
                                                                                 "body": {
                                                                                     "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{items('Loop_through_OwnerIDs_array')}"
@@ -4693,11 +4614,8 @@
                                                                                             "inputs": {
                                                                                                 "authentication": {
                                                                                                     "audience": "https://graph.microsoft.com",
-                                                                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                                                                    "password": "@null",
-                                                                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                                                                    "tenant": "@variables('TenantID')",
-                                                                                                    "type": "ActiveDirectoryOAuth"
+                                                                                                    "identity": "[variables('uamiId')]",
+                                                                                                    "type": "ManagedServiceIdentity"
                                                                                                 },
                                                                                                 "headers": {
                                                                                                     "content-type": "application/json"
@@ -4831,11 +4749,8 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com",
-                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                            "password": "@null",
-                                                            "pfx": "@body('Get_Certificate')?['value']",
-                                                            "tenant": "@variables('TenantID')",
-                                                            "type": "ActiveDirectoryOAuth"
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
                                                         },
                                                         "body": {
                                                             "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{body('Get_service_account_user_profile')?['id']}"
@@ -4878,11 +4793,8 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com",
-                                                            "clientId": "@body('Get_Client_ID')?['value']",
-                                                            "password": "@null",
-                                                            "pfx": "@body('Get_Certificate')?['value']",
-                                                            "tenant": "@variables('TenantID')",
-                                                            "type": "ActiveDirectoryOAuth"
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
                                                         },
                                                         "method": "DELETE",
                                                         "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/@{body('Get_service_account_user_profile')?['id']}/$ref"
@@ -5043,11 +4955,8 @@
                                             "inputs": {
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 },
                                                 "body": {
                                                     "displayName": "Group.Unified.Guest",
@@ -5176,11 +5085,8 @@
                                             "inputs": {
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 },
                                                 "method": "GET",
                                                 "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}"
@@ -5196,11 +5102,8 @@
                                             "inputs": {
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com",
-                                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                                    "password": "@null",
-                                                    "pfx": "@body('Get_Certificate')?['value']",
-                                                    "tenant": "@variables('TenantID')",
-                                                    "type": "ActiveDirectoryOAuth"
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
                                                 },
                                                 "method": "GET",
                                                 "uri": "@{variables('GraphURL')}/groupLifecyclePolicies"
@@ -5877,6 +5780,12 @@
                             "azureautomation": {
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-automation')]",
                                 "connectionName": "bestillingsportalen-automation",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[variables('uamiId')]"
+                                    }
+                                },
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
                             },
                             "office365": {
@@ -5897,6 +5806,12 @@
                             "keyvault": {
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-kv')]",
                                 "connectionName": "bestillingsportalen-kv",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[variables('uamiId')]"
+                                    }
+                                },
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
                             }
                         }

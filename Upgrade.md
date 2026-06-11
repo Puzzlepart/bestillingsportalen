@@ -26,6 +26,7 @@ Bruk oppgraderingsmodus når du vil:
 - Førstegangs installasjon (bruk standard installasjonsprosess)
 - Større breaking changes som krever datamigrering
 - Komplette miljørebygginger
+- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Se [Managed-identity-migration.md](Managed-identity-migration.md). Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes.
 
 ## Hva som blir oppdatert
 
@@ -78,7 +79,7 @@ Bruk oppgraderingsmodus når du vil:
    - Azure Automation Account
    - Innhold i eksisterende runbooks (Bicep `publishContentLink` re-importerer kun ved bumpet version i `azureresources.bicep`)
    - Key Vault
-   - Sertifikater
+   - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
 
@@ -156,9 +157,6 @@ Kjør deploy-skriptet med `-Upgrade`-flagget:
 Du kan kombinere med andre skip-flagg ved behov:
 
 ```powershell
-# Eksempel: Hopp over sertifikatgenerering hvis det allerede finnes
-./deploy.ps1 -Upgrade -SkipGenerateCertificate
-
 # Eksempel: Hopp over opprettelse av ressursgruppe
 ./deploy.ps1 -Upgrade -SkipCreateResourceGroup
 

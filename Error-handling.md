@@ -116,7 +116,7 @@ Når en forespørsel får status "Space Creation Failed":
 
 #### "Failed to check if space exists"
 - Problem med tilkobling til SharePoint
-- Manglende tillatelser for service principal
+- Manglende app-roller på user-assigned managed identity (se [Managed-identity-migration.md](Managed-identity-migration.md))
 
 #### "Failed during space type validation or provisioning"
 - Ugyldig områdetype
@@ -136,7 +136,12 @@ Når en forespørsel får status "Space Creation Failed":
 #### "Failed to apply sensitivity label"
 - Følsomhetsetikett ikke publisert til grupper/sites
 - Service account mangler tillatelser
+- App secret (brukes kun av denne flyten) er utløpt – se [Refreshing-app-secret.md](Refreshing-app-secret.md)
 - Ugyldig Label ID
+
+#### 403 "Authorization_RequestDenied" rett etter installasjon/oppgradering
+- Managed identity-tokens caches i opptil ~24 timer, og nytildelte app-roller kan bruke tid på å propagere
+- Vent og prøv igjen før du feilsøker videre; verifiser deretter app-rollene på managed identityen
 
 ### Beste praksis
 
@@ -144,7 +149,7 @@ Når en forespørsel får status "Space Creation Failed":
 2. **Sjekk Logic App run history** - For detaljerte logs og feilmeldinger
 3. **Sjekk Automation Account job history** - For detaljerte runbook logs
 4. **Test konfigurasjonen** - Bruk testforespørsler for å validere endringer
-5. **Valider tillatelser** - Sørg for at både service principal og managed identity har nødvendige tillatelser
+5. **Valider tillatelser** - Sørg for at både den user-assigned managed identityen (Logic Apps) og automation accountens system-assigned managed identity (runbooks) har nødvendige app-roller
 
 ## Gevinster med forbedret feilhåndtering
 

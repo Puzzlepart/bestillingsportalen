@@ -1,24 +1,14 @@
 # Fornye App Secret
 
-Fra tid til annen må du oppdatere/fornye client secret-en som brukes i Entra ID-appen for Bestillingsportalen. Dette kan være fordi secret-en har utløpt, eller fordi du ønsker å generere en ny.
+> **Gjelder kun installasjoner med sensitivitetsmerke-funksjonaliteten aktivert (`enableSensitivity`).** Etter [migreringen til managed identity](Managed-identity-migration.md) brukes client secret-en til Entra ID-appen utelukkende i ROPC-kallet som anvender sensitivitetsmerker. Logic Apps, API-tilkoblinger og runbooks autentiserer med managed identity og påvirkes ikke av at secret-en utløper. Bruker du ikke sensitivitetsmerker, trenger du ikke gjøre noe når secret-en utløper.
 
-> **Client secret vs. sertifikat:** Client secret-en og sertifikatet er to forskjellige credentials som fornyes hver for seg. Dette dokumentet dekker **client secret-en**. En «certificate thumbprint»-feil i Logic Apps handler om **sertifikatet** – se [Renewing-certificate.md](Renewing-certificate.md).
+Når du installerer Bestillingsportalen med `enableSensitivity` aktivert, har secret-en som genereres for Entra ID-appen en standard utløpstid på 1 år fra datoen installasjonsskriptet ble kjørt.
 
-Når du installerer Bestillingsportalen, har secret-en som genereres for Entra ID-appen en standard utløpstid på 1 år fra datoen installasjonsskriptet ble kjørt.
-
-Secret-en brukes flere steder i Bestillingsportalen:
-
-- Key Vault
-- Key Vault API Connection
-- Kryptert variabel i Automation Account
-
-**Det anbefales å notere ned datoen secret-en utløper. Når den har utløpt, vil Logic Apps og Automation Runbooks feile til en ny secret er opprettet og Bestillingsportalen oppdatert.**
+**Det anbefales å notere ned datoen secret-en utløper. Når den har utløpt, vil anvendelse av sensitivitetsmerker i provisjoneringen feile til en ny secret er opprettet og Key Vault oppdatert.**
 
 ## Fornye secret
 
-***Passende tilganger kreves for å følge prosessen nedenfor. Sørg for at kontoen du bruker har tilganger til å generere Entra ID app secrets, oppdatere secrets i Key Vault og oppdatere Bestillingsportalen API Connections.**
-
-Når secret-en utløper (ELLER når du vil opprette en ny), følg denne prosessen for å oppdatere Bestillingsportalen:
+***Passende tilganger kreves for å følge prosessen nedenfor. Sørg for at kontoen du bruker har tilganger til å generere Entra ID app secrets og oppdatere secrets i Key Vault.***
 
 ### Generere en ny secret
 
@@ -47,30 +37,4 @@ Når secret-en utløper (ELLER når du vil opprette en ny), følg denne prosesse
 
 6. Key Vault er nå oppdatert.
 
-### Oppdatere API Connection
-
-1. Finn API Connection-en `bestillingsportalen-kv` i Azure Portal. Du kan bruke søkeboksen.
-2. Klikk `Edit API connection` i venstre meny.
-
-![Key Vault API Connection screenshot](/Images/KeyVaultAPIConnection.png)
-
-3. Skriv inn den nye secret-en i `Client secret`-tekstboksen og klikk `Save`.
-4. API Connection er nå oppdatert.
-
-### Oppdatere Automation Account-variabel
-
-1. Åpne Azure Portal.
-2. Finn Automation Account-en `bestillingsportalen-auto`.
-3. Klikk `Variables` i venstre meny.
-
-![Automation Account variables option screenshot](/Images/AutomationAccountVariables.png)
-
-4. Klikk på variabelen `appSecret`.
-
-![Automation Account appSecret variable screenshot](/Images/AutomationAccountAppSecretVariable.png)
-
-5. Klikk `Edit value`.
-6. Skriv inn verdien på den nye secret-en i `Value`-tekstboksen og klikk `Save`.
-7. Automation Account er nå oppdatert.
-
-Secret-en er nå oppdatert for Bestillingsportalen.
+Secret-en er nå oppdatert for Bestillingsportalen. Logic App-en `ProcessProvisionRequest` henter alltid siste versjon av `appsecret` fra Key Vault ved kjøring, så ingen ytterligere oppdatering er nødvendig.

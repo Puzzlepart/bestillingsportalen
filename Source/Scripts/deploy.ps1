@@ -1,9 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Deploys the following assets of the Bestillingsportalen solution - 
+    Deploys the following assets of the Bestillingsportalen solution -
 
-        -SharePoint Site & Assets 
-        -Entra ID App - Creates sectet
+        -SharePoint Site & Assets
+        -User-assigned managed identity (used by the Logic Apps for Graph/SharePoint/Key Vault/Azure Automation)
         -Azure Automation Account & Runbooks
         -Logic App
 
@@ -11,9 +11,13 @@
     Deploys the Bestillingsportalen solution (excluding Flows).
     This script uses the Azure CLI, Azure Az PowerShell and PnP PowerShell Modules to perform the deployment.
 
-    As part of the deployment, the script will generate a secet for the Entra ID App created by the 'createadapp.ps1' script. 
+    The Logic Apps authenticate with a user-assigned managed identity, so no certificate is needed.
+    Only when the sensitivity label functionality is enabled (enableSensitivity) will the script
+    generate a secret for the Entra ID App created by the 'createentraidapp.ps1' script - the secret
+    is used exclusively by the ROPC flow that applies sensitivity labels (delegated-only Graph API).
 
-    The account running this script must be able to create secrets for Entra ID Applications. The 'Cloud Application Administrator' role will suffice.
+    The account running this script must be able to grant app roles to the managed identities
+    (e.g. Global Administrator, or Privileged Role Administrator + Cloud Application Administrator).
 
     The script requires input during execution, requires sign-in to a number of services and therefore should be monitored.
 
@@ -34,7 +38,6 @@ param
     [switch]$SkipCreateEntraIDAppSecret,
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
-    [switch]$SkipGenerateCertificate,
     [switch]$SkipDeployAPIConnections,
     [switch]$SkipSPFxDeploy,
     [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
@@ -101,6 +104,7 @@ $saUsername = ""
 $saPassword = ""
 
 $automationAccountName = "bestillingsportalen-auto"
+$uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in parameters.json if present
 
 # Global variables
 $global:context = $null
@@ -112,7 +116,7 @@ $global:teamsTemplatesListId = $null
 $global:guestRequestsListId = $null
 $global:appId = $null
 $global:appSecret = $null
-$global:appServicePrincipalId = $null
+$global:uamiPrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
 $global:skipApplyTemplate = $false
@@ -200,16 +204,6 @@ function ValidateParameters {
     
     if (-not (IsValidParam($parameters.keyVaultName))) {
         Write-Host "Invalid keyVaultName" -ForegroundColor Red
-        $isValid = $false;
-    }
-
-    if (-not (IsValidParam($parameters.certName))) {
-        Write-Host "Invalid certName" -ForegroundColor Red
-        $isValid = $false;
-    }
-
-    if (-not (IsValidParam($parameters.certValidityDays))) {
-        Write-Host "Invalid certValidityDays" -ForegroundColor Red
         $isValid = $false;
     }
 
@@ -723,22 +717,26 @@ function CreateEntraIDAppSecret {
 
             $global:appId = $app.appId
 
-            # Create a secret - this will autogenerate a password
             Write-Host "Entra ID App $($parameters.appName.Value) found..." -ForegroundColor Yellow
 
-            Write-Host "Creating secret for Entra ID App - $($parameters.appName.Value)..." -ForegroundColor Yellow
+            if ($parameters.enableSensitivity.Value) {
+                # The secret is only used by the ROPC flow that applies sensitivity labels
+                # (the Graph API only supports delegated permissions for this operation).
+                # All other authentication uses the user-assigned managed identity.
+                Write-Host "Creating secret for Entra ID App - $($parameters.appName.Value) (required for the sensitivity label ROPC flow)..." -ForegroundColor Yellow
 
-            $secret = az ad app credential reset --id $global:appId
-    
-            $secretValue = $secret | ConvertFrom-Json | Select-Object password
-    
-            $global:appSecret = $secretValue.password
+                $secret = az ad app credential reset --id $global:appId
 
-            # Get service principal id for the app
-            $global:appServicePrincipalId = Get-AzADServicePrincipal -DisplayName $parameters.appName.Value  | Select-Object -ExpandProperty Id
-            
-            Write-Host "Created secret for app" -ForegroundColor Green
-        } 
+                $secretValue = $secret | ConvertFrom-Json | Select-Object password
+
+                $global:appSecret = $secretValue.password
+
+                Write-Host "Created secret for app" -ForegroundColor Green
+            }
+            else {
+                Write-Host "Sensitivity label functionality is disabled - skipping secret creation (not needed; the Logic Apps authenticate with managed identity)." -ForegroundColor Yellow
+            }
+        }
         else {
 
             throw("Entra ID App $($parameters.appName.Value)' does not exist. Please run the createentraidapp.ps1 script first.")
@@ -750,24 +748,6 @@ function CreateEntraIDAppSecret {
     catch {
         throw('Failed to create the secret for the Entra ID App {0}', $_.Exception.Message)
     }
-}
-
-function CreateAutomationRoleAssignments {
-    # Create automation role assignments for AD app service principal if they do not already exist
-
-    $jobOperatorRoleAssignment = Get-AzRoleAssignment -ObjectId $global:appServicePrincipalId -ResourceName $automationAccountName -ResourceType Microsoft.Automation/automationAccounts -ResourceGroupName $parameters.resourceGroupName.Value -RoleDefinitionName "Automation Job Operator"
-
-    if ($null -eq $jobOperatorRoleAssignment) {
-        New-AzRoleAssignment -ObjectId $global:appServicePrincipalId -RoleDefinitionName "Automation Job Operator" -ResourceName $automationAccountName -ResourceType Microsoft.Automation/automationAccounts -ResourceGroupName $parameters.resourceGroupName.Value
-    }
-
-    $runbookOperatorRoleAssignment = Get-AzRoleAssignment -ObjectId $global:appServicePrincipalId -ResourceName $automationAccountName -ResourceType Microsoft.Automation/automationAccounts -ResourceGroupName $parameters.resourceGroupName.Value -RoleDefinitionName "Automation Runbook Operator"
-
-    if ($null -eq $runbookOperatorRoleAssignment) {
-        New-AzRoleAssignment -ObjectId $global:appServicePrincipalId -RoleDefinitionName "Automation Runbook Operator" -ResourceName $automationAccountName -ResourceType Microsoft.Automation/automationAccounts -ResourceGroupName $parameters.resourceGroupName.Value
-
-    }
-
 }
 
 function AssignManagedIdentityPermissions {
@@ -839,6 +819,72 @@ function AssignManagedIdentityPermissions {
     Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
 }
 
+# Assigns Graph and SharePoint app roles to the user-assigned managed identity that the
+# logic apps use for HTTP actions and the Key Vault/Azure Automation API connections.
+# Replaces the application permissions previously carried by the Entra ID app (certificate).
+function AssignUamiPermissions {
+    Write-Host "Assigning app roles to user-assigned managed identity ($uamiName)..." -ForegroundColor Yellow
+
+    if ([string]::IsNullOrEmpty($global:uamiPrincipalId)) {
+        $global:uamiPrincipalId = az identity show --resource-group $parameters.resourceGroupName.Value --name $uamiName --query principalId --output tsv
+    }
+    if ([string]::IsNullOrEmpty($global:uamiPrincipalId)) {
+        throw "Could not find user-assigned managed identity '$uamiName' in resource group '$($parameters.resourceGroupName.Value)'. Ensure azureresources.bicep has been deployed."
+    }
+
+    $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
+    $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
+
+    $existing = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $global:uamiPrincipalId
+
+    # Mirrors the application permissions in appmanifest.json (used by the logic apps'
+    # Graph/SharePoint HTTP actions). Idempotent - checked per AppRoleId, so re-runs add
+    # only what's missing.
+    $rolesToGrant = @(
+        @{ ResourceSp = $spoResource; RoleName = 'Sites.FullControl.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Directory.Read.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Directory.ReadWrite.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Group.ReadWrite.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'InformationProtectionPolicy.Read.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Sites.FullControl.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'TeamsTemplates.Read.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Community.ReadWrite.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'User.Invite.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'User.ReadWrite.All' }
+    )
+
+    foreach ($role in $rolesToGrant) {
+        if ($null -eq $role.ResourceSp) {
+            Write-Host "  WARN: Resource service principal for '$($role.RoleName)' was not found in the tenant. Skipping." -ForegroundColor Red
+            continue
+        }
+
+        $appRole = $role.ResourceSp.AppRole | Where-Object { $_.Value -eq $role.RoleName -and $_.AllowedMemberType -contains 'Application' }
+        if ($null -eq $appRole) {
+            Write-Host "  WARN: Could not find app role '$($role.RoleName)' on $($role.ResourceSp.DisplayName)." -ForegroundColor Red
+            continue
+        }
+
+        $alreadyAssigned = $existing | Where-Object { $_.AppRoleId -eq $appRole.Id }
+        if ($null -ne $alreadyAssigned) {
+            Write-Host "  $($role.RoleName) already assigned on $($role.ResourceSp.DisplayName). Skipping." -ForegroundColor Gray
+            continue
+        }
+
+        Write-Host "  Granting $($role.RoleName) on $($role.ResourceSp.DisplayName)..." -ForegroundColor Yellow
+        try {
+            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $global:uamiPrincipalId -AppRoleId $appRole.Id -ResourceId $role.ResourceSp.Id | Out-Null
+            Write-Host "  $($role.RoleName) granted." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  ERROR granting $($role.RoleName): $($_.Exception.Message)" -ForegroundColor Red
+            throw
+        }
+    }
+
+    Write-Host "Finished assigning app roles to user-assigned managed identity." -ForegroundColor Green
+}
+
 
 # Deploy ARM templates
 function DeployARMTemplates {
@@ -847,7 +893,7 @@ function DeployARMTemplates {
         if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
             
-            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "appId=$global:appId" "appSecret=$global:appSecret" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
+            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
             
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
         }
@@ -859,39 +905,39 @@ function DeployARMTemplates {
 
         Write-Host "ProcessGuests" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "certName=$($parameters.certName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName"
 
         Write-Host "CheckSiteExists" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "certName=$($parameters.certName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "uamiName=$uamiName"
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName"
 
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "certName=$($parameters.certName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName"
 
         Write-Host "GetSiteTemplates" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName" "uamiName=$uamiName"
         
         Write-Host "GetHubSites" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
         
         Write-Host "SyncLabels" -ForegroundColor Yellow
         
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "certName=$($parameters.certName.Value)" "certName=$($parameters.certName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "uamiName=$uamiName"
 
         Write-Host "GetTeamsTemplates" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "certName=$($parameters.certName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName"
         
         Write-Host "Finished deploying logic apps" -ForegroundColor Green
     }
@@ -923,11 +969,11 @@ function DeployUpgradeLogicApp {
 
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
@@ -1111,34 +1157,6 @@ function ValidateKeyVault {
 
 }
 
-function GenerateSelfSignedCertificate {
-    try {
-
-        If ($parameters.createSelfSignedCert.Value) {
-
-            Write-Host "Generating self-signed certificate..." -ForegroundColor Yellow
-
-            $currDate = Get-Date
-
-            $certEndDate = $currDate.AddDays($parameters.certValidityDays.Value) | Get-Date -Format 'yyyy/MM/dd'
-
-            az ad app credential reset --id $global:appId --create-cert --keyvault $parameters.keyVaultName.Value --cert $parameters.certName.Value --end-date $certEndDate --append
-    
-            Write-Host "Finished creating self-signed certificate." -ForegroundColor Green
-        }
-        else {
-            Write-Host "You chose not to generate a self signed certificate. Please upload your certificate to the app registration and key vault. Ensure the certificate name matches that in the parameters.json file." -ForegroundColor Yellow
-
-            Write-Host "Press enter to continue..." -ForegroundColor Yellow   
-    
-            Read-Host
-        }
-    }
-    catch {
-        throw('Failed to generate self-signed certificate {0}', $_.Exception.Message)
-    }
-}
-
 $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
@@ -1162,6 +1180,11 @@ if (-not(ValidateParameters)) {
 }
 
 Write-Host "Parameters are valid" -ForegroundColor Green
+
+# Allow overriding the user-assigned managed identity name from parameters.json
+if ($parameters.PSObject.Properties.Name -contains 'uamiName' -and (IsValidParam($parameters.uamiName))) {
+    $uamiName = $parameters.uamiName.Value
+}
 
 Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
@@ -1192,10 +1215,9 @@ if ($global:upgrade) {
     $SkipCreateEntraIDAppSecret = $true
     $SkipBicepDeploy = $true
     $SkipCreateResourceGroup = $true
-    $SkipGenerateCertificate = $true
     $SkipDeployAPIConnections = $true
-    
-    Write-Host "Automatically skipping: Entra ID App Secret, Bicep Deploy, Resource Group Creation, Certificate Generation, API Connections" -ForegroundColor DarkGray
+
+    Write-Host "Automatically skipping: Entra ID App Secret, Bicep Deploy, Resource Group Creation, API Connections" -ForegroundColor DarkGray
     Write-Host "" -ForegroundColor Yellow
 }
 
@@ -1240,11 +1262,6 @@ else {
     Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
 }
 Write-Host "Connected to SPO" -ForegroundColor Green
-
-# Skip getting current user ID in upgrade mode (not needed)
-if (-not $global:upgrade) {
-    $currUserId = az ad signed-in-user show --query id | ConvertFrom-Json
-}
 
 if (-not $SkipCreateEntraIDAppSecret) {
     CreateEntraIDAppSecret
@@ -1353,6 +1370,17 @@ if ($global:upgrade) {
     # Pre-1.11.0 deploys may have skipped this in upgrade mode.
     AssignManagedIdentityPermissions
 
+    # The logic apps reference the user-assigned managed identity, which is created by
+    # azureresources.bicep (skipped in upgrade mode). Installations deployed before the
+    # managed identity migration must run a full deploy first - fail early with a clear
+    # message instead of a cryptic ARM error. See Managed-identity-migration.md.
+    $uamiExists = az identity show --resource-group $parameters.resourceGroupName.Value --name $uamiName --query principalId --output tsv 2>$null
+    if ([string]::IsNullOrEmpty($uamiExists)) {
+        throw "User-assigned managed identity '$uamiName' was not found in resource group '$($parameters.resourceGroupName.Value)'. Run a full deployment (without -Upgrade) once to migrate to managed identity before using upgrade mode. See Managed-identity-migration.md."
+    }
+    # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
+    AssignUamiPermissions
+
     DeployUpgradeLogicApp
 
     $spfxDeployed = $false
@@ -1400,22 +1428,18 @@ If ($parameters.enableSensitivity.Value) {
 }
 
 if (-not $SkipBicepDeploy) {
-    Write-Host "Deploying key vault and automation account..." -ForegroundColor Yellow
-    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
-    CreateAutomationRoleAssignments
+    Write-Host "Deploying key vault, automation account and managed identity..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "uamiName=$uamiName" "saUsername=$($saUsername)" "saPassword=$($saPassword)"
     AssignManagedIdentityPermissions
+    AssignUamiPermissions
     DeployLocalRunbooks
-    Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
+    Write-Host "Finished deploying key vault, automation account and managed identity..." -ForegroundColor Green
 }
 else {
     Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
-}
-
-if (-not $SkipGenerateCertificate) {
-    GenerateSelfSignedCertificate
-}
-else {
-    Write-Host "Skipping certificate generation" -ForegroundColor Yellow
+    # The logic apps and API connections still need the app roles on the user-assigned
+    # managed identity - keep them in sync even when the bicep deployment is skipped.
+    AssignUamiPermissions
 }
 
 if (-not $SkipDeployARMTemplates) {

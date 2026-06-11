@@ -81,13 +81,13 @@ Tidligere forsøk på en server-side autorisasjonsjekk i Logic App-en (SP REST m
 
 ### ProcessGuests (forket fra `pnp/provision-assist-m365`)
 
-Indre Logic App ([Source/ARMTemplates/LogicApps/processguests.json](Source/ARMTemplates/LogicApps/processguests.json)) som håndterer selve Graph-kallene mot `/invitations` og `/users/{id}` PATCH. Authenticerer med cert-basert app (ikke managed identity).
+Indre Logic App ([Source/ARMTemplates/LogicApps/processguests.json](Source/ARMTemplates/LogicApps/processguests.json)) som håndterer selve Graph-kallene mot `/invitations` og `/users/{id}` PATCH. Authentiserer med den delte user-assigned managed identityen (se [Managed-identity-migration.md](Managed-identity-migration.md)).
 
 - **Get_Guest** → sjekker om gjesten finnes som ekstern bruker i tenanten via `/users?$filter=userType eq 'Guest' and mail eq …`
 - **Check_if_Guest_exists** (If):
   - Eksisterer ikke → `Send_guest_invitation` POST /invitations (med `invitedUserDisplayName` fra Fornavn+Etternavn, `sendInvitationMessage: false`)
   - Eksisterer → bruker eksisterende `id` direkte uten ny invitasjon
-- **Patch_user_profile** (If, kun yes-branch): hvis Fornavn/Etternavn/Selskap er ikke-tomme, PATCH `/users/{invitedUser.id}` med `givenName`/`surname`/`companyName`. Trenger `User.ReadWrite.All`-permission på cert-appen (allerede registrert i `Source/Scripts/appmanifest.json`).
+- **Patch_user_profile** (If, kun yes-branch): hvis Fornavn/Etternavn/Selskap er ikke-tomme, PATCH `/users/{invitedUser.id}` med `givenName`/`surname`/`companyName`. Trenger `User.ReadWrite.All`-app-rollen på den user-assigned managed identityen (tildeles automatisk av `deploy.ps1` via `AssignUamiPermissions`).
 - **Append_invited_guest_to_Guests_variable** → bygger response-array.
 
 Loopen `Loop_through_Guests` fra opprinnelig `pnp/provision-assist-m365`-template er fjernet siden vår `ProcessGuestRequest` alltid sender én e-post per kall. Diverger fra upstream-mønsteret — merging av upstream-endringer må skje manuelt.

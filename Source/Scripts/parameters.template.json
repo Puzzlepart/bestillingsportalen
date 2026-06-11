@@ -39,17 +39,9 @@
         "Value": "Bestillingsportalen",
         "Description": "Name for the Entra ad app registration that will be created."
     },
-    "createSelfSignedCert": {
-        "Value": true,
-        "Description": "Specifies whether a self signed certificate should be created and uploaded to the AD app and Key Vault. If set to false, the certificate must be uploaded manually to the app registration and Key Vault."
-    },
-    "certName": {
-        "Value": "cert-bestillingsportalen",
-        "Description": "Name for the self signed certificate that will be created (if createSelfSignedCert is set to true)."
-    },
-    "certValidityDays": {
-        "Value": 900,
-        "Description": "Number of days the self signed certificate will be valid for (if createSelfSignedCert is set to true)."
+    "uamiName": {
+        "Value": "bestillingsportalen-uami",
+        "Description": "Name for the user-assigned managed identity that the logic apps use to authenticate against Microsoft Graph, SharePoint, Key Vault and Azure Automation."
     },
     "pnpAppId": {
         "Value": "da6c31a6-b557-4ac3-9994-7315da06ea3a",
@@ -73,7 +65,7 @@
     },
     "keyVaultName": {
         "Value": "kv-bestillingsportalen",
-        "Description": "Name for the Key Vault that will be provisioned to store the Entra ID app ID and secret. The Key Vault name must be unique and not exist in another subscription."
+        "Description": "Name for the Key Vault that will be provisioned to store the Entra ID app ID, the app secret (only used for the sensitivity label ROPC flow) and the service account credentials. The Key Vault name must be unique and not exist in another subscription."
     },
     "enableSensitivity": {
         "Value": false,

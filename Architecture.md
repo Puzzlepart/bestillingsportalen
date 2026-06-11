@@ -6,14 +6,17 @@ Diagrammet nedenfor viser arkitekturen til Bestillingsportalen-løsningen og kom
 
 ``` mermaid
 graph TD
-    A(SPFx Webdel / Teams App) --> | Submit data | B[(SharePoint List)] --> C(Power Automate Approval Flow) --> D(Logic App) --> E(Entra ID App) <--> | Secret stored in Key Vault | F(Azure Key Vault) --> G{Type of collaboration space} --> |SharePoint Site| H[SharePoint REST API] 
+    A(SPFx Webdel / Teams App) --> | Submit data | B[(SharePoint List)] --> C(Power Automate Approval Flow) --> D(Logic App) --> E(User-assigned Managed Identity) --> G{Type of collaboration space} --> |SharePoint Site| H[SharePoint REST API]
+    D -.-> | Service account/ROPC secrets - sensitivity labels only | F(Azure Key Vault)
     G --> | Office 365 Group | I(Microsoft Graph)
-    G --> | Viva Engage Community | J(Microsoft Graph) 
+    G --> | Viva Engage Community | J(Microsoft Graph)
     I --> K(Azure Automation)
     H --> K
     J --> K
     K --> | Additional configuration using Managed Identity | L(PnP PowerShell) --> M(Provisioned space)
-``````
+```
+
+Logic Apps autentiserer mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation med en delt user-assigned managed identity – ingen client secret eller sertifikat. Key Vault brukes kun til tjenestekonto-/ROPC-hemmeligheter for sensitivitetsmerke-funksjonaliteten. Se [Migrering til managed identity](Managed-identity-migration.md).
 
 ## Gjeste-invitasjonsflyt
 
@@ -32,4 +35,4 @@ graph TD
     H --> | Add-PnPMicrosoft365GroupMember | I(M365-gruppen på siten)
     H --> | Add-PnPUserToGroup / New-PnPGroup | J(SP-brukergruppe på siten)
     A --> | DataGrid view filtered by SiteUrl | B
-``````
+```

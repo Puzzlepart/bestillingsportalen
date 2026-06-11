@@ -1,14 +1,24 @@
 param(
   [Parameter(Mandatory = $true)]
-  $ManagedIdentityId = "xxx" # Object (principal) ID of system assigned managed identity
+  $ManagedIdentityId = "xxx", # Object (principal) ID of the managed identity (system or user-assigned)
+  [Parameter(Mandatory = $false)]
+  [string[]]$Scopes = @("Group.ReadWrite.All"), # Microsoft Graph app roles to assign
+  [Parameter(Mandatory = $false)]
+  [switch]$IncludeSharePointSitesFullControl # Also assign SharePoint Sites.FullControl.All
 )
 
 # This script requires the Microsoft Graph PowerShell module to be installed.
-# It assigns the necessary permissions to a system assigned managed identity to access Microsoft Graph and SharePoint Online.
-
-$GraphPermissionScopes = @(
-  "Group.ReadWrite.All"
-)
+# It assigns the necessary permissions to a managed identity to access Microsoft Graph
+# and (optionally) SharePoint Online.
+#
+# Examples:
+#   Automation account system-assigned identity (default scope set):
+#     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId>
+#   Logic apps user-assigned identity (repair/manual setup - normally handled by deploy.ps1):
+#     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId> -IncludeSharePointSitesFullControl -Scopes @(
+#       "Directory.Read.All", "Directory.ReadWrite.All", "Group.ReadWrite.All",
+#       "InformationProtectionPolicy.Read.All", "Sites.FullControl.All", "TeamsTemplates.Read.All",
+#       "Community.ReadWrite.All", "User.Invite.All", "User.ReadWrite.All")
 
 try {
   Connect-MgGraph -Scopes "Directory.Read.All", "AppRoleAssignment.ReadWrite.All", "RoleManagement.ReadWrite.Directory", "Application.ReadWrite.All", "DelegatedPermissionGrant.ReadWrite.All"
@@ -21,7 +31,7 @@ catch {
 try {
   $ManagedIdentity = Get-MgServicePrincipal -ServicePrincipalId $ManagedIdentityId
   if ($null -eq $ManagedIdentity) {
-    Write-Host "System assigned managed identity not found"
+    Write-Host "Managed identity not found"
     exit 1
   }
 }
@@ -38,23 +48,46 @@ catch {
   exit 1
 }
 
-foreach ($PermissionScope in $GraphPermissionScopes) {
-  try {
-    $appRole = $GraphServicePrincipal.AppRoles | Where-Object Value -eq $PermissionScope | Where-Object AllowedMemberTypes -contains "Application"
-    if ($null -eq $appRole) {
-      Write-Host "App role for scope '$PermissionScope' not found"
-      continue
-    }
+$existingAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityId -All
 
-    $bodyParam = @{
-      PrincipalId = $ManagedIdentityId
-      ResourceId  = $GraphServicePrincipal.Id
-      AppRoleId   = $appRole.Id
-    }
-    New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityId -BodyParameter $bodyParam
-    Write-Host "Assigned '$PermissionScope' to managed identity"
+function Add-AppRoleToManagedIdentity {
+  param ($ResourceServicePrincipal, $PermissionScope)
+
+  $appRole = $ResourceServicePrincipal.AppRoles | Where-Object Value -eq $PermissionScope | Where-Object AllowedMemberTypes -contains "Application"
+  if ($null -eq $appRole) {
+    Write-Host "App role for scope '$PermissionScope' not found on $($ResourceServicePrincipal.DisplayName)"
+    return
+  }
+
+  if ($existingAssignments | Where-Object AppRoleId -eq $appRole.Id) {
+    Write-Host "'$PermissionScope' already assigned on $($ResourceServicePrincipal.DisplayName). Skipping."
+    return
+  }
+
+  $bodyParam = @{
+    PrincipalId = $ManagedIdentityId
+    ResourceId  = $ResourceServicePrincipal.Id
+    AppRoleId   = $appRole.Id
+  }
+  New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityId -BodyParameter $bodyParam
+  Write-Host "Assigned '$PermissionScope' ($($ResourceServicePrincipal.DisplayName)) to managed identity"
+}
+
+foreach ($PermissionScope in $Scopes) {
+  try {
+    Add-AppRoleToManagedIdentity -ResourceServicePrincipal $GraphServicePrincipal -PermissionScope $PermissionScope
   }
   catch {
     Write-Host "Failed to assign '$PermissionScope' to managed identity: $_"
+  }
+}
+
+if ($IncludeSharePointSitesFullControl) {
+  try {
+    $SpoServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0ff1-ce00-000000000000'"
+    Add-AppRoleToManagedIdentity -ResourceServicePrincipal $SpoServicePrincipal -PermissionScope "Sites.FullControl.All"
+  }
+  catch {
+    Write-Host "Failed to assign SharePoint 'Sites.FullControl.All' to managed identity: $_"
   }
 }
