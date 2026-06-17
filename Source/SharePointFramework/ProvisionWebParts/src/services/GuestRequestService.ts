@@ -59,7 +59,10 @@ export class GuestRequestService {
         LastName: guest.lastName || undefined,
         Company: guest.company || undefined,
         M365GroupRole: guest.m365GroupRole ?? 'None',
-        SPGroupAction: guest.spGroupAction ?? 'None',
+        // 'Preset' is a UI-only action; persist as AddToExisting (the list CHOICE
+        // field only allows None/AddToExisting/CreateNew).
+        SPGroupAction:
+          guest.spGroupAction === 'Preset' ? 'AddToExisting' : (guest.spGroupAction ?? 'None'),
         SPGroupName: guest.spGroupName,
         SPPermissionLevel: guest.spPermissionLevel,
         RequestedById: currentUserId

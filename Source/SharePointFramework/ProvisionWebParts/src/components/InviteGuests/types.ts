@@ -26,6 +26,12 @@ export interface IInviteGuestsProps {
   defaultM365GroupRole: M365GroupRole
   defaultSpGroupAction: SPGroupAction
   defaultSpGroupName: string
+  presetSpGroupName: string
+  showSpActionNone: boolean
+  showSpActionAddToExisting: boolean
+  showSpActionCreateNew: boolean
+  showSpActionPreset: boolean
+  spGroupActionOrder: string
   defaultSpPermissionLevel: SPPermissionLevel
   autoSelectVisitorGroup: boolean
   lockM365GroupRole: boolean
@@ -59,6 +65,12 @@ export interface IInviteGuestsContext {
   defaultM365GroupRole: M365GroupRole
   defaultSpGroupAction: SPGroupAction
   defaultSpGroupName: string
+  presetSpGroupName: string
+  showSpActionNone: boolean
+  showSpActionAddToExisting: boolean
+  showSpActionCreateNew: boolean
+  showSpActionPreset: boolean
+  spGroupActionOrder: string
   defaultSpPermissionLevel: SPPermissionLevel
   autoSelectVisitorGroup: boolean
   lockM365GroupRole: boolean

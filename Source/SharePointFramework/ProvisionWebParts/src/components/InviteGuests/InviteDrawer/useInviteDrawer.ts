@@ -7,6 +7,7 @@ import type {
   IGuestInput,
   M365GroupRole,
   SPGroupAction,
+  SPGroupActionUI,
   SPPermissionLevel
 } from '../../../models/IGuestRequest'
 import type { ISiteGroup } from '../../../services'
@@ -31,6 +32,8 @@ interface IUseInviteDrawerResult {
   loadingContext: boolean
   isGroupConnected: boolean
 
+  spActionOptions: SPGroupActionUI[]
+
   perGuestProfile: boolean
   setUserPerGuestProfile: (value: boolean) => void
   perGuestRole: boolean
@@ -39,11 +42,11 @@ interface IUseInviteDrawerResult {
   sharedM365GroupRole: M365GroupRole
   setSharedM365GroupRole: (role: M365GroupRole) => void
 
-  sharedSpGroupAction: SPGroupAction
+  sharedSpGroupAction: SPGroupActionUI
   sharedSpGroupName: string | undefined
   sharedSpPermissionLevel: SPPermissionLevel | undefined
   sharedSpGroupNameValidationMessage: string | undefined
-  setSharedSpGroupAction: (action: SPGroupAction) => void
+  setSharedSpGroupAction: (action: SPGroupActionUI) => void
   setSharedSpGroupName: (name: string | undefined) => void
   setSharedSpPermissionLevel: (level: SPPermissionLevel) => void
 
@@ -59,9 +62,32 @@ const resolveToggle = (mode: FeatureToggleMode, userValue: boolean): boolean => 
   return userValue
 }
 
+const DEFAULT_SP_ACTION_ORDER: SPGroupActionUI[] = ['None', 'AddToExisting', 'CreateNew', 'Preset']
+
+/**
+ * Builds the ordered, visible list of SP-group action radios from the admin
+ * config: toggles control visibility, the CSV order controls sequence (unlisted
+ * actions fall back to default order after the listed ones). Preset additionally
+ * requires a configured group name. Falls back to ['None'] if everything is off
+ * so the section is never an empty radio group.
+ */
+const computeSpActionOptions = (
+  visibility: Record<SPGroupActionUI, boolean>,
+  orderCsv: string
+): SPGroupActionUI[] => {
+  const parsed = (orderCsv || '')
+    .split(/[,;\n]+/)
+    .map((s) => s.trim())
+    .filter((s): s is SPGroupActionUI => (DEFAULT_SP_ACTION_ORDER as string[]).indexOf(s) !== -1)
+  const deduped = parsed.filter((k, i) => parsed.indexOf(k) === i)
+  const ordered = [...deduped, ...DEFAULT_SP_ACTION_ORDER.filter((k) => deduped.indexOf(k) === -1)]
+  const visible = ordered.filter((k) => visibility[k])
+  return visible.length > 0 ? visible : ['None']
+}
+
 interface ISharedSettings {
   m365GroupRole: M365GroupRole
-  spGroupAction: SPGroupAction
+  spGroupAction: SPGroupActionUI
   spGroupName: string | undefined
   spPermissionLevel: SPPermissionLevel | undefined
 }
@@ -85,20 +111,56 @@ export function useInviteDrawer({
   const perGuestProfile = resolveToggle(ctx.perGuestProfileMode, userPerGuestProfile)
   const perGuestRole = resolveToggle(ctx.perGuestRoleMode, userPerGuestRole)
 
-  const initialShared = React.useMemo<ISharedSettings>(
-    () => ({
-      m365GroupRole: ctx.defaultM365GroupRole,
-      spGroupAction: ctx.defaultSpGroupAction,
-      spGroupName: ctx.defaultSpGroupName ? ctx.defaultSpGroupName : undefined,
-      spPermissionLevel: ctx.defaultSpPermissionLevel
-    }),
+  const spActionOptions = React.useMemo<SPGroupActionUI[]>(
+    () =>
+      computeSpActionOptions(
+        {
+          None: ctx.showSpActionNone,
+          AddToExisting: ctx.showSpActionAddToExisting,
+          CreateNew: ctx.showSpActionCreateNew,
+          Preset: ctx.showSpActionPreset && !!ctx.presetSpGroupName
+        },
+        ctx.spGroupActionOrder
+      ),
     [
-      ctx.defaultM365GroupRole,
-      ctx.defaultSpGroupAction,
-      ctx.defaultSpGroupName,
-      ctx.defaultSpPermissionLevel
+      ctx.showSpActionNone,
+      ctx.showSpActionAddToExisting,
+      ctx.showSpActionCreateNew,
+      ctx.showSpActionPreset,
+      ctx.presetSpGroupName,
+      ctx.spGroupActionOrder
     ]
   )
+  const firstVisibleAction = spActionOptions[0]
+
+  const initialShared = React.useMemo<ISharedSettings>(() => {
+    // If the configured default action was hidden by the toggles, fall back to
+    // the first visible option so the radio group always shows a valid selection.
+    const action: SPGroupActionUI =
+      spActionOptions.indexOf(ctx.defaultSpGroupAction) !== -1
+        ? ctx.defaultSpGroupAction
+        : firstVisibleAction
+    const spGroupName =
+      action === 'Preset'
+        ? ctx.presetSpGroupName
+        : ctx.defaultSpGroupName
+          ? ctx.defaultSpGroupName
+          : undefined
+    return {
+      m365GroupRole: ctx.defaultM365GroupRole,
+      spGroupAction: action,
+      spGroupName,
+      spPermissionLevel: ctx.defaultSpPermissionLevel
+    }
+  }, [
+    ctx.defaultM365GroupRole,
+    ctx.defaultSpGroupAction,
+    ctx.defaultSpGroupName,
+    ctx.presetSpGroupName,
+    ctx.defaultSpPermissionLevel,
+    spActionOptions,
+    firstVisibleAction
+  ])
 
   const [shared, setShared] = React.useState<ISharedSettings>(initialShared)
 
@@ -182,7 +244,11 @@ export function useInviteDrawer({
         lastName: '',
         company: '',
         exists: false,
-        loading: true
+        loading: true,
+        // Seed per-guest action with the first visible option so the stored
+        // value matches the radio shown (and the default isn't a hidden action).
+        spGroupAction: firstVisibleAction,
+        spGroupName: firstVisibleAction === 'Preset' ? ctx.presetSpGroupName : undefined
       }
       setGuests((prev) => [...prev, next])
       setActiveGuestEmail((current) => current ?? email)
@@ -204,7 +270,7 @@ export function useInviteDrawer({
         )
       })()
     },
-    [ctx.graphService]
+    [ctx.graphService, ctx.presetSpGroupName, firstVisibleAction]
   )
 
   const removeGuest = React.useCallback((email: string) => {
@@ -229,10 +295,19 @@ export function useInviteDrawer({
     setShared((prev) => ({ ...prev, m365GroupRole }))
   }, [])
 
-  const setSharedSpGroupAction = React.useCallback((spGroupAction: SPGroupAction) => {
-    setShared((prev) => ({ ...prev, spGroupAction, spGroupName: undefined }))
-    setSubmitAttempted(false)
-  }, [])
+  const setSharedSpGroupAction = React.useCallback(
+    (spGroupAction: SPGroupActionUI) => {
+      // Preset uses the admin-configured group name (no dropdown); other actions
+      // reset the name so the user picks/enters it.
+      setShared((prev) => ({
+        ...prev,
+        spGroupAction,
+        spGroupName: spGroupAction === 'Preset' ? ctx.presetSpGroupName : undefined
+      }))
+      setSubmitAttempted(false)
+    },
+    [ctx.presetSpGroupName]
+  )
 
   const setSharedSpGroupName = React.useCallback((spGroupName: string | undefined) => {
     setShared((prev) => ({ ...prev, spGroupName }))
@@ -270,17 +345,21 @@ export function useInviteDrawer({
       const profile = perGuestProfile
         ? { firstName: g.firstName, lastName: g.lastName, company: g.company }
         : { firstName: '', lastName: '', company: '' }
+      // Preset is a UI-only action — normalize to AddToExisting so persisted
+      // data only holds None/AddToExisting/CreateNew (matches the list CHOICE).
+      const normalizeAction = (a: SPGroupActionUI | undefined): SPGroupAction =>
+        a === 'Preset' ? 'AddToExisting' : (a ?? 'None')
       const role = perGuestRole
         ? {
             m365GroupRole: g.m365GroupRole ?? 'Visitor',
-            spGroupAction: g.spGroupAction ?? 'None',
+            spGroupAction: normalizeAction(g.spGroupAction),
             spGroupName: g.spGroupAction && g.spGroupAction !== 'None' ? g.spGroupName : undefined,
             spPermissionLevel:
               g.spGroupAction === 'CreateNew' ? (g.spPermissionLevel ?? 'Read') : undefined
           }
         : {
             m365GroupRole: shared.m365GroupRole,
-            spGroupAction: shared.spGroupAction,
+            spGroupAction: normalizeAction(shared.spGroupAction),
             spGroupName: shared.spGroupAction !== 'None' ? shared.spGroupName : undefined,
             spPermissionLevel:
               shared.spGroupAction === 'CreateNew' ? shared.spPermissionLevel : undefined
@@ -310,6 +389,7 @@ export function useInviteDrawer({
     siteGroups,
     loadingContext,
     isGroupConnected,
+    spActionOptions,
     perGuestProfile,
     setUserPerGuestProfile,
     perGuestRole,

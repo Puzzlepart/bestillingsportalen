@@ -4,6 +4,12 @@ export type M365GroupRole = 'None' | 'Visitor' | 'Member' | 'Owner'
 
 export type SPGroupAction = 'None' | 'AddToExisting' | 'CreateNew'
 
+// UI-only action. 'Preset' is a fixed admin-configured group shown without a
+// dropdown; it is normalized to 'AddToExisting' before persisting, so the
+// stored SPGroupAction (and the list CHOICE field) only ever holds the three
+// values above.
+export type SPGroupActionUI = SPGroupAction | 'Preset'
+
 export type SPPermissionLevel = 'Read' | 'Contribute' | 'Edit' | 'Full Control'
 
 export interface IGuestRequest {
@@ -56,7 +62,7 @@ export interface IGuestInput {
   /** UI-only: returned from Graph lookup and shown in GuestTabList tab label. Never persisted to the list. */
   displayName?: string
   m365GroupRole?: M365GroupRole
-  spGroupAction?: SPGroupAction
+  spGroupAction?: SPGroupActionUI
   spGroupName?: string
   spPermissionLevel?: SPPermissionLevel
 }
