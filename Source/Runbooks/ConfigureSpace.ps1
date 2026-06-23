@@ -622,10 +622,7 @@ function SetMetadata {
                 Write-Output "Processing propertyBagProps"
                 Write-Output "***************************"
                 try {
-                    Write-Output "Disabling no script mode"
-                    # Disable no script mode to allow property bag updates
-                    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$false
-
+                    # NoScript is already disabled for the whole configuration run (see DisableNoScript/EnableNoScript)
                     foreach ($prop in $metadataObject.propertyBagProps) {
                         $propName = $prop.name
                         $propValue = $prop.value
@@ -648,9 +645,6 @@ function SetMetadata {
                         }
                     }
 
-                    Write-output "Re-enabling no script mode"
-                    # Enable no script mode to prevent property bag updates
-                    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$true
                     Write-Output "Finished processing propertyBagProps"
                 }
                 catch {
@@ -851,6 +845,30 @@ function UpdateParentSite {
     }
 }
 
+function DisableNoScript {
+    try {
+        Write-Output "Disabling NoScript mode so all site customizations can be applied"
+        Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$false
+        Write-Output "NoScript mode disabled"
+    }
+    catch {
+        Set-SpaceCreationFailed -FunctionName "DisableNoScript" -ErrorMessage $_.Exception.Message
+    }
+}
+
+function EnableNoScript {
+    try {
+        Write-Output "Re-enabling NoScript mode after site configuration"
+        # Reconnect to the site context before toggling - earlier steps may have switched the connection
+        Connect-PnPOnline -Url $siteUrl -ManagedIdentity
+        Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$true
+        Write-Output "NoScript mode re-enabled"
+    }
+    catch {
+        Set-SpaceCreationFailed -FunctionName "EnableNoScript" -ErrorMessage $_.Exception.Message
+    }
+}
+
 try {
     #Connect to spo
     Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
@@ -866,27 +884,37 @@ try {
 
             Connect-PnPOnline -Url $siteUrl -ManagedIdentity
 
-            AddOwners
-            AddMembers
-            AddVisitors
-            AddReadOnlyGroup
-            AddSiteCollectionAdmins
-            SetAccessRequestSettings
-            SetSiteLogo
-            SetRegionalSettings
-            ActivateFeatures
-            ApplyPnPTemplate
-            ApplyTheme
-            DisableDocumentSync
-            SetRetentionLabel
-            SetSensitivityLabel
-            SetSensitivityLabelLibrary
-            SetSiteClassification
-            SetMetadata
-            JoinOrRegisterHubSite
-            SetStorageQuota
-            ApplySiteDesign
-            UpdateParentSite
+            # Disable NoScript so all site customizations (PnP template/custom packages,
+            # features, property bag, etc.) can be applied. Restored in the finally block.
+            DisableNoScript
+
+            try {
+                AddOwners
+                AddMembers
+                AddVisitors
+                AddReadOnlyGroup
+                AddSiteCollectionAdmins
+                SetAccessRequestSettings
+                SetSiteLogo
+                SetRegionalSettings
+                ActivateFeatures
+                ApplyPnPTemplate
+                ApplyTheme
+                DisableDocumentSync
+                SetRetentionLabel
+                SetSensitivityLabel
+                SetSensitivityLabelLibrary
+                SetSiteClassification
+                SetMetadata
+                JoinOrRegisterHubSite
+                SetStorageQuota
+                ApplySiteDesign
+                UpdateParentSite
+            }
+            finally {
+                # Always restore NoScript, even if a configuration step failed
+                EnableNoScript
+            }
 
             # Check if any errors occurred during configuration
             if ($script:hasErrors) {
