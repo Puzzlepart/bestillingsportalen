@@ -9,7 +9,8 @@ Når du installerer Bestillingsportalen, har secret-en som genereres for Entra I
 Secret-en brukes flere steder i Bestillingsportalen:
 
 - Key Vault
-- Key Vault API Connection
+- Key Vault API Connection (`bestillingsportalen-kv`)
+- Azure Automation API Connection (`bestillingsportalen-automation`)
 - Kryptert variabel i Automation Account
 
 **Det anbefales å notere ned datoen secret-en utløper. Når den har utløpt, vil Logic Apps og Automation Runbooks feile til en ny secret er opprettet og Bestillingsportalen oppdatert.**
@@ -47,9 +48,18 @@ Når secret-en utløper (ELLER når du vil opprette en ny), følg denne prosesse
 
 6. Key Vault er nå oppdatert.
 
-### Oppdatere API Connection
+### Oppdatere API Connections
 
-1. Finn API Connection-en `bestillingsportalen-kv` i Azure Portal. Du kan bruke søkeboksen.
+> **Viktig:** Det er **to** API Connections som bruker client secret-en, og **begge** må oppdateres:
+>
+> - `bestillingsportalen-kv` (Key Vault)
+> - `bestillingsportalen-automation` (Azure Automation)
+>
+> Hvis du glemmer `bestillingsportalen-automation`, vil Logic Apps som starter Runbooks feile med `ExpiredAuthenticationToken` (token-en blir hengende på den gamle secret-en og utløper). Cert-/Graph-baserte steg kan fortsatt se ut til å fungere, så feilen viser seg typisk først når en Runbook skal kjøre (f.eks. ConfigureSpace / AddGuestToSite).
+
+Gjenta stegene under for **hver** av de to API Connection-ene:
+
+1. Finn API Connection-en (`bestillingsportalen-kv`, deretter `bestillingsportalen-automation`) i Azure Portal. Du kan bruke søkeboksen.
 2. Klikk `Edit API connection` i venstre meny.
 
 ![Key Vault API Connection screenshot](/Images/KeyVaultAPIConnection.png)
