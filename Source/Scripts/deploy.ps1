@@ -1201,6 +1201,7 @@ function SendDeployPingback {
         InstallEndTime   = $deployEndTime
         InstallVersion   = $deployVersion
         InstallCommand   = $deployCommand
+        InstallChannel   = "Bestillingsportalen"  # Product indicator (distinguishes from PP365 in the shared telemetry store)
         InstallUrl       = $requestsSiteUrl
     }
 
