@@ -1,0 +1,15 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/serve.schema.json",
+  "port": 4321,
+  "https": true,
+  "serveConfigurations": {
+    "default": {
+      "pageUrl": "https://contoso.sharepoint.com/_layouts/workbench.aspx",
+      "customActions": {}
+    },
+    "inviteGuests": {
+      "pageUrl": "https://contoso.sharepoint.com/_layouts/workbench.aspx",
+      "customActions": {}
+    }
+  }
+}

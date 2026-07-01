@@ -1,3 +1,17 @@
 Source/Scripts/parameters copy.json
 Source/Scripts/parameters.json
 .DS_Store
+
+# SPFx build artifacts
+Source/SharePointFramework/**/node_modules/
+Source/SharePointFramework/**/lib/
+Source/SharePointFramework/**/lib-commonjs/
+Source/SharePointFramework/**/dist/
+Source/SharePointFramework/**/temp/
+Source/SharePointFramework/**/.heft/
+Source/SharePointFramework/**/release/
+Source/SharePointFramework/**/sharepoint/
+Source/SharePointFramework/**/*.sppkg
+Source/SharePointFramework/**/*.scss.ts
+
+Source/SharePointFramework/ProvisionWebParts/jest-output/

@@ -20,28 +20,7 @@
     Parameters should be filled out in the parameters.json file before executing the script.
 
 .EXAMPLE
-    deploy.ps1 
-
------------------------------------------------------------------------------------------------------------------------------------
-Script name : deploy.ps1
-Authors : Alex Clark (Prin Cloud Solution Architect, Microsoft)
-Version : 1.0
-Dependencies :
------------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------------
-Version Changes:
-Date:       Version: Changed By:     Info:
------------------------------------------------------------------------------------------------------------------------------------
-DISCLAIMER
-   THIS CODE IS SAMPLE CODE. THESE SAMPLES ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.
-   MICROSOFT FURTHER DISCLAIMS ALL IMPLIED WARRANTIES INCLUDING WITHOUT LIMITATION ANY IMPLIED WARRANTIES
-   OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK ARISING OUT OF THE USE OR
-   PERFORMANCE OF THE SAMPLES REMAINS WITH YOU. IN NO EVENT SHALL MICROSOFT OR ITS SUPPLIERS BE LIABLE FOR
-   ANY DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS
-   INTERRUPTION, LOSS OF BUSINESS INFORMATION, OR OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR
-   INABILITY TO USE THE SAMPLES, EVEN IF MICROSOFT HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-   BECAUSE SOME STATES DO NOT ALLOW THE EXCLUSION OR LIMITATION OF LIABILITY FOR CONSEQUENTIAL OR
-   INCIDENTAL DAMAGES, THE ABOVE LIMITATION MAY NOT APPLY TO YOU.
+    deploy.ps1
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -57,6 +36,7 @@ param
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipGenerateCertificate,
     [switch]$SkipDeployAPIConnections,
+    [switch]$SkipSPFxDeploy,
     [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
 )
 
@@ -102,6 +82,7 @@ $teamsTemplatesListName = "Teams Templates"
 $timeZonesListName = "Time Zones"
 $localesListName = "Locales"
 $ipLabelsListName = "IP Labels"
+$guestRequestsListName = "Guest Requests"
 
 #  Folder names
 $provRequestsFolderName = "Provisioning Request"
@@ -121,6 +102,9 @@ $saPassword = ""
 
 $automationAccountName = "bestillingsportalen-auto"
 
+# Solution version reported via the deployment pingback. Bump on release (keep in sync with CHANGELOG.md).
+$deployVersion = "1.11.0"
+
 # Global variables
 $global:context = $null
 $global:requestsListId = $null
@@ -128,11 +112,13 @@ $global:requestsSettingsListId = $null
 $global:siteTemplatesListId = $null
 $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
+$global:guestRequestsListId = $null
 $global:appId = $null
 $global:appSecret = $null
 $global:appServicePrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
+$global:skipApplyTemplate = $false
 
 # Validates if a parameter in the json file is valid
 function IsValidParam {
@@ -319,10 +305,13 @@ function CreateRequestsSharePointSite {
             Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
-            Write-Host "Site already exists! Do you wish to overwrite?" -ForegroundColor Red
-            $overwrite = Read-Host " ( y (overwrite) / n (exit) )"
+            Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
+            Write-Host "  y = re-apply template (updates lists, fields and settings on the existing site)" -ForegroundColor Cyan
+            Write-Host "  n = skip template apply, but continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+            $overwrite = Read-Host " ( y / n )"
             if ($overwrite -ne "y") {
-                break
+                $global:skipApplyTemplate = $true
+                Write-Host "Template apply will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
         }
     }
@@ -338,15 +327,21 @@ function ConfigureSharePointSite {
 
         Write-Host "### BESTILLINGSPORTALEN SPO SITE CONFIGURATION ###`nConfiguring SharePoint site..." -ForegroundColor Yellow
 
-        If ($parameters.skipApplySPOTemplate.Value) { 
+        If ($parameters.skipApplySPOTemplate.Value -or $global:skipApplyTemplate) {
 
-            Write-Host "You chose to skip applying the provisioning template" -ForegroundColor Yellow
+            Write-Host "Skipping provisioning template apply" -ForegroundColor Yellow
         }
         else {
-            
+
             Write-Host "Applying provisioning template..." -ForegroundColor Yellow
 
-            Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
+            if ($global:upgrade) {
+                # Preserve existing navigation in upgrade mode - apply schema/settings only
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath)
+            }
+            else {
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
+            }
 
             Write-Host "Applied template" -ForegroundColor Green
         }
@@ -393,7 +388,12 @@ function ConfigureSharePointSite {
             $context.Load($ipLabelsList)
             $context.ExecuteQuery()
             $global:ipLabelsListId = $ipLabelsList.Id
-            
+
+            $guestRequestsList = Get-PnPList $guestRequestsListName
+            $context.Load($guestRequestsList)
+            $context.ExecuteQuery()
+            $global:guestRequestsListId = $guestRequestsList.Id
+
             Write-Host "Finished site configuration in upgrade mode" -ForegroundColor Green
             return
         }
@@ -665,6 +665,12 @@ function ConfigureSharePointSite {
         $context.ExecuteQuery()
         $global:ipLabelsListId = $ipLabelsList.Id
 
+        # Get id of the guest requests list
+        $guestRequestsList = Get-PnPList $guestRequestsListName
+        $context.Load($guestRequestsList)
+        $context.ExecuteQuery()
+        $global:guestRequestsListId = $guestRequestsList.Id
+
         Write-Host "Configuring Service Account permissions"
         Add-PnPSiteCollectionAdmin -Owners $parameters.serviceAccountUPN.value
 
@@ -768,46 +774,72 @@ function CreateAutomationRoleAssignments {
 }
 
 function AssignManagedIdentityPermissions {
-    # NEED TO ADD CODE TO CHECK IF THE PERMISSIONS EXIST FIRST
+    Write-Host "Assigning app roles to managed identity ($automationAccountName)..." -ForegroundColor Yellow
 
-    try {
-        Write-Host "Assigning SharePoint app role to managed identity" -ForegroundColor Yellow
+    $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
+    if ($null -eq $paAutoServicePrincipal) {
+        throw "Could not find service principal for automation account '$automationAccountName'. Ensure azureresources.bicep has been deployed so the system-assigned managed identity exists."
+    }
 
-        # Get service principal for the automation account
-        $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
+    $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
+    $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
 
-        $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
-        $graphResource = Get-AzADServicePrincipal -DisplayName "Microsoft Graph"
+    $existing = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
 
-        # Get the app role we need to assign
-        $spoFullControlAppRole = $spoResource.AppRole | Where-Object DisplayName -eq 'Have full control of all site collections'
-        
-        # Group.ReadWrite.All
-        # TODO: Check to see that the graph role is working and is set next time we deploy
-        $graphReadWriteAppRole = $graphResource.AppRole | Where-Object DisplayName -eq 'Group.ReadWrite.All'
+    # Idempotent — checked per AppRoleId (not just per resource), so re-runs add
+    # only what's missing. Used by upgrade mode too so role grants stay in sync
+    # as the runbooks evolve. AddGuestToSite needs Group.ReadWrite.All (mutate group
+    # membership) AND User.Read.All (Add-PnPMicrosoft365GroupMember resolves the
+    # guest by email via GET /users/{email} before posting members/$ref — without
+    # User.Read.All this lookup returns 403 Insufficient privileges).
+    $rolesToGrant = @(
+        @{
+            ResourceSp  = $spoResource
+            RoleName    = 'Sites.FullControl.All'
+            DisplayName = 'Have full control of all site collections'
+        },
+        @{
+            ResourceSp  = $graphResource
+            RoleName    = 'Group.ReadWrite.All'
+            DisplayName = 'Read and write all groups'
+        },
+        @{
+            ResourceSp  = $graphResource
+            RoleName    = 'User.Read.All'
+            DisplayName = "Read all users' full profiles"
+        }
+    )
 
-        # Get existing role assignments
-        $roles = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id
-
-        # Check that the role assigments do not already exist
-        $existingSpoRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $spoResource.Id }
-        $existingGraphRoleAssignment = $roles | Where-Object { $_.ResourceId -eq $graphResource.Id }
-
-        if ($null -eq $existingSpoRoleAssignment) {
-            # Assign SharePoint app roles to the service principal
-            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $spoFullControlAppRole.Id -ResourceId $spoResource.Id
+    foreach ($role in $rolesToGrant) {
+        if ($null -eq $role.ResourceSp) {
+            Write-Host "  WARN: Resource service principal for '$($role.RoleName)' was not found in the tenant. Skipping." -ForegroundColor Red
+            continue
         }
 
-        if ($null -eq $existingGraphRoleAssignment) {
-            # Assign Graph app roles to the service principal
-            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $graphReadWriteAppRole.Id -ResourceId $graphResource.Id
+        $appRole = $role.ResourceSp.AppRole | Where-Object { $_.Value -eq $role.RoleName -or $_.DisplayName -eq $role.DisplayName }
+        if ($null -eq $appRole) {
+            Write-Host "  WARN: Could not find app role '$($role.RoleName)' on $($role.ResourceSp.DisplayName)." -ForegroundColor Red
+            continue
         }
 
-        Write-Host "Finished assigning SharePoint and Graph app roles to managed identity" -ForegroundColor Green
+        $alreadyAssigned = $existing | Where-Object { $_.AppRoleId -eq $appRole.Id }
+        if ($null -ne $alreadyAssigned) {
+            Write-Host "  $($role.RoleName) already assigned to $($role.ResourceSp.DisplayName). Skipping." -ForegroundColor Gray
+            continue
+        }
+
+        Write-Host "  Granting $($role.RoleName) on $($role.ResourceSp.DisplayName)..." -ForegroundColor Yellow
+        try {
+            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $paAutoServicePrincipal.Id -AppRoleId $appRole.Id -ResourceId $role.ResourceSp.Id | Out-Null
+            Write-Host "  $($role.RoleName) granted." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  ERROR granting $($role.RoleName): $($_.Exception.Message)" -ForegroundColor Red
+            throw
+        }
     }
-    catch {
-        throw('Failed to assign graph and SharePoint app roles to the managed identity {0}', $_.Exception.Message)
-    }
+
+    Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
 }
 
 
@@ -837,9 +869,13 @@ function DeployARMTemplates {
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "certName=$($parameters.certName.Value)"
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-        
+
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
-    
+
+        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
+
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "certName=$($parameters.certName.Value)"
@@ -867,21 +903,134 @@ function DeployARMTemplates {
     }
 }
 
-# Deploy only ProcessProvisionRequest logic app for upgrade scenarios
+# Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
+function DeployLocalRunbooks {
+    Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
+    Write-Host "Finished deploying local runbooks" -ForegroundColor Green
+    Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
+}
+
 function DeployUpgradeLogicApp {
     try {
-        Write-Host "### UPGRADE MODE - DEPLOYING PROCESSPROVISIONREQUEST LOGIC APP ONLY ###" -ForegroundColor Yellow
+        Write-Host "### UPGRADE MODE - DEPLOYING UPGRADE LOGIC APPS ###" -ForegroundColor Yellow
         Write-Host "For upgrade documentation, see Upgrade.md" -ForegroundColor Cyan
-        
+
+        if ([string]::IsNullOrEmpty($global:requestsListId)) {
+            throw "Provisioning Requests list ID not found. Did the PnP template apply succeed?"
+        }
+        if ([string]::IsNullOrEmpty($global:guestRequestsListId)) {
+            throw "Guest Requests list ID not found. Did the PnP template apply succeed?"
+        }
+
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-        
+
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "certName=$($parameters.certName.Value)" "spoRootSiteUrl=$global:tenantUrl"
-        
-        Write-Host "Finished deploying ProcessProvisionRequest logic app" -ForegroundColor Green
+
+        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)"
+
+        Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
     catch {
-        throw('Failed to deploy ProcessProvisionRequest logic app in upgrade mode: {0}', $_.Exception.Message)
+        throw('Failed to deploy logic apps in upgrade mode: {0}', $_.Exception.Message)
+    }
+}
+
+# Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
+# Each subfolder with config/package-solution.json is treated as a solution to deploy.
+function DeploySPFxPackages {
+    try {
+        Write-Host "### DEPLOYING SPFX SOLUTIONS ###" -ForegroundColor Yellow
+
+        $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
+        if (-not (Test-Path $spfxRoot)) {
+            Write-Host "No SharePointFramework folder at $spfxRoot - skipping SPFx deployment" -ForegroundColor Yellow
+            return
+        }
+
+        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm not installed. Install Node.js (https://nodejs.org) or use -SkipSPFxDeploy to skip SPFx build."
+        }
+
+        $spfxSolutions = Get-ChildItem -Path $spfxRoot -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName "config/package-solution.json")
+        }
+        if ($spfxSolutions.Count -eq 0) {
+            Write-Host "No SPFx solutions found under $spfxRoot" -ForegroundColor Yellow
+            return
+        }
+
+        # Need an admin connection to resolve the tenant app catalog URL
+        $adminUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
+        if ($pnpCertPassword.Length -eq 0) {
+            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+            }
+            else {
+                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value
+            }
+        }
+        else {
+            Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+        }
+
+        $appCatalogUrl = Get-PnPTenantAppCatalogUrl
+        if ([string]::IsNullOrEmpty($appCatalogUrl)) {
+            throw "Tenant app catalog not found. Create one in SharePoint admin center first."
+        }
+        Write-Host "Tenant app catalog: $appCatalogUrl" -ForegroundColor Yellow
+
+        # Connect to the app catalog for Add-PnPApp
+        if ($pnpCertPassword.Length -eq 0) {
+            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+            }
+            else {
+                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value
+            }
+        }
+        else {
+            Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+        }
+
+        foreach ($solution in $spfxSolutions) {
+            Write-Host ""
+            Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+
+            Push-Location $solution.FullName
+            try {
+                if (-not (Test-Path "node_modules")) {
+                    Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
+                    npm install
+                    if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                }
+
+                Write-Host "Running npm run build..." -ForegroundColor Yellow
+                npm run build
+                if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
+
+                $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
+                $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not $sppkg) {
+                    throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                }
+
+                Write-Host "Uploading $($sppkg.Name) to app catalog..." -ForegroundColor Yellow
+                $app = Add-PnPApp -Path $sppkg.FullName -Overwrite -Publish -SkipFeatureDeployment
+                Write-Host "Uploaded and published tenant-wide: $($app.Title)" -ForegroundColor Green
+            }
+            finally {
+                Pop-Location
+            }
+        }
+
+        Write-Host "### SPFX DEPLOYMENT COMPLETE ###" -ForegroundColor Green
+    }
+    catch {
+        throw('Failed to deploy SPFx packages: {0}', $_.Exception.Message)
     }
 }
 
@@ -993,9 +1142,106 @@ function GenerateSelfSignedCertificate {
     }
 }
 
+# Returns the latest (furthest-out) endDateTime among the app's credentials, or $null.
+# Reads live from the app registration, so it reflects the current cert/secret in every mode
+# (full deploy, upgrade, or when creation was skipped). -CertificateCredentials switches from
+# password (client secret) credentials to certificate credentials. Best-effort — never throws.
+function GetLatestAppCredentialEndDate {
+    param
+    (
+        [string]$AppId,
+        [switch]$CertificateCredentials
+    )
+
+    if ([string]::IsNullOrEmpty($AppId)) {
+        return $null
+    }
+
+    try {
+        $credentials = if ($CertificateCredentials) {
+            az ad app credential list --id $AppId --cert 2>$null | ConvertFrom-Json
+        }
+        else {
+            az ad app credential list --id $AppId 2>$null | ConvertFrom-Json
+        }
+
+        $latest = $credentials |
+        Where-Object { -not [string]::IsNullOrEmpty($_.endDateTime) } |
+        Sort-Object { [datetime]$_.endDateTime } -Descending |
+        Select-Object -First 1
+
+        if ($null -ne $latest) {
+            return $latest.endDateTime
+        }
+    }
+    catch {}
+
+    return $null
+}
+
+# Sends an anonymous deployment pingback to the shared PP365 install/deploy telemetry function.
+# Mirrors the Prosjektportalen installation pingback. Best-effort only — never fails the deployment.
+# Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
+# Reads script-scoped $deployVersion / $deployStartTime / $deployInvocationLine / $requestsSiteUrl / $deployUser / $global:appId.
+function SendDeployPingback {
+    Write-Host "[INFO] Sending deployment pingback" -ForegroundColor Yellow
+
+    $deployEndTime = (Get-Date -Format o)
+
+    $deployCommand = if ($null -ne $deployInvocationLine -and $deployInvocationLine.Length -gt 2) {
+        $deployInvocationLine.Substring(2)
+    }
+    else {
+        $deployInvocationLine
+    }
+
+    $deployEntry = @{
+        Title            = "Bestillingsportalen $deployVersion"
+        InstallStartTime = $deployStartTime
+        InstallEndTime   = $deployEndTime
+        InstallVersion   = $deployVersion
+        InstallCommand   = $deployCommand
+        InstallUrl       = $requestsSiteUrl
+    }
+
+    if (-not [string]::IsNullOrEmpty($deployUser)) {
+        $deployEntry.InstallUser = $deployUser
+    }
+
+    # Report when the app's client secret and certificate expire (latest of each), so upcoming
+    # renewals show up in the telemetry. Queried live from the app registration, so it reflects the
+    # current setup in every mode (full deploy, upgrade, or when creation was skipped).
+    if ([string]::IsNullOrEmpty($global:appId)) {
+        # Best-effort only — surface (never throw) so a missing/renamed app doesn't manifest as
+        # silently absent expiry dates, especially in upgrade mode where nothing is created.
+        Write-Host "[WARN] Entra ID app id is not set; ClientSecretEndDate/CertificateEndDate will be omitted from the pingback. Check that parameters.appName matches the app's displayName and that the signed-in Azure account can see it." -ForegroundColor Yellow
+    }
+    else {
+        $clientSecretEndDate = GetLatestAppCredentialEndDate -AppId $global:appId
+        if (-not [string]::IsNullOrEmpty($clientSecretEndDate)) {
+            $deployEntry.ClientSecretEndDate = $clientSecretEndDate
+        }
+
+        $certificateEndDate = GetLatestAppCredentialEndDate -AppId $global:appId -CertificateCredentials
+        if (-not [string]::IsNullOrEmpty($certificateEndDate)) {
+            $deployEntry.CertificateEndDate = $certificateEndDate
+        }
+    }
+
+    try {
+        Invoke-WebRequest "https://pp365-install-pingback.azurewebsites.net/api/AddEntry" -Body ($deployEntry | ConvertTo-Json) -Method 'POST' -ErrorAction SilentlyContinue >$null 2>&1
+    }
+    catch {}
+}
+
 $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
+
+# Capture start metadata for the deployment pingback (sent at the end of the run)
+$deployStartTime = (Get-Date -Format o)
+$deployInvocationLine = $MyInvocation.Line
+$deployUser = $null
 
 if (-not $SkipVerifyModules) {
     # Verify required PS Modules
@@ -1028,7 +1274,13 @@ if ($global:upgrade) {
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
-    Write-Host "  - Deploy ONLY the ProcessProvisionRequest Logic App" -ForegroundColor Cyan
+    Write-Host "  - Deploy the ProcessProvisionRequest and ProcessGuestRequest Logic Apps" -ForegroundColor Cyan
+    if (-not $SkipSPFxDeploy) {
+        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
+    }
+    else {
+        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+    }
     Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
     Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan
     Write-Host "" -ForegroundColor Yellow
@@ -1068,6 +1320,12 @@ if (-not $global:upgrade) {
 Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
 az login
 Write-Host "Connected to Azure" -ForegroundColor Green
+
+# Capture the signed-in user for the deployment pingback (best-effort; works in both deploy and upgrade mode)
+try {
+    $deployUser = az ad signed-in-user show --query userPrincipalName -o tsv 2>$null
+}
+catch {}
 
 # Change the subscription
 az account set --subscription $parameters.subscriptionId.Value
@@ -1170,6 +1428,11 @@ else {
     $context.Load($ipLabelsList)
     $context.ExecuteQuery()
     $global:ipLabelsListId = $ipLabelsList.Id
+
+    $guestRequestsList = Get-PnPList $guestRequestsListName
+    $context.Load($guestRequestsList)
+    $context.ExecuteQuery()
+    $global:guestRequestsListId = $guestRequestsList.Id
 }
 
 # Skip Azure resource deployment in upgrade mode - only deploy Logic App
@@ -1185,11 +1448,38 @@ if ($global:upgrade) {
     if (-not ([string]::IsNullOrEmpty($app))) {
         $global:appId = $app.appId
     }
-    
+
+    # Ensure new runbooks (e.g. AddGuestToSite in 1.11.0) exist BEFORE the Logic Apps
+    # that invoke them are deployed.
+    DeployLocalRunbooks
+
+    # Idempotent — grants Sites.FullControl.All + Group.ReadWrite.All to the
+    # automation account's system-assigned managed identity if not already
+    # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
+    # Pre-1.11.0 deploys may have skipped this in upgrade mode.
+    AssignManagedIdentityPermissions
+
     DeployUpgradeLogicApp
-    
+
+    $spfxDeployed = $false
+    if (-not $SkipSPFxDeploy) {
+        DeploySPFxPackages
+        $spfxDeployed = $true
+    }
+    else {
+        Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+    }
+
     Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
-    Write-Host "The ProcessProvisionRequest Logic App has been updated with the latest version." -ForegroundColor Green
+    if ($spfxDeployed) {
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps and SPFx packages have been updated." -ForegroundColor Green
+    }
+    else {
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
+    }
+
+    SendDeployPingback
+
     exit 0
 }
 
@@ -1223,11 +1513,13 @@ if (-not $SkipBicepDeploy) {
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "appServicePrincipalId=$($global:appServicePrincipalId)" "saUsername=$($saUsername)" "saPassword=$($saPassword)" "currentUserobjectId=$($currUserId)"
     CreateAutomationRoleAssignments
     AssignManagedIdentityPermissions
+    DeployLocalRunbooks
     Write-Host "Finished deploying key vault and automation account..." -ForegroundColor Green
 }
 else {
-    Write-Host "Skipping Bicep deployment" -ForegroundColor Yellow
+    Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
 }
+
 if (-not $SkipGenerateCertificate) {
     GenerateSelfSignedCertificate
 }
@@ -1250,5 +1542,15 @@ else {
 }
 
 Write-Host "Azure resources deployed`n### AZURE RESOURCES DEPLOYMENT COMPLETE ###" -ForegroundColor Green
+
+if (-not $SkipSPFxDeploy) {
+    DeploySPFxPackages
+}
+else {
+    Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+}
+
+SendDeployPingback
+
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
 Write-Host "### Don't forget to authorise the API Connections in the Azure Portal. ###" -ForegroundColor Green

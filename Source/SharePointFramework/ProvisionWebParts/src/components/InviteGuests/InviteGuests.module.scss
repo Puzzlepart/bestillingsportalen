@@ -1,0 +1,39 @@
+.inviteGuests {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 600px) {
+  .inviteGuests {
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+.titleRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inviteButton {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.empty {
+  padding: 16px;
+  border: 1px dashed var(--colorNeutralStroke2, #d1d1d1);
+  border-radius: 4px;
+  color: var(--colorNeutralForeground3, #707070);
+  text-align: center;
+}
+
+.error {
+  padding: 12px;
+  border-radius: 4px;
+  background: var(--colorStatusDangerBackground1, #fde7e9);
+  color: var(--colorStatusDangerForeground1, #a4262c);
+}

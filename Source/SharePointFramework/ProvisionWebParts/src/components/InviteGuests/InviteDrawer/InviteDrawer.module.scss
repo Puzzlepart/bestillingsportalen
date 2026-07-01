@@ -1,0 +1,41 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.description {
+  margin: 0;
+  color: var(--colorNeutralForeground2, #424242);
+  font-size: 14px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.popoverBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 240px;
+}
+
+@media (max-width: 600px) {
+  .body {
+    gap: 12px;
+  }
+
+  .popoverBody {
+    min-width: 200px;
+  }
+}

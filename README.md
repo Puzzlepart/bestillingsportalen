@@ -17,6 +17,7 @@ Bestillingsportalen tilbyr følgende:
 - SharePoint-område med støttelister som utgjør backenden for løsningen.
 - Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation.
+- Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (SPFx 1.22, Fluent UI v9) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
 
 ## Arkitektur
 

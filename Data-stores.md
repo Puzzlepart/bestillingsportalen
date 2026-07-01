@@ -73,6 +73,21 @@ Denne listen lagrer detaljene om alle bestillinger gjort gjennom Bestillingsport
 | RequestKey | Text | Unik nøkkel brukt for å identifisere bestillingen i integrasjoner. |
 | Metadata | Note | JSON-objekt som lagrer prosjektinformasjon og property bag-verdier. Struktur: `{ "projectProperties": [...], "propertyBagProps": [...] }`. |
 
+### Guest Requests
+
+Denne listen lagrer gjesteforespørsler opprettet via `InviteGuests`-webdelen. Hver rad representerer én gjest som skal inviteres til et bestemt SharePoint-område. Listen prosesseres av `ProcessGuestRequest` Logic App, som kaller `ProcessGuests` Logic App og oppdaterer status på raden etter at invitasjonen er behandlet.
+
+| Kolonnenavn | Type | Beskrivelse |
+|---|---|---|
+| Title | Single line of text | E-postadressen til gjesten som skal inviteres. |
+| SiteUrl | Hyperlink | URL til området gjesten skal inviteres til (settes fra `pageContext.web.absoluteUrl` der webdelen står). |
+| SiteTitle | Single line of text | Tittel på området (brukes i invitasjons-e-posten). |
+| Status | Choice | Status på forespørselen: `Pending` (under behandling), `Invited` (vellykket), `Failed` (feil oppstod). |
+| GuestId | Text | Entra ID-id til den inviterte gjesten (populeres etter vellykket invitasjon). |
+| InviteRedeemUrl | Note | Innløsings-URL gjesten kan bruke for å akseptere invitasjonen. |
+| ErrorMessage | Note | Feilmelding hvis `Status=Failed`. Vises i tooltip på badge i webdel-DataGrid. |
+| RequestedBy | User | Brukeren som initierte invitasjonen via webdelen. |
+
 ### Provisioning Request Settings
 
 Denne listen lagrer alle konfigurerbare innstillinger for Bestillingsportalen som nøkkel/verdi-par.
