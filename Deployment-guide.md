@@ -149,7 +149,15 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 - Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
 - Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
 
-**Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.**
+**Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
+
+- Eksisterende Entra ID-app, SharePoint-område og Key Vault gjenkjennes (du får spørsmål der det er relevant).
+- På spørsmålet om PnP-malen: svar **`n`** for å beholde alt eksisterende listeinnhold urørt (skriptet henter da bare liste-ID-ene). Svar **`y`** kun hvis du vil nullstille konfigurasjonslistene (Settings, Provisioning Types, Teams Templates m.fl.) til pakkens standardverdier — bestillingsdata (Provisioning Requests / Guest Requests) røres aldri.
+- App-roller sjekkes per rolle og tildeles kun det som mangler; Logic Apps og API-tilkoblinger oppdateres til malens definisjon.
+- Med `enableSensitivity` aktivert roteres appens client secret ved hver kjøring (Key Vault oppdateres automatisk i samme kjøring).
+- Sjekk at de delegerte API-tilkoblingene fortsatt står som `Connected` etterpå — en re-deploy kan i noen tilfeller kreve re-autorisering.
+
+**For senere oppdateringer av et miljø i drift, bruk `./deploy.ps1 -Upgrade`** (se [Oppgraderingsveiledning](/Upgrade.md)) — den hopper over listeutfylling og områdeoppsett helt.
 
 ### Autorisere API-tilkoblinger
 

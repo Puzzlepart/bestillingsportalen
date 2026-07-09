@@ -300,12 +300,12 @@ function CreateRequestsSharePointSite {
         }
         else {
             Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
-            Write-Host "  y = re-apply template (updates lists, fields and settings on the existing site)" -ForegroundColor Cyan
-            Write-Host "  n = skip template apply, but continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+            Write-Host "  y = re-apply template AND reset the configuration lists (Settings, Provisioning Types, Teams Templates etc.) to package defaults. Request data (Provisioning Requests / Guest Requests) is never touched." -ForegroundColor Cyan
+            Write-Host "  n = leave the site and ALL list content untouched (only reads the list ids), then continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
             $overwrite = Read-Host " ( y / n )"
             if ($overwrite -ne "y") {
                 $global:skipApplyTemplate = $true
-                Write-Host "Template apply will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                Write-Host "Template apply and list population will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
         }
     }
@@ -340,11 +340,20 @@ function ConfigureSharePointSite {
             Write-Host "Applied template" -ForegroundColor Green
         }
         
-        # In upgrade mode, skip list item population
-        if ($global:upgrade) {
-            Write-Host "Running in Upgrade Mode - skipping list item population" -ForegroundColor Yellow
-            Write-Host "For more information, see Upgrade.md" -ForegroundColor Cyan
-            
+        # Skip the destructive list population when upgrading OR when the user chose to
+        # keep the existing site content (the population below deletes and re-seeds the
+        # Settings/Provisioning Types/Teams Templates/Time Zones lists from the package
+        # defaults, wiping any customisations). List ids are still collected - they are
+        # needed for the Logic App deployments.
+        if ($global:upgrade -or $global:skipApplyTemplate) {
+            if ($global:upgrade) {
+                Write-Host "Running in Upgrade Mode - skipping list item population" -ForegroundColor Yellow
+                Write-Host "For more information, see Upgrade.md" -ForegroundColor Cyan
+            }
+            else {
+                Write-Host "Keeping existing site content - skipping list item population (only collecting list ids)" -ForegroundColor Yellow
+            }
+
             # Still need to get list IDs for logic app deployment
             $context = Get-PnPContext
             $web = $context.Web
@@ -388,7 +397,7 @@ function ConfigureSharePointSite {
             $context.ExecuteQuery()
             $global:guestRequestsListId = $guestRequestsList.Id
 
-            Write-Host "Finished site configuration in upgrade mode" -ForegroundColor Green
+            Write-Host "Finished site configuration (existing list content preserved)" -ForegroundColor Green
             return
         }
         
