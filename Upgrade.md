@@ -7,7 +7,8 @@ Denne veiledningen forklarer hvordan du oppgraderer en eksisterende Bestillingsp
 Oppgraderingsprosessen lar deg:
 
 - Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
-- Oppdatere Logic App-en `ProcessProvisionRequest` med de nyeste arbeidsflyt-forbedringene
+- Oppdatere Logic App-ene `ProcessProvisionRequest` og `ProcessGuestRequest` med de nyeste arbeidsflyt-forbedringene
+- Bygge og publisere SPFx-løsninger (f.eks. `InviteGuests`-webdelen) til tenant app-katalog
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
 
@@ -30,18 +31,30 @@ Bruk oppgraderingsmodus når du vil:
 
 ### ✅ Oppdateres i oppgraderingsmodus
 
-1. **Anvendelse av PnP-mal**
+1. **Anvendelse av PnP-mal** (valgfritt — se prompt-beskrivelsen lenger ned)
    - Site columns og content types
-   - Liste-skjema og feltdefinisjoner
+   - Liste-skjema og feltdefinisjoner (legger til nye lister som `Guest Requests`, nye felter osv.)
    - Views og forms
-   - Navigasjonsstruktur
    - Web parts og side-layouts
+   - **Navigasjon beholdes:** I oppgraderingsmodus brukes ikke `-ClearNavigation`, så egendefinerte nav-lenker bevares
 
-2. **`ProcessProvisionRequest` Logic App**
-   - Komplett erstatning av arbeidsflyten med nyeste versjon
-   - Oppdatert feilhåndtering
-   - Ny provisjoneringsfunksjonalitet
-   - Feilrettinger og forbedringer
+2. **Logic Apps**
+   - `ProcessProvisionRequest` — hovedflyten for områdeprovisjonering
+   - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
+   - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
+
+3. **Runbooks (lokale)** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
+   - Nye runbook-RESSURSER opprettes (f.eks. `AddGuestToSite` i 1.11.0)
+   - Eksisterende runbook-INNHOLD oppdateres bare hvis `publishContentLink.version` er bumpet i `runbooks.bicep`
+   - **Manuell paste for `AddGuestToSite`**: Bicep-templaten har foreløpig en placeholder-URI (ConfigureSpace.ps1) inntil dette repoet blir public. Etter førstegangs deploy må du åpne Azure Portal → Automation Account → Runbooks → `AddGuestToSite` → Edit, lime inn innhold fra [Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1), og publisere. Senere upgrade-runs beholder den manuelt-limte koden så lenge `version` ikke bumpes.
+
+4. **Upstream runbooks** (`ConfigureSpace`, `GetSiteTemplates`) — bare hvis `azureresources.bicep` deployes (IKKE med `-SkipBicepDeploy`)
+
+5. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
+   - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
+   - `npm install` (kun ved første gang / hvis `node_modules` mangler) + `npm run build`
+   - `.sppkg` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`
+   - Eksempel: `InviteGuests`-webdel for invitasjon av gjester
 
 ### ❌ Oppdateres IKKE i oppgraderingsmodus
 
@@ -63,7 +76,7 @@ Bruk oppgraderingsmodus når du vil:
 
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
-   - Runbooks
+   - Innhold i eksisterende runbooks (Bicep `publishContentLink` re-importerer kun ved bumpet version i `azureresources.bicep`)
    - Key Vault
    - Sertifikater
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
@@ -73,6 +86,19 @@ Bruk oppgraderingsmodus når du vil:
    - Application registration
    - App secrets
    - Tilganger
+
+### Den interaktive `Site already exists`-prompten
+
+Når scriptet oppdager at Bestillingsportalen-området allerede finnes, spørres du:
+
+```text
+Do you wish to re-apply the PnP provisioning template?
+  y = re-apply template (updates lists, fields and settings on the existing site)
+  n = skip template apply, but continue with Logic Apps / SPFx / other deploy steps
+```
+
+- **Svar `y`** når oppgraderingen inneholder skjema-endringer (nye lister, nye felter) — f.eks. ved å rulle ut `Guest Requests`-listen første gang. PnP-template applyes idempotent, og eksisterende listeelementer beholdes.
+- **Svar `n`** når du kun vil oppdatere Logic Apps / SPFx uten å røre lister og felter — f.eks. ved hotfixes som kun endrer arbeidsflyt eller webdel-kode.
 
 ## Forutsetninger
 
@@ -97,6 +123,11 @@ Før du starter oppgraderingen:
 4. **Ha parameterne klare**
    - Bruk samme `parameters.json` som ved første installasjon
    - Verifiser at alle verdiene fortsatt er gyldige
+
+5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
+   - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
+   - Tenant app-katalog må være opprettet i SharePoint Admin Center
+   - PnP-appen må ha `Sites.FullControl.All` (App-only) for å publisere til app-katalogen
 
 ## Oppgraderingsprosess
 
@@ -130,6 +161,10 @@ Du kan kombinere med andre skip-flagg ved behov:
 
 # Eksempel: Hopp over opprettelse av ressursgruppe
 ./deploy.ps1 -Upgrade -SkipCreateResourceGroup
+
+# Eksempel: Hopp over SPFx-bygg/publisering (nyttig hvis du allerede har bygget manuelt
+# eller kun vil oppdatere Logic Apps)
+./deploy.ps1 -Upgrade -SkipSPFxDeploy
 ```
 
 #### Alternativ B: Manuell Logic App-oppdatering
@@ -179,10 +214,12 @@ Skriptet vil:
 
 1. **Validere parametere** – Sjekke `parameters.json`-konfigurasjonen
 2. **Koble til tjenester** – Logge inn på Azure, Azure CLI og PnP PowerShell
-3. **Anvende PnP-mal** – Oppdatere områdestrukturen UTEN å endre listedata
-4. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon
-5. **Installere `ProcessProvisionRequest`** – Erstatte Logic App-en med nyeste versjon
-6. **Fullføre** – Vise suksessmelding
+3. **Prompt om PnP-mal** – Hvis området finnes, spør om template skal anvendes (se «Den interaktive prompten» over)
+4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen UTEN å endre listedata
+5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
+6. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
+7. **Bygge og publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Kjør `npm install`/`npm run build` og last opp `.sppkg` til tenant app-katalog
+8. **Fullføre** – Vise suksessmelding
 
 ### Steg 4: Verifisering etter oppgradering
 
@@ -202,12 +239,22 @@ Når oppgraderingen er fullført:
    - Overvåk Logic App-kjøringen i Azure Portal
    - Verifiser at området opprettes korrekt
 
-4. **Gjennomgå Logic App**
+4. **Gjennomgå Logic Apps**
    - Gå til Azure Portal → Ressursgruppe → `ProcessProvisionRequest` Logic App
-   - Sjekk kjørehistorikken
-   - Verifiser at den bruker nyeste definisjon
+   - Sjekk kjørehistorikken og verifiser at den bruker nyeste definisjon
+   - Gjenta for `ProcessGuestRequest` Logic App
+   - **Husk:** SharePoint-koblingen (`bestillingsportalen-spo`) må kanskje re-autoriseres i Azure Portal etter oppgradering
 
-5. **Sjekk ny funksjonalitet**
+5. **Verifiser SPFx-løsninger** (hvis ikke `-SkipSPFxDeploy`)
+   - Gå til tenant app-katalog (`https://<tenant>.sharepoint.com/sites/appcatalog`)
+   - Bekreft at `bp-provision-web-parts.sppkg` står som «Deployed»
+   - Legg `InviteGuests`-webdelen på en testside og test gjeste-flyten:
+     1. Sett `guestRequestSiteUrl` til Bestillingsportalen-området i property pane
+     2. Inviter en test-gjest
+     3. Verifiser at raden vises i `DataGrid` med `Status=Pending`
+     4. Etter at `ProcessGuestRequest` har kjørt, refresh og se at status oppdateres til `Invited`
+
+6. **Sjekk ny funksjonalitet**
    - Gjennomgå hva som er nytt i denne versjonen
    - Test eventuell ny funksjonalitet
    - Oppdater dokumentasjonen din ved behov
@@ -333,12 +380,17 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Gjennomgå release notes og changelog
 - [ ] Oppdater lokalt repository til nyeste versjon
 - [ ] Verifiser at `parameters.json` er oppdatert
+- [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
+- [ ] Verifiser at Node.js er installert (hvis SPFx skal deployes)
 - [ ] Varsle brukere om vedlikeholdsvindu
-- [ ] Kjør `./deploy.ps1 -Upgrade`
+- [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten)
 - [ ] Verifiser at området lastes korrekt
-- [ ] Sjekk at alle lister og data er intakte
-- [ ] Test Logic App med en eksempel-bestilling
-- [ ] Gjennomgå Logic App-kjørehistorikken
+- [ ] Sjekk at alle lister og data er intakte (inkl. ny `Guest Requests`-liste)
+- [ ] Test `ProcessProvisionRequest` med en eksempel-bestilling
+- [ ] Test `ProcessGuestRequest` ved å invitere en gjest via webdelen
+- [ ] Gjennomgå Logic Apps-kjørehistorikk for begge
+- [ ] Re-autoriser API Connections i Azure Portal hvis nødvendig
+- [ ] Verifiser at SPFx-pakken vises som «Deployed» i app-katalog
 - [ ] Test ny funksjonalitet (hvis aktuelt)
 - [ ] Oppdater dokumentasjon
 - [ ] Varsle brukere om at oppgraderingen er fullført

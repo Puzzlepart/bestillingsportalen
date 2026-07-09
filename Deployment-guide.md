@@ -11,6 +11,8 @@ For å komme i gang trenger du:
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell 7 lastet ned og installert – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
+- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
+- **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å kjøre `createentraidapp.ps1`-skriptet og opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
@@ -157,6 +159,18 @@ I Microsoft Azure Portal, gå til ressursgruppen som ble opprettet av skriptet.
 3. Klikk `Authorize`. Bruk tjenestekontoen for å autentisere.
 4. Gjenta handlingene for `bestillingsportalen-o365users`, `bestillingsportalen-spo` og `bestillingsportalen-teams` API-tilkoblinger.
 
+### SPFx-løsninger (`InviteGuests`-webdel)
+
+Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
+
+Når webdelen er publisert kan den legges til på en hvilken som helst SharePoint-side. Husk å konfigurere `guestRequestSiteUrl` i property pane til URL-en til Bestillingsportalen-admin-området slik at gjesteforespørsler skrives til riktig liste.
+
+**Hopp over SPFx-bygg/publisering** hvis du allerede har bygget manuelt eller kun vil deploye Azure-ressurser:
+
+```powershell
+./deploy.ps1 -SkipSPFxDeploy
+```
+
 ## Steg 4: Konfigurere godkjenningsprosess
 
 Godkjenning av bestillinger i løsningen kan skje på to måter:
@@ -267,6 +281,8 @@ Detaljer om disse:
 - **GetTeamsTemplates** – Henter Teams-maler konfigurert i Teams Admin Center og oppretter referanser til disse som listeelementer i `Teams Templates`-listen.
 - **SyncGroupSettings** – Henter gruppe-innstillinger (blokkerte ord og klassifiseringer) fra Entra ID og oppdaterer listeelementer i `Provisioning Request Settings`-listen.
 - **SyncLabels** – Henter alle sensitivitetsmerker fra Purview i tenanten og legger dem til i `IP Labels`-listen.
+
+> **MERK:** `ProcessGuestRequest` Logic App trigges automatisk når et nytt element legges til i `Guest Requests`-listen (1-min polling) og skal **ikke** kjøres manuelt. Den deployes som del av `deploy.ps1`.
 
 Slik kjører du dem «on demand»:
 

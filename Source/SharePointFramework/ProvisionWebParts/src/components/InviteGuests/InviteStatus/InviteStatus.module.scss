@@ -1,0 +1,85 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.description {
+  font-size: 14px;
+  color: var(--colorNeutralForeground2, #424242);
+  line-height: 1.4;
+}
+
+.viewStatusButton {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.dialogBody {
+  max-height: calc(100vh - 236px);
+}
+
+.gridSpinner {
+  padding: 8px;
+}
+
+.message {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--colorNeutralForeground3, #707070);
+  font-size: 14px;
+}
+
+.dialogTrigger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dialogSurface {
+  max-width: min(1140px, 95vw);
+  width: 100%;
+}
+
+.dialogContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.gridScroll {
+  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .dialogBody {
+    max-height: calc(100vh - 120px);
+  }
+
+  .dialogSurface {
+    max-width: 100vw;
+  }
+
+  .message {
+    padding: 16px 8px;
+    font-size: 13px;
+  }
+}

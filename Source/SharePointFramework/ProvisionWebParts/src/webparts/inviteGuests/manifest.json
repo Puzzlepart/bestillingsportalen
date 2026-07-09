@@ -1,0 +1,59 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "ebd25b34-b130-4365-ae30-f55c6506a530",
+  "alias": "InviteGuestsWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab"],
+  "supportsThemeVariants": true,
+  "preconfiguredEntries": [
+    {
+      "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+      "group": { "default": "Other" },
+      "title": { "default": "Gjesteinvitasjon", "en-us": "Guest Invitation" },
+      "description": {
+        "default": "Inviter eksterne gjester til området og se status på tidligere invitasjoner.",
+        "en-us": "Invite external guests to this site and view the status of previous invitations."
+      },
+      "officeFabricIconFontName": "AddFriend",
+      "properties": {
+        "title": "Gjesteinvitasjon",
+        "description": "Inviter eksterne gjester til området og se status på tidligere invitasjoner.",
+        "displayMode": "dialog",
+        "inviteMode": "Multi",
+        "inviteAccessLevel": "Owner",
+        "perGuestProfileMode": "Optional",
+        "perGuestRoleMode": "Optional",
+        "defaultM365GroupRole": "Visitor",
+        "defaultSpGroupAction": "AddToExisting",
+        "defaultSpGroupName": "",
+        "presetSpGroupName": "",
+        "showSpActionNone": true,
+        "showSpActionAddToExisting": true,
+        "showSpActionCreateNew": true,
+        "showSpActionPreset": true,
+        "spGroupActionOrder": [],
+        "defaultSpPermissionLevel": "Read",
+        "autoSelectVisitorGroup": true,
+        "lockM365GroupRole": false,
+        "lockSpGroupAction": false,
+        "showAccessPreview": true,
+        "showStatusSummary": true,
+        "showCopyRedeemUrl": true,
+        "showRetryButton": true,
+        "showColumnM365Role": true,
+        "showColumnSPGroupAction": false,
+        "showColumnSPGroupName": true,
+        "showColumnSPPermissionLevel": false,
+        "showM365GroupRoleSection": true,
+        "showSPGroupSection": true,
+        "hiddenSpGroups": "",
+        "allowedSpGroups": "",
+        "guestRequestListTitle": "Guest Requests",
+        "guestRequestSiteUrl": ""
+      }
+    }
+  ]
+}

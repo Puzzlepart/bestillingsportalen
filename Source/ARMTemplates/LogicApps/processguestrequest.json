@@ -1,0 +1,426 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "tenantId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "guestRequestsListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "automationAccountName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "tenantName": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "Singlequote": "'"
+    },
+    "resources": [
+        {
+            "comments": "Logic app that processes Guest Request list items by calling ProcessGuests",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "ProcessGuestRequest",
+            "location": "[parameters('location')]",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_an_item_is_created": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "evaluatedRecurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "splitOn": "@triggerBody()?['value']",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                    }
+                                },
+                                "method": "GET",
+                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/onnewitems')]"
+                            },
+                            "conditions": [
+                                {
+                                    "expression": "@equals(triggerBody()?['Status']?['Value'],'Pending')"
+                                }
+                            ]
+                        }
+                    },
+                    "actions": {
+                        "Initialize_CompanyName_variable": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "CompanyName",
+                                        "type": "String",
+                                        "value": "[parameters('tenantName')]"
+                                    }
+                                ]
+                            }
+                        },
+                        "Try": {
+                            "runAfter": {
+                                "Initialize_CompanyName_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope",
+                            "actions": {
+                                "Process_Guests": {
+                                    "runAfter": {},
+                                    "type": "Workflow",
+                                    "inputs": {
+                                        "body": {
+                                            "CompanyName": "",
+                                            "EmailAccentColor": "",
+                                            "Guests": "@triggerBody()?['Title']",
+                                            "LogoPath": "",
+                                            "SiteTitle": "@triggerBody()?['SiteTitle']",
+                                            "SiteUrl": "@{triggerBody()?['SiteUrl']}",
+                                            "FirstName": "@triggerBody()?['FirstName']",
+                                            "LastName": "@triggerBody()?['LastName']",
+                                            "Company": "@triggerBody()?['Company']"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Logic/workflows/ProcessGuests')]"
+                                            }
+                                        }
+                                    }
+                                },
+                                "Parse_Guests_JSON": {
+                                    "runAfter": {
+                                        "Process_Guests": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Process_Guests')",
+                                        "schema": {
+                                            "items": {
+                                                "properties": {
+                                                    "GuestEmail": { "type": "string" },
+                                                    "GuestId": { "type": "string" },
+                                                    "InviteRedeemUrl": { "type": "string" }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    }
+                                },
+                                "Set_first_guest_result": {
+                                    "runAfter": {
+                                        "Parse_Guests_JSON": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@first(body('Parse_Guests_JSON'))"
+                                },
+                                "Store_guest_info": {
+                                    "runAfter": {
+                                        "Set_first_guest_result": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                        "body": {
+                                            "Title": "@triggerBody()?['Title']",
+                                            "GuestId": "@{outputs('Set_first_guest_result')?['GuestId']}",
+                                            "InviteRedeemUrl": "@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}",
+                                            "ErrorMessage": ""
+                                        }
+                                    }
+                                },
+                                "Add_Guest_To_Site": {
+                                    "runAfter": {
+                                        "Store_guest_info": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PUT",
+                                        "path": "[concat('/subscriptions/@{encodeURIComponent(''',parameters('subscriptionId'),''')}/resourceGroups/@{encodeURIComponent(''',parameters('resourceGroupName'),''')}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(''',parameters('automationAccountName'),''')}/jobs')]",
+                                        "queries": {
+                                            "runbookName": "AddGuestToSite",
+                                            "wait": true,
+                                            "x-ms-api-version": "2015-10-31"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "parameters": {
+                                                    "siteUrl": "@triggerBody()?['SiteUrl']",
+                                                    "guestEmail": "@triggerBody()?['Title']",
+                                                    "m365GroupRole": "@{triggerBody()?['M365GroupRole']?['Value']}",
+                                                    "spGroupAction": "@{triggerBody()?['SPGroupAction']?['Value']}",
+                                                    "spGroupName": "@{triggerBody()?['SPGroupName']}",
+                                                    "spPermissionLevel": "@{triggerBody()?['SPPermissionLevel']?['Value']}"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "Check_runbook_status": {
+                                    "runAfter": {
+                                        "Add_Guest_To_Site": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "If",
+                                    "expression": {
+                                        "equals": [
+                                            "@body('Add_Guest_To_Site')?['properties']?['status']",
+                                            "Failed"
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Compose_runbook_error": {
+                                            "runAfter": {},
+                                            "type": "Compose",
+                                            "inputs": "@{coalesce(body('Add_Guest_To_Site')?['properties']?['exception'], 'AddGuestToSite runbook failed without exception detail')}"
+                                        },
+                                        "Update_item_as_Runbook_Failed": {
+                                            "runAfter": {
+                                                "Compose_runbook_error": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "PATCH",
+                                                "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                                "body": {
+                                                    "Title": "@triggerBody()?['Title']",
+                                                    "Status": { "Value": "Failed" },
+                                                    "ErrorMessage": "@{outputs('Compose_runbook_error')}"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Update_item_as_Invited": {
+                                                "runAfter": {},
+                                                "type": "ApiConnection",
+                                                "inputs": {
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "PATCH",
+                                                    "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                                    "body": {
+                                                        "Title": "@triggerBody()?['Title']",
+                                                        "Status": { "Value": "Invited" }
+                                                    }
+                                                }
+                                            },
+                                            "Check_if_guest_is_new": {
+                                                "runAfter": {
+                                                    "Update_item_as_Invited": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "If",
+                                                "expression": {
+                                                    "and": [
+                                                        {
+                                                            "equals": [
+                                                                "@empty(outputs('Set_first_guest_result')?['InviteRedeemUrl'])",
+                                                                false
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "actions": {
+                                                    "Send_guest_invitation_email": {
+                                                        "runAfter": {},
+                                                        "type": "ApiConnection",
+                                                        "inputs": {
+                                                            "body": {
+                                                                "Body": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f4f4;margin:0;padding:24px;color:#323130;}.container{max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1);}.header{background:#0078d4;color:#ffffff;padding:24px;text-align:center;}.header h1{margin:0;font-size:22px;font-weight:600;}.content{padding:32px 24px;}.content p{margin:0 0 16px;font-size:16px;line-height:1.5;}.cta{text-align:center;padding:16px 0 24px;}.cta a{display:inline-block;background:#0078d4;color:#ffffff !important;text-decoration:none;padding:12px 32px;border-radius:4px;font-weight:600;font-size:16px;}.fallback{font-size:13px;color:#605e5c;word-break:break-all;border-top:1px solid #edebe9;padding-top:16px;margin-top:8px;}.fallback a{color:#0078d4;}.footer{background:#faf9f8;padding:16px 24px;text-align:center;font-size:12px;color:#605e5c;}</style>\n</head>\n<body>\n<div class=\"container\">\n<div class=\"header\"><h1>@{variables('CompanyName')}</h1></div>\n<div class=\"content\">\n<p>@{if(empty(triggerBody()?['FirstName']),'Hei!',concat('Hei ',triggerBody()?['FirstName'],'!'))}</p>\n<p>Du har fått tilgang til området <strong>@{triggerBody()?['SiteTitle']}</strong> hos @{variables('CompanyName')}.</p>\n<p>Klikk på knappen under for å komme i gang.</p>\n<div class=\"cta\"><a href=\"@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}\">Kom i gang</a></div>\n<p class=\"fallback\">Hvis knappen ikke fungerer, kopier og lim inn denne lenken i nettleseren din:<br><a href=\"@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}\">@{outputs('Set_first_guest_result')?['InviteRedeemUrl']}</a></p>\n</div>\n<div class=\"footer\">Denne e-posten er sendt på vegne av @{variables('CompanyName')}.</div>\n</div>\n</body>\n</html>",
+                                                                "IsHtml": true,
+                                                                "Subject": "Du har fått tilgang til @{triggerBody()?['SiteTitle']}",
+                                                                "To": "@{triggerBody()?['Title']}"
+                                                            },
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['office365']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "POST",
+                                                            "path": "/Mail"
+                                                        }
+                                                    }
+                                                },
+                                                "else": {
+                                                    "actions": {
+                                                        "Send_site_access_email": {
+                                                            "runAfter": {},
+                                                            "type": "ApiConnection",
+                                                            "inputs": {
+                                                                "body": {
+                                                                    "Body": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f4f4;margin:0;padding:24px;color:#323130;}.container{max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1);}.header{background:#0078d4;color:#ffffff;padding:24px;text-align:center;}.header h1{margin:0;font-size:22px;font-weight:600;}.content{padding:32px 24px;}.content p{margin:0 0 16px;font-size:16px;line-height:1.5;}.cta{text-align:center;padding:16px 0 24px;}.cta a{display:inline-block;background:#0078d4;color:#ffffff !important;text-decoration:none;padding:12px 32px;border-radius:4px;font-weight:600;font-size:16px;}.fallback{font-size:13px;color:#605e5c;word-break:break-all;border-top:1px solid #edebe9;padding-top:16px;margin-top:8px;}.fallback a{color:#0078d4;}.footer{background:#faf9f8;padding:16px 24px;text-align:center;font-size:12px;color:#605e5c;}</style>\n</head>\n<body>\n<div class=\"container\">\n<div class=\"header\"><h1>@{variables('CompanyName')}</h1></div>\n<div class=\"content\">\n<p>@{if(empty(triggerBody()?['FirstName']),'Hei!',concat('Hei ',triggerBody()?['FirstName'],'!'))}</p>\n<p>Du har fått tilgang til området <strong>@{triggerBody()?['SiteTitle']}</strong> hos @{variables('CompanyName')}.</p>\n<p>Klikk på knappen under for å gå til området.</p>\n<div class=\"cta\"><a href=\"@{triggerBody()?['SiteUrl']}\">Gå til området</a></div>\n<p class=\"fallback\">Hvis knappen ikke fungerer, kopier og lim inn denne lenken i nettleseren din:<br><a href=\"@{triggerBody()?['SiteUrl']}\">@{triggerBody()?['SiteUrl']}</a></p>\n</div>\n<div class=\"footer\">Denne e-posten er sendt på vegne av @{variables('CompanyName')}.</div>\n</div>\n</body>\n</html>",
+                                                                    "IsHtml": true,
+                                                                    "Subject": "Du har fått tilgang til @{triggerBody()?['SiteTitle']}",
+                                                                    "To": "@{triggerBody()?['Title']}"
+                                                                },
+                                                                "host": {
+                                                                    "connection": {
+                                                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                                                    }
+                                                                },
+                                                                "method": "POST",
+                                                                "path": "/Mail"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "Catch": {
+                            "runAfter": {
+                                "Try": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            },
+                            "type": "Scope",
+                            "actions": {
+                                "Filter_failed_actions": {
+                                    "runAfter": {},
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Try')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    }
+                                },
+                                "Compose_error_message": {
+                                    "runAfter": {
+                                        "Filter_failed_actions": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@{coalesce(first(body('Filter_failed_actions'))?['error']?['message'], first(body('Filter_failed_actions'))?['code'], 'Unknown error')}"
+                                },
+                                "Update_item_as_Failed": {
+                                    "runAfter": {
+                                        "Compose_error_message": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('guestRequestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]",
+                                        "body": {
+                                            "Title": "@triggerBody()?['Title']",
+                                            "Status": { "Value": "Failed" },
+                                            "ErrorMessage": "@{outputs('Compose_error_message')}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "sharepointonline": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-spo')]",
+                                "connectionName": "bestillingsportalen-spo",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
+                            },
+                            "azureautomation": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-automation')]",
+                                "connectionName": "bestillingsportalen-automation",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
+                            },
+                            "office365": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-o365')]",
+                                "connectionName": "bestillingsportalen-o365",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/office365')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

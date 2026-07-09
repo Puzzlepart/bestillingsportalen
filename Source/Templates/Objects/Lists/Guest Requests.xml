@@ -1,0 +1,78 @@
+<pnp:ListInstance Title="Guest Requests" Description="Forespørsler om invitasjon av eksterne gjester opprettet av InviteGuests-webdelen." DocumentTemplate="" OnQuickLaunch="false" TemplateType="100" Url="Lists/GuestRequests" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/GuestRequests/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/GuestRequests/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/GuestRequests/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:Views>
+    <View DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="AllItems" Url="{site}/Lists/GuestRequests/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <ViewFields>
+        <FieldRef Name="ID" />
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="FirstName" />
+        <FieldRef Name="LastName" />
+        <FieldRef Name="Company" />
+        <FieldRef Name="Status" />
+        <FieldRef Name="SiteUrl" />
+        <FieldRef Name="SiteTitle" />
+        <FieldRef Name="M365GroupRole" />
+        <FieldRef Name="SPGroupAction" />
+        <FieldRef Name="SPGroupName" />
+        <FieldRef Name="SPPermissionLevel" />
+        <FieldRef Name="GuestId" />
+        <FieldRef Name="ErrorMessage" />
+        <FieldRef Name="RequestedBy" />
+        <FieldRef Name="Created" />
+      </ViewFields>
+      <Query>
+        <OrderBy>
+          <FieldRef Name="Created" Ascending="FALSE" />
+        </OrderBy>
+      </Query>
+      <RowLimit Paged="TRUE">30</RowLimit>
+      <Aggregations Value="Off" />
+      <JSLink>clienttemplates.js</JSLink>
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field Type="Text" DisplayName="First Name" MaxLength="255" ID="{1a2b3c4d-5e6f-4708-8901-2a3b4c5d6e7f}" StaticName="FirstName" Name="FirstName" />
+    <Field Type="Text" DisplayName="Last Name" MaxLength="255" ID="{2b3c4d5e-6f70-4819-9a01-3b4c5d6e7f80}" StaticName="LastName" Name="LastName" />
+    <Field Type="Text" DisplayName="Company" MaxLength="255" ID="{3c4d5e6f-7081-492a-ab12-4c5d6e7f8091}" StaticName="Company" Name="Company" />
+    <Field Type="Text" DisplayName="Site URL" MaxLength="255" ID="{4d3a1f5e-7c2b-4d9a-9b1e-3a4c5d6e7f80}" StaticName="SiteUrl" Name="SiteUrl" />
+    <Field Type="Text" DisplayName="Site Title" MaxLength="255" ID="{5e4b2a6f-8d3c-4eab-ac2f-4b5c6d7e8f91}" StaticName="SiteTitle" Name="SiteTitle" />
+    <Field Type="Choice" DisplayName="Status" Format="Dropdown" FillInChoice="FALSE" ID="{6f5c3b70-9e4d-4fbc-bd30-5c6d7e8f9012}" StaticName="Status" Name="Status" CustomFormatter="{&quot;$schema&quot;:&quot;https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json&quot;,&quot;elmType&quot;:&quot;div&quot;,&quot;style&quot;:{&quot;box-sizing&quot;:&quot;border-box&quot;,&quot;padding&quot;:&quot;0 2px&quot;,&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;},&quot;attributes&quot;:{&quot;class&quot;:{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Pending&quot;]},&quot;sp-css-backgroundColor-BgGold sp-css-borderColor-GoldFont sp-field-fontSizeSmall sp-css-color-GoldFont sp-css-color-GoldFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Invited&quot;]},&quot;sp-css-backgroundColor-BgMintGreen sp-field-fontSizeSmall sp-css-color-MintGreenFont sp-css-color-MintGreenFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Failed&quot;]},&quot;sp-css-backgroundColor-BgCoral sp-css-borderColor-CoralFont sp-field-fontSizeSmall sp-css-color-CoralFont sp-css-color-CoralFont&quot;,&quot;&quot;]}]}]}},&quot;children&quot;:[{&quot;elmType&quot;:&quot;span&quot;,&quot;style&quot;:{&quot;overflow&quot;:&quot;hidden&quot;,&quot;text-overflow&quot;:&quot;ellipsis&quot;,&quot;padding&quot;:&quot;0 3px&quot;},&quot;txtContent&quot;:&quot;[$Status]&quot;,&quot;attributes&quot;:{&quot;class&quot;:{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Pending&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-GoldFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Invited&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-MintGreenFont&quot;,{&quot;operator&quot;:&quot;:&quot;,&quot;operands&quot;:[{&quot;operator&quot;:&quot;==&quot;,&quot;operands&quot;:[&quot;[$Status]&quot;,&quot;Failed&quot;]},&quot;sp-field-fontSizeSmall sp-css-color-CoralFont&quot;,&quot;&quot;]}]}]}}}]}">
+      <Default>Pending</Default>
+      <CHOICES>
+        <CHOICE>Pending</CHOICE>
+        <CHOICE>Invited</CHOICE>
+        <CHOICE>Failed</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Text" DisplayName="Guest Id" MaxLength="255" ID="{7065d481-af5e-4acd-ce41-6d7e8f901234}" StaticName="GuestId" Name="GuestId" />
+    <Field Type="Note" DisplayName="Invite Redeem Url" NumLines="3" RichText="FALSE" ID="{8176e592-b06f-4bde-df52-7e8f90123456}" StaticName="InviteRedeemUrl" Name="InviteRedeemUrl" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="Note" DisplayName="Error Message" NumLines="6" RichText="FALSE" ID="{9287f6a3-c170-4cef-e063-8f9012345678}" StaticName="ErrorMessage" Name="ErrorMessage" RestrictedMode="TRUE" RichTextMode="Compatible" />
+    <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{a3980b14-d281-4d01-f174-9012345678ab}" StaticName="RequestedBy" Name="RequestedBy" />
+    <Field Type="Choice" DisplayName="M365 Group Role" Format="Dropdown" FillInChoice="FALSE" ID="{b4a91c25-e392-4e12-1285-a123456789bc}" StaticName="M365GroupRole" Name="M365GroupRole">
+      <Default>Visitor</Default>
+      <CHOICES>
+        <CHOICE>None</CHOICE>
+        <CHOICE>Visitor</CHOICE>
+        <CHOICE>Member</CHOICE>
+        <CHOICE>Owner</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Choice" DisplayName="SP Group Action" Format="Dropdown" FillInChoice="FALSE" ID="{c5ba2d36-f4a3-4f23-2396-b234567890cd}" StaticName="SPGroupAction" Name="SPGroupAction">
+      <Default>None</Default>
+      <CHOICES>
+        <CHOICE>None</CHOICE>
+        <CHOICE>AddToExisting</CHOICE>
+        <CHOICE>CreateNew</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field Type="Text" DisplayName="SP Group Name" MaxLength="255" ID="{d6cb3e47-05b4-4034-34a7-c34567890def}" StaticName="SPGroupName" Name="SPGroupName" />
+    <Field Type="Choice" DisplayName="SP Permission Level" Format="Dropdown" FillInChoice="FALSE" ID="{e7dc4f58-16c5-4145-45b8-d456789012ef}" StaticName="SPPermissionLevel" Name="SPPermissionLevel">
+      <CHOICES>
+        <CHOICE>Read</CHOICE>
+        <CHOICE>Contribute</CHOICE>
+        <CHOICE>Edit</CHOICE>
+        <CHOICE>Full Control</CHOICE>
+      </CHOICES>
+    </Field>
+  </pnp:Fields>
+</pnp:ListInstance>
