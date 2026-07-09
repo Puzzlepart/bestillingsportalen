@@ -22,13 +22,33 @@ For å komme i gang trenger du:
 
 #### PnP PowerShell App Registration
 
-PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger.
+PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger. For å autentisere med PnP PowerShell trenger du derfor en app registration i kundens tenant, med sertifikat.
 
-For å autentisere og bruke PnP PowerShell framover må du opprette din egen app registration med de nødvendige tillatelsene.
+**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. Da trenger du bare sertifikatet (og passordet) som ble brukt ved Prosjektportalen-installasjonen, og å verifisere at appen har tilgangene i tabellen under. Ingen ny registrering nødvendig.
 
-Før du kjører installasjonsskriptet for Bestillingsportalen, sørg for at du har opprettet denne app-en og har sertifikatet og passordet tilgjengelig.
+**Alternativ B: Registrer en ny app.** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Kommandoen oppretter app-registreringen, genererer et self-signed sertifikat, laster det opp på appen og ber om admin consent i nettleseren:
 
-Minimumskravene til PnP app registration for å kunne kjøre installasjonsskriptet er:
+```powershell
+$certPassword = Read-Host "Velg et passord for sertifikatet" -AsSecureString
+
+Register-PnPEntraIDApp `
+    -ApplicationName "Bestillingsportalen PnP" `
+    -Tenant "<kunde>.onmicrosoft.com" `
+    -OutPath "C:\Certs" `
+    -CertificatePassword $certPassword `
+    -ValidYears 2 `
+    -GraphApplicationPermissions "Group.Create", "Group.Read.All" `
+    -SharePointApplicationPermissions "Sites.FullControl.All"
+```
+
+Et nettleservindu åpnes for autentisering og admin consent (bruk `-DeviceLogin` i stedet hvis nettleser ikke er tilgjengelig). Noter fra outputen:
+
+- **App-ID-en (Client ID)** → settes som `pnpAppId` i `parameters.json`.
+- **PFX-filen** (f.eks. `C:\Certs\Bestillingsportalen PnP.pfx`) → stien settes som `pnpCertPath` i `parameters.json`. Du blir bedt om sertifikatpassordet når `deploy.ps1` kjører.
+
+(Bruker du PnP.PowerShell 2.x heter cmdleten `Register-PnPAzureADApp` — samme parametre.)
+
+Minimumstilgangene appen trenger for installasjonsskriptet:
 
 **Microsoft Graph**
 
@@ -42,8 +62,6 @@ Minimumskravene til PnP app registration for å kunne kjøre installasjonsskript
 Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
 Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
-
-Se [denne videoen](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for hvordan du oppretter og bruker app registration.
 
 Hvis `Sites.FullControl.All` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
 
@@ -68,7 +86,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen — det logger inn med Azure CLI, lar deg velge subscription hvis du har flere, og fyller ut alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN og PnP-sertifikatsti — begge kan også angis som parametre for kjøring uten prompts):
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN og PnP-sertifikatsti — begge kan også angis som parametre for kjøring uten prompts):
 
 ```powershell
 ./GenerateParameters.ps1

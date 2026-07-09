@@ -21,6 +21,13 @@
 
     The script only reads from Azure - it changes nothing in the environment.
 
+.PARAMETER Tenant
+    The target (customer) tenant to generate parameters for - initial domain
+    (e.g. contoso.onmicrosoft.com) or tenant id. Prompted for when omitted.
+    The script signs the Azure CLI in to THIS tenant and only offers
+    subscriptions that belong to it, so consultants working across customer
+    tenants cannot generate parameters against the wrong environment.
+
 .PARAMETER OutputPath
     Where to write the generated file. Default: .\parameters.json (next to deploy.ps1).
 
@@ -43,10 +50,11 @@
     ./GenerateParameters.ps1
 
 .EXAMPLE
-    ./GenerateParameters.ps1 -ServiceAccountUPN svc-bp@contoso.com -Region westeurope -Force
+    ./GenerateParameters.ps1 -Tenant contoso.onmicrosoft.com -ServiceAccountUPN svc-bp@contoso.com -Region westeurope -Force
 #>
 param
 (
+    [string]$Tenant,
     [string]$OutputPath = ".\parameters.json",
     [string]$ServiceAccountUPN,
     [string]$PnpCertPath,
@@ -69,27 +77,59 @@ if (-not (Test-Path $templatePath)) {
 }
 
 # ---------------------------------------------------------------------------
-# 1. Azure CLI context (sign in if needed, pick subscription when several)
+# 1. Target tenant + Azure CLI sign-in
+# Always anchored to an explicitly stated target tenant, so consultants who
+# work across customer tenants cannot generate parameters against the wrong
+# environment by accident. Only subscriptions in the target tenant are offered.
 # ---------------------------------------------------------------------------
-Write-Host "Checking Azure CLI sign-in..." -ForegroundColor Yellow
-$account = az account show 2>$null | ConvertFrom-Json
-if ($null -eq $account) {
-    Write-Host "Not signed in - launching az login..." -ForegroundColor Yellow
-    az login | Out-Null
-    $account = az account show | ConvertFrom-Json
+while ([string]::IsNullOrWhiteSpace($Tenant)) {
+    $Tenant = Read-Host "Which tenant (customer) are you generating parameters for? Enter the initial domain or tenant id (e.g. contoso.onmicrosoft.com)"
 }
 
-$subscriptions = @(az account list --query "[?state=='Enabled']" --output json | ConvertFrom-Json)
+Write-Host "Checking Azure CLI sign-in against tenant '$Tenant'..." -ForegroundColor Yellow
+$accountJson = az account show 2>$null
+$account = if ($accountJson) { $accountJson | ConvertFrom-Json } else { $null }
+
+# Reuse the existing session only if it is already in the TARGET tenant
+$isSignedInToTarget = $false
+if ($null -ne $account) {
+    if ($Tenant -match '^[0-9a-fA-F\-]{36}$') {
+        $isSignedInToTarget = ($account.tenantId -eq $Tenant)
+    }
+    else {
+        try {
+            $currentOrg = az rest --method get --url "https://graph.microsoft.com/v1.0/organization?`$select=verifiedDomains" 2>$null | ConvertFrom-Json
+            $isSignedInToTarget = @($currentOrg.value[0].verifiedDomains | Where-Object { $_.name -eq $Tenant }).Count -gt 0
+        }
+        catch {}
+    }
+}
+
+if (-not $isSignedInToTarget) {
+    Write-Host "Signing in to tenant '$Tenant' - a browser window will open; pick the account you will run the installation with..." -ForegroundColor Yellow
+    az login --tenant $Tenant --only-show-errors | Out-Null
+    $account = az account show | ConvertFrom-Json
+    if ($null -eq $account -or ($Tenant -match '^[0-9a-fA-F\-]{36}$' -and $account.tenantId -ne $Tenant)) {
+        Write-Host "Sign-in to tenant '$Tenant' failed or landed in a different tenant. Aborting." -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host "Signed in as $($account.user.name) in tenant $($account.tenantId)" -ForegroundColor Green
+
+# Only offer subscriptions that belong to the target tenant
+$subscriptions = @(az account list --query "[?state=='Enabled' && tenantId=='$($account.tenantId)']" --output json | ConvertFrom-Json)
 if ($subscriptions.Count -eq 0) {
-    Write-Host "No enabled subscriptions found for the signed-in account." -ForegroundColor Red
+    Write-Host "No enabled subscriptions found in tenant $($account.tenantId) for $($account.user.name)." -ForegroundColor Red
     exit 1
 }
 if ($subscriptions.Count -gt 1) {
     Write-Host ""
-    Write-Host "You have access to several subscriptions:" -ForegroundColor Yellow
+    Write-Host "Subscriptions available in this tenant (signed in as $($account.user.name)):" -ForegroundColor Yellow
     for ($i = 0; $i -lt $subscriptions.Count; $i++) {
+        $tenantLabel = if ($subscriptions[$i].tenantDefaultDomain) { $subscriptions[$i].tenantDefaultDomain } else { $subscriptions[$i].tenantId }
         $marker = if ($subscriptions[$i].id -eq $account.id) { " (current)" } else { "" }
-        Write-Host ("  [{0}] {1} - {2} (tenant {3}){4}" -f $i, $subscriptions[$i].name, $subscriptions[$i].id, $subscriptions[$i].tenantId, $marker)
+        Write-Host ("  [{0}] {1} - {2} (tenant {3}){4}" -f $i, $subscriptions[$i].name, $subscriptions[$i].id, $tenantLabel, $marker)
     }
     $choice = Read-Host "Select the subscription to deploy to (0-$($subscriptions.Count - 1), enter for current)"
     if (-not [string]::IsNullOrWhiteSpace($choice)) {
@@ -98,8 +138,12 @@ if ($subscriptions.Count -gt 1) {
         $account = az account show | ConvertFrom-Json
     }
 }
+elseif ($subscriptions[0].id -ne $account.id) {
+    az account set --subscription $subscriptions[0].id
+    $account = az account show | ConvertFrom-Json
+}
 
-Write-Host "Using subscription '$($account.name)' ($($account.id)) in tenant $($account.tenantId)" -ForegroundColor Green
+Write-Host "Using subscription '$($account.name)' ($($account.id)) in tenant $($account.tenantId) as $($account.user.name)" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 # 2. Tenant names via Microsoft Graph (initial *.onmicrosoft.com domain)
