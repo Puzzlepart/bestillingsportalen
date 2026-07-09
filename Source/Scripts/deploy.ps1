@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Deploys the following assets of the Bestillingsportalen solution -
 
@@ -747,10 +747,81 @@ function CreateEntraIDAppSecret {
         }
 
         Write-Host "### Entra ID APP SECRET CREATION FINISHED ###" -ForegroundColor Green
+        RecordDeployStatus -Component "Entra ID app / secret" -Status 'OK'
     }
     catch {
+        RecordDeployStatus -Component "Entra ID app / secret" -Status 'FAILED' -Detail $_.Exception.Message
         throw('Failed to create the secret for the Entra ID App {0}', $_.Exception.Message)
     }
+}
+
+# ---------------------------------------------------------------------------
+# Deployment report
+# Each major component records its outcome here and WriteDeploymentReport prints
+# a summary at the end of the run (also when the script stops on an error), so
+# partial failures don't drown in the console output.
+# ---------------------------------------------------------------------------
+$script:deployReport = @()
+$script:deployReportPrinted = $false
+
+function RecordDeployStatus {
+    param(
+        [Parameter(Mandatory = $true)][string]$Component,
+        [Parameter(Mandatory = $true)][ValidateSet('OK', 'FAILED', 'WARNING', 'SKIPPED')][string]$Status,
+        [string]$Detail = ""
+    )
+    $script:deployReport += [pscustomobject]@{ Component = $Component; Status = $Status; Detail = $Detail }
+}
+
+# Records the result of the preceding az CLI call. Native commands do not throw on
+# non-zero exit codes, so without this a failed deployment scrolls past unnoticed
+# and the script reports success.
+function RecordAzResult {
+    param([Parameter(Mandatory = $true)][string]$Component)
+    if ($LASTEXITCODE -ne 0) {
+        RecordDeployStatus -Component $Component -Status 'FAILED' -Detail "az exited with code $LASTEXITCODE - see the error output above"
+        Write-Host "$Component FAILED - continuing with the remaining components. See the summary at the end." -ForegroundColor Red
+    }
+    else {
+        RecordDeployStatus -Component $Component -Status 'OK'
+    }
+}
+
+function GetFailedDeployComponents {
+    return @($script:deployReport | Where-Object { $_.Status -eq 'FAILED' })
+}
+
+function WriteDeploymentReport {
+    if ($script:deployReportPrinted -or $script:deployReport.Count -eq 0) { return }
+    $script:deployReportPrinted = $true
+
+    Write-Host ""
+    Write-Host "#################### DEPLOYMENT SUMMARY ####################" -ForegroundColor Magenta
+    foreach ($entry in $script:deployReport) {
+        $color = switch ($entry.Status) {
+            'OK' { 'Green' }
+            'FAILED' { 'Red' }
+            'WARNING' { 'Yellow' }
+            'SKIPPED' { 'DarkGray' }
+        }
+        $line = "  [{0,-7}] {1}" -f $entry.Status, $entry.Component
+        if (-not [string]::IsNullOrEmpty($entry.Detail)) { $line += " - $($entry.Detail)" }
+        Write-Host $line -ForegroundColor $color
+    }
+
+    $failed = GetFailedDeployComponents
+    $warned = @($script:deployReport | Where-Object { $_.Status -eq 'WARNING' })
+    Write-Host ""
+    if ($failed.Count -gt 0) {
+        Write-Host "$($failed.Count) component(s) FAILED. Fix the cause and re-run the script - completed components are updated idempotently on re-run." -ForegroundColor Red
+    }
+    elseif ($warned.Count -gt 0) {
+        Write-Host "Completed with $($warned.Count) warning(s) - review them before using the solution." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "All components completed successfully." -ForegroundColor Green
+    }
+    Write-Host "############################################################" -ForegroundColor Magenta
 }
 
 function AssignManagedIdentityPermissions {
@@ -758,7 +829,8 @@ function AssignManagedIdentityPermissions {
 
     $paAutoServicePrincipal = Get-AzADServicePrincipal -DisplayName "$automationAccountName"
     if ($null -eq $paAutoServicePrincipal) {
-        throw "Could not find service principal for automation account '$automationAccountName'. Ensure azureresources.bicep has been deployed so the system-assigned managed identity exists."
+        RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'FAILED' -Detail 'Service principal not found'
+        throw "Could not find service principal for automation account '$automationAccountName'. Ensure azureresources.bicep has been deployed so the system-assigned managed identity exists. If it was JUST created, Entra ID replication may be lagging - wait a minute and re-run."
     }
 
     $spoResource = Get-AzADServicePrincipal -DisplayName "Office 365 SharePoint Online"
@@ -790,15 +862,18 @@ function AssignManagedIdentityPermissions {
         }
     )
 
+    $failedRoles = @()
     foreach ($role in $rolesToGrant) {
         if ($null -eq $role.ResourceSp) {
             Write-Host "  WARN: Resource service principal for '$($role.RoleName)' was not found in the tenant. Skipping." -ForegroundColor Red
+            $failedRoles += $role.RoleName
             continue
         }
 
         $appRole = $role.ResourceSp.AppRole | Where-Object { $_.Value -eq $role.RoleName -or $_.DisplayName -eq $role.DisplayName }
         if ($null -eq $appRole) {
             Write-Host "  WARN: Could not find app role '$($role.RoleName)' on $($role.ResourceSp.DisplayName)." -ForegroundColor Red
+            $failedRoles += $role.RoleName
             continue
         }
 
@@ -815,10 +890,16 @@ function AssignManagedIdentityPermissions {
         }
         catch {
             Write-Host "  ERROR granting $($role.RoleName): $($_.Exception.Message)" -ForegroundColor Red
-            throw
+            $failedRoles += $role.RoleName
         }
     }
 
+    if ($failedRoles.Count -gt 0) {
+        RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'FAILED' -Detail "Missing: $($failedRoles -join ', '). Re-run the script or repair with AssignPermissionsToManagedIdentity.ps1."
+    }
+    else {
+        RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'OK'
+    }
     Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
 }
 
@@ -832,6 +913,7 @@ function AssignUamiPermissions {
         $global:uamiPrincipalId = az identity show --resource-group $parameters.resourceGroupName.Value --name $uamiName --query principalId --output tsv
     }
     if ([string]::IsNullOrEmpty($global:uamiPrincipalId)) {
+        RecordDeployStatus -Component "App roles: $uamiName (user-assigned MI)" -Status 'FAILED' -Detail 'Managed identity not found'
         throw "Could not find user-assigned managed identity '$uamiName' in resource group '$($parameters.resourceGroupName.Value)'. Ensure azureresources.bicep has been deployed."
     }
 
@@ -856,15 +938,18 @@ function AssignUamiPermissions {
         @{ ResourceSp = $graphResource; RoleName = 'User.ReadWrite.All' }
     )
 
+    $failedRoles = @()
     foreach ($role in $rolesToGrant) {
         if ($null -eq $role.ResourceSp) {
             Write-Host "  WARN: Resource service principal for '$($role.RoleName)' was not found in the tenant. Skipping." -ForegroundColor Red
+            $failedRoles += $role.RoleName
             continue
         }
 
         $appRole = $role.ResourceSp.AppRole | Where-Object { $_.Value -eq $role.RoleName -and $_.AllowedMemberType -contains 'Application' }
         if ($null -eq $appRole) {
             Write-Host "  WARN: Could not find app role '$($role.RoleName)' on $($role.ResourceSp.DisplayName)." -ForegroundColor Red
+            $failedRoles += $role.RoleName
             continue
         }
 
@@ -881,10 +966,16 @@ function AssignUamiPermissions {
         }
         catch {
             Write-Host "  ERROR granting $($role.RoleName): $($_.Exception.Message)" -ForegroundColor Red
-            throw
+            $failedRoles += $role.RoleName
         }
     }
 
+    if ($failedRoles.Count -gt 0) {
+        RecordDeployStatus -Component "App roles: $uamiName (user-assigned MI)" -Status 'FAILED' -Detail "Missing: $($failedRoles -join ', '). The logic apps will get 401/403 at runtime until these are assigned. Re-run the script or repair with AssignPermissionsToManagedIdentity.ps1."
+    }
+    else {
+        RecordDeployStatus -Component "App roles: $uamiName (user-assigned MI)" -Status 'OK'
+    }
     Write-Host "Finished assigning app roles to user-assigned managed identity." -ForegroundColor Green
 }
 
@@ -895,13 +986,15 @@ function DeployARMTemplates {
         # Deploy ARM templates
         if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
-            
+
             az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)"
-            
+            RecordAzResult "API connections"
+
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
         }
         else {
             Write-Host "Skipping deployment of api connections..." -ForegroundColor Yellow
+            RecordDeployStatus -Component "API connections" -Status 'SKIPPED'
         }
        
         Write-Host "Deploying logic apps..." -ForegroundColor Yellow
@@ -909,38 +1002,47 @@ function DeployARMTemplates {
         Write-Host "ProcessGuests" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName"
+        RecordAzResult "Logic App: ProcessGuests"
 
         Write-Host "CheckSiteExists" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "uamiName=$uamiName"
+        RecordAzResult "Logic App: CheckSiteExists"
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
+        RecordAzResult "Logic App: ProcessProvisionRequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName"
+        RecordAzResult "Logic App: ProcessGuestRequest"
 
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName"
+        RecordAzResult "Logic App: SyncGroupSettings"
 
         Write-Host "GetSiteTemplates" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName" "uamiName=$uamiName"
+        RecordAzResult "Logic App: GetSiteTemplates"
         
         Write-Host "GetHubSites" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
+        RecordAzResult "Logic App: GetHubSites"
         
         Write-Host "SyncLabels" -ForegroundColor Yellow
         
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "uamiName=$uamiName"
+        RecordAzResult "Logic App: SyncLabels"
 
         Write-Host "GetTeamsTemplates" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName"
+        RecordAzResult "Logic App: GetTeamsTemplates"
         
         Write-Host "Finished deploying logic apps" -ForegroundColor Green
     }
@@ -954,6 +1056,7 @@ function DeployARMTemplates {
 function DeployLocalRunbooks {
     Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
+    RecordAzResult "Runbooks (runbooks.bicep)"
     Write-Host "Finished deploying local runbooks" -ForegroundColor Green
     Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
 }
@@ -973,10 +1076,12 @@ function DeployUpgradeLogicApp {
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl"
+        RecordAzResult "Logic App: ProcessProvisionRequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName"
+        RecordAzResult "Logic App: ProcessGuestRequest"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
@@ -1067,6 +1172,14 @@ function DeploySPFxPackages {
                 Write-Host "Uploading $($sppkg.Name) to app catalog..." -ForegroundColor Yellow
                 $app = Add-PnPApp -Path $sppkg.FullName -Overwrite -Publish -SkipFeatureDeployment
                 Write-Host "Uploaded and published tenant-wide: $($app.Title)" -ForegroundColor Green
+                RecordDeployStatus -Component "SPFx: $($solution.Name)" -Status 'OK'
+            }
+            catch {
+                # Record and continue - a failed SPFx build should not abort the rest of
+                # the deployment (the packages can be re-deployed with -SkipSharepointSite
+                # or by re-running the script).
+                Write-Host "SPFx solution $($solution.Name) FAILED: $($_.Exception.Message)" -ForegroundColor Red
+                RecordDeployStatus -Component "SPFx: $($solution.Name)" -Status 'FAILED' -Detail $_.Exception.Message
             }
             finally {
                 Pop-Location
@@ -1076,7 +1189,9 @@ function DeploySPFxPackages {
         Write-Host "### SPFX DEPLOYMENT COMPLETE ###" -ForegroundColor Green
     }
     catch {
-        throw('Failed to deploy SPFx packages: {0}', $_.Exception.Message)
+        RecordDeployStatus -Component "SPFx packages" -Status 'FAILED' -Detail $_.Exception.Message
+        Write-Host "SPFx deployment FAILED: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Continuing - the SPFx packages can be deployed later by re-running the script with the relevant skip flags." -ForegroundColor Yellow
     }
 }
 
@@ -1255,6 +1370,13 @@ function SendDeployPingback {
 
 $ErrorActionPreference = "stop"
 
+# Print the (partial) deployment summary even when the script stops on a
+# terminating error, so it is clear which components completed before the failure.
+trap {
+    WriteDeploymentReport
+    break
+}
+
 Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
 
 # Capture start metadata for the deployment pingback (sent at the end of the run)
@@ -1374,6 +1496,7 @@ if (-not $SkipCreateEntraIDAppSecret) {
     CreateEntraIDAppSecret
 }
 else {
+    RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED'
     $app = GetEntraIDApp $parameters.appName.Value
 
     if (-not ([string]::IsNullOrEmpty($app))) {
@@ -1397,15 +1520,17 @@ if (-not $SkipSharepointSite) {
         Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
     }
     ConfigureSharePointSite
-    
+
     # Skip uploading assets in upgrade mode
     if (-not $global:upgrade) {
         UploadAssets
     }
+    RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'OK'
 }
 else {
     # If we're skipping site creation/configuration, we need to get the list ids
     Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
+    RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'SKIPPED'
     Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value
     $context = Get-PnPContext
     
@@ -1497,6 +1622,16 @@ if ($global:upgrade) {
     }
     else {
         Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+        RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
+    }
+
+    SendDeployPingback
+
+    WriteDeploymentReport
+
+    if ((GetFailedDeployComponents).Count -gt 0) {
+        Write-Host "### UPGRADE COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
+        exit 1
     }
 
     Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
@@ -1506,8 +1641,6 @@ if ($global:upgrade) {
     else {
         Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
     }
-
-    SendDeployPingback
 
     exit 0
 }
@@ -1521,9 +1654,11 @@ if (-not $SkipCreateResourceGroup) {
     Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
     New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location
     Write-Host "Created resource group" -ForegroundColor Green
+    RecordDeployStatus -Component "Resource group" -Status 'OK'
 }
 else {
     Write-Host "Skipping resource group creation" -ForegroundColor Yellow
+    RecordDeployStatus -Component "Resource group" -Status 'SKIPPED'
 }
 
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
@@ -1540,6 +1675,12 @@ If ($parameters.enableSensitivity.Value) {
 if (-not $SkipBicepDeploy) {
     Write-Host "Deploying key vault, automation account and managed identity..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.siteLogoPath.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "uamiName=$uamiName" "saUsername=$($saUsername)" "saPassword=$($saPassword)"
+    RecordAzResult "Azure resources (bicep: Key Vault, Automation, UAMI)"
+    if ($LASTEXITCODE -ne 0) {
+        # Everything after this point (permissions, runbooks, logic apps) depends on
+        # these resources - no point continuing.
+        throw "azureresources.bicep deployment failed - see the error output above. Fix the cause and re-run the script."
+    }
     AssignManagedIdentityPermissions
     AssignUamiPermissions
     DeployLocalRunbooks
@@ -1547,6 +1688,7 @@ if (-not $SkipBicepDeploy) {
 }
 else {
     Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
+    RecordDeployStatus -Component "Azure resources (bicep: Key Vault, Automation, UAMI)" -Status 'SKIPPED'
     # The logic apps and API connections still need the app roles on the user-assigned
     # managed identity - keep them in sync even when the bicep deployment is skipped.
     AssignUamiPermissions
@@ -1558,6 +1700,7 @@ if (-not $SkipDeployARMTemplates) {
 }
 else {
     Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow
+    RecordDeployStatus -Component "Logic Apps + API connections" -Status 'SKIPPED'
 }
 
 Write-Host "Azure resources deployed`n### AZURE RESOURCES DEPLOYMENT COMPLETE ###" -ForegroundColor Green
@@ -1567,9 +1710,23 @@ if (-not $SkipSPFxDeploy) {
 }
 else {
     Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+    RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
 }
 
 SendDeployPingback
 
+WriteDeploymentReport
+
+Write-Host ""
+Write-Host "Remaining manual steps (see Deployment-guide.md):" -ForegroundColor Cyan
+Write-Host "  1. Authorise the delegated API connections (bestillingsportalen-spo / -o365 / -o365users / -teams) in the Azure Portal with the service account." -ForegroundColor Cyan
+Write-Host "  2. Paste the contents of Source/Runbooks/ConfigureSpace.ps1 and Source/Runbooks/AddGuestToSite.ps1 into the corresponding runbooks and publish (step 6a in the guide)." -ForegroundColor Cyan
+Write-Host "  3. Activate and share the Power Automate flows." -ForegroundColor Cyan
+Write-Host ""
+
+if ((GetFailedDeployComponents).Count -gt 0) {
+    Write-Host "### DEPLOYMENT COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
-Write-Host "### Don't forget to authorise the API Connections in the Azure Portal. ###" -ForegroundColor Green

@@ -32,6 +32,7 @@ Sjekk ut [release notes](#) for høydepunkter og mer detaljert endringslogg for 
 
 ### Forbedringer
 
+- **Deployment summary i `deploy.ps1`**: Skriptet skriver nå ut en statusrapport på slutten av hver kjøring (også ved feilavbrudd) med én linje per delkomponent — `OK`/`FAILED`/`WARNING`/`SKIPPED`. Alle `az deployment`-kall exit-kode-sjekkes (før kunne en feilet Logic App-deployment passere ubemerket og skriptet rapportere suksess), feilede app-rolletildelinger samles opp og rapporteres i stedet for å forsvinne i utskriften, en feilet SPFx-bygging stopper ikke lenger resten av deployen, og skriptet avslutter med exit-kode 1 hvis noen komponenter feilet. Gjenstående manuelle steg (autorisere API-tilkoblinger, lime inn runbook-innhold, aktivere flyter) listes opp til slutt.
 - **Forbedret feilhåndtering i bestillingsflyt**: Implementert omfattende feilhåndtering som automatisk oppdaterer Provisioning Requests-listen med status "Space Creation Failed" når feil oppstår i både Logic App og ConfigureSpace runbook. Dette gir bedre synlighet på feiltilstander og enklere feilsøking.
 - **Upgrade-mode utvidet**: `DeployUpgradeLogicApp` deployer nå BÅDE `ProcessProvisionRequest` OG `ProcessGuestRequest`. SPFx-løsninger bygges og publiseres også i upgrade-mode (med mindre `-SkipSPFxDeploy` er satt).
 - **Navigasjon bevares i upgrade-mode**: `Invoke-PnPSiteTemplate` kjøres uten `-ClearNavigation` når `-Upgrade` er aktiv, slik at egendefinerte nav-lenker ikke slettes.
