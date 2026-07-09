@@ -835,6 +835,41 @@ function WriteDeploymentReport {
 }
 
 # ---------------------------------------------------------------------------
+# Service account validation
+# The service account is used as site owner (New-PnPSite -Owners), for the
+# delegated API connections and (with enableSensitivity) the ROPC flow - but
+# nothing creates it. Fail early with a clear message instead of crashing
+# midway through site creation when the account doesn't exist.
+# ---------------------------------------------------------------------------
+function ValidateServiceAccount {
+    $upn = $parameters.serviceAccountUPN.Value
+    Write-Host "Validating service account $upn..." -ForegroundColor Yellow
+
+    $saUserJson = az ad user show --id $upn 2>$null
+    $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
+    if ($null -eq $saUser) {
+        RecordDeployStatus -Component "Service account" -Status 'FAILED' -Detail "'$upn' was not found in the tenant"
+        throw "Service account '$upn' was not found in the tenant. Create the account (a standard user licensed for SharePoint, Exchange Online and Teams) before running the deployment, or correct serviceAccountUPN in parameters.json. Nothing has been changed in the environment."
+    }
+    $script:serviceAccountDisplayName = $saUser.displayName
+
+    # Best-effort license check - assignedLicenses includes group-based assignments.
+    # Warning only: the exact license requirements are the customer's call.
+    try {
+        $licenseInfo = az rest --method get --url "https://graph.microsoft.com/v1.0/users/$upn`?`$select=assignedLicenses" 2>$null | ConvertFrom-Json
+        if ($null -ne $licenseInfo -and @($licenseInfo.assignedLicenses).Count -eq 0) {
+            Write-Host "WARN: The service account has no licenses assigned. It needs SharePoint, Exchange Online and Teams licenses for the delegated API connections and notifications." -ForegroundColor Yellow
+            RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
+            return
+        }
+    }
+    catch {}
+
+    Write-Host "Service account verified: $($saUser.displayName) ($upn)" -ForegroundColor Green
+    RecordDeployStatus -Component "Service account" -Status 'OK'
+}
+
+# ---------------------------------------------------------------------------
 # Pre-flight summary and confirmation
 # Runs after all sign-ins so it reflects the ACTUAL connected identity,
 # tenant and subscription - the last chance to abort before anything is
@@ -861,6 +896,7 @@ function ConfirmDeployment {
         Write-Host "    Signed in as (CLI): $deployUser"
     }
     Write-Host "    SharePoint tenant:  $global:tenantUrl"
+    Write-Host ("    Service account:    {0}{1}" -f $parameters.serviceAccountUPN.Value, $(if ($script:serviceAccountDisplayName) { " ($script:serviceAccountDisplayName) - verified" }))
     Write-Host ""
     Write-Host "  Will set up / update:" -ForegroundColor Yellow
 
@@ -1579,8 +1615,10 @@ else {
 }
 Write-Host "Connected to SPO" -ForegroundColor Green
 
-# All sign-ins are done and nothing has been changed yet - show the pre-flight
-# summary and ask for confirmation before the first mutating step.
+# All sign-ins are done and nothing has been changed yet - validate the service
+# account exists, then show the pre-flight summary and ask for confirmation
+# before the first mutating step.
+ValidateServiceAccount
 ConfirmDeployment
 
 if (-not $SkipCreateEntraIDAppSecret) {

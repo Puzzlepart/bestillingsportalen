@@ -166,6 +166,25 @@ Write-Host "Key Vault name: $keyVaultName" -ForegroundColor Green
 if ([string]::IsNullOrEmpty($ServiceAccountUPN)) {
     $ServiceAccountUPN = Read-Host "Service account UPN (standard licensed user - used to authorise the delegated API connections)"
 }
+
+# Validate that the service account exists - deploy.ps1 uses it as site owner and
+# fails without it. Re-prompt interactively; warn only in unattended (-Force) runs.
+while (-not [string]::IsNullOrWhiteSpace($ServiceAccountUPN)) {
+    $saUserJson = az ad user show --id $ServiceAccountUPN 2>$null
+    $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
+    if ($null -ne $saUser) {
+        Write-Host "Service account verified: $($saUser.displayName) ($ServiceAccountUPN)" -ForegroundColor Green
+        break
+    }
+    Write-Host "Service account '$ServiceAccountUPN' was not found in the tenant." -ForegroundColor Yellow
+    if ($Force) {
+        Write-Host "Continuing anyway (-Force) - create the account before running deploy.ps1, which validates it again." -ForegroundColor Yellow
+        break
+    }
+    $retry = Read-Host "Re-enter the UPN, or press enter to keep '$ServiceAccountUPN' anyway (the account must exist before deploy.ps1 runs)"
+    if ([string]::IsNullOrWhiteSpace($retry)) { break }
+    $ServiceAccountUPN = $retry
+}
 if ([string]::IsNullOrEmpty($PnpCertPath)) {
     $PnpCertPath = Read-Host "Path to your PnP PowerShell certificate (leave blank to use interactive PnP sign-in)"
 }
