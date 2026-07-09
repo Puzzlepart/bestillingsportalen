@@ -143,13 +143,13 @@ Neste steg er å kjøre deploy-skriptet.
 
 **Hvis sensitivitetsmerke-funksjonaliteten aktiveres, genererer installasjonsskriptet en secret for Entra ID-appen opprettet over (standard utløpstid 1 år, brukes kun av ROPC-flyten for sensitivitetsmerker). For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
 
-Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om autentisering flere ganger.
+Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure CLI og PnP PowerShell), men **eksisterende sesjoner gjenbrukes**: finner skriptet en cachet sesjon som matcher tenant/subscription i `parameters.json`, blir du spurt om å gjenbruke den (`y`) i stedet for å logge inn på nytt — ved gjentatte kjøringer slipper du dermed MFA-rundene. Svar `n` for å tvinge frisk innlogging (f.eks. med en annen konto).
 
 1. Åpne et PowerShell 7-vindu som administrator.
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første tilkobling; logg inn med kontoen du kjører skriptet med.
+PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved **første** kjøring mot tenanten; logg inn med kontoen du kjører skriptet med. Innloggingen persisteres (`-PersistLogin`), så senere kjøringer kobler til uten prompt. Endrer du tilgangene på PnP-appen, må cachen tømmes først med `Disconnect-PnPOnline -ClearPersistedLogin`.
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
 

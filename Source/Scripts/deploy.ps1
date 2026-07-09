@@ -1225,12 +1225,14 @@ function DeployUpgradeLogicApp {
 # Connects PnP PowerShell to the given URL with interactive browser sign-in
 # (delegated, as the account running the script). The deployment is attended by
 # design - the script prompts throughout - so certificate/app-only auth is not
-# supported. Tokens are cached per client id, so only the first connection shows
-# a browser prompt.
+# supported. -PersistLogin caches the login on disk, so re-runs (and later
+# sessions) against the same tenant connect silently. NOTE: if the PnP app's
+# permissions change, clear the cache first with
+# Disconnect-PnPOnline -ClearPersistedLogin.
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
-    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
+    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive -PersistLogin
 }
 
 # Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
@@ -1571,11 +1573,32 @@ $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 $requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')
 $requestsSiteUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com/$($parameters.managedPath.Value)/$requestsSiteAlias"
 
-# Initialise connections - Azure Az/CLI
-Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
-# Clear the az context before we login
-#Clear-AzContext -Force
-$azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
+# Initialise connections - Azure Az/CLI. Both tools cache sessions across runs,
+# so existing sessions matching the target tenant/subscription are offered for
+# reuse instead of forcing a new MFA round trip on every run.
+
+# --- Az PowerShell ---
+Write-Host "Checking for an existing Az PowerShell session..." -ForegroundColor Yellow
+$azConnect = $null
+$existingAzContext = Get-AzContext -ErrorAction SilentlyContinue
+if ($null -ne $existingAzContext -and $existingAzContext.Tenant.Id -eq $parameters.tenantId.Value) {
+    Write-Host "Found existing Az PowerShell session: $($existingAzContext.Account.Id) in tenant $($existingAzContext.Tenant.Id)." -ForegroundColor Green
+    $reuseAz = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+    if ($reuseAz -eq 'y') {
+        try {
+            # Silent subscription switch - no re-authentication within the same tenant
+            $azConnect = Set-AzContext -SubscriptionId $parameters.subscriptionId.Value -TenantId $parameters.tenantId.Value
+        }
+        catch {
+            Write-Host "Could not switch the existing session to subscription $($parameters.subscriptionId.Value) - signing in again." -ForegroundColor Yellow
+            $azConnect = $null
+        }
+    }
+}
+if ($null -eq $azConnect) {
+    Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
+    $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
+}
 
 # Skip validation steps in upgrade mode
 if (-not $global:upgrade) {
@@ -1585,8 +1608,23 @@ if (-not $global:upgrade) {
     ValidateAzureLocation
 }
 
-Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
-az login
+# --- Azure CLI ---
+Write-Host "Checking for an existing Azure CLI session..." -ForegroundColor Yellow
+$cliSignedIn = $false
+$cachedSubsJson = az account list --output json 2>$null
+$cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
+$targetCliSub = $cachedSubs | Where-Object { $_.id -eq $parameters.subscriptionId.Value -and $_.tenantId -eq $parameters.tenantId.Value } | Select-Object -First 1
+if ($null -ne $targetCliSub) {
+    Write-Host "Found existing Azure CLI session: $($targetCliSub.user.name) with access to subscription '$($targetCliSub.name)'." -ForegroundColor Green
+    $reuseCli = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+    if ($reuseCli -eq 'y') {
+        $cliSignedIn = $true
+    }
+}
+if (-not $cliSignedIn) {
+    Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
+    az login --tenant $parameters.tenantId.Value --only-show-errors | Out-Null
+}
 Write-Host "Connected to Azure" -ForegroundColor Green
 
 # Capture the signed-in user for the deployment pingback (best-effort; works in both deploy and upgrade mode)
@@ -1598,8 +1636,9 @@ catch {}
 # Change the subscription
 az account set --subscription $parameters.subscriptionId.Value
 
-# Connect to PnP
-Write-Host "Launching PnP sign-in (a browser window will open - sign in with the account running this script)..." -ForegroundColor Yellow
+# Connect to PnP - the login is persisted across runs (-PersistLogin in ConnectPnP),
+# so the browser prompt only appears on the first run against a tenant.
+Write-Host "Launching PnP sign-in (a browser window opens on the first run - the login is cached for subsequent runs)..." -ForegroundColor Yellow
 ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Connected to SPO" -ForegroundColor Green
 

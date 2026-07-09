@@ -81,30 +81,34 @@ while ([string]::IsNullOrWhiteSpace($Tenant)) {
     $Tenant = Read-Host "Which tenant (customer) are you generating parameters for? Enter the initial domain or tenant id (e.g. contoso.onmicrosoft.com)"
 }
 
-Write-Host "Checking Azure CLI sign-in against tenant '$Tenant'..." -ForegroundColor Yellow
-$accountJson = az account show 2>$null
-$account = if ($accountJson) { $accountJson | ConvertFrom-Json } else { $null }
+# The Azure CLI caches sessions across runs (and tenants), so an existing session
+# with access to the target tenant can be reused without a new MFA round trip -
+# it is offered for reuse instead of forcing a fresh az login every time.
+Write-Host "Checking for an existing Azure CLI session for tenant '$Tenant'..." -ForegroundColor Yellow
 
-# Reuse the existing session only if it is already in the TARGET tenant
-$isSignedInToTarget = $false
-if ($null -ne $account) {
-    if ($Tenant -match '^[0-9a-fA-F\-]{36}$') {
-        $isSignedInToTarget = ($account.tenantId -eq $Tenant)
-    }
-    else {
-        try {
-            $currentOrg = az rest --method get --url "https://graph.microsoft.com/v1.0/organization?`$select=verifiedDomains" 2>$null | ConvertFrom-Json
-            $isSignedInToTarget = @($currentOrg.value[0].verifiedDomains | Where-Object { $_.name -eq $Tenant }).Count -gt 0
-        }
-        catch {}
+$targetIsGuid = $Tenant -match '^[0-9a-fA-F\-]{36}$'
+$cachedSubsJson = az account list --output json 2>$null
+$cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
+$cachedForTarget = @($cachedSubs | Where-Object {
+        ($targetIsGuid -and $_.tenantId -eq $Tenant) -or
+        (-not $targetIsGuid -and $_.tenantDefaultDomain -eq $Tenant)
+    })
+
+$account = $null
+if ($cachedForTarget.Count -gt 0) {
+    Write-Host "Found an existing Azure CLI session with access to tenant '$Tenant' as $($cachedForTarget[0].user.name)." -ForegroundColor Green
+    $reuse = if ($Force) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+    if ($reuse -eq 'y') {
+        az account set --subscription $cachedForTarget[0].id
+        $account = az account show | ConvertFrom-Json
     }
 }
 
-if (-not $isSignedInToTarget) {
+if ($null -eq $account) {
     Write-Host "Signing in to tenant '$Tenant' - a browser window will open; pick the account you will run the installation with..." -ForegroundColor Yellow
     az login --tenant $Tenant --only-show-errors | Out-Null
     $account = az account show | ConvertFrom-Json
-    if ($null -eq $account -or ($Tenant -match '^[0-9a-fA-F\-]{36}$' -and $account.tenantId -ne $Tenant)) {
+    if ($null -eq $account -or ($targetIsGuid -and $account.tenantId -ne $Tenant)) {
         Write-Host "Sign-in to tenant '$Tenant' failed or landed in a different tenant. Aborting." -ForegroundColor Red
         exit 1
     }
