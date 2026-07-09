@@ -1,8 +1,8 @@
 param(
   [Parameter(Mandatory = $true)]
-  $ManagedIdentityId = "xxx", # Object (principal) ID of the managed identity (system or user-assigned)
+  [string]$ManagedIdentityId, # Object (principal) ID of the managed identity (system or user-assigned)
   [Parameter(Mandatory = $false)]
-  [string[]]$Scopes = @("Group.ReadWrite.All"), # Microsoft Graph app roles to assign
+  [string[]]$Scopes = @("Group.ReadWrite.All", "User.Read.All"), # Microsoft Graph app roles to assign
   [Parameter(Mandatory = $false)]
   [switch]$IncludeSharePointSitesFullControl # Also assign SharePoint Sites.FullControl.All
 )
@@ -11,9 +11,12 @@ param(
 # It assigns the necessary permissions to a managed identity to access Microsoft Graph
 # and (optionally) SharePoint Online.
 #
+# The scope sets below mirror what deploy.ps1 assigns (AssignManagedIdentityPermissions /
+# AssignUamiPermissions) - keep them in sync if the solution's permissions change.
+#
 # Examples:
 #   Automation account system-assigned identity (default scope set):
-#     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId>
+#     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId> -IncludeSharePointSitesFullControl
 #   Logic apps user-assigned identity (repair/manual setup - normally handled by deploy.ps1):
 #     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId> -IncludeSharePointSitesFullControl -Scopes @(
 #       "Directory.Read.All", "Directory.ReadWrite.All", "Group.ReadWrite.All",
@@ -56,6 +59,7 @@ function Add-AppRoleToManagedIdentity {
   $appRole = $ResourceServicePrincipal.AppRoles | Where-Object Value -eq $PermissionScope | Where-Object AllowedMemberTypes -contains "Application"
   if ($null -eq $appRole) {
     Write-Host "App role for scope '$PermissionScope' not found on $($ResourceServicePrincipal.DisplayName)"
+    $script:assignmentFailed = $true
     return
   }
 
@@ -73,21 +77,36 @@ function Add-AppRoleToManagedIdentity {
   Write-Host "Assigned '$PermissionScope' ($($ResourceServicePrincipal.DisplayName)) to managed identity"
 }
 
+$script:assignmentFailed = $false
+
 foreach ($PermissionScope in $Scopes) {
   try {
     Add-AppRoleToManagedIdentity -ResourceServicePrincipal $GraphServicePrincipal -PermissionScope $PermissionScope
   }
   catch {
     Write-Host "Failed to assign '$PermissionScope' to managed identity: $_"
+    $script:assignmentFailed = $true
   }
 }
 
 if ($IncludeSharePointSitesFullControl) {
   try {
     $SpoServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0ff1-ce00-000000000000'"
-    Add-AppRoleToManagedIdentity -ResourceServicePrincipal $SpoServicePrincipal -PermissionScope "Sites.FullControl.All"
+    if ($null -eq $SpoServicePrincipal) {
+      Write-Host "SharePoint Online service principal not found in the tenant"
+      $script:assignmentFailed = $true
+    }
+    else {
+      Add-AppRoleToManagedIdentity -ResourceServicePrincipal $SpoServicePrincipal -PermissionScope "Sites.FullControl.All"
+    }
   }
   catch {
     Write-Host "Failed to assign SharePoint 'Sites.FullControl.All' to managed identity: $_"
+    $script:assignmentFailed = $true
   }
+}
+
+if ($script:assignmentFailed) {
+  Write-Host "One or more assignments failed - review the output above and re-run." -ForegroundColor Red
+  exit 1
 }

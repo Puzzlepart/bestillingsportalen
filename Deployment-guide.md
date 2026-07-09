@@ -78,6 +78,8 @@ Beskrivelse av hver parameter:
 
 - `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `puzzlepart`.
 
+- `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `puzzlepart.onmicrosoft.com`.
+
 - `requestsSiteName` – Navn på SharePoint-området som skal lagre bestillinger (URL/alias genereres automatisk). Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
 
 - `requestsSiteDesc` – Beskrivelse av området som opprettes.
@@ -234,9 +236,16 @@ Følg stegene for å aktivere den:
 
 Før Bestillingsportalen kan rulles ut, må flytene og SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
 
-### Steg 6a (midlertidig): Overskriv runbooken `ConfigureSpace`
+### Steg 6a (midlertidig): Overskriv runbookene `ConfigureSpace` og `AddGuestToSite`
 
-Under installasjonen hentes runbooken `ConfigureSpace` fra et offentlig repo. Denne bør erstattes med versjonen i dette repoet. En enkel copy/paste er nok. Dette er midlertidig til dette repoet er offentlig. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
+Under installasjonen hentes runbook-innholdet fra et offentlig repo (plassholder til dette repoet er offentlig), og **begge** disse runbookene MÅ erstattes med versjonene i dette repoet før løsningen tas i bruk:
+
+- **`ConfigureSpace`** – [Source/Runbooks/ConfigureSpace.ps1](/Source/Runbooks/ConfigureSpace.ps1)
+- **`AddGuestToSite`** – [Source/Runbooks/AddGuestToSite.ps1](/Source/Runbooks/AddGuestToSite.ps1). Merk: denne deployes med `ConfigureSpace`-innhold som plassholder – uten innliming vil hele gjesteinvitasjonsflyten kjøre feil skript.
+
+For hver runbook: Azure Portal → Automation-kontoen `bestillingsportalen-auto` → `Runbooks` → velg runbooken → `Edit` → lim inn innholdet fra filen over → `Publish`.
+
+(`GetSiteTemplates`-runbooken er identisk med upstream-versjonen og trenger ikke å erstattes.)
 
 ### Flyter
 

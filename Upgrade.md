@@ -118,8 +118,8 @@ Før du starter oppgraderingen:
 3. **Verifiser tilganger**
    - Samme tilganger som ved første installasjon
    - Site Collection Administrator på Bestillingsportalen-området
-   - Azure Contributor-rolle på ressursgruppen
-   - Application Administrator eller tilsvarende for Entra ID
+   - Azure Owner-rolle på ressursgruppen/abonnementet (bicep-malen oppretter RBAC-tildelinger)
+   - Rettighet til å tildele app-roller til managed identities – oppgraderingen kjører `AssignManagedIdentityPermissions` og `AssignUamiPermissions`, som krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator
 
 4. **Ha parameterne klare**
    - Bruk samme `parameters.json` som ved første installasjon
@@ -167,44 +167,27 @@ Du kan kombinere med andre skip-flagg ved behov:
 
 #### Alternativ B: Manuell Logic App-oppdatering
 
-Hvis du foretrekker å oppdatere Logic App-en manuelt (nyttig for å gjennomgå endringer før de anvendes):
+Hvis du foretrekker å oppdatere Logic Apps manuelt (nyttig for å gjennomgå endringer før de anvendes), kan du deploye ARM-malene direkte med Azure CLI i stedet for å kjøre hele skriptet. Bruk `--what-if` først for å se endringene:
 
-1. Generer Logic App JSON-definisjonen:
+1. Finn parameterverdiene malen trenger (liste-ID-er m.m.) – se hvilke parametre `deploy.ps1` sender i `DeployARMTemplates`-funksjonen, eller les dem ut av eksisterende Logic App i Azure Portal.
 
-   ```powershell
-   ./generateProcessProvisionRequest.ps1
-   ```
-
-   Skriptet vil:
-   - Koble til SharePoint via PnP-appen og sertifikatet i `parameters.json`
-   - Hente liste-ID-ene automatisk fra Bestillingsportalen-området
-   - Generere `ProcessProvisionRequest.json` med alle verdier ferdig populert
-   - Be om passord for PnP-sertifikatet ved behov
-
-2. (Valgfritt) Generer uten å koble til SharePoint:
+2. Forhåndsvis endringene:
 
    ```powershell
-   ./generateProcessProvisionRequest.ps1 -SkipListIds
+   az deployment group what-if --resource-group <ressursgruppe> --template-file ../ARMTemplates/LogicApps/processprovisionrequest.json --parameters <parametre...>
    ```
 
-   Dette oppretter en fil med plassholderverdier som du må erstatte manuelt.
+3. Deploy når du er fornøyd (bytt `what-if` med `create`).
 
-3. Åpne den genererte filen og gå gjennom endringene.
-
-4. I Azure Portal:
-   - Gå til `ProcessProvisionRequest` Logic App-en
-   - Klikk `Logic app code view`
-   - Kopier hele innholdet fra `ProcessProvisionRequest.json`
-   - Lim det inn i Logic App code view (erstatt all eksisterende kode)
-   - Klikk `Save`
-
-5. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
+4. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
 
    ```powershell
    # Koble til med PnP-app-legitimasjonen
    Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -CertificatePath <path-to-cert>
    Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation
    ```
+
+   I praksis er **Alternativ A anbefalt** – skriptet henter liste-ID-er og øvrige parametre automatisk.
 
 ### Steg 3: Hva som skjer under oppgraderingen
 

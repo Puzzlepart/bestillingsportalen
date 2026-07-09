@@ -31,7 +31,7 @@ graph TD
 Hovedprinsipper:
 
 - Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere** for kjernen av løsningen.
-- Eneste unntak er anvendelse av **sensitivitetsmerker**, som (grunnet en begrensning i Graph API) bruker delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Client secret og tjenestekonto-credentials for dette lagres i en dedikert Azure Key Vault (input/output skjules i kjørehistorikken) og opprettes kun når funksjonaliteten er aktivert.
+- Eneste unntak er anvendelse av **sensitivitetsmerker**, som (grunnet en begrensning i Graph API) bruker delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Client secret og tjenestekonto-credentials for dette lagres i en dedikert Azure Key Vault (input/output skjules i kjørehistorikken); secret-oppføringene opprettes alltid, men har kun verdier når funksjonaliteten er aktivert.
 - Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
 - E-post- og Teams-varsler sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
 
@@ -164,6 +164,7 @@ Runbookene `ConfigureSpace`, `AddGuestToSite` og `GetSiteTemplates` autentiserer
 | API | Tillatelse | Type |
 |--|--|--|
 | Microsoft Graph | `Group.ReadWrite.All` | Application |
+| Microsoft Graph | `User.Read.All` (kreves av `AddGuestToSite` for å slå opp gjestebrukere) | Application |
 | SharePoint (Office 365 SharePoint Online) | `Sites.FullControl.All` («Have full control of all site collections») | Application |
 
 ### 4.3 Entra ID-appen (kun sensitivitetsmerker)
@@ -172,7 +173,7 @@ Runbookene `ConfigureSpace`, `AddGuestToSite` og `GetSiteTemplates` autentiserer
 |--|--|--|
 | `Group.ReadWrite.All` | Delegated | Anvende sensitivitetsmerker på opprettede grupper/team (ROPC-flyt med tjenestekontoen og client secret fra Key Vault). |
 
-App-registreringen kan fortsatt ha application-tillatelser fra før managed identity-migreringen; disse er ikke i bruk og kan fjernes når migreringen er verifisert. Brukes ikke sensitivitetsmerker, kan hele app-registreringen slettes.
+Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. Installasjoner fra før managed identity-migreringen kan fortsatt ha application-tillatelser på appen; disse er ikke i bruk og kan fjernes når migreringen er verifisert. Brukes ikke sensitivitetsmerker, kan hele app-registreringen slettes.
 
 ### 4.4 Tjenestekontoen
 

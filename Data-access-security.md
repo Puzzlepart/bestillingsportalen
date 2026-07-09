@@ -40,10 +40,20 @@ App-roller tildelt den user-assigned managed identityen:
 |--|--|--|--|
 | Sites.FullControl.All | Application | Full kontroll over alle områder | Brukes til å lese og skrive til opprettede SharePoint-områder. |
 
+### Systemtildelt managed identity (Azure Automation)
+
+App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite` og `GetSiteTemplates` (PnP PowerShell `-ManagedIdentity`):
+
+| API Permission | Type | Beskrivelse | Årsak |
+|--|--|--|--|
+| Group.ReadWrite.All (Microsoft Graph) | Application | Lese og skrive alle grupper | Brukes av runbookene til å endre gruppemedlemskap og -egenskaper. |
+| User.Read.All (Microsoft Graph) | Application | Lese alle brukeres fulle profiler | Kreves av `AddGuestToSite` for å slå opp gjestebrukere på e-post før de legges til. |
+| Sites.FullControl.All (SharePoint) | Application | Full kontroll over alle områder | Brukes av runbookene til etterkonfigurasjon av provisjonerte områder (PnP-maler, temaer, hub-tilknytning m.m.). |
+
 ### Entra ID-appen (kun sensitivitetsmerker)
 
 | API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
 | Group.ReadWrite.All | Delegated | Lese og skrive alle grupper | Brukes til å anvende sensitivitetsmerker på opprettede grupper/team (ROPC med tjenestekonto). |
 
-> **Merk:** App registration kan fortsatt ha application-tillatelser fra før managed identity-migreringen. Disse er ikke lenger i bruk og kan fjernes når migreringen er verifisert – se [Migrering til managed identity](Managed-identity-migration.md). En SharePoint add-in-registrering (ACS) av appen er heller ikke lenger nødvendig.
+> **Merk:** Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. App registrations fra før managed identity-migreringen kan fortsatt ha application-tillatelser; disse er ikke lenger i bruk og kan fjernes når migreringen er verifisert – se [Migrering til managed identity](Managed-identity-migration.md). En SharePoint add-in-registrering (ACS) av appen er heller ikke lenger nødvendig.

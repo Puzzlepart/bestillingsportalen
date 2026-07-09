@@ -181,7 +181,7 @@ function ValidateParameters {
     }
 
     if (-not(IsValidParam($parameters.subscriptionId)) -or -not(IsValidGuid -ObjectGuid $parameters.subscriptionId.Value)) {
-        Write-Host -message "Invalid subscriptionId. This should be a GUID." -ForegroundColor Red
+        Write-Host "Invalid subscriptionId. This should be a GUID." -ForegroundColor Red
         $isValid = $false;
     }
 
@@ -1276,7 +1276,7 @@ $parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop
 Write-Host "Validating all the parameters from parameters.json" -ForegroundColor Yellow
 $parameters = $parametersListContent | ConvertFrom-Json
 if (-not(ValidateParameters)) {
-    Write-Host -message "Invalid parameters found. Please update the parameters in the parameters.json with valid values and re-run the script." -ForegroundColor Red
+    Write-Host "Invalid parameters found. Please update the parameters in the parameters.json with valid values and re-run the script." -ForegroundColor Red
     EXIT
 }
 
@@ -1539,7 +1539,7 @@ If ($parameters.enableSensitivity.Value) {
 
 if (-not $SkipBicepDeploy) {
     Write-Host "Deploying key vault, automation account and managed identity..." -ForegroundColor Yellow
-    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.logoUrl.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "uamiName=$uamiName" "saUsername=$($saUsername)" "saPassword=$($saPassword)"
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.siteLogoPath.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "uamiName=$uamiName" "saUsername=$($saUsername)" "saPassword=$($saPassword)"
     AssignManagedIdentityPermissions
     AssignUamiPermissions
     DeployLocalRunbooks
@@ -1553,14 +1553,8 @@ else {
 }
 
 if (-not $SkipDeployARMTemplates) {
-    if ($global:upgrade) {
-        # In upgrade mode, only deploy ProcessProvisionRequest logic app
-        DeployUpgradeLogicApp
-    }
-    else {
-        # Normal deployment - deploy all ARM templates
-        DeployARMTemplates
-    }
+    # Upgrade mode never reaches this point (it exits after the upgrade block above)
+    DeployARMTemplates
 }
 else {
     Write-Host "Skipping ARM template deployment" -ForegroundColor Yellow

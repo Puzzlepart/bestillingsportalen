@@ -24,7 +24,7 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 
 ## Målbilde
 
-Én delt **user-assigned managed identity** (`bestillingsportalen-uami`, konfigurerbar via `uamiName` i `parameters.json`) er koblet til alle ti Logic Apps og brukes til:
+Én delt **user-assigned managed identity** (`bestillingsportalen-uami`, konfigurerbar via `uamiName` i `parameters.json`) er koblet til alle ni Logic Apps og brukes til:
 
 - Alle HTTP-handlinger mot Microsoft Graph og SharePoint REST (37 handlinger).
 - `bestillingsportalen-kv`-API-tilkoblingen (Key Vault).
@@ -58,7 +58,9 @@ Se [Datatilgang og sikkerhet](Data-access-security.md) for begrunnelsen per till
 
 ### Entra ID-appen (fase 2)
 
-Entra ID-appen («Bestillingsportalen») trenger etter migreringen i praksis bare den delegerte `Group.ReadWrite.All`-tillatelsen (ROPC). Application-tillatelsene på appen kan fjernes **etter** at managed identity-migreringen er verifisert i produksjon. Dette er bevisst ikke gjort i samme endring for å gjøre rollback enkel.
+Entra ID-appen («Bestillingsportalen») trenger etter migreringen i praksis bare den delegerte `Group.ReadWrite.All`-tillatelsen (ROPC). `appmanifest.json` er derfor trimmet til kun denne tillatelsen — **nye installasjoner** får ikke lenger application-tillatelser på appen i det hele tatt.
+
+For **eksisterende installasjoner** fjerner ikke `createentraidapp.ps1` allerede innvilget admin consent: application-tillatelsene (app role assignments på appens service principal) må fjernes manuelt i Entra-portalen **etter** at managed identity-migreringen er verifisert i produksjon. Dette gjøres bevisst ikke automatisk, for å gjøre rollback enkel.
 
 ## Endringsoversikt
 
@@ -66,7 +68,7 @@ Entra ID-appen («Bestillingsportalen») trenger etter migreringen i praksis bar
 |--|--|
 | `Source/ARMTemplates/azureresources.bicep` | Ny UAMI-ressurs, Key Vault access policy for UAMI (erstatter app-SP/bruker-policyene), RBAC-tildelinger på Automation Account, outputs. |
 | `Source/ARMTemplates/LogicApps/apiconnections.json` | KV- og Automation-tilkoblingene bruker managed identity (`Alternative`) i stedet for client secret. `appId`/`appSecret`-parametrene fjernet. |
-| Alle 10 Logic App-maler | `identity`-blokk + `uamiName`-parameter; alle `ActiveDirectoryOAuth`/PFX-autentiseringsblokker erstattet med `ManagedServiceIdentity`; `Get_Client_ID`-/`Get_Certificate`-handlingene fjernet (unntatt ROPC-kjeden i `processprovisionrequest.json`); ubrukte Key Vault-tilkoblingsreferanser fjernet. |
+| Alle 9 Logic App-maler | `identity`-blokk + `uamiName`-parameter; alle `ActiveDirectoryOAuth`/PFX-autentiseringsblokker erstattet med `ManagedServiceIdentity`; `Get_Client_ID`-/`Get_Certificate`-handlingene fjernet (unntatt ROPC-kjeden i `processprovisionrequest.json`); ubrukte Key Vault-tilkoblingsreferanser fjernet. |
 | `Source/Scripts/deploy.ps1` | Sertifikatgenerering fjernet; secret opprettes kun ved `enableSensitivity`; ny `AssignUamiPermissions`; `CreateAutomationRoleAssignments` flyttet til bicep; `uamiName` sendes til alle maler. |
 | `Source/Scripts/parameters.template.json` | `createSelfSignedCert`, `certName`, `certValidityDays` fjernet; `uamiName` lagt til. |
 | `Source/Scripts/renew-certificate.ps1`, `Renewing-certificate.md` | Slettet (ingen sertifikater å fornye lenger). |
