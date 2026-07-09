@@ -93,65 +93,11 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2022-08-08' 
   }
 }
 
-// Modules
-resource Az_Accounts 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
-  name: 'Az.Accounts'
-  location: location
-  parent: automationAccount
-  properties: {
-    contentLink: {
-      uri: 'https://devopsgallerystorage.blob.core.windows.net/packages/az.accounts.1.6.2.nupkg'
-      version: '1.6.2'
-    }
-  }
-}
-
-resource PnP_PowerShell 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
-  name: 'PnP.PowerShell'
-  location: location
-  parent: automationAccount
-  properties: {
-    contentLink: {
-      uri: 'https://devopsgallerystorage.blob.core.windows.net/packages/pnp.powershell.2.4.0.nupkg'
-      version: '2.4.0'
-    }
-  }
-}
-
-// Runbooks
-resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
-  parent: automationAccount
-  name: 'GetSiteTemplates'
-  location: location
-  properties: {
-    logVerbose: true
-    logProgress: true
-    runbookType: 'PowerShell72'
-    publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/GetSiteTemplates.ps1'
-      version: '1.0.0.0'
-    }
-  }
-}
-
-resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
-  parent: automationAccount
-  name: 'ConfigureSpace'
-  location: location
-  properties: {
-    logVerbose: true
-    logProgress: true
-    runbookType: 'PowerShell72'
-    publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/ConfigureSpace.ps1'
-      version: '1.0.0.0'
-    }
-  }
-}
-
-// AddGuestToSite and other runbooks owned by this repo are defined in runbooks.bicep
-// so they can be deployed independently in upgrade mode without re-running the full
-// azureresources stack.
+// All runbooks (ConfigureSpace, GetSiteTemplates, AddGuestToSite) plus the
+// PowerShell 7.4 runtime environment they run in (with PnP.PowerShell 3.x) are
+// defined in runbooks.bicep, which deploy.ps1 deploys in both full and upgrade
+// mode - so runbook/runtime changes reach existing environments via -Upgrade
+// without re-running the full azureresources stack.
 
 // RBAC so the logic apps (via the user-assigned managed identity) can start runbook
 // jobs and read job output through the Azure Automation API connection.

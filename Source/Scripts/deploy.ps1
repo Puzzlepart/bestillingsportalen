@@ -46,9 +46,9 @@ param
 
 Add-Type -AssemblyName System.Web
 
-# Ensure running on PowerShell Core (for macOS/Linux compatibility)
-if ($PSVersionTable.PSEdition -ne 'Core') {
-    Write-Host "This script must be run with PowerShell Core (pwsh), which is cross-platform." -ForegroundColor Red
+# Ensure running on PowerShell 7.4+ (required by PnP.PowerShell 3.x)
+if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion -lt [version]'7.4') {
+    Write-Host "This script requires PowerShell 7.4 or newer (current: $($PSVersionTable.PSVersion)). Install the latest PowerShell from https://aka.ms/powershell and re-run in a new session." -ForegroundColor Red
     exit 1
 }
 
@@ -1198,11 +1198,11 @@ function DeployARMTemplates {
 # Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
 function DeployLocalRunbooks {
-    Write-Host "Deploying local runbooks (runbooks.bicep)..." -ForegroundColor Yellow
+    Write-Host "Deploying runbooks + PowerShell 7.4 runtime environment (runbooks.bicep)..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)"
-    RecordAzResult "Runbooks (runbooks.bicep)"
-    Write-Host "Finished deploying local runbooks" -ForegroundColor Green
-    Write-Host "NB: AddGuestToSite uses a placeholder URI (ConfigureSpace.ps1) until this repo is public. If this runbook was just created, open Azure Portal -> Automation Account -> Runbooks -> AddGuestToSite -> Edit, paste contents of Source/Runbooks/AddGuestToSite.ps1, and publish. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged." -ForegroundColor Cyan
+    RecordAzResult "Runbooks + runtime environment (runbooks.bicep)"
+    Write-Host "Finished deploying runbooks" -ForegroundColor Green
+    Write-Host "NB: ConfigureSpace and AddGuestToSite use placeholder URIs (upstream content) until this repo is public. If these runbooks were just created or re-imported, open Azure Portal -> Automation Account -> Runbooks, paste the contents from Source/Runbooks/ (ConfigureSpace.ps1 / AddGuestToSite.ps1) and publish - see the Deployment guide, step 6a. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged, but verify it after the PowerShell 7.4 runtime migration." -ForegroundColor Cyan
 }
 
 function DeployUpgradeLogicApp {
@@ -1527,6 +1527,17 @@ if (-not $SkipVerifyModules) {
     VerifyModules
     Write-Host "Required modules are installed" -ForegroundColor Green
 }
+
+# PnP.PowerShell and Az ship different versions of the Microsoft.Extensions.*
+# assemblies. If Az loads first, Connect-PnPOnline fails with a TypeLoadException
+# ("Method 'get_Services' in type '...LoggingBuilder' ... does not have an
+# implementation"). Importing PnP.PowerShell BEFORE the first Az cmdlet lets its
+# assemblies load first - Az isolates its own dependencies in a custom assembly
+# load context and tolerates this. If the error still occurs, start a FRESH
+# PowerShell session (a session where Az has already been loaded cannot be
+# repaired by import order).
+Write-Host "Loading PnP.PowerShell (must load before the Az module to avoid assembly conflicts)..." -ForegroundColor Yellow
+Import-Module PnP.PowerShell -ErrorAction Stop
 
 # Load Parameters from json file
 $parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop

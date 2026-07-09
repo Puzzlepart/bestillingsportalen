@@ -9,7 +9,7 @@ For å komme i gang trenger du:
 - Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA.
 - Tjenestekonto for sensitivitetsmerke-funksjonalitet (anvendelse av sensitivitetsmerker), hvis du vil bruke funksjonaliteten. Kan være samme konto som over, men kontoen kan være forhindret fra å bruke MFA grunnet begrensninger i Microsoft Graph. Verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) da denne begrensningen kan ha blitt fjernet.
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
-- PowerShell 7 lastet ned og installert – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
+- PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
 - **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
@@ -46,9 +46,11 @@ Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](http
 
 Hvis `Sites.FullControl.All` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
 
-#### PowerShell 7.x
+#### PowerShell 7.4+
 
-Installasjonsskriptet for Bestillingsportalen krever PowerShell 7 og støtter ikke lenger 5.1. Sørg for at PowerShell 7 er installert før du installerer PowerShell-modulene nedenfor.
+Installasjonsskriptet for Bestillingsportalen krever PowerShell 7.4 eller nyere (PnP.PowerShell 3.x støtter ikke eldre versjoner) og støtter ikke 5.1. Sørg for at PowerShell 7.4+ er installert før du installerer PowerShell-modulene nedenfor.
+
+> **Kjente konflikter mellom Az og PnP.PowerShell:** Modulene leverer ulike versjoner av `Microsoft.Extensions.*`-assemblies. Skriptet laster derfor PnP.PowerShell *før* Az. Får du likevel feilen `Method 'get_Services' in type '...LoggingBuilder' ... does not have an implementation`, start et **nytt** PowerShell-vindu og kjør skriptet på nytt — en økt der Az allerede er lastet kan ikke repareres.
 
 #### PowerShell-moduler
 
