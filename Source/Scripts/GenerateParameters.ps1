@@ -81,18 +81,39 @@ while ([string]::IsNullOrWhiteSpace($Tenant)) {
     $Tenant = Read-Host "Which tenant (customer) are you generating parameters for? Enter the initial domain or tenant id (e.g. contoso.onmicrosoft.com)"
 }
 
+# A UPN pasted by mistake (user@tenant.onmicrosoft.com) - the domain part is the tenant
+if ($Tenant -match '@') {
+    $derivedTenant = ($Tenant -split '@')[-1]
+    Write-Host "'$Tenant' looks like a user account (UPN), not a tenant - using the domain part '$derivedTenant' as the tenant." -ForegroundColor Yellow
+    $Tenant = $derivedTenant
+}
+
+# Resolve the tenant to its id via the public OpenID discovery endpoint (no auth
+# needed). This catches typos with a clear error BEFORE any sign-in, and gives an
+# exact tenant id to verify the session against afterwards.
+if ($Tenant -match '^[0-9a-fA-F\-]{36}$') {
+    $targetTenantId = $Tenant
+}
+else {
+    try {
+        $oidc = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$Tenant/v2.0/.well-known/openid-configuration" -ErrorAction Stop
+        $targetTenantId = ($oidc.issuer -split '/')[3]
+        Write-Host "Tenant '$Tenant' resolved to tenant id $targetTenantId" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Could not resolve tenant '$Tenant' - check the spelling (expected an initial domain like contoso.onmicrosoft.com, or a tenant id). Aborting." -ForegroundColor Red
+        exit 1
+    }
+}
+
 # The Azure CLI caches sessions across runs (and tenants), so an existing session
 # with access to the target tenant can be reused without a new MFA round trip -
 # it is offered for reuse instead of forcing a fresh az login every time.
-Write-Host "Checking for an existing Azure CLI session for tenant '$Tenant'..." -ForegroundColor Yellow
+Write-Host "Checking for an existing Azure CLI session for tenant '$Tenant' ($targetTenantId)..." -ForegroundColor Yellow
 
-$targetIsGuid = $Tenant -match '^[0-9a-fA-F\-]{36}$'
 $cachedSubsJson = az account list --output json 2>$null
 $cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
-$cachedForTarget = @($cachedSubs | Where-Object {
-        ($targetIsGuid -and $_.tenantId -eq $Tenant) -or
-        (-not $targetIsGuid -and $_.tenantDefaultDomain -eq $Tenant)
-    })
+$cachedForTarget = @($cachedSubs | Where-Object { $_.tenantId -eq $targetTenantId })
 
 $account = $null
 if ($cachedForTarget.Count -gt 0) {
@@ -106,12 +127,19 @@ if ($cachedForTarget.Count -gt 0) {
 
 if ($null -eq $account) {
     Write-Host "Signing in to tenant '$Tenant' - a browser window will open; pick the account you will run the installation with..." -ForegroundColor Yellow
-    az login --tenant $Tenant --only-show-errors | Out-Null
-    $account = az account show | ConvertFrom-Json
-    if ($null -eq $account -or ($targetIsGuid -and $account.tenantId -ne $Tenant)) {
-        Write-Host "Sign-in to tenant '$Tenant' failed or landed in a different tenant. Aborting." -ForegroundColor Red
+    az login --tenant $targetTenantId --only-show-errors | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "az login against tenant '$Tenant' ($targetTenantId) failed - see the error above. Aborting." -ForegroundColor Red
         exit 1
     }
+    $account = az account show | ConvertFrom-Json
+}
+
+# The generated parameters must come from the TARGET tenant - never silently
+# continue on whatever tenant a leftover session happens to be in.
+if ($null -eq $account -or $account.tenantId -ne $targetTenantId) {
+    Write-Host "The active Azure CLI session is in tenant '$($account.tenantId)', not the target '$targetTenantId'. Aborting." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "Signed in as $($account.user.name) in tenant $($account.tenantId)" -ForegroundColor Green
