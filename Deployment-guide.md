@@ -142,6 +142,8 @@ Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om
 
 Du blir bedt om passordet for PnP app registration-sertifikatet underveis.
 
+Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
+
 Hvis du aktiverer sensitivitetsmerke-funksjonaliteten, vises en dialog som ber om passordet for tjenestekontoen. Fullfør dialogen.
 
 På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.

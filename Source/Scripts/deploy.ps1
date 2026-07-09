@@ -40,6 +40,7 @@ param
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipDeployAPIConnections,
     [switch]$SkipSPFxDeploy,
+    [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
 )
 
@@ -833,6 +834,71 @@ function WriteDeploymentReport {
     Write-Host "############################################################" -ForegroundColor Magenta
 }
 
+# ---------------------------------------------------------------------------
+# Pre-flight summary and confirmation
+# Runs after all sign-ins so it reflects the ACTUAL connected identity,
+# tenant and subscription - the last chance to abort before anything is
+# created or changed in the environment. Skipped with -SkipConfirmation.
+# ---------------------------------------------------------------------------
+function ConfirmDeployment {
+    if ($SkipConfirmation) {
+        Write-Host "Skipping pre-flight confirmation (-SkipConfirmation)" -ForegroundColor Yellow
+        return
+    }
+
+    $azContext = Get-AzContext
+
+    Write-Host ""
+    Write-Host "#################### PRE-FLIGHT SUMMARY ####################" -ForegroundColor Magenta
+    Write-Host ""
+    Write-Host ("  Mode:                 {0}" -f $(if ($global:upgrade) { "UPGRADE of existing environment" } else { "FULL DEPLOYMENT" })) -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Connected to:" -ForegroundColor Yellow
+    Write-Host "    Entra ID tenant:    $($parameters.fullTenantName.Value) ($($parameters.tenantId.Value))"
+    Write-Host "    Azure subscription: $($azContext.Subscription.Name) ($($azContext.Subscription.Id))"
+    Write-Host "    Signed in as (Az):  $($azContext.Account.Id)"
+    if (-not [string]::IsNullOrEmpty($deployUser)) {
+        Write-Host "    Signed in as (CLI): $deployUser"
+    }
+    Write-Host "    SharePoint tenant:  $global:tenantUrl"
+    Write-Host ""
+    Write-Host "  Will set up / update:" -ForegroundColor Yellow
+
+    function WritePlanLine([string]$Label, [string]$Value, [bool]$Skipped = $false) {
+        if ($Skipped) {
+            Write-Host ("    {0,-20}(skipped)" -f "$($Label):") -ForegroundColor DarkGray
+        }
+        else {
+            Write-Host ("    {0,-20}{1}" -f "$($Label):", $Value)
+        }
+    }
+
+    WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
+    WritePlanLine "Entra ID app" "$($parameters.appName.Value)$(if ($parameters.enableSensitivity.Value) { ' + client secret (sensitivity label ROPC)' })" $SkipCreateEntraIDAppSecret
+    WritePlanLine "SharePoint site" "$requestsSiteUrl (prompts before overwriting an existing site)" $SkipSharepointSite
+    WritePlanLine "Azure resources" "Key Vault '$($parameters.keyVaultName.Value)', Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
+    WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
+    WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (manual content paste required afterwards)"
+    if ($global:upgrade) {
+        WritePlanLine "Logic Apps" "ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
+    }
+    else {
+        WritePlanLine "API connections" "6 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
+        WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
+    }
+    WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
+    WritePlanLine "Sensitivity labels" $(if ($parameters.enableSensitivity.Value) { "ENABLED (service account credentials will be requested and stored in Key Vault)" } else { "disabled" })
+
+    Write-Host ""
+    Write-Host "############################################################" -ForegroundColor Magenta
+    $confirm = Read-Host "Continue with this deployment? ( y / n )"
+    if ($confirm -ne "y") {
+        Write-Host "Deployment cancelled by user - nothing has been changed in the environment." -ForegroundColor Yellow
+        exit 0
+    }
+    Write-Host "Confirmed - starting deployment..." -ForegroundColor Green
+}
+
 function AssignManagedIdentityPermissions {
     Write-Host "Assigning app roles to managed identity ($automationAccountName)..." -ForegroundColor Yellow
 
@@ -1512,6 +1578,10 @@ else {
     Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
 }
 Write-Host "Connected to SPO" -ForegroundColor Green
+
+# All sign-ins are done and nothing has been changed yet - show the pre-flight
+# summary and ask for confirmation before the first mutating step.
+ConfirmDeployment
 
 if (-not $SkipCreateEntraIDAppSecret) {
     CreateEntraIDAppSecret
