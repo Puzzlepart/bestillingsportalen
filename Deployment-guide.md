@@ -68,7 +68,17 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-Du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen — det logger inn med Azure CLI, lar deg velge subscription hvis du har flere, og fyller ut alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN og PnP-sertifikatsti — begge kan også angis som parametre for kjøring uten prompts):
+
+```powershell
+./GenerateParameters.ps1
+# eller uten prompts:
+./GenerateParameters.ps1 -ServiceAccountUPN svc-bp@contoso.com -PnpCertPath C:\certs\pnp.pfx -Force
+```
+
+Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
+
+Alternativt kan du fylle ut manuelt: du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
 
 Erstatt `<<value>>` med passende verdier for alle påkrevde parametre.
 
