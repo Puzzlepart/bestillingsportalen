@@ -303,6 +303,8 @@ function CreateRequestsSharePointSite {
         $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
 
         if (!$site) {
+            $purgePerformed = $false
+
             # A soft-deleted site with the same URL blocks creation - New-PnPSite hangs
             # and eventually dies with an opaque NullReferenceException. Detect it and
             # offer to purge it from the tenant recycle bin.
@@ -316,6 +318,7 @@ function CreateRequestsSharePointSite {
                 Write-Host "Permanently deleting the site from the tenant recycle bin..." -ForegroundColor Yellow
                 Remove-PnPTenantDeletedSite -Identity $requestsSiteUrl -Force
                 Write-Host "Deleted." -ForegroundColor Green
+                $purgePerformed = $true
             }
 
             # A soft-deleted M365 group with the same alias also blocks reuse - the
@@ -335,9 +338,25 @@ function CreateRequestsSharePointSite {
                     throw "Could not permanently delete the soft-deleted group '$($deletedGroup.displayName)' ($($deletedGroup.id)). Delete it manually in Entra ID -> Groups -> Deleted groups, then re-run."
                 }
                 Write-Host "Deleted." -ForegroundColor Green
+                $purgePerformed = $true
             }
 
-            New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
+            # Permanent deletion of a site/group propagates asynchronously in SPO and
+            # Entra ID - creating the site immediately afterwards can fail transiently
+            # (e.g. "404 FILE NOT FOUND" while the URL is still being released). When a
+            # purge just happened, retry with backoff before giving up.
+            $maxAttempts = if ($purgePerformed) { 8 } else { 1 }
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
+                    break
+                }
+                catch {
+                    if ($attempt -eq $maxAttempts) { throw }
+                    Write-Host "Site creation attempt $attempt/$maxAttempts failed ($($_.Exception.Message)) - the deletion is probably still propagating. Retrying in 30 seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 30
+                }
+            }
         
             Write-Host "Waiting for site to finish creating..." -ForegroundColor Yellow
             
