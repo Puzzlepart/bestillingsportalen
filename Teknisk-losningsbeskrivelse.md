@@ -98,13 +98,14 @@ Flytene bruker seeded Power Automate-lisenser og krever ikke premium-lisensierin
 
 ### 3.2 PnP PowerShell app registration (midlertidig installasjonsidentitet)
 
-Installasjonsskriptet bruker PnP PowerShell med en egen app registration (sertifikatbasert autentisering) for å opprette og konfigurere SharePoint-området og publisere SPFx-pakkene. Minimumstilganger:
+Installasjonsskriptet bruker PnP PowerShell med en egen app registration for å opprette og konfigurere SharePoint-området og publisere SPFx-pakkene. Anbefalt modell er **interaktiv pålogging** (delegert — ingen sertifikat; effektive rettigheter er snittet av installatørens rettigheter og appens delegerte tilganger). Sertifikatbasert app-only støttes for uovervåkede kjøringer. Minimumstilganger:
 
 | API | Tillatelse | Type |
 |--|--|--|
-| Microsoft Graph | `Group.Create` | Application |
-| Microsoft Graph | `Group.Read.All` | Application |
-| SharePoint | `Sites.FullControl.All` | Application |
+| Microsoft Graph | `Group.ReadWrite.All` | Delegated (interaktiv pålogging) |
+| SharePoint | `AllSites.FullControl` | Delegated (interaktiv pålogging) |
+| Microsoft Graph | `Group.Create`, `Group.Read.All` | Application (kun app-only med sertifikat) |
+| SharePoint | `Sites.FullControl.All` | Application (kun app-only med sertifikat) |
 
 Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullført installasjon**. Hvis `Sites.FullControl.All` ikke er ønskelig, kan SharePoint-området opprettes manuelt på forhånd.
 

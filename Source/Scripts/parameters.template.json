@@ -49,7 +49,7 @@
     },
     "pnpCertPath": {
         "Value": "",
-        "Description": "Path to your PnP certificate that will be used to connect with PnP PowerShell. Please ensure to double escape the backslashes above."
+        "Description": "Optional - leave blank to sign in to PnP PowerShell interactively in the browser (recommended for manual installs). Only set this for app-only/unattended runs: path to the PnP certificate (.pfx), with double-escaped backslashes."
     },
     "siteLogoPath": {
         "Value": "",

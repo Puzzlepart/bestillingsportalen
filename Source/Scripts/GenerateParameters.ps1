@@ -35,7 +35,8 @@
     UPN of the service account used for the delegated API connections. Prompted for when omitted.
 
 .PARAMETER PnpCertPath
-    Path to the PnP PowerShell certificate. Prompted for when omitted (can be left blank).
+    Path to a PnP PowerShell certificate (.pfx) - only needed for app-only/unattended
+    runs. Normally left blank: deploy.ps1 then uses interactive browser sign-in.
 
 .PARAMETER Region
     Azure region for the resources. Default: norwayeast.
@@ -230,7 +231,7 @@ while (-not [string]::IsNullOrWhiteSpace($ServiceAccountUPN)) {
     $ServiceAccountUPN = $retry
 }
 if ([string]::IsNullOrEmpty($PnpCertPath)) {
-    $PnpCertPath = Read-Host "Path to your PnP PowerShell certificate (leave blank to use interactive PnP sign-in)"
+    $PnpCertPath = Read-Host "PnP certificate path (normally leave BLANK - interactive browser sign-in is used; a certificate is only needed for app-only/unattended runs)"
 }
 
 # ---------------------------------------------------------------------------
@@ -268,7 +269,7 @@ Write-Host "Checking app registrations in the tenant..." -ForegroundColor Yellow
 $pnpSpJson = az ad sp show --id $parameters.pnpAppId.Value 2>$null
 $pnpSp = if ($pnpSpJson) { $pnpSpJson | ConvertFrom-Json } else { $null }
 if ($null -ne $pnpSp) {
-    Write-Host "PnP app found: '$($pnpSp.displayName)' ($($parameters.pnpAppId.Value)) - pnpAppId can be used as-is (you need the matching certificate for pnpCertPath)." -ForegroundColor Green
+    Write-Host "PnP app found: '$($pnpSp.displayName)' ($($parameters.pnpAppId.Value)) - pnpAppId can be used as-is. Leave pnpCertPath blank to sign in interactively." -ForegroundColor Green
 }
 else {
     Write-Host "The PnP app ($($parameters.pnpAppId.Value)) is NOT present in this tenant. Register your own PnP app (see 'PnP PowerShell App Registration' in the Deployment guide) and update pnpAppId/pnpCertPath in the generated file." -ForegroundColor Yellow

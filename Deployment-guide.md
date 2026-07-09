@@ -22,47 +22,26 @@ For å komme i gang trenger du:
 
 #### PnP PowerShell App Registration
 
-PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger. For å autentisere med PnP PowerShell trenger du derfor en app registration i kundens tenant, med sertifikat.
+PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger. For å autentisere med PnP PowerShell trenger du derfor en app registration i kundens tenant.
 
-**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. Da trenger du bare sertifikatet (og passordet) som ble brukt ved Prosjektportalen-installasjonen, og å verifisere at appen har tilgangene i tabellen under. Ingen ny registrering nødvendig.
+Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive prompts), så den anbefalte modellen er **interaktiv pålogging** — du logger inn i nettleseren som kontoen som kjører skriptet, og trenger **ikke noe sertifikat**. Dette samsvarer med [PnP sin egen veiledning](https://pnp.github.io/powershell/articles/registerapplication.html): app-only med sertifikat er for skript som kjører *uten* brukerinteraksjon.
 
-**Alternativ B: Registrer en ny app.** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Kommandoen oppretter app-registreringen, genererer et self-signed sertifikat, laster det opp på appen og ber om admin consent i nettleseren:
+**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. La `pnpCertPath` stå tomt og logg inn interaktivt. Ingen ny registrering nødvendig.
+
+**Alternativ B: Registrer en ny app for interaktiv pålogging (anbefalt).** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Ingen sertifikat — kommandoen oppretter app-registreringen med delegerte tilganger og ber om admin consent i nettleseren:
 
 ```powershell
-$certPassword = Read-Host "Velg et passord for sertifikatet" -AsSecureString
-
-Register-PnPEntraIDApp `
+Register-PnPEntraIDAppForInteractiveLogin `
     -ApplicationName "Bestillingsportalen PnP" `
     -Tenant "<kunde>.onmicrosoft.com" `
-    -OutPath "C:\Certs" `
-    -CertificatePassword $certPassword `
-    -ValidYears 2 `
-    -GraphApplicationPermissions "Group.Create", "Group.Read.All" `
-    -SharePointApplicationPermissions "Sites.FullControl.All"
+    -GraphDelegatePermissions "Group.ReadWrite.All" `
+    -SharePointDelegatePermissions "AllSites.FullControl"
 ```
 
-Et nettleservindu åpnes for autentisering og admin consent (bruk `-DeviceLogin` i stedet hvis nettleser ikke er tilgjengelig). Noter fra outputen:
+- **App-ID-en (Client ID)** fra outputen → settes som `pnpAppId` i `parameters.json`.
+- **`pnpCertPath` lar du stå tomt** → `deploy.ps1` åpner nettleseren for pålogging (kun ved første tilkobling — tokens caches). De effektive rettighetene er snittet av dine rettigheter og appens delegerte tilganger; kontoen som kjører skriptet er uansett SharePoint-administrator.
 
-- **App-ID-en (Client ID)** → settes som `pnpAppId` i `parameters.json`.
-- **PFX-filen** (f.eks. `C:\Certs\Bestillingsportalen PnP.pfx`) → stien settes som `pnpCertPath` i `parameters.json`. Du blir bedt om sertifikatpassordet når `deploy.ps1` kjører.
-
-(Bruker du PnP.PowerShell 2.x heter cmdleten `Register-PnPAzureADApp` — samme parametre.)
-
-Minimumstilgangene appen trenger for installasjonsskriptet:
-
-**Microsoft Graph**
-
-- Group.Create
-- Group.Read.All
-
-**SharePoint**
-
-- Sites.FullControl.All
-
-**Når trengs sertifikatet (`pnpCertPath`)?** Sertifikatet er valgfritt for en vanlig, manuell installasjon:
-
-- **`pnpCertPath` tomt** → `deploy.ps1` bruker **interaktiv nettleserinnlogging** (delegert, som kontoen du kjører skriptet med — den er uansett SharePoint-administrator). Fungerer med MFA; nettleservinduet vises kun ved første tilkobling (tokens caches). Krever at app-registreringen er satt opp for interaktiv pålogging (public client med redirect-URI) og har delegerte tilganger — `Register-PnPEntraIDApp`-eksempelet over setter opp dette. Gjenbruker du Prosjektportalen-appen uten å ha sertifikatet dens, er dette veien å gå — feiler interaktiv pålogging (appen mangler public client-oppsett), må du bruke sertifikat.
-- **`pnpCertPath` satt** → sertifikatbasert **app-only**-autentisering (ingen nettleser, appens application-tilganger gjelder). Nødvendig for uovervåkede/automatiserte kjøringer, og det tryggeste valget hvis tenantens Conditional Access-policyer kompliserer interaktiv pålogging.
+**Alternativ C: App-only med sertifikat (kun for uovervåket kjøring).** Trengs normalt ikke — installasjonen er interaktiv. Ønsker du likevel app-only (f.eks. stram Conditional Access), bruk `Register-PnPEntraIDApp` med `-OutPath`/`-CertificatePassword` og application-tilgangene `Group.Create` + `Group.Read.All` (Graph) og `Sites.FullControl.All` (SharePoint). Sett da PFX-stien som `pnpCertPath` — du blir bedt om sertifikatpassordet når `deploy.ps1` kjører.
 
 Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
