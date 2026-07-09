@@ -1222,6 +1222,27 @@ function DeployUpgradeLogicApp {
     }
 }
 
+# Connects PnP PowerShell to the given URL using the configured authentication:
+# certificate (pnpCertPath, app-only - with or without password) when provided,
+# otherwise interactive browser sign-in (delegated, as the account running the
+# script). Tokens are cached per client id, so only the first interactive
+# connection shows a browser prompt.
+function ConnectPnP {
+    param([Parameter(Mandatory = $true)][string]$Url)
+
+    if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+        if ($pnpCertPassword.Length -gt 0) {
+            Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+        }
+        else {
+            Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
+        }
+    }
+    else {
+        Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
+    }
+}
+
 # Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
 # Each subfolder with config/package-solution.json is treated as a solution to deploy.
 function DeploySPFxPackages {
@@ -1248,17 +1269,7 @@ function DeploySPFxPackages {
 
         # Need an admin connection to resolve the tenant app catalog URL
         $adminUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
-        if ($pnpCertPassword.Length -eq 0) {
-            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
-            }
-            else {
-                Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value
-            }
-        }
-        else {
-            Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
-        }
+        ConnectPnP $adminUrl
 
         $appCatalogUrl = Get-PnPTenantAppCatalogUrl
         if ([string]::IsNullOrEmpty($appCatalogUrl)) {
@@ -1267,17 +1278,7 @@ function DeploySPFxPackages {
         Write-Host "Tenant app catalog: $appCatalogUrl" -ForegroundColor Yellow
 
         # Connect to the app catalog for Add-PnPApp
-        if ($pnpCertPassword.Length -eq 0) {
-            if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
-            }
-            else {
-                Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value
-            }
-        }
-        else {
-            Connect-PnPOnline -Url $appCatalogUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
-        }
+        ConnectPnP $appCatalogUrl
 
         foreach ($solution in $spfxSolutions) {
             Write-Host ""
@@ -1609,19 +1610,15 @@ az account set --subscription $parameters.subscriptionId.Value
 
 # Connect to PnP
 Write-Host "Launching PnP sign-in..." -ForegroundColor Yellow
-$pnpCertPassword = Read-Host -Prompt "Enter password for PnP certificate (leave blank if your certficate is not secured with a password)" -AsSecureString
-
-if ($pnpCertPassword.Length -eq 0) {
-    if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
-    }
-    else {
-        Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value
-    }
+$pnpCertPassword = $null
+if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
+    $pnpCertPassword = Read-Host -Prompt "Enter password for the PnP certificate (leave blank if it has no password)" -AsSecureString
 }
 else {
-    Connect-PnPOnline -Url "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com" -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
+    Write-Host "No pnpCertPath configured - using interactive browser sign-in for PnP PowerShell (a browser window will open; sign in with the account running this script)." -ForegroundColor Yellow
 }
+
+ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Connected to SPO" -ForegroundColor Green
 
 # All sign-ins are done and nothing has been changed yet - validate the service
@@ -1646,17 +1643,7 @@ else {
 if (-not $SkipSharepointSite) {
     CreateRequestsSharePointSite
     # Connect to the new site
-    if ($pnpCertPassword.Length -eq 0) {
-        if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
-        }
-        else {
-            Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value
-        }
-    }
-    else {
-        Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
-    }
+    ConnectPnP $requestsSiteUrl
     ConfigureSharePointSite
 
     # Skip uploading assets in upgrade mode
@@ -1669,7 +1656,7 @@ else {
     # If we're skipping site creation/configuration, we need to get the list ids
     Write-Host "Skipping SharePoint site creation" -ForegroundColor Yellow
     RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'SKIPPED'
-    Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value
+    ConnectPnP $requestsSiteUrl
     $context = Get-PnPContext
     
     $siteRequestsList = Get-PnPList $requestsListName

@@ -59,6 +59,11 @@ Minimumstilgangene appen trenger for installasjonsskriptet:
 
 - Sites.FullControl.All
 
+**Når trengs sertifikatet (`pnpCertPath`)?** Sertifikatet er valgfritt for en vanlig, manuell installasjon:
+
+- **`pnpCertPath` tomt** → `deploy.ps1` bruker **interaktiv nettleserinnlogging** (delegert, som kontoen du kjører skriptet med — den er uansett SharePoint-administrator). Fungerer med MFA; nettleservinduet vises kun ved første tilkobling (tokens caches). Krever at app-registreringen er satt opp for interaktiv pålogging (public client med redirect-URI) og har delegerte tilganger — `Register-PnPEntraIDApp`-eksempelet over setter opp dette. Gjenbruker du Prosjektportalen-appen uten å ha sertifikatet dens, er dette veien å gå — feiler interaktiv pålogging (appen mangler public client-oppsett), må du bruke sertifikat.
+- **`pnpCertPath` satt** → sertifikatbasert **app-only**-autentisering (ingen nettleser, appens application-tilganger gjelder). Nødvendig for uovervåkede/automatiserte kjøringer, og det tryggeste valget hvis tenantens Conditional Access-policyer kompliserer interaktiv pålogging.
+
 Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
 Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
@@ -170,7 +175,7 @@ Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-Du blir bedt om passordet for PnP app registration-sertifikatet underveis.
+Har du satt `pnpCertPath`, blir du bedt om sertifikatpassordet underveis. Er `pnpCertPath` tomt, brukes interaktiv nettleserinnlogging for PnP i stedet (se «Når trengs sertifikatet?» under forutsetningene).
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
 
