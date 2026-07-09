@@ -342,19 +342,25 @@ function CreateRequestsSharePointSite {
             }
 
             # Permanent deletion of a site/group propagates asynchronously in SPO and
-            # Entra ID - creating the site immediately afterwards can fail transiently
-            # (e.g. "404 FILE NOT FOUND" while the URL is still being released). When a
-            # purge just happened, retry with backoff before giving up.
-            $maxAttempts = if ($purgePerformed) { 8 } else { 1 }
+            # Entra ID. Until the URL is fully released, site creation fails with
+            # "404 FILE NOT FOUND" - even when the site is gone from both the recycle
+            # bin and the active site list. This normally clears in minutes but can in
+            # the worst case take hours. Retry 404s with backoff before giving up;
+            # other errors (naming policy etc.) fail immediately.
+            $maxAttempts = 8
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 try {
                     New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
                     break
                 }
                 catch {
-                    if ($attempt -eq $maxAttempts) { throw }
-                    Write-Host "Site creation attempt $attempt/$maxAttempts failed ($($_.Exception.Message)) - the deletion is probably still propagating. Retrying in 30 seconds..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 30
+                    $transient = $purgePerformed -or $_.Exception.Message -match '404'
+                    if (-not $transient) { throw }
+                    if ($attempt -eq $maxAttempts) {
+                        throw "Site creation still fails with '$($_.Exception.Message)' after $maxAttempts attempts. If a site on this URL was recently (permanently) deleted, SharePoint may still be releasing the URL - this can take from minutes up to several hours. Wait and re-run, or use a different requestsSiteName."
+                    }
+                    Write-Host "Site creation attempt $attempt/$maxAttempts failed ($($_.Exception.Message)) - the URL is probably still being released after a deletion. Retrying in 60 seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 60
                 }
             }
         
