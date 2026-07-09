@@ -9,14 +9,14 @@ import {
 import * as strings from 'ProvisionWebPartsStrings'
 import type {
   M365GroupRole,
-  SPGroupAction,
+  SPGroupActionUI,
   SPPermissionLevel
 } from '../../../../models/IGuestRequest'
 import styles from './AccessPreviewPanel.module.scss'
 
 interface IAccessPreviewProps {
   role: M365GroupRole
-  spGroupAction: SPGroupAction
+  spGroupAction: SPGroupActionUI
   spGroupName?: string
   spPermissionLevel?: SPPermissionLevel
   isGroupConnected: boolean
@@ -68,7 +68,7 @@ const computeItems = (props: IAccessPreviewProps): string[] => {
       break
   }
 
-  if (spGroupAction === 'AddToExisting' && spGroupName) {
+  if ((spGroupAction === 'AddToExisting' || spGroupAction === 'Preset') && spGroupName) {
     items.push(formatTemplate(strings.AccessSpGroupAddTemplate, spGroupName))
   } else if (spGroupAction === 'CreateNew' && spGroupName && spPermissionLevel) {
     const permLabel = strings[PERMISSION_LABEL_KEYS[spPermissionLevel]] as string

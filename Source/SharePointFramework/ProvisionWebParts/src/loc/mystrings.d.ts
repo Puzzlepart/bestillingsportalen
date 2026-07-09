@@ -17,6 +17,17 @@ declare interface IProvisionWebPartsStrings {
   DefaultSpGroupActionFieldDescription: string
   DefaultSpGroupNameFieldLabel: string
   DefaultSpGroupNameFieldDescription: string
+  PresetSpGroupNameFieldLabel: string
+  PresetSpGroupNameFieldDescription: string
+  SPGroupActionPresetTemplate: string
+  SPGroupActionPresetLabel: string
+  SpGroupOptionsGroupName: string
+  ShowSpActionNoneFieldLabel: string
+  ShowSpActionExistingFieldLabel: string
+  ShowSpActionNewFieldLabel: string
+  ShowSpActionPresetFieldLabel: string
+  SpGroupActionOrderFieldLabel: string
+  SpGroupActionOrderFieldDescription: string
   DefaultSpPermissionLevelFieldLabel: string
   DefaultSpPermissionLevelFieldDescription: string
   AutoSelectVisitorGroupFieldLabel: string
@@ -72,6 +83,8 @@ declare interface IProvisionWebPartsStrings {
   GuestRequestSiteUrlFieldDescription: string
   HiddenSpGroupsFieldLabel: string
   HiddenSpGroupsFieldDescription: string
+  AllowedSpGroupsFieldLabel: string
+  AllowedSpGroupsFieldDescription: string
 
   InviteButton: string
   InviteDrawerHeader: string

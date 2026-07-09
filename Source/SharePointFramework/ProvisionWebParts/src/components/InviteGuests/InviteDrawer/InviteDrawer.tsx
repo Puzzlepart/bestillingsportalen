@@ -36,7 +36,8 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     showM365GroupRoleSection,
     showSPGroupSection,
     lockM365GroupRole,
-    lockSpGroupAction
+    lockSpGroupAction,
+    presetSpGroupName
   } = useInviteGuestsContext()
   const {
     guests,
@@ -49,6 +50,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     siteGroups,
     loadingContext,
     isGroupConnected,
+    spActionOptions,
     perGuestProfile,
     setUserPerGuestProfile,
     perGuestRole,
@@ -175,15 +177,20 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showSPGroupSection && (
                 <SPGroupSection
-                  action={activeGuest.spGroupAction ?? 'None'}
+                  action={activeGuest.spGroupAction ?? spActionOptions[0]}
                   groupName={activeGuest.spGroupName}
                   permissionLevel={activeGuest.spPermissionLevel}
                   siteGroups={siteGroups}
                   loading={loadingContext}
                   disabled={submitting}
                   locked={lockSpGroupAction}
+                  presetGroupName={presetSpGroupName}
+                  actionOptions={spActionOptions}
                   onActionChange={(a) =>
-                    updateGuest(activeGuest.email, { spGroupAction: a, spGroupName: undefined })
+                    updateGuest(activeGuest.email, {
+                      spGroupAction: a,
+                      spGroupName: a === 'Preset' ? presetSpGroupName : undefined
+                    })
                   }
                   onGroupNameChange={(n) => updateGuest(activeGuest.email, { spGroupName: n })}
                   onPermissionLevelChange={(l) =>
@@ -222,6 +229,8 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   loading={loadingContext}
                   disabled={submitting}
                   locked={lockSpGroupAction}
+                  presetGroupName={presetSpGroupName}
+                  actionOptions={spActionOptions}
                   nameValidationMessage={sharedSpGroupNameValidationMessage}
                   onActionChange={setSharedSpGroupAction}
                   onGroupNameChange={setSharedSpGroupName}

@@ -9,6 +9,7 @@ import {
   PropertyPaneToggle
 } from '@microsoft/sp-property-pane'
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base'
+import { PropertyFieldOrder } from '@pnp/spfx-property-controls/lib/PropertyFieldOrder'
 import { spfi, SPFI, SPFx } from '@pnp/sp'
 import '@pnp/sp/webs'
 import '@pnp/sp/sites'
@@ -34,6 +35,12 @@ export interface IInviteGuestsWebPartProps {
   defaultM365GroupRole: 'None' | 'Visitor' | 'Member' | 'Owner'
   defaultSpGroupAction: 'None' | 'AddToExisting' | 'CreateNew'
   defaultSpGroupName: string
+  presetSpGroupName: string
+  showSpActionNone: boolean
+  showSpActionAddToExisting: boolean
+  showSpActionCreateNew: boolean
+  showSpActionPreset: boolean
+  spGroupActionOrder: { key: string; text: string }[]
   defaultSpPermissionLevel: 'Read' | 'Contribute' | 'Edit' | 'Full Control'
   autoSelectVisitorGroup: boolean
   lockM365GroupRole: boolean
@@ -49,6 +56,7 @@ export interface IInviteGuestsWebPartProps {
   showM365GroupRoleSection: boolean
   showSPGroupSection: boolean
   hiddenSpGroups: string
+  allowedSpGroups: string
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -96,6 +104,14 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       defaultM365GroupRole: this.properties.defaultM365GroupRole || 'Visitor',
       defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
       defaultSpGroupName: this.properties.defaultSpGroupName || '',
+      presetSpGroupName: this.properties.presetSpGroupName || '',
+      showSpActionNone: this.properties.showSpActionNone !== false,
+      showSpActionAddToExisting: this.properties.showSpActionAddToExisting !== false,
+      showSpActionCreateNew: this.properties.showSpActionCreateNew !== false,
+      showSpActionPreset: this.properties.showSpActionPreset !== false,
+      // PropertyFieldOrder stores an ordered array of { key, text }; the React
+      // layer consumes a CSV of keys (parsed in useInviteDrawer), so flatten it.
+      spGroupActionOrder: (this.properties.spGroupActionOrder || []).map((i) => i.key).join(','),
       defaultSpPermissionLevel: this.properties.defaultSpPermissionLevel || 'Read',
       autoSelectVisitorGroup: this.properties.autoSelectVisitorGroup !== false,
       lockM365GroupRole: this.properties.lockM365GroupRole === true,
@@ -111,6 +127,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       showM365GroupRoleSection: this.properties.showM365GroupRoleSection !== false,
       showSPGroupSection: this.properties.showSPGroupSection !== false,
       hiddenSpGroups: this.properties.hiddenSpGroups || '',
+      allowedSpGroups: this.properties.allowedSpGroups || '',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -131,6 +148,34 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     const defaultSpGroupAction = this.properties.defaultSpGroupAction || 'AddToExisting'
+
+    // Build the ordered item list for PropertyFieldOrder: preserve the admin's
+    // stored order, append any missing known keys, and (re)apply localized text
+    // so the list always shows all four options in the current UI language.
+    const spActionKeys = ['None', 'AddToExisting', 'CreateNew', 'Preset']
+    const spActionText = (key: string): string => {
+      switch (key) {
+        case 'None':
+          return strings.SPGroupActionNoneLabel
+        case 'AddToExisting':
+          return strings.SPGroupActionExistingLabel
+        case 'CreateNew':
+          return strings.SPGroupActionNewLabel
+        case 'Preset':
+          return strings.SPGroupActionPresetLabel
+        default:
+          return key
+      }
+    }
+    const storedOrderKeys = (this.properties.spGroupActionOrder || [])
+      .map((i) => i.key)
+      .filter((k) => spActionKeys.indexOf(k) !== -1)
+    const orderedKeys = [
+      ...storedOrderKeys,
+      ...spActionKeys.filter((k) => storedOrderKeys.indexOf(k) === -1)
+    ]
+    const spActionOrderItems = orderedKeys.map((k) => ({ key: k, text: spActionText(k) }))
+
     return {
       pages: [
         {
@@ -200,6 +245,10 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   description: strings.DefaultSpGroupNameFieldDescription,
                   disabled: defaultSpGroupAction !== 'AddToExisting'
                 }),
+                PropertyPaneTextField('presetSpGroupName', {
+                  label: strings.PresetSpGroupNameFieldLabel,
+                  description: strings.PresetSpGroupNameFieldDescription
+                }),
                 PropertyPaneDropdown('defaultSpPermissionLevel', {
                   label: strings.DefaultSpPermissionLevelFieldLabel,
                   options: [
@@ -225,6 +274,42 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   label: strings.LockSpGroupActionFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
+                })
+              ]
+            },
+            {
+              groupName: strings.SpGroupOptionsGroupName,
+              isCollapsed: true,
+              groupFields: [
+                PropertyPaneToggle('showSpActionNone', {
+                  label: strings.ShowSpActionNoneFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showSpActionAddToExisting', {
+                  label: strings.ShowSpActionExistingFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showSpActionCreateNew', {
+                  label: strings.ShowSpActionNewFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyPaneToggle('showSpActionPreset', {
+                  label: strings.ShowSpActionPresetFieldLabel,
+                  onText: strings.BooleanOn,
+                  offText: strings.BooleanOff
+                }),
+                PropertyFieldOrder('spGroupActionOrder', {
+                  key: 'spGroupActionOrder',
+                  label: strings.SpGroupActionOrderFieldLabel,
+                  items: spActionOrderItems,
+                  textProperty: 'text',
+                  properties: this.properties,
+                  onPropertyChange: this.onPropertyPaneFieldChanged,
+                  removeArrows: false,
+                  disableDragAndDrop: false
                 })
               ]
             },
@@ -316,6 +401,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
               groupName: strings.AdvancedGroupName,
               isCollapsed: true,
               groupFields: [
+                PropertyPaneTextField('allowedSpGroups', {
+                  label: strings.AllowedSpGroupsFieldLabel,
+                  description: strings.AllowedSpGroupsFieldDescription,
+                  multiline: true
+                }),
                 PropertyPaneTextField('hiddenSpGroups', {
                   label: strings.HiddenSpGroupsFieldLabel,
                   description: strings.HiddenSpGroupsFieldDescription,

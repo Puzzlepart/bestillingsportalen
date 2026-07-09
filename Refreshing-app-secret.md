@@ -38,3 +38,5 @@ Når du installerer Bestillingsportalen med `enableSensitivity` aktivert, har se
 6. Key Vault er nå oppdatert.
 
 Secret-en er nå oppdatert for Bestillingsportalen. Logic App-en `ProcessProvisionRequest` henter alltid siste versjon av `appsecret` fra Key Vault ved kjøring, så ingen ytterligere oppdatering er nødvendig.
+
+> **Merk:** Før managed identity-migreringen måtte også API-tilkoblingene `bestillingsportalen-kv` og `bestillingsportalen-automation` oppdateres med den nye secret-en. Disse autentiserer nå med managed identity og skal **ikke** lenger oppdateres. Feiler Logic Apps med `ExpiredAuthenticationToken` etter en oppgradering, kjører installasjonen trolig fortsatt på gammel autentisering – se [Migrering til managed identity](Managed-identity-migration.md).

@@ -12,20 +12,22 @@ import { LockClosed16Regular } from '@fluentui/react-icons'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import { FieldContainer } from '../../../FieldContainer'
-import type { SPGroupAction, SPPermissionLevel } from '../../../../models/IGuestRequest'
+import type { SPGroupActionUI, SPPermissionLevel } from '../../../../models/IGuestRequest'
 import type { ISiteGroup } from '../../../../services'
 import styles from './SPGroupSection.module.scss'
 
 interface ISPGroupSectionProps {
-  action: SPGroupAction
+  action: SPGroupActionUI
   groupName?: string
   permissionLevel?: SPPermissionLevel
   siteGroups: ISiteGroup[]
   loading: boolean
   disabled?: boolean
   locked?: boolean
+  presetGroupName?: string
+  actionOptions: SPGroupActionUI[]
   nameValidationMessage?: string
-  onActionChange: (action: SPGroupAction) => void
+  onActionChange: (action: SPGroupActionUI) => void
   onGroupNameChange: (name: string | undefined) => void
   onPermissionLevelChange: (level: SPPermissionLevel) => void
 }
@@ -37,7 +39,7 @@ const PERMISSION_OPTIONS: { key: SPPermissionLevel; labelKey: keyof typeof strin
   { key: 'Full Control', labelKey: 'SPPermissionFullControl' }
 ]
 
-const actionLabel = (action: SPGroupAction): string => {
+const actionLabel = (action: SPGroupActionUI): string => {
   switch (action) {
     case 'None':
       return strings.SPGroupActionNoneLabel
@@ -45,6 +47,8 @@ const actionLabel = (action: SPGroupAction): string => {
       return strings.SPGroupActionExistingLabel
     case 'CreateNew':
       return strings.SPGroupActionNewLabel
+    case 'Preset':
+      return strings.SPGroupActionPresetLabel
   }
 }
 
@@ -59,11 +63,17 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
   loading,
   disabled,
   locked,
+  presetGroupName,
+  actionOptions,
   nameValidationMessage,
   onActionChange,
   onGroupNameChange,
   onPermissionLevelChange
 }) => {
+  const presetPermissionLevel = presetGroupName
+    ? siteGroups.find((g) => g.Title === presetGroupName)?.PermissionLevel
+    : undefined
+
   const addToExistingFields = action === 'AddToExisting' && (
     <div className={styles.optionFields}>
       {loading ? (
@@ -164,13 +174,47 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
       ) : (
         <RadioGroup
           value={action}
-          onChange={(_, data) => onActionChange(data.value as SPGroupAction)}
+          onChange={(_, data) => onActionChange(data.value as SPGroupActionUI)}
           disabled={disabled}>
-          <Radio value='None' label={strings.SPGroupActionNoneLabel} />
-          <Radio value='AddToExisting' label={strings.SPGroupActionExistingLabel} />
-          {addToExistingFields}
-          <Radio value='CreateNew' label={strings.SPGroupActionNewLabel} />
-          {createNewFields}
+          {actionOptions.map((key) => {
+            switch (key) {
+              case 'None':
+                return <Radio key='None' value='None' label={strings.SPGroupActionNoneLabel} />
+              case 'AddToExisting':
+                return (
+                  <React.Fragment key='AddToExisting'>
+                    <Radio value='AddToExisting' label={strings.SPGroupActionExistingLabel} />
+                    {addToExistingFields}
+                  </React.Fragment>
+                )
+              case 'CreateNew':
+                return (
+                  <React.Fragment key='CreateNew'>
+                    <Radio value='CreateNew' label={strings.SPGroupActionNewLabel} />
+                    {createNewFields}
+                  </React.Fragment>
+                )
+              case 'Preset':
+                return presetGroupName ? (
+                  <Radio
+                    key='Preset'
+                    value='Preset'
+                    label={
+                      <span className={styles.groupOption}>
+                        <span>
+                          {formatLockedLabel(strings.SPGroupActionPresetTemplate, presetGroupName)}
+                        </span>
+                        {presetPermissionLevel && (
+                          <span className={styles.groupPermission}>{presetPermissionLevel}</span>
+                        )}
+                      </span>
+                    }
+                  />
+                ) : null
+              default:
+                return null
+            }
+          })}
         </RadioGroup>
       )}
     </section>

@@ -106,6 +106,9 @@ $saPassword = ""
 $automationAccountName = "bestillingsportalen-auto"
 $uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in parameters.json if present
 
+# Solution version reported via the deployment pingback. Bump on release (keep in sync with CHANGELOG.md).
+$deployVersion = "1.11.0"
+
 # Global variables
 $global:context = $null
 $global:requestsListId = $null
@@ -1157,9 +1160,107 @@ function ValidateKeyVault {
 
 }
 
+# Returns the latest (furthest-out) endDateTime among the app's credentials, or $null.
+# Reads live from the app registration, so it reflects the current cert/secret in every mode
+# (full deploy, upgrade, or when creation was skipped). -CertificateCredentials switches from
+# password (client secret) credentials to certificate credentials. Best-effort — never throws.
+function GetLatestAppCredentialEndDate {
+    param
+    (
+        [string]$AppId,
+        [switch]$CertificateCredentials
+    )
+
+    if ([string]::IsNullOrEmpty($AppId)) {
+        return $null
+    }
+
+    try {
+        $credentials = if ($CertificateCredentials) {
+            az ad app credential list --id $AppId --cert 2>$null | ConvertFrom-Json
+        }
+        else {
+            az ad app credential list --id $AppId 2>$null | ConvertFrom-Json
+        }
+
+        $latest = $credentials |
+        Where-Object { -not [string]::IsNullOrEmpty($_.endDateTime) } |
+        Sort-Object { [datetime]$_.endDateTime } -Descending |
+        Select-Object -First 1
+
+        if ($null -ne $latest) {
+            return $latest.endDateTime
+        }
+    }
+    catch {}
+
+    return $null
+}
+
+# Sends an anonymous deployment pingback to the shared PP365 install/deploy telemetry function.
+# Mirrors the Prosjektportalen installation pingback. Best-effort only — never fails the deployment.
+# Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
+# Reads script-scoped $deployVersion / $deployStartTime / $deployInvocationLine / $requestsSiteUrl / $deployUser / $global:appId.
+function SendDeployPingback {
+    Write-Host "[INFO] Sending deployment pingback" -ForegroundColor Yellow
+
+    $deployEndTime = (Get-Date -Format o)
+
+    $deployCommand = if ($null -ne $deployInvocationLine -and $deployInvocationLine.Length -gt 2) {
+        $deployInvocationLine.Substring(2)
+    }
+    else {
+        $deployInvocationLine
+    }
+
+    $deployEntry = @{
+        Title            = "Bestillingsportalen $deployVersion"
+        InstallStartTime = $deployStartTime
+        InstallEndTime   = $deployEndTime
+        InstallVersion   = $deployVersion
+        InstallCommand   = $deployCommand
+        InstallChannel   = "Bestillingsportalen"  # Product indicator (distinguishes from PP365 in the shared telemetry store)
+        InstallUrl       = $requestsSiteUrl
+    }
+
+    if (-not [string]::IsNullOrEmpty($deployUser)) {
+        $deployEntry.InstallUser = $deployUser
+    }
+
+    # Report when the app's client secret and certificate expire (latest of each), so upcoming
+    # renewals show up in the telemetry. Queried live from the app registration, so it reflects the
+    # current setup in every mode (full deploy, upgrade, or when creation was skipped).
+    if ([string]::IsNullOrEmpty($global:appId)) {
+        # Best-effort only — surface (never throw) so a missing/renamed app doesn't manifest as
+        # silently absent expiry dates, especially in upgrade mode where nothing is created.
+        Write-Host "[WARN] Entra ID app id is not set; ClientSecretEndDate/CertificateEndDate will be omitted from the pingback. Check that parameters.appName matches the app's displayName and that the signed-in Azure account can see it." -ForegroundColor Yellow
+    }
+    else {
+        $clientSecretEndDate = GetLatestAppCredentialEndDate -AppId $global:appId
+        if (-not [string]::IsNullOrEmpty($clientSecretEndDate)) {
+            $deployEntry.ClientSecretEndDate = $clientSecretEndDate
+        }
+
+        $certificateEndDate = GetLatestAppCredentialEndDate -AppId $global:appId -CertificateCredentials
+        if (-not [string]::IsNullOrEmpty($certificateEndDate)) {
+            $deployEntry.CertificateEndDate = $certificateEndDate
+        }
+    }
+
+    try {
+        Invoke-WebRequest "https://pp365-install-pingback.azurewebsites.net/api/AddEntry" -Body ($deployEntry | ConvertTo-Json) -Method 'POST' -ErrorAction SilentlyContinue >$null 2>&1
+    }
+    catch {}
+}
+
 $ErrorActionPreference = "stop"
 
 Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
+
+# Capture start metadata for the deployment pingback (sent at the end of the run)
+$deployStartTime = (Get-Date -Format o)
+$deployInvocationLine = $MyInvocation.Line
+$deployUser = $null
 
 if (-not $SkipVerifyModules) {
     # Verify required PS Modules
@@ -1242,6 +1343,12 @@ if (-not $global:upgrade) {
 Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
 az login
 Write-Host "Connected to Azure" -ForegroundColor Green
+
+# Capture the signed-in user for the deployment pingback (best-effort; works in both deploy and upgrade mode)
+try {
+    $deployUser = az ad signed-in-user show --query userPrincipalName -o tsv 2>$null
+}
+catch {}
 
 # Change the subscription
 az account set --subscription $parameters.subscriptionId.Value
@@ -1399,6 +1506,9 @@ if ($global:upgrade) {
     else {
         Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
     }
+
+    SendDeployPingback
+
     exit 0
 }
 
@@ -1464,6 +1574,8 @@ if (-not $SkipSPFxDeploy) {
 else {
     Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
 }
+
+SendDeployPingback
 
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
 Write-Host "### Don't forget to authorise the API Connections in the Azure Portal. ###" -ForegroundColor Green
