@@ -65,8 +65,14 @@ $iconsDir = "Assets\ProvTypesIcons"
 $templatePath = "Templates\Bestillingsportalen.xml"
 $settingsPath = "Settings\SharePoint List items.xlsx"
 
-# Required PS modules
-$preReqModules = "PnP.PowerShell", "Az", "ImportExcel", "WriteAscii"
+# Required PS modules (value = minimum version; $null = any version).
+# PnP.PowerShell 3.2+ is required for the interactive/persisted login used by ConnectPnP.
+$preReqModules = [ordered]@{
+    'PnP.PowerShell' = [version]'3.2.0'
+    'Az'             = $null
+    'ImportExcel'    = $null
+    'WriteAscii'     = $null
+}
 
 #  Worksheets
 $provRequestSettingsWorksheetName = "Provisioning Request Settings"
@@ -226,15 +232,21 @@ function ValidateParameters {
 
 # Verifies installation of required PowerShell modules - throws error if a module is not installed
 function VerifyModules {
-    foreach ($module in $preReqModules) {
+    foreach ($module in $preReqModules.Keys) {
         $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
         if ($null -eq $instModule) {
-            $LoadedCommands = Get-Command -Module $instModule -ErrorAction:SilentlyContinue
-            if ($null -eq $LoadedCommands) {
-                throw('{0} module not installed. Please install all required modules.' -f $module)
-            }            
+            throw("{0} module not installed. Install it with: Install-Module {0} -Scope CurrentUser" -f $module)
         }
-    } 
+
+        $minVersion = $preReqModules[$module]
+        if ($null -ne $minVersion) {
+            # Strip any prerelease suffix (e.g. 3.2.0-nightly) before comparing
+            $installedVersion = [version](("$($instModule.Version)" -split '-')[0])
+            if ($installedVersion -lt $minVersion) {
+                throw("{0} version {1} is installed, but version {2} or newer is required. Update it with: Update-Module {0}" -f $module, $instModule.Version, $minVersion)
+            }
+        }
+    }
 }
 
 # Test for availability of Azure resources

@@ -117,7 +117,7 @@ Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullfør
 
 - Windows 10/11 med PowerShell 7 og Azure CLI installert.
 - Node.js 22.14.0 eller nyere (kun nødvendig for SPFx-bygg; kan hoppes over med `-SkipSPFxDeploy`).
-- PowerShell-moduler: `PnP.PowerShell` (3.1), `Az`, `ImportExcel`, `WriteAscii`.
+- PowerShell-moduler: `PnP.PowerShell` (3.2 eller nyere), `Az`, `ImportExcel`, `WriteAscii`.
 - Tenant App Catalog må være opprettet i SharePoint Admin Center (for publisering av SPFx-pakker).
 - Execution Policy satt til `Unrestricted` under installasjonen.
 - Brannmur/proxy må tillate utgående tilkobling for Azure CLI (`az login`) og PowerShell-modulene mot Azure/Microsoft 365.

@@ -54,7 +54,7 @@ Installasjonsskriptet for Bestillingsportalen krever PowerShell 7 og støtter ik
 
 Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres før skriptet kjøres:
 
-- PnP.PowerShell (3.1)
+- PnP.PowerShell (3.2 eller nyere — versjonen sjekkes av installasjonsskriptet)
 - Az
 - ImportExcel
 - WriteAscii
