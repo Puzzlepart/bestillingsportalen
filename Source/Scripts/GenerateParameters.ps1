@@ -15,9 +15,8 @@
         keyVaultName    - default name, availability-checked; a unique fallback is
                           generated when the default is taken in another tenant
 
-    Everything else gets a sensible default from parameters.template.json. Values that
-    cannot be derived (service account UPN, PnP certificate path) are prompted for -
-    or can be passed as parameters for unattended use.
+    Everything else gets a sensible default from parameters.template.json. The service
+    account UPN is prompted for (or passed with -ServiceAccountUPN).
 
     The script only reads from Azure - it changes nothing in the environment.
 
@@ -33,10 +32,6 @@
 
 .PARAMETER ServiceAccountUPN
     UPN of the service account used for the delegated API connections. Prompted for when omitted.
-
-.PARAMETER PnpCertPath
-    Path to a PnP PowerShell certificate (.pfx) - only needed for app-only/unattended
-    runs. Normally left blank: deploy.ps1 then uses interactive browser sign-in.
 
 .PARAMETER Region
     Azure region for the resources. Default: norwayeast.
@@ -58,7 +53,6 @@ param
     [string]$Tenant,
     [string]$OutputPath = ".\parameters.json",
     [string]$ServiceAccountUPN,
-    [string]$PnpCertPath,
     [string]$Region = "norwayeast",
     [switch]$EnableSensitivity,
     [switch]$Force
@@ -230,10 +224,6 @@ while (-not [string]::IsNullOrWhiteSpace($ServiceAccountUPN)) {
     if ([string]::IsNullOrWhiteSpace($retry)) { break }
     $ServiceAccountUPN = $retry
 }
-if ([string]::IsNullOrEmpty($PnpCertPath)) {
-    $PnpCertPath = Read-Host "PnP certificate path (normally leave BLANK - interactive browser sign-in is used; a certificate is only needed for app-only/unattended runs)"
-}
-
 # ---------------------------------------------------------------------------
 # 5. Build parameters.json from the template (keeps descriptions and any new
 #    parameters in sync) and fill in the derived/prompted values
@@ -248,7 +238,6 @@ $values = @{
     keyVaultName      = $keyVaultName
     region            = $Region
     serviceAccountUPN = $ServiceAccountUPN
-    pnpCertPath       = $PnpCertPath
     enableSensitivity = [bool]$EnableSensitivity
 }
 
@@ -269,10 +258,10 @@ Write-Host "Checking app registrations in the tenant..." -ForegroundColor Yellow
 $pnpSpJson = az ad sp show --id $parameters.pnpAppId.Value 2>$null
 $pnpSp = if ($pnpSpJson) { $pnpSpJson | ConvertFrom-Json } else { $null }
 if ($null -ne $pnpSp) {
-    Write-Host "PnP app found: '$($pnpSp.displayName)' ($($parameters.pnpAppId.Value)) - pnpAppId can be used as-is. Leave pnpCertPath blank to sign in interactively." -ForegroundColor Green
+    Write-Host "PnP app found: '$($pnpSp.displayName)' ($($parameters.pnpAppId.Value)) - pnpAppId can be used as-is; deploy.ps1 signs in interactively." -ForegroundColor Green
 }
 else {
-    Write-Host "The PnP app ($($parameters.pnpAppId.Value)) is NOT present in this tenant. Register your own PnP app (see 'PnP PowerShell App Registration' in the Deployment guide) and update pnpAppId/pnpCertPath in the generated file." -ForegroundColor Yellow
+    Write-Host "The PnP app ($($parameters.pnpAppId.Value)) is NOT present in this tenant. Register one with Register-PnPEntraIDAppForInteractiveLogin (see 'PnP PowerShell App Registration' in the Deployment guide) and update pnpAppId in the generated file." -ForegroundColor Yellow
 }
 
 # Bestillingsportalen Entra ID app (only used by the sensitivity label ROPC flow)
@@ -327,8 +316,8 @@ else {
 }
 
 if ($null -eq $pnpSp) {
-    Write-Host "  - Register a PnP PowerShell app (see 'PnP PowerShell App Registration' in the Deployment guide)" -ForegroundColor Cyan
-    Write-Host "    and update pnpAppId + pnpCertPath in $OutputPath before running deploy.ps1." -ForegroundColor Cyan
+    Write-Host "  - Register a PnP PowerShell app with Register-PnPEntraIDAppForInteractiveLogin (see 'PnP PowerShell" -ForegroundColor Cyan
+    Write-Host "    App Registration' in the Deployment guide) and update pnpAppId in $OutputPath before running deploy.ps1." -ForegroundColor Cyan
 }
 
 $deployStep = if ($null -eq $entraApp -and $EnableSensitivity) { "2" } else { "1" }

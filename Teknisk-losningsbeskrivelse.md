@@ -98,14 +98,12 @@ Flytene bruker seeded Power Automate-lisenser og krever ikke premium-lisensierin
 
 ### 3.2 PnP PowerShell app registration (midlertidig installasjonsidentitet)
 
-Installasjonsskriptet bruker PnP PowerShell med en egen app registration for å opprette og konfigurere SharePoint-området og publisere SPFx-pakkene. Anbefalt modell er **interaktiv pålogging** (delegert — ingen sertifikat; effektive rettigheter er snittet av installatørens rettigheter og appens delegerte tilganger). Sertifikatbasert app-only støttes for uovervåkede kjøringer. Minimumstilganger:
+Installasjonsskriptet bruker PnP PowerShell med en egen app registration for å opprette og konfigurere SharePoint-området og publisere SPFx-pakkene. Autentiseringen er **interaktiv pålogging** (delegert — ingen sertifikater eller secrets; effektive rettigheter er snittet av installatørens rettigheter og appens delegerte tilganger). Minimumstilganger:
 
 | API | Tillatelse | Type |
 |--|--|--|
-| Microsoft Graph | `Group.ReadWrite.All` | Delegated (interaktiv pålogging) |
-| SharePoint | `AllSites.FullControl` | Delegated (interaktiv pålogging) |
-| Microsoft Graph | `Group.Create`, `Group.Read.All` | Application (kun app-only med sertifikat) |
-| SharePoint | `Sites.FullControl.All` | Application (kun app-only med sertifikat) |
+| Microsoft Graph | `Group.ReadWrite.All` | Delegated |
+| SharePoint | `AllSites.FullControl` | Delegated |
 
 Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullført installasjon**. Hvis `Sites.FullControl.All` ikke er ønskelig, kan SharePoint-området opprettes manuelt på forhånd.
 
@@ -203,7 +201,6 @@ Etter managed identity-migreringen finnes det ingen roterende credentials for kj
 |--|--|--|--|
 | Client secret (Entra ID-app) | Key Vault (`appSecret`) | 1 år | Opprettes kun ved `enableSensitivity`. Brukes kun i ROPC-token-kallet. Fornyelse: se [Fornye App Secret](./Refreshing-app-secret.md). |
 | Tjenestekonto-påloggingsinfo | Key Vault (`sausername`/`sapassword`) | Følger organisasjonens passordpolicy | Kun ved aktivert sensitivitetsmerke-funksjonalitet. |
-| PnP-installasjonssertifikat | Lokalt hos den som installerer | – | Brukes kun under installasjon/oppgradering; app-registreringen kan fjernes etterpå. |
 
 ## 6. Referanser
 

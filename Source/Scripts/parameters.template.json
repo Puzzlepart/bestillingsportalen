@@ -47,10 +47,6 @@
         "Value": "da6c31a6-b557-4ac3-9994-7315da06ea3a",
         "Description": "Id of the PnP Entra app registration. (defaults to Prosjektportalen PnP app)"
     },
-    "pnpCertPath": {
-        "Value": "",
-        "Description": "Optional - leave blank to sign in to PnP PowerShell interactively in the browser (recommended for manual installs). Only set this for app-only/unattended runs: path to the PnP certificate (.pfx), with double-escaped backslashes."
-    },
     "siteLogoPath": {
         "Value": "",
         "Description": "Path to a company logo which will be set as the site logo for Communication sites and no Group Team Sites when provisioned. Optional - can be left blank."

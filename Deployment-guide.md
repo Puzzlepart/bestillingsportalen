@@ -24,11 +24,11 @@ For å komme i gang trenger du:
 
 PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger. For å autentisere med PnP PowerShell trenger du derfor en app registration i kundens tenant.
 
-Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive prompts), så den anbefalte modellen er **interaktiv pålogging** — du logger inn i nettleseren som kontoen som kjører skriptet, og trenger **ikke noe sertifikat**. Dette samsvarer med [PnP sin egen veiledning](https://pnp.github.io/powershell/articles/registerapplication.html): app-only med sertifikat er for skript som kjører *uten* brukerinteraksjon.
+Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive prompts), og bruker **interaktiv pålogging**: du logger inn i nettleseren som kontoen som kjører skriptet — ingen sertifikater å opprette eller forvalte. Dette samsvarer med [PnP sin egen veiledning](https://pnp.github.io/powershell/articles/registerapplication.html), der app-only med sertifikat kun anbefales for skript som kjører *uten* brukerinteraksjon.
 
-**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. La `pnpCertPath` stå tomt og logg inn interaktivt. Ingen ny registrering nødvendig.
+**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. Ingen ny registrering nødvendig.
 
-**Alternativ B: Registrer en ny app for interaktiv pålogging (anbefalt).** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Ingen sertifikat — kommandoen oppretter app-registreringen med delegerte tilganger og ber om admin consent i nettleseren:
+**Alternativ B: Registrer en ny app for interaktiv pålogging.** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Kommandoen oppretter app-registreringen med delegerte tilganger og ber om admin consent i nettleseren:
 
 ```powershell
 Register-PnPEntraIDAppForInteractiveLogin `
@@ -38,10 +38,7 @@ Register-PnPEntraIDAppForInteractiveLogin `
     -SharePointDelegatePermissions "AllSites.FullControl"
 ```
 
-- **App-ID-en (Client ID)** fra outputen → settes som `pnpAppId` i `parameters.json`.
-- **`pnpCertPath` lar du stå tomt** → `deploy.ps1` åpner nettleseren for pålogging (kun ved første tilkobling — tokens caches). De effektive rettighetene er snittet av dine rettigheter og appens delegerte tilganger; kontoen som kjører skriptet er uansett SharePoint-administrator.
-
-**Alternativ C: App-only med sertifikat (kun for uovervåket kjøring).** Trengs normalt ikke — installasjonen er interaktiv. Ønsker du likevel app-only (f.eks. stram Conditional Access), bruk `Register-PnPEntraIDApp` med `-OutPath`/`-CertificatePassword` og application-tilgangene `Group.Create` + `Group.Read.All` (Graph) og `Sites.FullControl.All` (SharePoint). Sett da PFX-stien som `pnpCertPath` — du blir bedt om sertifikatpassordet når `deploy.ps1` kjører.
+**App-ID-en (Client ID)** fra outputen settes som `pnpAppId` i `parameters.json`. Under installasjonen åpner `deploy.ps1` nettleseren for pålogging (kun ved første tilkobling — tokens caches). De effektive rettighetene er snittet av dine rettigheter og appens delegerte tilganger; kontoen som kjører skriptet er uansett SharePoint-administrator.
 
 Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
@@ -75,7 +72,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 ```powershell
 ./GenerateParameters.ps1
 # eller uten prompts:
-./GenerateParameters.ps1 -ServiceAccountUPN svc-bp@contoso.com -PnpCertPath C:\certs\pnp.pfx -Force
+./GenerateParameters.ps1 -Tenant contoso.onmicrosoft.com -ServiceAccountUPN svc-bp@contoso.com -Force
 ```
 
 Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
@@ -109,8 +106,6 @@ Beskrivelse av hver parameter:
 - `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
-
-- `pnpCertPath` – Sti til PnP-sertifikatet på din lokale maskin som du opprettet da du konfigurerte PnP PowerShell.
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
@@ -154,7 +149,7 @@ Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-Har du satt `pnpCertPath`, blir du bedt om sertifikatpassordet underveis. Er `pnpCertPath` tomt, brukes interaktiv nettleserinnlogging for PnP i stedet (se «Når trengs sertifikatet?» under forutsetningene).
+PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første tilkobling; logg inn med kontoen du kjører skriptet med.
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
 

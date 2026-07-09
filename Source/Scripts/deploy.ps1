@@ -1222,25 +1222,15 @@ function DeployUpgradeLogicApp {
     }
 }
 
-# Connects PnP PowerShell to the given URL using the configured authentication:
-# certificate (pnpCertPath, app-only - with or without password) when provided,
-# otherwise interactive browser sign-in (delegated, as the account running the
-# script). Tokens are cached per client id, so only the first interactive
-# connection shows a browser prompt.
+# Connects PnP PowerShell to the given URL with interactive browser sign-in
+# (delegated, as the account running the script). The deployment is attended by
+# design - the script prompts throughout - so certificate/app-only auth is not
+# supported. Tokens are cached per client id, so only the first connection shows
+# a browser prompt.
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
-    if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-        if ($pnpCertPassword.Length -gt 0) {
-            Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -CertificatePassword $pnpCertPassword -Tenant $parameters.fullTenantName.Value
-        }
-        else {
-            Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -CertificatePath $parameters.pnpCertPath.Value -Tenant $parameters.fullTenantName.Value
-        }
-    }
-    else {
-        Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
-    }
+    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
 }
 
 # Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
@@ -1609,15 +1599,7 @@ catch {}
 az account set --subscription $parameters.subscriptionId.Value
 
 # Connect to PnP
-Write-Host "Launching PnP sign-in..." -ForegroundColor Yellow
-$pnpCertPassword = $null
-if (-not ([string]::IsNullOrEmpty($parameters.pnpCertPath.Value))) {
-    $pnpCertPassword = Read-Host -Prompt "Enter password for the PnP certificate (leave blank if it has no password)" -AsSecureString
-}
-else {
-    Write-Host "No pnpCertPath configured - using interactive browser sign-in for PnP PowerShell (a browser window will open; sign in with the account running this script)." -ForegroundColor Yellow
-}
-
+Write-Host "Launching PnP sign-in (a browser window will open - sign in with the account running this script)..." -ForegroundColor Yellow
 ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Connected to SPO" -ForegroundColor Green
 

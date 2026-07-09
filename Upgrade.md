@@ -128,7 +128,7 @@ Før du starter oppgraderingen:
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
    - Tenant app-katalog må være opprettet i SharePoint Admin Center
-   - PnP-appen må ha `Sites.FullControl.All` (App-only) for å publisere til app-katalogen
+   - PnP-appen må ha delegert `AllSites.FullControl` for å publisere til app-katalogen (interaktiv pålogging — kontoen som kjører skriptet må være SharePoint-administrator)
 
 ## Oppgraderingsprosess
 
@@ -182,8 +182,8 @@ Hvis du foretrekker å oppdatere Logic Apps manuelt (nyttig for å gjennomgå en
 4. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
 
    ```powershell
-   # Koble til med PnP-app-legitimasjonen
-   Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -CertificatePath <path-to-cert>
+   # Koble til med PnP-appen (interaktiv nettleserinnlogging)
+   Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -Interactive
    Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation
    ```
 
