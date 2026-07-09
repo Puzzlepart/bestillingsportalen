@@ -142,9 +142,11 @@ Beskrivelse av hver parameter:
 
 ## Steg 3: Kjør skriptene
 
-### Opprettelse av Entra ID-app
+### Opprettelse av Entra ID-app (kun ved sensitivitetsmerker)
 
-Første steg er å kjøre det dedikerte skriptet som oppretter Entra ID-appen og gir admin consent for Microsoft Graph API-tillatelsene.
+> **Hopp over dette steget hvis `enableSensitivity` er `false`.** Etter managed identity-migreringen brukes Entra ID-appen utelukkende av ROPC-flyten som anvender sensitivitetsmerker — alt annet autentiserer med managed identity. Bruker du ikke sensitivitetsmerker, trenger ikke appen å finnes: `deploy.ps1` oppdager at den mangler og hopper over den automatisk. (Denne appen er *ikke* det samme som PnP PowerShell-appen fra forutsetningene — den trengs uansett.)
+
+Skal du bruke sensitivitetsmerker: kjør det dedikerte skriptet som oppretter Entra ID-appen og gir admin consent for den delegerte Graph-tillatelsen.
 
 **Denne delen av installasjonen krever en brukerkonto med Global Administrator-tilgang.**
 

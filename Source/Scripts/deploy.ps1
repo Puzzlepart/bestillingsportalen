@@ -751,9 +751,18 @@ function CreateEntraIDAppSecret {
             }
         }
         else {
+            if ($parameters.enableSensitivity.Value) {
+                throw("Entra ID App '$($parameters.appName.Value)' does not exist. The sensitivity label functionality (enableSensitivity) requires it for the ROPC flow - run the createentraidapp.ps1 script first.")
+            }
 
-            throw("Entra ID App $($parameters.appName.Value)' does not exist. Please run the createentraidapp.ps1 script first.")
-
+            # After the managed identity migration the app is ONLY used by the sensitivity
+            # label ROPC flow. With enableSensitivity disabled the solution runs entirely
+            # on managed identities, so a missing app is fine - the 'appid'/'appSecret'
+            # Key Vault secrets are simply created empty.
+            Write-Host "Entra ID App '$($parameters.appName.Value)' was not found - OK: the app is only used for sensitivity labels, which are disabled. Skipping (createentraidapp.ps1 is not needed for this configuration)." -ForegroundColor Yellow
+            $global:appId = ""
+            RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED' -Detail "Not needed - enableSensitivity is false and the app is only used by the sensitivity label ROPC flow"
+            return
         }
 
         Write-Host "### Entra ID APP SECRET CREATION FINISHED ###" -ForegroundColor Green
@@ -910,7 +919,7 @@ function ConfirmDeployment {
     }
 
     WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
-    WritePlanLine "Entra ID app" "$($parameters.appName.Value)$(if ($parameters.enableSensitivity.Value) { ' + client secret (sensitivity label ROPC)' })" $SkipCreateEntraIDAppSecret
+    WritePlanLine "Entra ID app" "$($parameters.appName.Value)$(if ($parameters.enableSensitivity.Value) { ' + client secret (sensitivity label ROPC)' } else { ' (only used for sensitivity labels - skipped automatically if it does not exist)' })" $SkipCreateEntraIDAppSecret
     WritePlanLine "SharePoint site" "$requestsSiteUrl (prompts before overwriting an existing site)" $SkipSharepointSite
     WritePlanLine "Azure resources" "Key Vault '$($parameters.keyVaultName.Value)', Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
     WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"

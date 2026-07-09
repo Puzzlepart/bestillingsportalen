@@ -52,7 +52,7 @@ Installasjonen utføres av to PowerShell-skript fra en administrators arbeidssta
 
 | Komponent | Beskrivelse |
 |--|--|
-| App registration | Entra ID-app (navn fra `appName`, f.eks. `Bestillingsportalen`) opprettes av `createentraidapp.ps1` med admin consent. Etter managed identity-migreringen brukes appen i drift **kun** til ROPC-flyten for sensitivitetsmerker (delegert `Group.ReadWrite.All`). Application-tillatelsene som fortsatt ligger på appen er ikke lenger i bruk og kan fjernes når migreringen er verifisert («fase 2» i [migreringsdokumentet](./Managed-identity-migration.md)); brukes ikke sensitivitetsmerker kan hele app-registreringen slettes. |
+| App registration | Entra ID-app (navn fra `appName`, f.eks. `Bestillingsportalen`) opprettes av `createentraidapp.ps1` med admin consent. Etter managed identity-migreringen brukes appen i drift **kun** til ROPC-flyten for sensitivitetsmerker (delegert `Group.ReadWrite.All`). **Kreves kun når `enableSensitivity` er aktivert** — ellers hopper `deploy.ps1` automatisk over appen hvis den ikke finnes. Application-tillatelsene som fortsatt ligger på appen er ikke lenger i bruk og kan fjernes når migreringen er verifisert («fase 2» i [migreringsdokumentet](./Managed-identity-migration.md)); brukes ikke sensitivitetsmerker kan hele app-registreringen slettes. |
 | Client secret | Opprettes av `deploy.ps1` **kun når `enableSensitivity` er `true`**. Standard gyldighet er **1 år** – se [Fornye App Secret](./Refreshing-app-secret.md). Brukes utelukkende i ROPC-token-kallet for sensitivitetsmerker. |
 | Service principals for managed identities | Den user-assigned managed identityen og Automation-kontoens systemtildelte identitet får app-roller tildelt i Entra ID (se kapittel 4). |
 

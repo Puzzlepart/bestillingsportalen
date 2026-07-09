@@ -257,6 +257,30 @@ foreach ($name in $values.Keys) {
     }
 }
 
+# ---------------------------------------------------------------------------
+# 6. Check the two app registrations in the target tenant, so the next-steps
+#    output can say exactly what is - and is not - needed
+# ---------------------------------------------------------------------------
+Write-Host "Checking app registrations in the tenant..." -ForegroundColor Yellow
+
+# PnP PowerShell app (installation identity) - the default pnpAppId is the
+# Prosjektportalen PnP app, present in tenants where Prosjektportalen 365 is installed.
+$pnpSpJson = az ad sp show --id $parameters.pnpAppId.Value 2>$null
+$pnpSp = if ($pnpSpJson) { $pnpSpJson | ConvertFrom-Json } else { $null }
+if ($null -ne $pnpSp) {
+    Write-Host "PnP app found: '$($pnpSp.displayName)' ($($parameters.pnpAppId.Value)) - pnpAppId can be used as-is (you need the matching certificate for pnpCertPath)." -ForegroundColor Green
+}
+else {
+    Write-Host "The PnP app ($($parameters.pnpAppId.Value)) is NOT present in this tenant. Register your own PnP app (see 'PnP PowerShell App Registration' in the Deployment guide) and update pnpAppId/pnpCertPath in the generated file." -ForegroundColor Yellow
+}
+
+# Bestillingsportalen Entra ID app (only used by the sensitivity label ROPC flow)
+$entraAppJson = az ad app list --filter "displayName eq '$($parameters.appName.Value)'" 2>$null
+$entraApp = if ($entraAppJson) { @($entraAppJson | ConvertFrom-Json) | Select-Object -First 1 } else { $null }
+if ($null -ne $entraApp) {
+    Write-Host "Entra ID app '$($parameters.appName.Value)' already exists in the tenant ($($entraApp.appId))." -ForegroundColor Green
+}
+
 if ((Test-Path $OutputPath) -and -not $Force) {
     Write-Host ""
     Write-Host "$OutputPath already exists." -ForegroundColor Yellow
@@ -270,7 +294,7 @@ if ((Test-Path $OutputPath) -and -not $Force) {
 $parameters | ConvertTo-Json -Depth 5 | Set-Content $OutputPath -Encoding utf8NoBOM
 
 # ---------------------------------------------------------------------------
-# 6. Summary and next steps
+# 7. Summary and next steps
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "#################### GENERATED PARAMETERS ####################" -ForegroundColor Magenta
@@ -283,6 +307,28 @@ Write-Host "##############################################################" -For
 Write-Host ""
 Write-Host "Written to $OutputPath" -ForegroundColor Green
 Write-Host ""
-Write-Host "Review the file - especially the defaulted names (resourceGroupName, appName, requestsSiteName) - then:" -ForegroundColor Cyan
-Write-Host "  1. Run ./createentraidapp.ps1 -AppName '$($parameters.appName.Value)' (requires Global Administrator)" -ForegroundColor Cyan
-Write-Host "  2. Run ./deploy.ps1 - the pre-flight summary will show the target environment before anything is created" -ForegroundColor Cyan
+Write-Host "Review the file - especially the defaulted names (resourceGroupName, appName, requestsSiteName)." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+
+# The Entra ID app is only used by the sensitivity label ROPC flow - be precise
+# about whether createentraidapp.ps1 is actually needed for this configuration.
+if ($null -ne $entraApp) {
+    Write-Host "  - Entra ID app '$($parameters.appName.Value)' already exists in the tenant: skip createentraidapp.ps1." -ForegroundColor Cyan
+}
+elseif ($EnableSensitivity) {
+    Write-Host "  1. Run ./createentraidapp.ps1 -appName '$($parameters.appName.Value)' as Global Administrator." -ForegroundColor Cyan
+    Write-Host "     Required because enableSensitivity is true - the app is used by the sensitivity label ROPC flow." -ForegroundColor Cyan
+}
+else {
+    Write-Host "  - createentraidapp.ps1 is NOT needed: the Entra ID app is only used for sensitivity labels" -ForegroundColor Cyan
+    Write-Host "    (enableSensitivity is false), and deploy.ps1 skips it automatically when it does not exist." -ForegroundColor Cyan
+}
+
+if ($null -eq $pnpSp) {
+    Write-Host "  - Register a PnP PowerShell app (see 'PnP PowerShell App Registration' in the Deployment guide)" -ForegroundColor Cyan
+    Write-Host "    and update pnpAppId + pnpCertPath in $OutputPath before running deploy.ps1." -ForegroundColor Cyan
+}
+
+$deployStep = if ($null -eq $entraApp -and $EnableSensitivity) { "2" } else { "1" }
+Write-Host "  $deployStep. Run ./deploy.ps1 - the pre-flight summary shows the target environment before anything is created." -ForegroundColor Cyan
