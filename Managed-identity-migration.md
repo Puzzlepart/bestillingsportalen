@@ -45,7 +45,9 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 | Ressurs | App-rolle |
 |--|--|
 | SharePoint | Sites.FullControl.All |
-| Microsoft Graph | Directory.Read.All, Directory.ReadWrite.All, Group.ReadWrite.All, InformationProtectionPolicy.Read.All, Sites.FullControl.All, TeamsTemplates.Read.All, Community.ReadWrite.All, User.Invite.All, User.ReadWrite.All |
+| Microsoft Graph | Directory.Read.All, GroupSettings.ReadWrite.All, Group.ReadWrite.All, InformationProtectionPolicy.Read.All, Sites.Read.All, TeamsTemplates.Read.All, Community.ReadWrite.All, User.Invite.All, User.ReadWrite.All |
+
+> Settet er minimert mot faktiske runtime-kall: `GroupSettings.ReadWrite.All` erstatter `Directory.ReadWrite.All` (eneste bruk var `POST /groups/{id}/settings`), og `Sites.Read.All` erstatter Graph `Sites.FullControl.All` (eneste bruk var lesekallene i `CheckSiteExists`). Se [Datatilgang og sikkerhet](Data-access-security.md) for kall-for-kall-begrunnelse.
 
 Se [Datatilgang og sikkerhet](Data-access-security.md) for begrunnelsen per tillatelse.
 
@@ -89,6 +91,7 @@ Migreringen krever **én full kjøring av `deploy.ps1`** (vanlig upgrade-modus `
    - Fjern rolletildelingene «Automation Job Operator»/«Automation Runbook Operator» for den *gamle* app-service-principalen på `bestillingsportalen-auto`.
    - Slett sertifikatet fra Key Vault og fra app registration.
    - (Fase 2) Fjern application-tillatelsene fra app registration, behold kun delegert `Group.ReadWrite.All` hvis sensitivitetsmerker brukes. Brukes ikke sensitivitetsmerker kan hele app registration slettes.
+   - Ble miljøet migrert med et eldre rollesett på UAMI-en: fjern `Directory.ReadWrite.All` og Graph `Sites.FullControl.All` fra UAMI-en manuelt i Entra-portalen (erstattet av `GroupSettings.ReadWrite.All` og `Sites.Read.All`; `deploy.ps1` tildeler kun manglende roller og fjerner aldri gamle).
 
 > **Merk:** Hvis `enableSensitivity` er aktivert kjører `az ad app credential reset` (uten `--append`) under deploy — den fjerner appens eksisterende credentials, inkludert det gamle sertifikatet. Det er ønsket her, men vær oppmerksom hvis app registration deles med andre løsninger.
 

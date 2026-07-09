@@ -25,6 +25,8 @@ Løsningen bruker Microsoft Graph og SharePoint REST API-ene for provisjonering.
 
 Logic Apps autentiserer mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation med en user-assigned managed identity – uten client secrets eller sertifikater som må fornyes. En Entra ID app registration med secret (lagret i Key Vault) brukes kun for sensitivitetsmerke-funksjonaliteten, som fortsatt krever delegerte tilganger. Se [Migrering til managed identity](Managed-identity-migration.md).
 
+> **Om tilganger:** Løsningen tildeles et minimert sett API-tillatelser der hver tillatelse er knyttet til konkrete kjøretidskall – se [Datatilgang og sikkerhet](Data-access-security.md) for den fulle koblingen. Merk at noen av tillatelsene kun er i bruk av **valgfri funksjonalitet**: gjesteinvitasjon (`User.Invite.All`, `User.ReadWrite.All`), Viva Engage-fellesskap (`Community.ReadWrite.All`) og sensitivitetsmerker (`InformationProtectionPolicy.Read.All`). Organisasjoner som ikke bruker disse funksjonene kan stramme inn ytterligere – se merknaden om funksjonsbundne tillatelser i sikkerhetsdokumentet.
+
 Provisjonering og andre automatiseringsoppgaver løses gjennom Azure Logic Apps, som gir lav kjøretidkostnad og mulighet til å sikre tilgang til alle ressurser.
 
 For mer detaljer om arkitekturen, les [Arkitektur](Architecture.md)-dokumentasjonen.

@@ -133,21 +133,21 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 
 | API-tillatelse | Type | Brukes til |
 |--|--|--|
-| `Directory.Read.All` | Application | Lese brukere, grupper og team fra tenanten. |
-| `Directory.ReadWrite.All` | Application | Opprette gjestebrukere i Entra ID (hvis forespurt). |
-| `Group.ReadWrite.All` | Application | Opprette og oppdatere Microsoft 365-grupper og team. |
+| `Directory.Read.All` | Application | Lese gruppe-lifecycle-policyer (`GET /groupLifecyclePolicies`) under provisjoneringen — dokumentert minste tillatelse for dette endepunktet. |
+| `GroupSettings.ReadWrite.All` | Application | Deaktivere gjestedeling per gruppe (`Group.Unified.Guest`-innstillingen) og lese gruppeinnstillinger for synkronisering. |
+| `Group.ReadWrite.All` | Application | Opprette Microsoft 365-grupper og team, legge til/fjerne eiere og medlemmer. |
 | `InformationProtectionPolicy.Read.All` | Application | Synkronisere sensitivitetsmerker fra Purview til `IP Labels`-listen. |
-| `Sites.FullControl.All` | Application | Oppdatere egenskaper på provisjonerte SharePoint-områder. |
+| `Sites.Read.All` | Application | `CheckSiteExists` leser tenant-admin-områdets aggregerte områdeliste (sjekke om URL er i bruk, inkl. papirkurv). |
 | `TeamsTemplates.Read.All` | Application | Lese Teams-maler og synkronisere dem til `Teams Templates`-listen. |
 | `Community.ReadWrite.All` | Application | Opprette Viva Engage-fellesskap. |
 | `User.Invite.All` | Application | Invitere gjestebrukere til organisasjonen. |
-| `User.ReadWrite.All` | Application | Oppdatere gjestebrukere i Entra ID. |
+| `User.ReadWrite.All` | Application | Oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere. |
 
 **SharePoint:**
 
 | API-tillatelse | Type | Brukes til |
 |--|--|--|
-| `Sites.FullControl.All` | Application | Lese og skrive til opprettede SharePoint-områder via SharePoint REST API. |
+| `Sites.FullControl.All` | Application | Opprette områdesamlinger (`POST /_api/SPSiteManager/create`), anvende site designs på nyopprettede områder og lese hub-områder. Kan ikke erstattes av `Sites.Selected`: målområdet finnes ikke før opprettelseskallet, så det er ingenting å gi en per-site-tillatelse på. |
 
 **Azure RBAC og Key Vault (tildeles av `azureresources.bicep`):**
 

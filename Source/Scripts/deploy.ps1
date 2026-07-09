@@ -931,16 +931,28 @@ function AssignUamiPermissions {
 
     $existing = Get-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $global:uamiPrincipalId
 
-    # Mirrors the application permissions in appmanifest.json (used by the logic apps'
-    # Graph/SharePoint HTTP actions). Idempotent - checked per AppRoleId, so re-runs add
-    # only what's missing.
+    # Least-privilege set for the logic apps' Graph/SharePoint HTTP actions - each role is
+    # tied to concrete runtime calls (see Data-access-security.md for the mapping).
+    # Idempotent - checked per AppRoleId, so re-runs add only what's missing.
+    #   SPO Sites.FullControl.All        - POST /_api/SPSiteManager/create (site creation; the
+    #                                      target site doesn't exist yet, so Sites.Selected is
+    #                                      not applicable) + ApplySiteDesign on the new site
+    #   Directory.Read.All               - GET /groupLifecyclePolicies (documented least privilege)
+    #   GroupSettings.ReadWrite.All      - POST /groups/{id}/settings (disable guest sharing per group)
+    #   Group.ReadWrite.All              - create groups/teams, add/remove owners and members
+    #   InformationProtectionPolicy.Read.All - sync sensitivity labels (SyncLabels)
+    #   Sites.Read.All                   - CheckSiteExists reads of the tenant-admin aggregated site list
+    #   TeamsTemplates.Read.All          - sync Teams templates (GetTeamsTemplates)
+    #   Community.ReadWrite.All          - create Viva Engage communities
+    #   User.Invite.All                  - POST /invitations (guest invites)
+    #   User.ReadWrite.All               - PATCH profile fields on invited guest users
     $rolesToGrant = @(
         @{ ResourceSp = $spoResource; RoleName = 'Sites.FullControl.All' },
         @{ ResourceSp = $graphResource; RoleName = 'Directory.Read.All' },
-        @{ ResourceSp = $graphResource; RoleName = 'Directory.ReadWrite.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'GroupSettings.ReadWrite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'Group.ReadWrite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'InformationProtectionPolicy.Read.All' },
-        @{ ResourceSp = $graphResource; RoleName = 'Sites.FullControl.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'Sites.Read.All' },
         @{ ResourceSp = $graphResource; RoleName = 'TeamsTemplates.Read.All' },
         @{ ResourceSp = $graphResource; RoleName = 'Community.ReadWrite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'User.Invite.All' },
