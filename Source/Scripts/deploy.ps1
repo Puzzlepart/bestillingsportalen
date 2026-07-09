@@ -1237,14 +1237,13 @@ function DeployUpgradeLogicApp {
 # Connects PnP PowerShell to the given URL with interactive browser sign-in
 # (delegated, as the account running the script). The deployment is attended by
 # design - the script prompts throughout - so certificate/app-only auth is not
-# supported. -PersistLogin caches the login on disk, so re-runs (and later
-# sessions) against the same tenant connect silently. NOTE: if the PnP app's
-# permissions change, clear the cache first with
-# Disconnect-PnPOnline -ClearPersistedLogin.
+# supported. The token is cached in-session, so only the FIRST connection in a
+# run shows a browser prompt; it is deliberately NOT persisted across sessions
+# (-PersistLogin) to avoid leaving customer-tenant tokens on disk.
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
-    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive -PersistLogin
+    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
 }
 
 # Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
@@ -1659,9 +1658,9 @@ catch {}
 # Change the subscription
 az account set --subscription $parameters.subscriptionId.Value
 
-# Connect to PnP - the login is persisted across runs (-PersistLogin in ConnectPnP),
-# so the browser prompt only appears on the first run against a tenant.
-Write-Host "Launching PnP sign-in (a browser window opens on the first run - the login is cached for subsequent runs)..." -ForegroundColor Yellow
+# Connect to PnP - the token is cached for the rest of this run, so only this
+# first connection shows a browser prompt.
+Write-Host "Launching PnP sign-in (a browser window will open - sign in with the account running this script)..." -ForegroundColor Yellow
 ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Connected to SPO" -ForegroundColor Green
 

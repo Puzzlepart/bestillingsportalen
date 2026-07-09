@@ -151,7 +151,7 @@ Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure C
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved **første** kjøring mot tenanten; logg inn med kontoen du kjører skriptet med. Innloggingen persisteres (`-PersistLogin`), så senere kjøringer kobler til uten prompt. Endrer du tilgangene på PnP-appen, må cachen tømmes først med `Disconnect-PnPOnline -ClearPersistedLogin`.
+PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første tilkobling i kjøringen; logg inn med kontoen du kjører skriptet med. Tokenet gjenbrukes for resten av kjøringen (innloggingen persisteres bevisst *ikke* på tvers av økter, så det ikke blir liggende tokens for kundetenants på maskinen).
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
 
