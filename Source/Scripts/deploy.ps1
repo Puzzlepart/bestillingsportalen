@@ -303,6 +303,39 @@ function CreateRequestsSharePointSite {
         $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
 
         if (!$site) {
+            # A soft-deleted site with the same URL blocks creation - New-PnPSite hangs
+            # and eventually dies with an opaque NullReferenceException. Detect it and
+            # offer to purge it from the tenant recycle bin.
+            $deletedSite = Get-PnPTenantDeletedSite -Identity $requestsSiteUrl -ErrorAction SilentlyContinue
+            if ($null -ne $deletedSite) {
+                Write-Host "A deleted site with URL $requestsSiteUrl is in the tenant recycle bin - it blocks creating a new site on the same URL." -ForegroundColor Yellow
+                $purge = Read-Host "Permanently delete it from the recycle bin and continue? ( y / n = abort )"
+                if ($purge -ne 'y') {
+                    throw "The site URL is occupied by a deleted site in the tenant recycle bin. Permanently delete it (Remove-PnPTenantDeletedSite) or choose a different requestsSiteName, then re-run."
+                }
+                Write-Host "Permanently deleting the site from the tenant recycle bin..." -ForegroundColor Yellow
+                Remove-PnPTenantDeletedSite -Identity $requestsSiteUrl -Force
+                Write-Host "Deleted." -ForegroundColor Green
+            }
+
+            # A soft-deleted M365 group with the same alias also blocks reuse - the
+            # mailNickname stays reserved until the group is permanently deleted from
+            # Entra ID (30-day retention). Best-effort check via Graph.
+            $deletedGroupJson = az rest --method get --url "https://graph.microsoft.com/v1.0/directory/deletedItems/microsoft.graph.group?`$filter=mailNickname eq '$requestsSiteAlias'&`$count=true" --headers "ConsistencyLevel=eventual" 2>$null
+            $deletedGroup = if ($deletedGroupJson) { @(($deletedGroupJson | ConvertFrom-Json).value) | Select-Object -First 1 } else { $null }
+            if ($null -ne $deletedGroup) {
+                Write-Host "A deleted Microsoft 365 group with alias '$requestsSiteAlias' ('$($deletedGroup.displayName)') exists in Entra ID - the alias stays reserved until the group is permanently deleted." -ForegroundColor Yellow
+                $purgeGroup = Read-Host "Permanently delete the group and continue? ( y / n = abort )"
+                if ($purgeGroup -ne 'y') {
+                    throw "The group alias '$requestsSiteAlias' is reserved by a soft-deleted Microsoft 365 group. Permanently delete it (Entra ID -> Groups -> Deleted groups) or choose a different requestsSiteName, then re-run."
+                }
+                Write-Host "Permanently deleting the group from Entra ID..." -ForegroundColor Yellow
+                az rest --method delete --url "https://graph.microsoft.com/v1.0/directory/deletedItems/$($deletedGroup.id)"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Could not permanently delete the soft-deleted group '$($deletedGroup.displayName)' ($($deletedGroup.id)). Delete it manually in Entra ID -> Groups -> Deleted groups, then re-run."
+                }
+                Write-Host "Deleted." -ForegroundColor Green
+            }
 
             New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
         
@@ -323,6 +356,7 @@ function CreateRequestsSharePointSite {
         }
     }
     catch {
+        RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
         throw('Failed to create the SharePoint site {0}', $_.Exception.Message)
     }
 }
@@ -694,6 +728,7 @@ function ConfigureSharePointSite {
 
     }
     catch {
+        RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
         throw('Failed to configure the SharePoint site {0}', $_.Exception.Message)
     }
 }
@@ -720,6 +755,7 @@ function UploadAssets {
         Write-Host "Uploaded files to Site Assets`n**BESTILLINGSPORTALEN SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
+        RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
         throw('Failed to upload assets {0}', $_.Exception.Message)
     }
 }
