@@ -997,13 +997,26 @@ function ValidateServiceAccount {
     }
     $script:serviceAccountDisplayName = $saUser.displayName
 
-    # Best-effort license check - assignedLicenses includes group-based assignments.
-    # Warning only: the exact license requirements are the customer's call.
+    # Best-effort license check - warning only: the exact license requirements
+    # are the customer's call.
     try {
-        $licenseInfo = az rest --method get --url "https://graph.microsoft.com/v1.0/users/$upn`?`$select=assignedLicenses" 2>$null | ConvertFrom-Json
-        if ($null -ne $licenseInfo -and @($licenseInfo.assignedLicenses).Count -eq 0) {
-            Write-Host "WARN: The service account has no licenses assigned. It needs SharePoint, Exchange Online and Teams licenses for the delegated API connections and notifications." -ForegroundColor Yellow
+        $licenseDetails = az rest --method get --url "https://graph.microsoft.com/v1.0/users/$upn/licenseDetails" 2>$null | ConvertFrom-Json
+        $servicePlans = @($licenseDetails.value.servicePlans.servicePlanName)
+        if ($servicePlans.Count -eq 0) {
+            Write-Host "WARN: The service account has no licenses assigned. It needs SharePoint, Exchange Online and Teams licenses for the delegated API connections and notifications, and seeded Power Automate for the approval flow." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
+            return
+        }
+        # The account must be able to own and activate the solution flow (guide step 5).
+        # Frontline plans (FLOW_O365_S1) and unprovisioned viral trials (FLOW_P2_VIRAL
+        # without _REAL) are not sufficient - seeded Power Automate from E1/E3/E5
+        # (FLOW_O365_P1/P2/P3) or a standalone/per-user Flow plan is required.
+        $flowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' -and $_ -notin @('FLOW_O365_S1', 'FLOW_P2_VIRAL') })
+        if ($flowPlans.Count -eq 0) {
+            $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
+            if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
+            Write-Host "WARN: The service account has no usable Power Automate plan (found: $foundFlowPlans). Importing and activating the approval flow (guide step 5) requires seeded Power Automate (E1/E3/E5) or a standalone Flow plan - frontline (F1/F3) licenses are not sufficient." -ForegroundColor Yellow
+            RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no usable Power Automate plan for the approval flow"
             return
         }
     }

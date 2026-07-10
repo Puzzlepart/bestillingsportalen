@@ -6,7 +6,7 @@ For å komme i gang trenger du:
 
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** (E1/E3/E5 har alt dette) — frontline-lisenser (F1/F3) er ikke tilstrekkelig til å eie og aktivere godkjenningsflyten i Steg 5.
 - Tjenestekonto for sensitivitetsmerke-funksjonalitet (anvendelse av sensitivitetsmerker), hvis du vil bruke funksjonaliteten. Kan være samme konto som over, men kontoen kan være forhindret fra å bruke MFA grunnet begrensninger i Microsoft Graph. Verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) da denne begrensningen kan ha blitt fjernet.
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
@@ -111,7 +111,7 @@ Beskrivelse av hver parameter:
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
-- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser. Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
+- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E1/E3/E5 — ikke F1/F3, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
@@ -182,7 +182,9 @@ De fire delegerte API-tilkoblingene må autoriseres interaktivt med **tjenesteko
 ./Authorize-ApiConnections.ps1
 ```
 
-Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede er `Connected`), åpner en samtykkelenke i nettleseren per tilkobling — **logg inn som tjenestekontoen**, ikke admin-kontoen din — og verifiserer at statusen blir `Connected` til slutt. Kan kjøres på nytt når som helst, f.eks. etter en oppgradering hvis en tilkobling står som `Error`.
+Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede er `Connected`), åpner en samtykkelenke i nettleseren per tilkobling — **logg inn som tjenestekontoen**, ikke admin-kontoen din — fanger opp samtykket og verifiserer at statusen blir `Connected` til slutt. Kan kjøres på nytt når som helst, f.eks. etter en oppgradering hvis en tilkobling står som `Error`.
+
+> Underveis viser Microsoft en advarsel om at «this connection was created from a different organization» med phishing-varsel. Det er forventet: samtykkelenken genereres av admin-sesjonen din, mens tjenestekontoen er den som samtykker. Huk av `I have verified this request and trust the source` og velg `Allow access`.
 
 **Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
@@ -291,6 +293,8 @@ Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjene
 > **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Solution-flyter er Dataverse-poster, og tjenestekontoen trenger en tilstrekkelig **sikkerhetsrolle i standardmiljøet** for å håndtere dem. Som Global Admin: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → gi tjenestekontoen rollen **System Customizer** (se skjermbilde). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
 >
 > ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
+>
+> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — er årsaken gjerne **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter (F1/F3 holder ikke, se forutsetningene). Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
 
 ## Steg 6: Dele flyt og SharePoint-område
 
