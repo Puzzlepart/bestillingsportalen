@@ -822,12 +822,11 @@ function ConfigureSharePointSite {
 
 function UploadFiles ($targetFolder, $sourcePath, $sourceFolder, $libraryName) {
     # Upload files into the folder
-    Get-ChildItem (Join-Path $sourcePath $sourceFolder) | 
-    Foreach-Object {
-        $file = $_.FullName
-        Add-PnPFile -Path $file -Folder $targetFolder | Out-Null
-        Write-Host "Uploaded $($_.Name) to $libraryName" -ForegroundColor Green
+    $files = Get-ChildItem (Join-Path $sourcePath $sourceFolder)
+    foreach ($file in $files) {
+        Add-PnPFile -Path $file.FullName -Folder $targetFolder | Out-Null
     }
+    Write-Host "Uploaded $($files.Count) files from $sourceFolder to $libraryName" -ForegroundColor Green
 }
 
 
@@ -839,7 +838,7 @@ function UploadAssets {
         UploadFiles  $imageFolderUpload $packageRootPath $imagesDir "Site Assets"
         UploadFiles  $iconFolderUpload $packageRootPath $iconsDir "Site Assets"
 
-        Write-Host "Uploaded files to Site Assets`n**BESTILLINGSPORTALEN SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
+        Write-Host "**BESTILLINGSPORTALEN SPO SITE CONFIGURATION COMPLETE**" -ForegroundColor Green
     }
     catch {
         RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
