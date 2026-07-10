@@ -2071,8 +2071,8 @@ WriteDeploymentReport
 
 Write-Host ""
 Write-Host "Remaining manual steps (see Deployment-guide.md):" -ForegroundColor Cyan
-Write-Host "  1. Authorise the delegated API connections (bestillingsportalen-spo / -o365 / -o365users / -teams) in the Azure Portal with the service account." -ForegroundColor Cyan
-Write-Host "  2. Activate and share the Power Automate flows." -ForegroundColor Cyan
+Write-Host "  1. Authorise the delegated API connections with the service account - run ./Authorize-ApiConnections.ps1 for a guided flow (generates consent links and verifies status), or use the Azure Portal." -ForegroundColor Cyan
+Write-Host "  2. Activate and share the Power Automate flows (must be done as the service account - cannot be automated)." -ForegroundColor Cyan
 Write-Host ""
 
 if ((GetFailedDeployComponents).Count -gt 0) {

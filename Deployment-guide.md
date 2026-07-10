@@ -174,13 +174,17 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 ### Autorisere API-tilkoblinger
 
-Skriptet oppretter flere API-tilkoblinger som må autoriseres manuelt.
-I Microsoft Azure Portal, gå til ressursgruppen som ble opprettet av skriptet.
+De fire delegerte API-tilkoblingene må autoriseres interaktivt med **tjenestekontoen**. Selve innloggingen kan ikke automatiseres (delegert OAuth krever at kontoen selv logger inn), men alt rundt er skriptet:
 
-1. Klikk på API-tilkoblingen med navnet `bestillingsportalen-o365`.
-2. Klikk `Edit API connection` i venstre meny.
-3. Klikk `Authorize`. Bruk tjenestekontoen for å autentisere.
-4. Gjenta handlingene for `bestillingsportalen-o365users`, `bestillingsportalen-spo` og `bestillingsportalen-teams` API-tilkoblinger.
+**Anbefalt: kjør hjelpeskriptet** fra `Scripts`-mappen (bruker az CLI-sesjonen fra deploy):
+
+```powershell
+./Authorize-ApiConnections.ps1
+```
+
+Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede er `Connected`), åpner en samtykkelenke i nettleseren per tilkobling — **logg inn som tjenestekontoen**, ikke admin-kontoen din — og verifiserer at statusen blir `Connected` til slutt. Kan kjøres på nytt når som helst, f.eks. etter en oppgradering hvis en tilkobling står som `Error`.
+
+**Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
 ### SPFx-løsninger (`InviteGuests`-webdel)
 
