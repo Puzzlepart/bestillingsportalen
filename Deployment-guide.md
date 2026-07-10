@@ -249,13 +249,25 @@ Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span st
 
 Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
 
-## Steg 5: Importere og aktivere `Provisioning Request Approval`-flyten
+## Steg 5: Importere og aktivere flytene
 
-> **Har miljøet flytene fra før?** Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de lever i Power Automate i tjenestekontoens miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede; i en **ny installasjon importeres de først** fra løsningspakken `Bestillingsportalen-Flows_unmanaged.zip` i [`Source/Flows/`](/Source/Flows/README.md): importer som tjenestekontoen via `Solutions` → `Import solution`, koble tilkoblingene, og fyll inn de fire environment variables (site-URL og listenavn) når importen spør. Pakken inneholder kun flytene.
+Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de lever i Power Automate i **tjenestekontoens** miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede (hopp da til aktiveringen nedenfor); i en ny installasjon importeres de først.
 
-**`Provisioning Request Approval`** er avslått som standard og må aktiveres.
+### Importere flytene
 
-Følg stegene for å aktivere den:
+Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (kun flytene — se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
+
+1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flytene skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
+2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
+3. Koble til/opprett tilkoblingene (SharePoint, Office 365 Groups, Approvals, Outlook, Teams) **som tjenestekontoen** når veiviseren ber om det.
+4. Fyll inn de fire **environment variables** når importen spør:
+   - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
+   - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
+5. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
+
+### Aktivere `Provisioning Request Approval`
+
+**`Provisioning Request Approval`** er avslått som standard og må aktiveres:
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
 2. Finn flyten **`Provisioning Request Approval`**.

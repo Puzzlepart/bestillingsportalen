@@ -1,31 +1,31 @@
-# Power Automate-flyter
+# Power Automate-flyter — pakken og vedlikeholdet
 
-Bestillingsportalen bruker to cloud-flyter som kjører i **tjenestekontoens** Power Automate-miljø (de er ikke en del av Azure-deployen):
+Denne mappen inneholder **`Bestillingsportalen-Flows_unmanaged.zip`** — Power Platform-løsningspakken med de to cloud-flytene løsningen bruker:
 
 | Flyt | Formål |
 |--|--|
 | Provisioning Request Approval | Godkjenningsprosessen — trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`. Se [Approval-flow.md](../../Approval-flow.md). |
 | Check Space Availability | Sjekker om et område/en bestilling med samme navn allerede finnes når brukeren fyller ut skjemaet. |
 
-## Distribusjon
+**Import og oppsett er beskrevet i [installasjonsveiledningens Steg 5](../../Deployment-guide.md)** — dette dokumentet handler om hvor pakken kommer fra og hvordan den vedlikeholdes.
 
-Flytene distribueres i **`Bestillingsportalen-Flows_unmanaged.zip`** (denne mappen) — en Power Platform-løsningspakke som inneholder de to flytene, de fem connection references (SharePoint, Office 365 Groups, Approvals, Outlook, Teams) og de fire environment variables flytene bruker (site-URL og listenavn).
+## Hvor pakken kommer fra
 
-Pakken er avledet fra upstream-prosjektets løsningspakke (`ProvisionAssist_2_0_0_8_unmanaged.zip` fra [pnp/provision-assist-m365](https://github.com/pnp/provision-assist-m365)), trimmet til kun flytene: upstream sin canvas-app (som Bestillingsportalen ikke bruker — SPFx-webdelen erstatter den) og de ni app-spesifikke environment variables er fjernet fra manifestet og pakken.
+Flytene stammer fra upstream-prosjektet [pnp/provision-assist-m365](https://github.com/pnp/provision-assist-m365), som distribuerer dem inne i sin Power Apps-løsningspakke (`Source/Power Apps/ProvisionAssist_<versjon>_unmanaged.zip`) sammen med canvas-appen sin. Bestillingsportalen bruker ikke appen (SPFx-webdelen erstatter den), så vår pakke er en **trimmet avledning** av upstream-pakken.
 
-Pakken er **unmanaged**, så flytene kan tilpasses fritt etter import. Har du et miljø med tilpassede flyter, kan du alternativt eksportere derfra (flyt → `Export` → `Package (.zip)`) og importere den pakken i det nye miljøet i stedet.
+### Regenerere pakken fra upstream (ved oppgradering av flytene)
 
-## Hvorfor importeres ikke flytene av installasjonsskriptet?
+1. Last ned nyeste `ProvisionAssist_<versjon>_unmanaged.zip` fra upstream-repoets `Source/Power Apps/`-mappe og pakk ut zip-en.
+2. **Fjern canvas-appen:**
+   - Slett `CanvasApps/`-mappen.
+   - Fjern `<RootComponent type="300" ... />`-linjen (appen) fra `solution.xml`.
+   - Tøm `<CanvasApps>`-elementet i `customizations.xml` (→ `<CanvasApps />`).
+   - Fjern `msapp`-Default- og CanvasApps-Override-deklarasjonene fra `[Content_Types].xml`.
+3. **Fjern ubrukte environment variables:** behold kun de flytene refererer (per i dag `msftprov_ProvisionAssistSPOSite`, `msftprov_ProvisioningRequestsList`, `msftprov_ProvisioningRequestSettingslist`, `msftprov_BusinessUnitsList` — verifiser mot `msftprov_`-referansene i `Workflows/*.json`), slett de øvrige mappene under `environmentvariabledefinitions/`.
+4. **Gi løsningen riktig identitet** i `solution.xml`: `<UniqueName>BestillingsportalenFlows</UniqueName>` og `LocalizedName description="Bestillingsportalen Flows"` (hindrer kollisjon med en ekte ProvisionAssist-løsning i samme miljø).
+5. Zip innholdet på nytt (mappestrukturen i rot av zip-en, framoverskråstreker i stier) som `Bestillingsportalen-Flows_unmanaged.zip`, verifiser at all XML fortsatt parser, og test importen i et dev-miljø før commit.
 
-Bevisst valg: importen må gjøres **som tjenestekontoen** (flytene skal eies av den), og tilkoblingene flytene bruker er delegert OAuth som tjenestekontoen uansett må samtykke til interaktivt. Skriptet kjører som administratoren — automatisering ville krevd identitetsbytte, en tung verktøykjede (`pac` CLI/Dataverse API + deployment settings) og fjernet ingenting av det interaktive. Import-veiviseren håndterer tilkoblinger og environment variables i samme seanse, og gjøres én gang per miljø (flytene overlever senere deploys/oppgraderinger).
+## Vedlikeholdsnotater
 
-## Importere (ny installasjon)
-
-1. Gå til `make.powerautomate.com` logget inn som **tjenestekontoen** (flytene skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
-2. Velg `Solutions` → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
-3. Koble til/opprett tilkoblingene (SharePoint, Office 365 Groups, Approvals, Outlook, Teams) **som tjenestekontoen** når du blir bedt om det.
-4. Fyll inn de fire **environment variables** når importen spør:
-   - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
-   - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
-5. Etter import: åpne løsningen «Bestillingsportalen Flows» og verifiser at begge flytene finnes.
-6. Fortsett med aktivering og deling — se installasjonsveiledningens Steg 5 og 6.
+- Pakken er **unmanaged** — flytene kan tilpasses fritt etter import. Tilpassede miljøer kan eksportere sine egne flyt-pakker (flyt → `Export` → `Package (.zip)`) og importere dem i nye miljøer i stedet for standardpakken.
+- Flytene importeres **ikke** av installasjonsskriptet — bevisst valg: importen må gjøres *som tjenestekontoen* (eierskap), tilkoblingene er delegert OAuth som tjenestekontoen uansett må samtykke til interaktivt, og verktøykjeden (`pac` CLI/Dataverse API) er tung for en engangsoperasjon per miljø. Flytene overlever alle senere deploys/oppgraderinger.
