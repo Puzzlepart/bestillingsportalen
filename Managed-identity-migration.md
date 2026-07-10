@@ -40,16 +40,7 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 
 ## Tillatelser
 
-### App-roller på user-assigned managed identity (tildeles av `deploy.ps1` / `AssignUamiPermissions`)
-
-| Ressurs | App-rolle |
-|--|--|
-| SharePoint | Sites.FullControl.All |
-| Microsoft Graph | Directory.Read.All, GroupSettings.ReadWrite.All, Group.ReadWrite.All, InformationProtectionPolicy.Read.All, Sites.Read.All, TeamTemplates.Read.All, Community.ReadWrite.All, User.Invite.All, User.ReadWrite.All |
-
-> Settet er minimert mot faktiske runtime-kall: `GroupSettings.ReadWrite.All` erstatter `Directory.ReadWrite.All` (eneste bruk var `POST /groups/{id}/settings`), og `Sites.Read.All` erstatter Graph `Sites.FullControl.All` (eneste bruk var lesekallene i `CheckSiteExists`). Se [Datatilgang og sikkerhet](Data-access-security.md) for kall-for-kall-begrunnelse.
-
-Se [Datatilgang og sikkerhet](Data-access-security.md) for begrunnelsen per tillatelse.
+App-rollene på den user-assigned managed identityen (9 Graph + 1 SharePoint) og Automation-kontoens system-assigned identity tildeles av `deploy.ps1` (`AssignUamiPermissions`/`AssignManagedIdentityPermissions`) og er dokumentert **kall-for-kall i [Datatilgang og sikkerhet](Data-access-security.md)** — den er kanonisk kilde for tillatelseslistene. Settet er minimert mot faktiske runtime-kall (bl.a. `GroupSettings.ReadWrite.All` i stedet for `Directory.ReadWrite.All`, og `Sites.Read.All` i stedet for Graph `Sites.FullControl.All`).
 
 ### Azure-tilganger (tildeles av `azureresources.bicep`)
 

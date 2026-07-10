@@ -163,6 +163,6 @@ Når en forespørsel får status "Space Creation Failed":
 
 ## Se også
 
-- [Architecture](Architecture.md) - Løsningsarkitektur
+- [Teknisk løsningsbeskrivelse](Teknisk-losningsbeskrivelse.md) - Løsningsarkitektur og komponenter
 - [Data Stores](Data-stores.md) - Informasjon om Provisioning Requests-listen
 - [Deployment Guide](Deployment-guide.md) - Deployment og konfigurasjon

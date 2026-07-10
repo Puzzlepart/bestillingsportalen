@@ -2,7 +2,7 @@
 
 Dette dokumentet gir en samlet teknisk beskrivelse av Bestillingsportalen: hvilke komponenter som settes opp og installeres, hvilke tilganger som kreves for å gjennomføre installasjonen, og hvilke tilganger løsningen bruker når den er i drift.
 
-Dokumentet er ment som et supplement til [Installasjonsveiledningen](./Deployment-guide.md), [Arkitektur](./Architecture.md) og [Datatilgang og sikkerhet](./Data-access-security.md), og kan brukes som underlag for sikkerhetsvurdering og godkjenning hos kunde før installasjon.
+Dokumentet er ment som et supplement til [Installasjonsveiledningen](./Deployment-guide.md) og [Datatilgang og sikkerhet](./Data-access-security.md), og kan brukes som underlag for sikkerhetsvurdering og godkjenning hos kunde før installasjon.
 
 > **Merk:** Beskrivelsen gjelder gjeldende versjon av løsningen, der Logic Apps autentiserer med **user-assigned managed identity**. Eldre installasjoner som bruker client secret/sertifikat må oppgraderes – se [Migrering til managed identity](./Managed-identity-migration.md).
 
@@ -26,6 +26,23 @@ graph TD
     N(InviteGuests SPFx-webdel) --> |Gjesteforespørsel| O[(SharePoint-liste: Guest Requests)]
     O --> P(Logic App: ProcessGuestRequest) --> Q(Logic App: ProcessGuests) --> I
     P --> R(Azure Automation: AddGuestToSite) --> M
+```
+
+Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve tenant-invitasjonen gi gjesten medlemskap i den koblede M365-gruppen og/eller en valgfri SharePoint-brukergruppe på selve siten:
+
+``` mermaid
+graph TD
+    A(InviteGuests SPFx-webdel) --> | Read M365 group status + SP groups | A2(Gjeldende SP-site)
+    A --> | Write item per guest with M365GroupRole, SPGroupAction, SPGroupName, SPPermissionLevel | B[("Guest Requests SharePoint-liste")]
+    B --> | When an item is created (1 min poll) | C(ProcessGuestRequest Logic App)
+    C --> | Workflow action | D(ProcessGuests Logic App)
+    D --> E(Microsoft Graph /invitations API) --> F(Guest user in Entra ID)
+    D --> | Status, GuestId, InviteRedeemUrl | B
+    C --> | After successful invite, with guest + group params | G(AddGuestToSite runbook)
+    G --> | Managed Identity | H(PnP PowerShell)
+    H --> | Add-PnPMicrosoft365GroupMember | I2(M365-gruppen på siten)
+    H --> | Add-PnPUserToGroup / New-PnPGroup | J2(SP-brukergruppe på siten)
+    A --> | DataGrid view filtered by SiteUrl | B
 ```
 
 Hovedprinsipper:
@@ -206,10 +223,8 @@ Etter managed identity-migreringen finnes det ingen roterende credentials for kj
 
 - [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon
 - [Migrering til managed identity](./Managed-identity-migration.md) – bakgrunn, tillatelser og oppgradering av eksisterende installasjoner
-- [Arkitektur](./Architecture.md) – arkitekturdiagrammer (provisjonering og gjesteinvitasjon)
 - [Datatilgang og sikkerhet](./Data-access-security.md) – detaljert tilgangsbeskrivelse
 - [Datalagre](./Data-stores.md) – alle SharePoint-lister og felter
 - [Godkjenningsflyt](./Approval-flow.md) – godkjenningsprosessen
 - [Oppgraderingsveiledning](./Upgrade.md) – oppgradering uten datatap
-- [Kostnadsestimater](./Cost-estimates.md) – estimert Azure-kostnad
 - [Fornye App Secret](./Refreshing-app-secret.md) – fornyelse av secret (kun sensitivitetsmerker)
