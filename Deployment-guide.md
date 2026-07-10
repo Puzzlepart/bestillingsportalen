@@ -259,22 +259,33 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flytene skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
 2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
-3. Koble til/opprett tilkoblingene (SharePoint, Office 365 Groups, Approvals, Outlook, Teams) **som tjenestekontoen** når veiviseren ber om det.
-4. Fyll inn de fire **environment variables** når importen spør:
+
+   ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
+
+3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**. Under `Avanserte innstillinger`, la **«Aktiver programtilleggstrinn og flyter som er inkludert i løsningen»** stå avkrysset — da aktiveres flytene automatisk ved import.
+
+   ![Import solution - detaljer](/Images/FlowImportDetails.png)
+
+4. Koble til/opprett de seks tilkoblingene (Teams, Approvals, Outlook, SharePoint, Office 365 Groups, pluss en ekstra SharePoint-tilkobling som kreves for miljøvariablene) **som tjenestekontoen**. Grønn hake betyr klar.
+
+   ![Import solution - tilkoblinger](/Images/FlowImportConnections.png)
+
+5. Fyll inn de fire **environment variables**:
    - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
    - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
 
+   ![Import solution - miljøvariabler](/Images/FlowImportEnvironmentVariables.png)
+
    > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
-5. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
+6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
 
-### Aktivere `Provisioning Request Approval`
+### Verifisere at `Provisioning Request Approval` er aktivert
 
-**`Provisioning Request Approval`** er avslått som standard og må aktiveres:
+Krysset du av «Aktiver … flyter …» i steg 3, er flytene allerede aktivert — verifiser (og aktiver manuelt hvis ikke):
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
 2. Finn flyten **`Provisioning Request Approval`**.
-3. Klikk på flyten.
-4. Klikk `Turn on` i toppmenyen.
+3. Klikk på flyten — står den som avslått, klikk `Turn on` i toppmenyen.
 
 ## Steg 6: Dele flyter og SharePoint-område
 
