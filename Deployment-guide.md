@@ -263,6 +263,8 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
 4. Fyll inn de fire **environment variables** når importen spør:
    - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
    - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
+
+   > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
 5. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
 
 ### Aktivere `Provisioning Request Approval`
