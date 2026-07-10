@@ -111,6 +111,7 @@ $saUsername = ""
 $saPassword = ""
 
 $automationAccountName = "bestillingsportalen-auto"
+$runtimeEnvironmentName = "bestillingsportalen-ps74" # Keep in sync with runbooks.bicep
 $uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in parameters.json if present
 
 # Solution version reported via the deployment pingback. Bump on release (keep in sync with CHANGELOG.md).
@@ -1358,7 +1359,34 @@ function DeployLocalRunbooks {
         RecordAzResult "Runbook content: $runbookName"
     }
 
-    Write-Host "Finished deploying runbooks (content published from Source/Runbooks/)" -ForegroundColor Green
+    # CustomerSpecific runbook: a customer extension point that ProcessProvisionRequest
+    # invokes right after ConfigureSpace, with the same parameters. Created ONCE with
+    # a default no-op content - and NEVER touched again by deploy/upgrade: the content
+    # is owned by the customer/consultant (edit in the portal or a customer repo).
+    az rest --method get --url "$runbookApiBase/CustomerSpecific?api-version=2024-10-23" --output none 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Creating CustomerSpecific runbook (customer extension point - deploys will never overwrite it)..." -ForegroundColor Yellow
+
+        $shellBodyPath = Join-Path ([System.IO.Path]::GetTempPath()) "bp-customerspecific-shell.json"
+        @{ location = $global:location; properties = @{ runbookType = 'PowerShell'; runtimeEnvironment = $runtimeEnvironmentName; logVerbose = $true; logProgress = $true; draft = @{} } } | ConvertTo-Json -Depth 4 | Set-Content $shellBodyPath
+
+        az rest --method put --url "$runbookApiBase/CustomerSpecific?api-version=2024-10-23" --headers "Content-Type=application/json" --body "@$shellBodyPath" --output none
+        if ($LASTEXITCODE -eq 0) {
+            $customerScriptPath = (Resolve-Path (Join-Path $packageRootPath "Runbooks/CustomerSpecific.ps1")).Path
+            az rest --method put --url "$runbookApiBase/CustomerSpecific/draft/content?api-version=2024-10-23" --headers "Content-Type=text/powershell" --body "@$customerScriptPath" --output none
+        }
+        if ($LASTEXITCODE -eq 0) {
+            az rest --method post --url "$runbookApiBase/CustomerSpecific/publish?api-version=2024-10-23" --output none
+        }
+        RecordAzResult "Runbook: CustomerSpecific (created with default content)"
+        Remove-Item $shellBodyPath -ErrorAction SilentlyContinue
+    }
+    else {
+        Write-Host "CustomerSpecific runbook already exists - leaving it untouched (customer-owned content)." -ForegroundColor Gray
+        RecordDeployStatus -Component "Runbook: CustomerSpecific" -Status 'OK' -Detail 'Existing customer-owned content preserved'
+    }
+
+    Write-Host "Finished deploying runbooks (content published from Source/Runbooks/; CustomerSpecific is customer-owned)" -ForegroundColor Green
 }
 
 function DeployUpgradeLogicApp {

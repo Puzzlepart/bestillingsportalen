@@ -2168,6 +2168,69 @@
                                 }
                             }
                         },
+                        "Run_CustomerSpecific_runbook": {
+                            "runAfter": {
+                                "Configure_space": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "description": "Customer extension point - runs the CustomerSpecific runbook (created once by deploy.ps1, never overwritten) with the same context as ConfigureSpace.",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "properties": {
+                                        "parameters": {
+                                            "groupId": "@variables('GroupID')",
+                                            "members": "@{outputs('Create_Members_string')}",
+                                            "owners": "@{outputs('Create_Owners_string')}",
+                                            "retentionLabel": "@triggerBody()?['RetentionLabelName']",
+                                            "sensitivityLabel": "@{triggerBody()?['SensitivityLabelId']}",
+                                            "sensitivityLabelLibrary": "@{triggerBody()?['SensitivityLabelLibraryId']}",
+                                            "siteUrl": "@triggerBody()?['SiteURL']",
+                                            "timeZoneId": "@{triggerBody()?['TimeZoneId']}",
+                                            "visitors": "@{outputs('Create_Visitors_string')}",
+                                            "applyPnPTemplate": "@{triggerBody()?['ApplyPnPTemplate']}",
+                                            "classification": "@triggerBody()?['Classification']",
+                                            "defaultExternalSharingSetting": "@variables('DefaultExternalSharingSetting')",
+                                            "disableDocSync": "@variables('DisableDocumentSync')",
+                                            "enableAllowAccessRequests": "@variables('EnableAllowAccessRequests')",
+                                            "externalSharing": "@triggerBody()?['ExternalSharingRequired']",
+                                            "featuresToActivate": "@variables('FeaturesToActivate')",
+                                            "hubSiteId": "@triggerBody()?['HubSite']",
+                                            "joinHub": "@{triggerBody()?['JoinHub']}",
+                                            "lcid": "@{triggerBody()?['LCID']}",
+                                            "pnpTemplateUrl": "@triggerBody()?['PnPTemplateURL']",
+                                            "siteTemplateTitle": "@triggerBody()?['SiteTemplateTitle']",
+                                            "spaceType": "@triggerBody()?['SpaceType']?['Value']",
+                                            "spaceTypeInternal": "@triggerBody()?['SpaceTypeInternal']",
+                                            "storageQuota": "@variables('StorageQuota')",
+                                            "storageQuotaWarning": "@variables('StorageQuotaWarning')",
+                                            "syncHubPermissions": "@variables('SyncHubPermissions')",
+                                            "themeName": "@triggerBody()?['ThemeName']",
+                                            "visibility": "@triggerBody()?['Visibility']?['Value']",
+                                            "siteDesignId": "@triggerBody()?['SiteTemplate']",
+                                            "internalChannel": "@triggerBody()?['InternalChannel']",
+                                            "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
+                                            "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
+                                            "metadata": "@variables('Metadata')",
+                                            "parentSiteUrl": "@triggerBody()?['ParentSite']"
+                                        }
+                                    }
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                    }
+                                },
+                                "method": "PUT",
+                                "path": "[concat('/subscriptions/@{encodeURIComponent(''',parameters('subscriptionId'),''')}/resourceGroups/@{encodeURIComponent(''',parameters('resourceGroupName'),''')}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(''',parameters('automationAccountName'),''')}/jobs')]",
+                                "queries": {
+                                    "runbookName": "CustomerSpecific",
+                                    "wait": true,
+                                    "x-ms-api-version": "2015-10-31"
+                                }
+                            }
+                        },
                         "Create_Members_string": {
                             "runAfter": {
                                 "Create_Owners_string": [

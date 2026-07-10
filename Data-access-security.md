@@ -44,7 +44,7 @@ App-roller tildelt den user-assigned managed identityen:
 
 ### Systemtildelt managed identity (Azure Automation)
 
-App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite` og `GetSiteTemplates` (PnP PowerShell `-ManagedIdentity`):
+App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSpecific` (kundeeid utvidelsespunkt) via PnP PowerShell `-ManagedIdentity`:
 
 | API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
