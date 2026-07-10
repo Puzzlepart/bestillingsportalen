@@ -51,6 +51,10 @@ Se våre [retningslinjer for bidrag](/CONTRIBUTING.md) for hvordan du kan bidra.
 
 Hvis du ønsker å bli involvert i å videreutvikle Bestillingsportalen – enten det er å foreslå ny funksjonalitet, oppdatere dokumentasjonen eller fikse bugs – vil vi gjerne høre fra deg.
 
+## Lisens
+
+Bestillingsportalen er lisensiert under [MIT-lisensen](/LICENSE) © SoftwareOne. Løsningen er basert på [Provision Assist](https://github.com/pnp/provision-assist-m365) fra Microsoft 365 & Power Platform Community (PnP), også MIT-lisensiert – opphavsnotisen deres er beholdt i lisensfila.
+
 ---
 
 | [Teknisk løsningsbeskrivelse](/Teknisk-losningsbeskrivelse.md) | [Installasjonsveiledning](/Deployment-guide.md) | [Oppgraderingsveiledning](/Upgrade.md) | [Managed identity](/Managed-identity-migration.md) | [Datalagre](/Data-stores.md) | [Datatilgang og sikkerhet](/Data-access-security.md) | [Navnekonvensjoner](/Naming-conventions.md) | [Forretningsenheter](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivitetsmerker](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Oppbevaringsmerker](/Retention-labels.md) | [Godkjenningsflyt](/Approval-flow.md) | [Regionale innstillinger](/Regional-settings.md) | [Fornye App Secret](/Refreshing-app-secret.md) | [Feilhåndtering](/Error-handling.md) |

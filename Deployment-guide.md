@@ -89,7 +89,7 @@ Beskrivelse av hver parameter:
 
 - `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `puzzlepart`.
 
-- `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `puzzlepart.onmicrosoft.com`.
+- `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `contoso.onmicrosoft.com`.
 
 - `requestsSiteName` – Navn på SharePoint-området som skal lagre bestillinger (URL/alias genereres automatisk). Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
 
