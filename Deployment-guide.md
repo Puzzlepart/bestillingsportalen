@@ -157,7 +157,9 @@ Etter at alle innloggingene er fullført — men **før noe opprettes eller endr
 
 Hvis du aktiverer sensitivitetsmerke-funksjonaliteten, vises en dialog som ber om passordet for tjenestekontoen. Fullfør dialogen.
 
-På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
+På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`, etterfulgt av de gjenstående manuelle stegene med henvisning til riktig steg i denne veiledningen. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
+
+![Deployment summary etter vellykket kjøring](/Images/InstallationSuccess.png)
 
 - Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
 - Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
