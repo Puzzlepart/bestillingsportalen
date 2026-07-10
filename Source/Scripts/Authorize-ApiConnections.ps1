@@ -12,7 +12,9 @@
       1. Checks the status of each connection (skips the ones already Connected).
       2. Generates a consent link via the ARM listConsentLinks API and opens it in
          the browser - sign in AS THE SERVICE ACCOUNT and complete the consent.
-      3. Re-checks and reports the final status of all four connections.
+      3. Captures the consent code on a local listener (http://localhost:8155/)
+         and completes the authorisation via the ARM confirmConsentCode API.
+      4. Re-checks and reports the final status of all four connections.
 
     Run it after deploy.ps1, signed in to the Azure CLI with access to the resource
     group (deploy.ps1 leaves you signed in). Re-run it any time - for example after
@@ -56,6 +58,7 @@ if ([string]::IsNullOrEmpty($SubscriptionId)) {
 
 $connections = @('bestillingsportalen-o365', 'bestillingsportalen-o365users', 'bestillingsportalen-spo', 'bestillingsportalen-teams')
 $apiVersion = "2016-06-01"
+$redirectUrl = "http://localhost:8155/"
 
 function Get-ConnectionStatus([string]$Name) {
     $json = az rest --method get --url "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/connections/$Name`?api-version=$apiVersion" 2>$null
@@ -80,7 +83,7 @@ foreach ($connection in $connections) {
 
     Write-Host "[$connection] Status: $status - generating consent link..." -ForegroundColor Yellow
     $bodyPath = Join-Path ([System.IO.Path]::GetTempPath()) "bp-consent-body.json"
-    '{"parameters":[{"parameterName":"token","redirectUrl":"https://ema1.exp.azure.com/ema/default/authredirect"}]}' | Set-Content $bodyPath
+    "{""parameters"":[{""parameterName"":""token"",""redirectUrl"":""$redirectUrl""}]}" | Set-Content $bodyPath
     $consentJson = az rest --method post --url "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/connections/$connection/listConsentLinks?api-version=$apiVersion" --headers "Content-Type=application/json" --body "@$bodyPath" 2>$null
     Remove-Item $bodyPath -ErrorAction SilentlyContinue
 
@@ -90,16 +93,61 @@ foreach ($connection in $connections) {
         continue
     }
 
+    $listener = $null
+    try {
+        $listener = [System.Net.HttpListener]::new()
+        $listener.Prefixes.Add($redirectUrl)
+        $listener.Start()
+    }
+    catch {
+        Write-Host "[$connection] Could not listen on $redirectUrl ($($_.Exception.Message)) - close whatever is using the port and re-run." -ForegroundColor Red
+        if ($listener) { $listener.Close() }
+        continue
+    }
+
     Write-Host "[$connection] Opening the consent link in your browser - sign in as the service account and complete the consent." -ForegroundColor Yellow
     Start-Process $consentLink
-    Read-Host "Press Enter here when the consent for $connection is completed"
 
-    $status = Get-ConnectionStatus $connection
+    # Wait for the consent redirect to hit the local listener and capture the code.
+    $consentCode = $null
+    $deadline = [DateTime]::UtcNow.AddMinutes(5)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $contextTask = $listener.GetContextAsync()
+        $remaining = $deadline - [DateTime]::UtcNow
+        if (-not $contextTask.Wait([TimeSpan]::FromSeconds([Math]::Max(1, $remaining.TotalSeconds)))) { break }
+        $context = $contextTask.Result
+        $consentCode = $context.Request.QueryString["code"]
+        $message = if ($consentCode) { "Consent for $connection received - you can close this tab." } else { "No consent code in the request - waiting..." }
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes("<html><body style=""font-family:sans-serif""><h3>$message</h3></body></html>")
+        $context.Response.ContentType = "text/html"
+        $context.Response.OutputStream.Write($buffer, 0, $buffer.Length)
+        $context.Response.Close()
+        if ($consentCode) { break }
+    }
+    $listener.Close()
+
+    if ([string]::IsNullOrEmpty($consentCode)) {
+        Write-Host "[$connection] No consent code received within 5 minutes - re-run this script or authorise it in the Azure Portal." -ForegroundColor Yellow
+        continue
+    }
+
+    # Complete the authorisation server-side with the captured code.
+    $confirmPath = Join-Path ([System.IO.Path]::GetTempPath()) "bp-consent-confirm.json"
+    "{""code"":""$consentCode""}" | Set-Content $confirmPath
+    az rest --method post --url "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/connections/$connection/confirmConsentCode?api-version=$apiVersion" --headers "Content-Type=application/json" --body "@$confirmPath" --output none 2>$null
+    Remove-Item $confirmPath -ErrorAction SilentlyContinue
+
+    $status = $null
+    foreach ($delay in 1, 2, 3, 5) {
+        $status = Get-ConnectionStatus $connection
+        if ($status -eq 'Connected') { break }
+        Start-Sleep -Seconds $delay
+    }
     if ($status -eq 'Connected') {
         Write-Host "[$connection] Connected." -ForegroundColor Green
     }
     else {
-        Write-Host "[$connection] Still '$status' - it can take a few seconds to update, or the consent failed. Re-run this script or authorise it in the Azure Portal." -ForegroundColor Yellow
+        Write-Host "[$connection] Still '$status' - the consent may need a few more seconds, or it failed. Re-run this script or authorise it in the Azure Portal." -ForegroundColor Yellow
     }
 }
 
