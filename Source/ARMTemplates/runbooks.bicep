@@ -50,9 +50,11 @@ resource runtimeEnvironment 'Microsoft.Automation/automationAccounts/runtimeEnvi
 resource pnpPowerShellPackage 'Microsoft.Automation/automationAccounts/runtimeEnvironments/packages@2024-10-23' = {
   parent: runtimeEnvironment
   name: 'PnP.PowerShell'
-  location: location
   properties: {
     contentLink: {
+      // PowerShell Gallery's artifact storage - not an ARM environment endpoint,
+      // so the environment() function has no equivalent (linter false positive)
+      #disable-next-line no-hardcoded-env-urls
       uri: 'https://devopsgallerystorage.blob.core.windows.net/packages/pnp.powershell.3.2.0.nupkg'
       version: '3.2.0'
     }
