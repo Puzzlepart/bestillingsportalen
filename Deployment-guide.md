@@ -382,3 +382,12 @@ Hvis du ikke ønsker å bruke den innebygde Power Automate-godkjenningsprosessen
 For å aktivere, gå til innstillingslisten, rediger listeelementet `EnableAutoApproval` og sett `Value`-kolonnen til `true`.
 
 Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams app, settes statusen til `Approved`. Godkjenningsflyten kjører da ikke, og provisjoneringsprosessen starter umiddelbart.
+
+## Merknad: Bestillings-webdelen distribueres separat
+
+Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår ikke i dette repoet — per i dag følger den **Prosjektportalen**-leveransen. Etter at den er tilgjengelig i tenanten:
+
+1. Legg webdelen inn manuelt på en SharePoint-side der brukerne skal bestille.
+2. Sett URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`) slik at bestillingene skrives til riktige lister.
+
+Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 6) før de kan bestille.
