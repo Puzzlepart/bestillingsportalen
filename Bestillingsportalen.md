@@ -116,9 +116,7 @@ Steg 2 — to uavhengige tilføyelser basert på Guest Request-feltene:
    - `AddToExisting`: `Get-PnPGroup -Identity <SPGroupName>` + `Add-PnPGroupMember -LoginName <ensuredLoginName> -Identity <group>`
    - `CreateNew`: `New-PnPGroup` + `Set-PnPGroupPermissions -AddRole <SPPermissionLevel>` + `Add-PnPGroupMember`
 
-Runbook-ressursen opprettes via [Source/ARMTemplates/runbooks.bicep](Source/ARMTemplates/runbooks.bicep) (egen Bicep-fil kun for runbooks som "eies" av dette repoet — i motsetning til `ConfigureSpace`/`GetSiteTemplates` som ligger i `azureresources.bicep` og pulles fra `pnp/provision-assist-m365`). `runbooks.bicep` deployes ALLTID av `deploy.ps1`, også når `-SkipBicepDeploy` brukes i upgrade-mode, slik at nye runbooks får opprettet ressursen sin.
-
-Foreløpig peker `uri` på `pnp/provision-assist-m365`s `ConfigureSpace.ps1` som placeholder — etter første deploy må man åpne Azure Portal → Automation Account → Runbooks → `AddGuestToSite` → Edit og lime inn innholdet fra [Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1). Senere re-deploys beholder manuelt-limt innhold så lenge `version` i `runbooks.bicep` er uendret. Når dette repoet blir public, oppdateres `uri` til vår egen raw URL og `version` bumpes for å tvinge re-import.
+Runbook-ressursen opprettes via [Source/ARMTemplates/runbooks.bicep](Source/ARMTemplates/runbooks.bicep) (som nå eier alle tre runbookene og PowerShell 7.4-runtime-miljøet). `runbooks.bicep` deployes ALLTID av `deploy.ps1`, også når `-SkipBicepDeploy` brukes i upgrade-mode — og runbook-INNHOLDET lastes opp direkte fra [Source/Runbooks/](Source/Runbooks/) og publiseres av skriptet via management-APIet. Innholdet er dermed alltid i sync med repoet; endringer gjort direkte i Azure Portal overskrives ved neste deploy/upgrade.
 
 ## SPFx-løsninger
 

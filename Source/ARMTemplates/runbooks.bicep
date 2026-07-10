@@ -7,15 +7,12 @@
 // alone in upgrade mode without re-running the full azureresources stack (key
 // vault, automation account, API connections, etc.).
 //
-// PLACEHOLDER URIs: until this repo is public, upstream pnp/provision-assist-m365
-// content is used just so each runbook resource can be provisioned. After the
-// first deploy you MUST open Azure Portal -> Automation Account -> Runbooks and
-// paste the real contents from Source/Runbooks/ into ConfigureSpace and
-// AddGuestToSite (see the Deployment guide, step 6a). GetSiteTemplates is
-// identical to upstream and needs no paste. Once this repo is public, change each
-// `uri` to point to our raw URL and bump `version` to force re-import on next
-// deploy - existing manually-pasted content is preserved on re-deploy as long as
-// the version is unchanged.
+// The runbooks are created here as empty shells (draft) - deploy.ps1 uploads the
+// actual content from Source/Runbooks/ via the management API right after this
+// template is deployed, and publishes each runbook. No manual paste step, and the
+// content is always in sync with the repo (NOTE: this also means portal-side edits
+// to the runbooks are overwritten on every deploy/upgrade - customisations belong
+// in the repo).
 
 @description('Name of the existing Azure Automation Account')
 param automationAccountName string
@@ -70,10 +67,7 @@ resource configureSpaceRunbook 'Microsoft.Automation/automationAccounts/runbooks
     logProgress: true
     runbookType: 'PowerShell'
     runtimeEnvironment: runtimeEnvironment.name
-    publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/ConfigureSpace.ps1'
-      version: '1.0.0.0'
-    }
+    draft: {}
   }
   dependsOn: [
     pnpPowerShellPackage
@@ -89,10 +83,7 @@ resource getSiteTemplatesRunbook 'Microsoft.Automation/automationAccounts/runboo
     logProgress: true
     runbookType: 'PowerShell'
     runtimeEnvironment: runtimeEnvironment.name
-    publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/GetSiteTemplates.ps1'
-      version: '1.0.0.0'
-    }
+    draft: {}
   }
   dependsOn: [
     pnpPowerShellPackage
@@ -108,10 +99,7 @@ resource addGuestToSiteRunbook 'Microsoft.Automation/automationAccounts/runbooks
     logProgress: true
     runbookType: 'PowerShell'
     runtimeEnvironment: runtimeEnvironment.name
-    publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/pnp/provision-assist-m365/main/Source/Runbooks/ConfigureSpace.ps1'
-      version: '1.0.0.0'
-    }
+    draft: {}
   }
   dependsOn: [
     pnpPowerShellPackage

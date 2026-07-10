@@ -260,17 +260,6 @@ Følg stegene for å aktivere den:
 
 Før Bestillingsportalen kan rulles ut, må flytene og SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
 
-### Steg 6a (midlertidig): Overskriv runbookene `ConfigureSpace` og `AddGuestToSite`
-
-Under installasjonen hentes runbook-innholdet fra et offentlig repo (plassholder til dette repoet er offentlig), og **begge** disse runbookene MÅ erstattes med versjonene i dette repoet før løsningen tas i bruk:
-
-- **`ConfigureSpace`** – [Source/Runbooks/ConfigureSpace.ps1](/Source/Runbooks/ConfigureSpace.ps1)
-- **`AddGuestToSite`** – [Source/Runbooks/AddGuestToSite.ps1](/Source/Runbooks/AddGuestToSite.ps1). Merk: denne deployes med `ConfigureSpace`-innhold som plassholder – uten innliming vil hele gjesteinvitasjonsflyten kjøre feil skript.
-
-For hver runbook: Azure Portal → Automation-kontoen `bestillingsportalen-auto` → `Runbooks` → velg runbooken → `Edit` → lim inn innholdet fra filen over → `Publish`.
-
-(`GetSiteTemplates`-runbooken er identisk med upstream-versjonen og trenger ikke å erstattes.)
-
 ### Flyter
 
 Del flytene som brukes av Bestillingsportalen med administratorer som ønsker å se flyt-kjøringer eller redigere flytene. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer. Gjenta stegene for hver flyt.

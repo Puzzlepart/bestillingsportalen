@@ -44,14 +44,11 @@ Bruk oppgraderingsmodus når du vil:
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
-3. **Runbooks (lokale)** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
-   - Nye runbook-RESSURSER opprettes (f.eks. `AddGuestToSite` i 1.11.0)
-   - Eksisterende runbook-INNHOLD oppdateres bare hvis `publishContentLink.version` er bumpet i `runbooks.bicep`
-   - **Manuell paste for `AddGuestToSite`**: Bicep-templaten har foreløpig en placeholder-URI (ConfigureSpace.ps1) inntil dette repoet blir public. Etter førstegangs deploy må du åpne Azure Portal → Automation Account → Runbooks → `AddGuestToSite` → Edit, lime inn innhold fra [Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1), og publisere. Senere upgrade-runs beholder den manuelt-limte koden så lenge `version` ikke bumpes.
+3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
+   - Alle tre runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
+   - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
 
-4. **Upstream runbooks** (`ConfigureSpace`, `GetSiteTemplates`) — bare hvis `azureresources.bicep` deployes (IKKE med `-SkipBicepDeploy`)
-
-5. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
+4. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
    - `npm install` (kun ved første gang / hvis `node_modules` mangler) + `npm run build`
    - `.sppkg` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`
@@ -198,7 +195,7 @@ Skriptet vil:
 3. **Prompt om PnP-mal** – Hvis området finnes, spør om template skal anvendes (se «Den interaktive prompten» over)
 4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen UTEN å endre listedata
 5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
-6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2) og flytter runbookene dit. **Verifiser runbook-innholdet etterpå** — re-importeres runbookene fra plassholder-URI-ene, må innholdet i `ConfigureSpace` og `AddGuestToSite` limes inn på nytt fra `Source/Runbooks/`.
+6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2), og runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres automatisk.
 7. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
 8. **Bygge og publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Kjør `npm install`/`npm run build` og last opp `.sppkg` til tenant app-katalog
 9. **Fullføre** – Vise deployment summary

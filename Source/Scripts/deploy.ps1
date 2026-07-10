@@ -1057,7 +1057,7 @@ function ConfirmDeployment {
     WritePlanLine "SharePoint site" "$requestsSiteUrl (prompts before overwriting an existing site)" $SkipSharepointSite
     WritePlanLine "Azure resources" "Key Vault '$($parameters.keyVaultName.Value)', Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
     WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
-    WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (manual content paste required afterwards)"
+    WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
     if ($global:upgrade) {
         WritePlanLine "Logic Apps" "ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
     }
@@ -1333,8 +1333,32 @@ function DeployLocalRunbooks {
     Write-Host "Deploying runbooks + PowerShell 7.4 runtime environment (runbooks.bicep)..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)" --output none
     RecordAzResult "Runbooks + runtime environment (runbooks.bicep)"
-    Write-Host "Finished deploying runbooks" -ForegroundColor Green
-    Write-Host "NB: ConfigureSpace and AddGuestToSite use placeholder URIs (upstream content) until this repo is public. If these runbooks were just created or re-imported, open Azure Portal -> Automation Account -> Runbooks, paste the contents from Source/Runbooks/ (ConfigureSpace.ps1 / AddGuestToSite.ps1) and publish - see the Deployment guide, step 6a. Existing manually-pasted content is preserved on re-deploy as long as the version in runbooks.bicep is unchanged, but verify it after the PowerShell 7.4 runtime migration." -ForegroundColor Cyan
+
+    # Upload the runbook content directly from the repo and publish. The bicep
+    # template only creates empty runbook shells (publishContentLink would require a
+    # publicly reachable URI, and this repo is private) - the content lives in
+    # Source/Runbooks/ right next to this script, so push it via the management API.
+    # This keeps the deployed content in sync with the repo on every run: portal-side
+    # edits are overwritten on deploy/upgrade - customisations belong in the repo.
+    $runbookApiBase = "https://management.azure.com/subscriptions/$($parameters.subscriptionId.Value)/resourceGroups/$($parameters.resourceGroupName.Value)/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks"
+    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite')) {
+        $runbookScript = Join-Path $packageRootPath "Runbooks/$runbookName.ps1"
+        if (-not (Test-Path $runbookScript)) {
+            RecordDeployStatus -Component "Runbook content: $runbookName" -Status 'FAILED' -Detail "Source file not found: $runbookScript"
+            Write-Host "Runbook source $runbookScript not found - skipping content upload for $runbookName." -ForegroundColor Red
+            continue
+        }
+
+        Write-Host "Publishing runbook content from repo: $runbookName..." -ForegroundColor Yellow
+        $runbookScriptPath = (Resolve-Path $runbookScript).Path
+        az rest --method put --url "$runbookApiBase/$runbookName/draft/content?api-version=2024-10-23" --headers "Content-Type=text/powershell" --body "@$runbookScriptPath" --output none
+        if ($LASTEXITCODE -eq 0) {
+            az rest --method post --url "$runbookApiBase/$runbookName/publish?api-version=2024-10-23" --output none
+        }
+        RecordAzResult "Runbook content: $runbookName"
+    }
+
+    Write-Host "Finished deploying runbooks (content published from Source/Runbooks/)" -ForegroundColor Green
 }
 
 function DeployUpgradeLogicApp {
@@ -2020,8 +2044,7 @@ WriteDeploymentReport
 Write-Host ""
 Write-Host "Remaining manual steps (see Deployment-guide.md):" -ForegroundColor Cyan
 Write-Host "  1. Authorise the delegated API connections (bestillingsportalen-spo / -o365 / -o365users / -teams) in the Azure Portal with the service account." -ForegroundColor Cyan
-Write-Host "  2. Paste the contents of Source/Runbooks/ConfigureSpace.ps1 and Source/Runbooks/AddGuestToSite.ps1 into the corresponding runbooks and publish (step 6a in the guide)." -ForegroundColor Cyan
-Write-Host "  3. Activate and share the Power Automate flows." -ForegroundColor Cyan
+Write-Host "  2. Activate and share the Power Automate flows." -ForegroundColor Cyan
 Write-Host ""
 
 if ((GetFailedDeployComponents).Count -gt 0) {
