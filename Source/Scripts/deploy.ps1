@@ -341,6 +341,52 @@ function CreateRequestsSharePointSite {
                 $purgePerformed = $true
             }
 
+            # An ACTIVE M365 group with the same alias also blocks creation. This is
+            # typically debris from a previous partially failed site-creation attempt:
+            # the group got created, but because the URL was blocked at the time, its
+            # site ended up on a different URL (e.g. .../Bestillingsportalen2) - and
+            # the cmdlet then crashed, leaving the group behind.
+            $activeGroupJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups?`$filter=mailNickname eq '$requestsSiteAlias'" 2>$null
+            $activeGroup = if ($activeGroupJson) { @(($activeGroupJson | ConvertFrom-Json).value) | Select-Object -First 1 } else { $null }
+            if ($null -ne $activeGroup) {
+                $groupSiteUrl = 'unknown'
+                $groupSiteJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$($activeGroup.id)/sites/root?`$select=webUrl" 2>$null
+                if ($groupSiteJson) { $groupSiteUrl = ($groupSiteJson | ConvertFrom-Json).webUrl }
+
+                Write-Host "An ACTIVE Microsoft 365 group with alias '$requestsSiteAlias' already exists: '$($activeGroup.displayName)', created $($activeGroup.createdDateTime), site: $groupSiteUrl." -ForegroundColor Yellow
+                Write-Host "This is typically left behind by a previous partially failed site-creation attempt (the site ended up on a different URL). Check that the group/site contains nothing of value before deleting." -ForegroundColor Yellow
+                $deleteGroup = Read-Host "PERMANENTLY delete this group (including its site) and continue? ( y / n = abort )"
+                if ($deleteGroup -ne 'y') {
+                    throw "The group alias '$requestsSiteAlias' is in use by an existing Microsoft 365 group ('$($activeGroup.displayName)', site: $groupSiteUrl). Delete it or choose a different requestsSiteName, then re-run."
+                }
+
+                Write-Host "Deleting the group..." -ForegroundColor Yellow
+                az rest --method delete --url "https://graph.microsoft.com/v1.0/groups/$($activeGroup.id)"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Could not delete the group '$($activeGroup.displayName)' ($($activeGroup.id)). Delete it manually (M365 admin -> Groups), then re-run."
+                }
+
+                # The delete above is a soft delete - purge it from deleted items too so
+                # the alias is actually released. The soft delete needs a moment to
+                # propagate, so retry the purge a few times.
+                $groupPurged = $false
+                for ($purgeAttempt = 1; $purgeAttempt -le 5; $purgeAttempt++) {
+                    Start-Sleep -Seconds 10
+                    az rest --method delete --url "https://graph.microsoft.com/v1.0/directory/deletedItems/$($activeGroup.id)" 2>$null
+                    if ($LASTEXITCODE -eq 0) {
+                        $groupPurged = $true
+                        break
+                    }
+                }
+                if ($groupPurged) {
+                    Write-Host "Group deleted and purged - the alias is being released." -ForegroundColor Green
+                }
+                else {
+                    Write-Host "Group deleted, but the permanent purge has not gone through yet - if site creation below fails, re-run the script (the soft-deleted group check will offer the purge again)." -ForegroundColor Yellow
+                }
+                $purgePerformed = $true
+            }
+
             # Permanent deletion of a site/group propagates asynchronously in SPO and
             # Entra ID. Until the URL is fully released, site creation fails with
             # "404 FILE NOT FOUND" - even when the site is gone from both the recycle
