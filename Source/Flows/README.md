@@ -23,7 +23,8 @@ Flytene stammer fra upstream-prosjektet [pnp/provision-assist-m365](https://gith
    - Fjern `msapp`-Default- og CanvasApps-Override-deklarasjonene fra `[Content_Types].xml`.
 3. **Fjern ubrukte environment variables:** behold kun de flytene refererer (per i dag `msftprov_ProvisionAssistSPOSite`, `msftprov_ProvisioningRequestsList`, `msftprov_ProvisioningRequestSettingslist`, `msftprov_BusinessUnitsList` — verifiser mot `msftprov_`-referansene i `Workflows/*.json`), slett de øvrige mappene under `environmentvariabledefinitions/`.
 4. **Gi løsningen riktig identitet** i `solution.xml`: `<UniqueName>BestillingsportalenFlows</UniqueName>` og `LocalizedName description="Bestillingsportalen Flows"` (hindrer kollisjon med en ekte ProvisionAssist-løsning i samme miljø).
-5. Zip innholdet på nytt (mappestrukturen i rot av zip-en, framoverskråstreker i stier) som `Bestillingsportalen-Flows_unmanaged.zip`, verifiser at all XML fortsatt parser, og test importen i et dev-miljø før commit.
+5. **Sett flytene i Draft-tilstand** i `customizations.xml`: endre `<StateCode>1</StateCode><StatusCode>2</StatusCode>` til `<StateCode>0</StateCode><StatusCode>1</StatusCode>` på begge `<Workflow>`-elementene (store bokstaver — små `statecode`/`statuscode`-elementer tilhører miljøvariablene og skal ikke røres). Upstream pakker flytene som «Aktivert», som tvinger importen til et aktiveringsforsøk som feiler med `FlowNotOriginalAuthor` — med Draft importerer pakken rent, og aktiveringen gjøres eksplisitt i installasjonsveiledningens Steg 5.
+6. Zip innholdet på nytt (mappestrukturen i rot av zip-en, framoverskråstreker i stier) som `Bestillingsportalen-Flows_unmanaged.zip`, verifiser at all XML fortsatt parser, og test importen i et dev-miljø før commit.
 
 ## Vedlikeholdsnotater
 

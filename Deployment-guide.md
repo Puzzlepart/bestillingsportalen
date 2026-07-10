@@ -262,7 +262,7 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
 
    ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
 
-3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. (Merk: den automatiske flyt-aktiveringen feiler erfaringsmessig med `FlowNotOriginalAuthor` — flytene importeres fint, men må slås på manuelt etterpå, se siste seksjon i dette steget.)
+3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. Flytene er pakket i Draft-tilstand og aktiveres uansett manuelt etter importen (siste seksjon i dette steget).
 
    ![Import solution - detaljer](/Images/FlowImportDetails.png)
 
@@ -281,15 +281,15 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
 
 ### Aktivere flytene
 
-Import-loggen viser typisk `0x80040216` / `FlowNotOriginalAuthor` på «Aktivering av arbeidsflyt» for begge flytene (og importen stopper på ~58 % fremdrift) — en kjent quirk: flyt-definisjonene bærer opprinnelig forfatter-metadata fra miljøet de ble bygget i, så importens auto-aktivering nektes. Flytene er importert helt fint, men står avslått. (Loggen kan også vise `0x80048026` om språketiketter for 1033 — ren kosmetikk, ignorer.)
-
-Slå på **begge** flytene manuelt som tjenestekontoen:
+Flytene importeres i avslått tilstand (Draft) og må slås på manuelt som tjenestekontoen:
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen og åpne løsningen **«Bestillingsportalen Flows»**.
 2. Klikk på **`Provisioning Request Approval`** → `Turn on` i toppmenyen.
 3. Gjenta for **`Check Space Availability`**.
 
-Når du slår dem på i eget navn, blir tjenestekontoen administrerende eier — feilen oppstår ikke igjen i dette miljøet.
+(Import-loggen kan vise `0x80048026` om språketiketter for språk 1033 — ren kosmetikk, ignorer.)
+
+> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Solution-flyter er Dataverse-poster, og tjenestekontoen trenger en tilstrekkelig **sikkerhetsrolle i standardmiljøet** for å håndtere dem. Som Global Admin: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → gi tjenestekontoen rollen **System Customizer**. Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
 
 ## Steg 6: Dele flyter og SharePoint-område
 
