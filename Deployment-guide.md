@@ -251,7 +251,7 @@ Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen
 
 ## Steg 5: Importere og aktivere `Provisioning Request Approval`-flyten
 
-> **Har miljøet flytene fra før?** Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de importeres i Power Automate i tjenestekontoens miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede; i en **ny installasjon må de importeres først** fra pakkene i [`Source/Flows/`](/Source/Flows/README.md) (se import-instruksjonene der: importer som tjenestekontoen, koble tilkoblingene, verifiser liste-referansene).
+> **Har miljøet flytene fra før?** Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de lever i Power Automate i tjenestekontoens miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede; i en **ny installasjon importeres de først** fra løsningspakken i [`Source/Flows/`](/Source/Flows/README.md): importer som tjenestekontoen via `Solutions` → `Import solution`, koble tilkoblingene, og fyll inn environment variables (site-URL og listenavn) når importen spør. Canvas-appen i pakken brukes ikke og kan ignoreres.
 
 **`Provisioning Request Approval`** er avslått som standard og må aktiveres.
 
