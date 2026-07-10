@@ -426,6 +426,21 @@ function CreateRequestsSharePointSite {
                 Write-Host "Template apply and list population will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
         }
+
+        # Group-connected sites only grant access through group membership, and the
+        # group owner is the SERVICE ACCOUNT (-Owners above) - not even the installing
+        # SharePoint admin can open the site. The rest of the install connects to the
+        # site AS the installing user (delegated auth) to apply the PnP template and
+        # configure lists, so grant them site collection admin via the tenant admin
+        # connection (works without site access for SharePoint admins). Additive - it
+        # does not remove existing admins.
+        if (-not [string]::IsNullOrEmpty($deployUser)) {
+            Write-Host "Granting the installing user ($deployUser) site collection admin on the site..." -ForegroundColor Yellow
+            Set-PnPTenantSite -Identity $requestsSiteUrl -Owners $deployUser
+        }
+        else {
+            Write-Host "WARN: Could not determine the installing user (az ad signed-in-user failed) - if the next step fails with access denied, grant yourself site collection admin on $requestsSiteUrl via the SharePoint admin center and re-run." -ForegroundColor Yellow
+        }
     }
     catch {
         RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
