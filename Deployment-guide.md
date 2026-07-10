@@ -249,7 +249,9 @@ Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span st
 
 Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
 
-## Steg 5: Aktivere `Provisioning Request Approval`-flyten
+## Steg 5: Importere og aktivere `Provisioning Request Approval`-flyten
+
+> **Har miljøet flytene fra før?** Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de importeres i Power Automate i tjenestekontoens miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede; i en **ny installasjon må de importeres først** fra pakkene i [`Source/Flows/`](/Source/Flows/README.md) (se import-instruksjonene der: importer som tjenestekontoen, koble tilkoblingene, verifiser liste-referansene).
 
 **`Provisioning Request Approval`** er avslått som standard og må aktiveres.
 
