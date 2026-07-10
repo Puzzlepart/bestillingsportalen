@@ -262,7 +262,7 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
 
    ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
 
-3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**. Under `Avanserte innstillinger`, la **«Aktiver programtilleggstrinn og flyter som er inkludert i løsningen»** stå avkrysset — da aktiveres flytene automatisk ved import.
+3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. (Merk: den automatiske flyt-aktiveringen feiler erfaringsmessig med `FlowNotOriginalAuthor` — flytene importeres fint, men må slås på manuelt etterpå, se siste seksjon i dette steget.)
 
    ![Import solution - detaljer](/Images/FlowImportDetails.png)
 
@@ -279,13 +279,17 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
    > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
 6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
 
-### Verifisere at `Provisioning Request Approval` er aktivert
+### Aktivere flytene
 
-Krysset du av «Aktiver … flyter …» i steg 3, er flytene allerede aktivert — verifiser (og aktiver manuelt hvis ikke):
+Import-loggen viser typisk `0x80040216` / `FlowNotOriginalAuthor` på «Aktivering av arbeidsflyt» for begge flytene (og importen stopper på ~58 % fremdrift) — en kjent quirk: flyt-definisjonene bærer opprinnelig forfatter-metadata fra miljøet de ble bygget i, så importens auto-aktivering nektes. Flytene er importert helt fint, men står avslått. (Loggen kan også vise `0x80048026` om språketiketter for 1033 — ren kosmetikk, ignorer.)
 
-1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
-2. Finn flyten **`Provisioning Request Approval`**.
-3. Klikk på flyten — står den som avslått, klikk `Turn on` i toppmenyen.
+Slå på **begge** flytene manuelt som tjenestekontoen:
+
+1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen og åpne løsningen **«Bestillingsportalen Flows»**.
+2. Klikk på **`Provisioning Request Approval`** → `Turn on` i toppmenyen.
+3. Gjenta for **`Check Space Availability`**.
+
+Når du slår dem på i eget navn, blir tjenestekontoen administrerende eier — feilen oppstår ikke igjen i dette miljøet.
 
 ## Steg 6: Dele flyter og SharePoint-område
 
