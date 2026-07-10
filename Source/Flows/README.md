@@ -15,6 +15,10 @@ Pakken er avledet fra upstream-prosjektets løsningspakke (`ProvisionAssist_2_0_
 
 Pakken er **unmanaged**, så flytene kan tilpasses fritt etter import. Har du et miljø med tilpassede flyter, kan du alternativt eksportere derfra (flyt → `Export` → `Package (.zip)`) og importere den pakken i det nye miljøet i stedet.
 
+## Hvorfor importeres ikke flytene av installasjonsskriptet?
+
+Bevisst valg: importen må gjøres **som tjenestekontoen** (flytene skal eies av den), og tilkoblingene flytene bruker er delegert OAuth som tjenestekontoen uansett må samtykke til interaktivt. Skriptet kjører som administratoren — automatisering ville krevd identitetsbytte, en tung verktøykjede (`pac` CLI/Dataverse API + deployment settings) og fjernet ingenting av det interaktive. Import-veiviseren håndterer tilkoblinger og environment variables i samme seanse, og gjøres én gang per miljø (flytene overlever senere deploys/oppgraderinger).
+
 ## Importere (ny installasjon)
 
 1. Gå til `make.powerautomate.com` logget inn som **tjenestekontoen** (flytene skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
