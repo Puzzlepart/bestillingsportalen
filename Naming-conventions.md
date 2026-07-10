@@ -4,7 +4,7 @@ Bestillingsportalen inkluderer muligheten til å definere navnekonvensjoner/poli
 
 Når en bruker bestiller via Bestillingsportalen webdel eller Teams app, anvendes navnekonvensjonen, og en forhåndsvisning av hvordan navnet blir seende ut i kombinasjon med tittelen brukeren har angitt vises (se `Space display name` nedenfor).
 
-![Naming conventions example screenshot](./images/NamingConventionsExample.png)
+![Naming conventions example screenshot](./Images/NamingConventionsExample.png)
 
 Navnekonvensjoner kan konfigureres på følgende nivåer:
 
@@ -37,7 +37,7 @@ Når et team opprettes med navnekonvensjon, vises det slik:
 
 Navnet og URL-en følger navnekonvensjonen:
 
-![SharePoint site naming convention screenshot](./images/SPOSiteNamingConvention.png)
+![SharePoint site naming convention screenshot](./Images/SPOSiteNamingConvention.png)
 
 Mellomrom i områdets tittel fjernes i URL-en til SharePoint-området.
 
@@ -47,19 +47,19 @@ Viva Engage-fellesskap oppfører seg på samme måte som et Teams-team. Visnings
 
 F.eks.: `VE_My Viva Engage Community_IT` (der `IT` er brukerens avdeling).
 
-![Viva Engage naming convention screenshot text](./images/VivaEngageNamingConvention.png)
+![Viva Engage naming convention screenshot text](./Images/VivaEngageNamingConvention.png)
 
 **Entra ID:**
 
 Gruppenavnet og e-postadressen i Entra ID matcher den spesifiserte navnekonvensjonen. Gruppenavnet beholder mellomrom, mens e-posten får disse fjernet automatisk.
 
-![Entra ID naming convention screenshot](./images/AADNamingConvention.png)
+![Entra ID naming convention screenshot](./Images/AADNamingConvention.png)
 
 ## Konfigurasjon
 
 For å aktivere funksjonaliteten MÅ verdien på innstillingen **`UseNamingConventions`** i `Provisioning Request Settings`-listen settes til `true`. Etter installasjon er denne satt til `false`.
 
-![Use naming convention setting screenshot](./images/UseNamingConventions.png)
+![Use naming convention setting screenshot](./Images/UseNamingConventions.png)
 
 ### Global navnekonvensjon
 
@@ -86,7 +86,7 @@ For alle andre felt: IKKE endre verdiene.
 
 _Merk – Hvis du bruker PrefixText OG et PrefixAttribute, legges teksten til slutten av attributtverdien. Dette er slik at du kan skille attributtene/teksten fra områdets tittel, f.eks. `HR_`. Det samme gjelder SuffixText og SuffixAttribute._
 
-![Naming convention configuration screenshot](./images/GlobalNamingConventionSetting.png)
+![Naming convention configuration screenshot](./Images/GlobalNamingConventionSetting.png)
 
 3. Lagre listeelementet.
 
@@ -124,7 +124,7 @@ For å sette en **navnekonvensjon for en områdetype**, følg stegene nedenfor:
 
 4. Lagre listeelementet.
 
-![Space type naming convention screenshot](./images/SpaceTypeNamingConvention.png)
+![Space type naming convention screenshot](./Images/SpaceTypeNamingConvention.png)
 
 En navnekonvensjon for områdetype er nå konfigurert for Communication Site. Når en bruker velger Communication Site, skal navnet se slik ut:
 
@@ -158,7 +158,7 @@ For å sette en **navnekonvensjon for en Teams-mal**, følg stegene nedenfor:
 
 4. Lagre listeelementet.
 
-![Teams template naming convention screenshot](./images/TeamsTemplateNamingConvention.png)
+![Teams template naming convention screenshot](./Images/TeamsTemplateNamingConvention.png)
 
 En navnekonvensjon er nå konfigurert for den valgte malen. Når et område bestilles og brukeren velger `Departmental` Teams-malen, skal navnet se slik ut:
 

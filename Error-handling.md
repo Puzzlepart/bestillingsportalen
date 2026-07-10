@@ -27,6 +27,8 @@ Følgende steg har automatisk feilhåndtering:
 9. **Store_expiration_date** - Lagring av utløpsdato
 10. **Configure_space** - Konfigurering via Azure Automation runbook
 
+> **Merk:** `Run_CustomerSpecific_runbook` (det kundeeide utvidelsespunktet som kjøres rett etter `Configure_space`) har ikke eget `Handle_Error`-scope — en feil *inne i* kundeskriptet gir Failed-status på Automation-jobben uten å sette bestillingen til «Space Creation Failed». Sjekk jobbhistorikken på `CustomerSpecific`-runbooken ved feilsøking av kundetilpasninger.
+
 ### Hvordan det fungerer
 
 For hvert steg over finnes det en tilhørende `Handle_Error_[StepName]` scope som:

@@ -18,11 +18,11 @@ Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du
 
 ### Hvordan ser dette ut?
 
-Sensitivitetsmerker hentes fra Purview via Microsoft Graph API. En Logic App kalt `SyncLabels` utfører synkroniseringen. Logic App-en er som standard satt til å kjøre daglig – dette kan endres ved behov.
+Sensitivitetsmerker hentes fra Purview via Microsoft Graph API. En Logic App kalt `SyncLabels` utfører synkroniseringen. Logic App-en er som standard satt til å kjøre ukentlig – dette kan endres ved behov.
 
 Merker lagres som listeelementer i en SharePoint-liste kalt `IP Labels` i SharePoint-området som står bak Bestillingsportalen.
 
-![IP labels list screenshot](./images/IPLabelsList.png)
+![IP labels list screenshot](./Images/IPLabelsList.png)
 
 For at et merke skal vises i Bestillingsportalen webdel eller Teams app, må `Enabled`-kolonnen være huket av. Denne kolonnen er lagt til fordi Graph API ikke tillater filtrering på merker som kan anvendes på Sites/Groups vs. Document/Email-merker, og den sikrer at brukere ikke velger feil type merke. Du kan se at det finnes document/email-merker i IP Labels-listen. Sørg for at disse ikke er markert som `Enabled`, og at kun merker som kan anvendes på områder eller grupper er aktivert.
 
@@ -47,11 +47,11 @@ Det finnes to måter å aktivere funksjonaliteten på:
 3. Gå til **Azure Portal > Key Vaults** og klikk på Key Vault-en for Bestillingsportalen-installasjonen din.
 4. Velg **`Secrets`** fra venstre panel.
 
-![Key vault secrets screenshot](./images/KeyVaultSecrets.png)
+![Key vault secrets screenshot](./Images/KeyVaultSecrets.png)
 
 5. Klikk **`Generate/Import`** og opprett følgende secret:
 
-![Generate secret screenshot](./images/KeyVaultGenerateSecret.png)
+![Generate secret screenshot](./Images/KeyVaultGenerateSecret.png)
 
 Name: `sausername`
 
@@ -59,7 +59,7 @@ Value: UPN for tjenestekontoen din
 
 Klikk `Create` når ferdig.
 
-![Create username secret screenshot](./images/KeyVaultUsernameSecret.png)
+![Create username secret screenshot](./Images/KeyVaultUsernameSecret.png)
 
 6. Gjenta steget over og opprett følgende secret:
 
@@ -70,7 +70,7 @@ Value: Passord for tjenestekontoen
 7. Finn Logic App-en **`SyncLabels`** i Azure Portal og klikk på den.
 8. Klikk **`Run Trigger > Run`** og vent til kjøringen fullfører.
 
-![Sync labels logic app screenshot](./images/SyncLabelsLA.png)
+![Sync labels logic app screenshot](./Images/SyncLabelsLA.png)
 
 9. Gå til listen **`IP Labels`** i SharePoint-området og valider at merkene er tilstede (se skjermbildet av IP Labels-listen øverst i dokumentet). Hvis det ikke finnes noen listeelementer, har **`SyncLabels`** Logic App-en feilet under kjøring. Sjekk kjørehistorikken til Logic App-en og undersøk eventuelle feil.
 
@@ -81,11 +81,11 @@ Når aktivert kan funksjonaliteten konfigureres slik:
 1. Hvis ikke allerede gjort, finn **`SyncLabels`** Logic App-en i Azure Portal og kjør den – **`Run Trigger > Run`**. Dette synkroniserer merkene inn i IP Labels-listen (se skjermbildet ovenfor).
 2. Aktiver noen merker som skal vises i Bestillingsportalen webdel eller Teams app ved å redigere listeelementene, sette **`Enabled`**-kolonnen til **`true`** og lagre elementene.
 
-![Enabling a label screenshot](./images/EnableIPLabel.png)
+![Enabling a label screenshot](./Images/EnableIPLabel.png)
 
 3. Angi et standardmerke (valgfritt) ved å sette verdien på listeelementet **`DefaultSensitivityLabel`** i listen **`Provisioning Request Settings`** til merkets ID (label id). ID-en må **nøyaktig** matche en gyldig `LabelId` fra IP Labels-listen. Du finner ID-en i kolonnen **`Label Id`**.
 
-![Set default label screenshot](./images/SetDefaultLabel.png)
+![Set default label screenshot](./Images/SetDefaultLabel.png)
 
 4. Velg om brukeren må velge et merke (valgfritt). Standardverdien er **`false`**, som betyr at brukeren ikke er tvunget til å velge et merke og kombinasjonsboksen kan stå tom. For å tvinge brukere til å velge et merke, sett verdien på listeelementet **`RequireSensitivityLabel`** til **`true`**.
 5. Funksjonaliteten er nå konfigurert. Når brukere starter Bestillingsportalen webdel eller Teams app for å bestille samarbeidsområder, vil de se sensitivitets-kombinasjonsboksen på «Datakategorisering»-steget (kun for `Microsoft Teams Team` eller `Office 365 Group`).

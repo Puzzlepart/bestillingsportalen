@@ -116,7 +116,7 @@ Steg 2 — to uavhengige tilføyelser basert på Guest Request-feltene:
    - `AddToExisting`: `Get-PnPGroup -Identity <SPGroupName>` + `Add-PnPGroupMember -LoginName <ensuredLoginName> -Identity <group>`
    - `CreateNew`: `New-PnPGroup` + `Set-PnPGroupPermissions -AddRole <SPPermissionLevel>` + `Add-PnPGroupMember`
 
-Runbook-ressursen opprettes via [Source/ARMTemplates/runbooks.bicep](Source/ARMTemplates/runbooks.bicep) (som nå eier alle tre runbookene og PowerShell 7.4-runtime-miljøet). `runbooks.bicep` deployes ALLTID av `deploy.ps1`, også når `-SkipBicepDeploy` brukes i upgrade-mode — og runbook-INNHOLDET lastes opp direkte fra [Source/Runbooks/](Source/Runbooks/) og publiseres av skriptet via management-APIet. Innholdet er dermed alltid i sync med repoet; endringer gjort direkte i Azure Portal overskrives ved neste deploy/upgrade.
+Runbook-ressursen opprettes via [Source/ARMTemplates/runbooks.bicep](Source/ARMTemplates/runbooks.bicep) (som eier de tre repo-eide runbookene og PowerShell 7.4-runtime-miljøet; `CustomerSpecific`-utvidelsespunktet opprettes separat av deploy.ps1 og overskrives aldri). `runbooks.bicep` deployes ALLTID av `deploy.ps1`, også når `-SkipBicepDeploy` brukes i upgrade-mode — og runbook-INNHOLDET lastes opp direkte fra [Source/Runbooks/](Source/Runbooks/) og publiseres av skriptet via management-APIet. Innholdet er dermed alltid i sync med repoet; endringer gjort direkte i Azure Portal overskrives ved neste deploy/upgrade.
 
 ## SPFx-løsninger
 

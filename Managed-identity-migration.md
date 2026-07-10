@@ -26,7 +26,7 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 
 Én delt **user-assigned managed identity** (`bestillingsportalen-uami`, konfigurerbar via `uamiName` i `parameters.json`) er koblet til alle ni Logic Apps og brukes til:
 
-- Alle HTTP-handlinger mot Microsoft Graph og SharePoint REST (37 handlinger).
+- Alle HTTP-handlinger mot Microsoft Graph og SharePoint REST.
 - `bestillingsportalen-kv`-API-tilkoblingen (Key Vault).
 - `bestillingsportalen-automation`-API-tilkoblingen (Azure Automation).
 
@@ -34,7 +34,7 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 
 - **Tjenestekontoen** beholdes for (a) interaktiv autorisering av de delegerte API-tilkoblingene (SPO, Outlook, O365 Users, Teams) og (b) ROPC-flyten for sensitivitetsmerker.
 - **Client secret-en** beholdes *kun* for ROPC-flyten og opprettes nå bare når `enableSensitivity` er `true`.
-- **Automation Account-ens system-assigned managed identity** (brukt av runbookene `ConfigureSpace`, `GetSiteTemplates` og `AddGuestToSite` via `Connect-PnPOnline -ManagedIdentity`) er uendret.
+- **Automation Account-ens system-assigned managed identity** (brukt av runbookene `ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite` og `CustomerSpecific` via `Connect-PnPOnline -ManagedIdentity`) er uendret.
 - **PnP-appen** for selve installasjonen (deploy-tid, ikke kjøretid) er uendret.
 - Key Vault beholdes for `appid`, `appSecret`, `sausername` og `sapassword` (alle kun relevante for sensitivitetsmerke-funksjonaliteten).
 
@@ -112,4 +112,3 @@ Alle malene er deklarative: redeploy forrige git-revisjon med den gamle `deploy.
 - **Designer-roundtrip:** Åpnes en Logic App i designeren og eksporteres tilbake til ARM-malene, blir `[variables('uamiId')]` til en hardkodet ressurs-ID. Behold ARM-uttrykkene ved manuell redigering av malene.
 - **Token-caching:** Managed identity-tokens caches (opptil ~24 t). Nye/endrede app-roller slår ikke inn umiddelbart.
 - **Graph-begrensningen for sensitivitetsmerker:** Sjekk jevnlig om `assignedLabels` har fått støtte for application permissions — da kan ROPC-flyten, tjenestekonto-secretene og client secret-en fjernes helt.
-- Runbook-`publishContentLink` i bicep peker fortsatt på upstream `pnp/provision-assist-m365` (eksisterende kjent begrensning, uavhengig av denne migreringen).

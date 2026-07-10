@@ -8,13 +8,15 @@ To lister i SharePoint-området brukes for å støtte denne funksjonaliteten:
 
 **Time Zones:**
 
-![Time zones list screenshot](./images/TimeZonesList.png)
+![Time zones list screenshot](./Images/TimeZonesList.png)
 
-Denne listen lagrer alle språk (LCID-er) som SharePoint Online støtter. Den brukes i Bestillingsportalen webdel eller Teams app for å la brukeren velge språk. Hvis du vil begrense hvilke språk en bruker kan velge, kan du slette elementer fra listen som ikke trengs.
+Denne listen lagrer alle tidssoner som SharePoint Online støtter. Den brukes i Bestillingsportalen webdel eller Teams app for å la brukeren velge tidssone. Hvis du vil begrense hvilke tidssoner en bruker kan velge, kan du slette elementer fra listen som ikke trengs.
 
 **Locales:**
 
-![Locales list screenshot](./images/LocalesList.png)
+![Locales list screenshot](./Images/LocalesList.png)
+
+Denne listen lagrer alle språk (LCID-er) som SharePoint Online støtter. Den brukes for å la brukeren velge språk for området. Hvis du vil begrense hvilke språk en bruker kan velge, kan du slette elementer fra listen som ikke trengs.
 
 **Brukervisning:**
 

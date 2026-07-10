@@ -32,12 +32,12 @@ Hovedprinsipper:
 
 - Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere** for kjernen av løsningen.
 - Eneste unntak er anvendelse av **sensitivitetsmerker**, som (grunnet en begrensning i Graph API) bruker delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Client secret og tjenestekonto-credentials for dette lagres i en dedikert Azure Key Vault (input/output skjules i kjørehistorikken); secret-oppføringene opprettes alltid, men har kun verdier når funksjonaliteten er aktivert.
-- Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
+- Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` samt det kundeeide utvidelsespunktet `CustomerSpecific`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
 - E-post- og Teams-varsler sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
 
 ## 2. Hva som settes opp og installeres
 
-Installasjonen utføres av to PowerShell-skript fra en administrators arbeidsstasjon: `createentraidapp.ps1` (oppretter Entra ID-appen) og `deploy.ps1` (alt annet, inkludert bygg og publisering av SPFx-pakkene). Følgende komponenter etableres:
+Installasjonen utføres fra en administrators arbeidsstasjon med `deploy.ps1` (alt, inkludert bygg og publisering av SPFx-pakkene) — og, **kun når sensitivitetsmerker skal brukes**, `createentraidapp.ps1` (oppretter Entra ID-appen for ROPC-flyten; hoppes over automatisk av deploy hvis appen ikke finnes). Følgende komponenter etableres:
 
 ### 2.1 SharePoint Online
 
@@ -72,7 +72,7 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 
 ### 2.4 Power Automate
 
-To flyter leveres med løsningen og kjører i tjenestekontoens kontekst:
+To flyter leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se [Source/Flows/README.md](./Source/Flows/README.md)) og kjører i tjenestekontoens kontekst:
 
 - **Provisioning Request Approval** – godkjenningsprosessen. Trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`. Støtter godkjenning via Power Automate Approvals eller adaptive cards i en Teams-kanal. Er avslått som standard og må aktiveres etter installasjon. Se [Godkjenningsflyt](./Approval-flow.md).
 - **Check Space Availability** – sjekker om et område med samme navn/URL allerede finnes (mot Microsoft 365-grupper og `Provisioning Requests`-listen) før en bestilling kan sendes inn.
@@ -90,7 +90,7 @@ Flytene bruker seeded Power Automate-lisenser og krever ikke premium-lisensierin
 
 | Konto/rolle | Brukes til | Kommentar |
 |--|--|--|
-| **Global Administrator** | Kjøre `createentraidapp.ps1` (oppretter Entra ID-appen og gir admin consent), samt opprette/godkjenne PnP PowerShell app registration. | Kun nødvendig under installasjon. |
+| **Global Administrator** | Opprette/godkjenne PnP PowerShell app registration, samt kjøre `createentraidapp.ps1` (kun ved sensitivitetsmerker — oppretter Entra ID-appen og gir admin consent). | Kun nødvendig under installasjon. |
 | **Owner på Azure-abonnementet** | Kjøre `deploy.ps1`: opprette ressursgruppe, managed identity, Key Vault, Automation-konto, Logic Apps og API-tilkoblinger, inkl. RBAC-tildelinger i bicep-malen. | Abonnementet MÅ tilhøre samme Entra ID-tenant som Microsoft 365. |
 | **SharePoint Administrator** | Opprette og konfigurere SharePoint-området og publisere SPFx-pakker til App Catalog under `deploy.ps1`. | Samme konto som over (kontoen som kjører `deploy.ps1` bør også være Power Platform- og Teams-administrator). |
 | Rettighet til å tildele app-roller til managed identities | `deploy.ps1` tildeler Graph-/SharePoint-app-roller til både den user-assigned identityen (`AssignUamiPermissions`) og Automation-kontoens systemtildelte identitet. | Krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator. `Source/Scripts/AssignPermissionsToManagedIdentity.ps1` kan brukes til manuell reparasjon/tildeling. |
@@ -105,7 +105,7 @@ Installasjonsskriptet bruker PnP PowerShell med en egen app registration for å 
 | Microsoft Graph | `Group.ReadWrite.All` | Delegated |
 | SharePoint | `AllSites.FullControl` | Delegated |
 
-Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullført installasjon**. Hvis `Sites.FullControl.All` ikke er ønskelig, kan SharePoint-området opprettes manuelt på forhånd.
+Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullført installasjon**. Hvis `AllSites.FullControl` ikke er ønskelig, kan SharePoint-området opprettes manuelt på forhånd.
 
 ### 3.3 Tjenestekonto
 
@@ -158,7 +158,7 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 
 ### 4.2 Systemtildelt managed identity (Azure Automation)
 
-Runbookene `ConfigureSpace`, `AddGuestToSite` og `GetSiteTemplates` autentiserer med Automation-kontoens systemtildelte managed identity (PnP PowerShell `-ManagedIdentity`) og utfører oppgaver Graph API ikke dekker (PnP-maler, temaer, hub-tilknytning, tilgangsgrupper, gjestemedlemskap m.m.):
+Runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSpecific` (kundeeid utvidelsespunkt) autentiserer med Automation-kontoens systemtildelte managed identity (PnP PowerShell `-ManagedIdentity`) og utfører oppgaver Graph API ikke dekker (PnP-maler, temaer, hub-tilknytning, tilgangsgrupper, gjestemedlemskap m.m.):
 
 | API | Tillatelse | Type |
 |--|--|--|

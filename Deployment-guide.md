@@ -44,7 +44,7 @@ Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP Power
 
 Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
 
-Hvis `Sites.FullControl.All` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
+Hvis `AllSites.FullControl` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
 
 #### PowerShell 7.4+
 
@@ -69,7 +69,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN og PnP-sertifikatsti — begge kan også angis som parametre for kjøring uten prompts):
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts):
 
 ```powershell
 ./GenerateParameters.ps1
@@ -103,7 +103,7 @@ Beskrivelse av hver parameter:
 
 - `resourceGroupName` – Navn på ny ressursgruppe løsningen installeres i. Skriptet oppretter denne.
 
-- `appName` – Navn på Entra ID-appen som opprettes, f.eks. `Bestillingsportalen`.
+- `appName` – Navn på Entra ID-appen, f.eks. `Bestillingsportalen` (kun i bruk når `enableSensitivity` er aktivert – se Steg 3).
 
 - `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 

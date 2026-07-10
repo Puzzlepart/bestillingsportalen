@@ -45,8 +45,9 @@ Bruk oppgraderingsmodus når du vil:
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
-   - Alle tre runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
+   - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
    - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
+   - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (kundeeid innhold — tilpasninger legges der)
 
 4. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
@@ -74,7 +75,7 @@ Bruk oppgraderingsmodus når du vil:
 
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
-   - Innhold i eksisterende runbooks (Bicep `publishContentLink` re-importerer kun ved bumpet version i `azureresources.bicep`)
+   - Innholdet i `CustomerSpecific`-runbooken (kundeeid utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
    - Key Vault
    - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)

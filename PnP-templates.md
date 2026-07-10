@@ -16,7 +16,7 @@ For å opprette en referanse til en PnP-mal, opprett et element i Site Templates
 - **Description** – Beskrivelse av malen
 - **Enabled** – Om malen skal vises i Bestillingsportalen webdel eller Teams app for valg.
 - **ApplyPnPTemplate** – Sett til `Ja`
-- **PnPTemplateURL** – Lim inn URL-en til PnP-malfilen fra dokumentbiblioteket **`PnP Templates`**. **VIKTIG: Sørg for at dette er den fullstendige stien til filen, ikke en snarveisleng.**
+- **PnPTemplateURL** – Lim inn URL-en til PnP-malfilen fra dokumentbiblioteket **`PnP Templates`**. **VIKTIG: Sørg for at dette er den fullstendige stien til filen, ikke en snarvei-lenke.**
 - **ThemeName** – Navn på et SharePoint-tema i tenanten som skal anvendes etter at området er opprettet. Temaer kan ikke settes i PnP-maler, så dette gir mulighet til å anvende et tema. Kan være et «out of the box»-tema eller et egendefinert tema.
 
 Skjermbildet nedenfor viser en PnP-mal i Site Templates-listen. La alle andre kolonner stå tomme.

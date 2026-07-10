@@ -19,11 +19,11 @@ Følgende egenskaper lagres i listen:
 - **Enabled** – Om malen skal vises i Bestillingsportalen webdel eller Teams app for valg. Standard er `false`, og du kan aktivere dem du ønsker.
 - **ThemeName** – Navn på et SharePoint-tema i tenanten som skal anvendes på området når det er opprettet. Blank hvis du ikke vil anvende et tema. Kan være et innebygd tema (f.eks. `Blue`) eller et egendefinert (f.eks. `Contoso Dark`).
 
-![Site templates list screenshot](/images/SiteTemplatesList.png)
+![Site templates list screenshot](/Images/SiteTemplatesList.png)
 
 Brukere kan velge en av disse fra webdel eller Teams app når de oppretter en bestilling. Logic App-en `ProcessProvisionRequest` anvender dem via SharePoint REST API.
 
-Webdel eller Teams app viser **kun** maler der `WebTemplate` matcher den valgte områdetypen. For eksempel: hvis en bruker velger et gruppetilknyttet Team Site, vises kun Site Templates med `WebTemplate = 1`. Sørg for at du oppretter dine egne Site Templates for ønsket `WebTemplate`.
+Webdel eller Teams app viser **kun** maler der `WebTemplate` matcher den valgte områdetypen. For eksempel: hvis en bruker velger et gruppetilknyttet Team Site, vises kun Site Templates med `WebTemplate = 64`. Sørg for at du oppretter dine egne Site Templates for ønsket `WebTemplate`.
 
 Som nevnt over: for å vise en mal, sett `Enabled`-kolonnen til `true`.
 
