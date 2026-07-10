@@ -396,6 +396,7 @@ function CreateRequestsSharePointSite {
             $maxAttempts = 8
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 try {
+                    Write-Host "Creating the site (group-connected site provisioning is synchronous and can take several minutes - the command returns when SharePoint reports the site ready)..." -ForegroundColor Yellow
                     New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
                     break
                 }
