@@ -249,24 +249,24 @@ Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span st
 
 Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
 
-## Steg 5: Importere og aktivere flytene
+## Steg 5: Importere og aktivere flyten
 
-Flytene (`Provisioning Request Approval` og `Check Space Availability`) er ikke en del av Azure-deployen — de lever i Power Automate i **tjenestekontoens** miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes de gjerne allerede (hopp da til aktiveringen nedenfor); i en ny installasjon importeres de først.
+Flyten `Provisioning Request Approval` er ikke en del av Azure-deployen — den lever i Power Automate i **tjenestekontoens** miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes den gjerne allerede (hopp da til aktiveringen nedenfor); i en ny installasjon importeres den først.
 
-### Importere flytene
+### Importere flyten
 
-Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (kun flytene — se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
+Flyten distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
 
-1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flytene skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
+1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flyten skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
 2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
 
    ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
 
-3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. Flytene er pakket i Draft-tilstand og aktiveres uansett manuelt etter importen (siste seksjon i dette steget).
+3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. Flyten er pakket i Draft-tilstand og aktiveres uansett manuelt etter importen (siste seksjon i dette steget).
 
    ![Import solution - detaljer](/Images/FlowImportDetails.png)
 
-4. Koble til/opprett de seks tilkoblingene (Teams, Approvals, Outlook, SharePoint, Office 365 Groups, pluss en ekstra SharePoint-tilkobling som kreves for miljøvariablene) **som tjenestekontoen**. Grønn hake betyr klar.
+4. Koble til/opprett de fem tilkoblingene (Teams, Approvals, Outlook, SharePoint, pluss en ekstra SharePoint-tilkobling som kreves for miljøvariablene) **som tjenestekontoen**. Grønn hake betyr klar.
 
    ![Import solution - tilkoblinger](/Images/FlowImportConnections.png)
 
@@ -277,38 +277,33 @@ Flytene distribueres som Power Platform-løsningspakken `Source/Flows/Bestilling
    ![Import solution - miljøvariabler](/Images/FlowImportEnvironmentVariables.png)
 
    > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
-6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at begge flytene finnes.
+6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at flyten `Provisioning Request Approval` finnes.
 
-### Aktivere flytene
+### Aktivere flyten
 
-Flytene importeres i avslått tilstand (Draft) og må slås på manuelt som tjenestekontoen:
+Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjenestekontoen:
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen og åpne løsningen **«Bestillingsportalen Flows»**.
 2. Klikk på **`Provisioning Request Approval`** → `Turn on` i toppmenyen.
-3. Gjenta for **`Check Space Availability`**.
 
 (Import-loggen kan vise `0x80048026` om språketiketter for språk 1033 — ren kosmetikk, ignorer.)
 
-> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Solution-flyter er Dataverse-poster, og tjenestekontoen trenger en tilstrekkelig **sikkerhetsrolle i standardmiljøet** for å håndtere dem. Som Global Admin: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → gi tjenestekontoen rollen **System Customizer**. Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
+> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Solution-flyter er Dataverse-poster, og tjenestekontoen trenger en tilstrekkelig **sikkerhetsrolle i standardmiljøet** for å håndtere dem. Som Global Admin: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → gi tjenestekontoen rollen **System Customizer** (se skjermbilde). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
+>
+> ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
 
-## Steg 6: Dele flyter og SharePoint-område
+## Steg 6: Dele flyt og SharePoint-område
 
-Før Bestillingsportalen kan rulles ut, må flytene og SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
+Før Bestillingsportalen kan rulles ut, må SharePoint-området deles med alle brukerne som skal sende inn bestillinger, og flyten eventuelt med administratorer.
 
-### Flyter
+### Flyt
 
-Del flytene som brukes av Bestillingsportalen med administratorer som ønsker å se flyt-kjøringer eller redigere flytene. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer. Gjenta stegene for hver flyt.
-
-To flyter leveres med Bestillingsportalen:
-
-- **Provisioning Request Approval** – Gir godkjenningsprosess for bestillinger. Se [Godkjenningsflyt](/Approval-flow.md) for detaljer.
-- **Check Space Availability** – Sjekker om et område som matcher angitt tittel/URL allerede finnes. Bruker `Office 365 Groups`-connector for å sjekke om en gruppe med samme detaljer finnes, og sjekker også `Provisioning Requests`-listen for en matchende bestilling. Brukere kan kun fortsette hvis området ikke finnes og ingen bestilling med samme navn finnes. Hvis en bestilling finnes i listen og ble opprettet av SAMME bruker, blir brukeren bedt om å redigere den andre bestillingen i stedet.
+Del flyten `Provisioning Request Approval` (godkjenningsprosessen for bestillinger, se [Godkjenningsflyt](/Approval-flow.md)) med administratorer som ønsker å se flyt-kjøringer eller redigere flyten. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer.
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
 2. Finn flyten **`Provisioning Request Approval`** og klikk `Share` i toppmenyen.
 3. Legg til brukere eller grupper du vil dele flyten med, og velg `OK` i `Before you share`-dialogen.
-4. Gjenta stegene for `Check Space Availability`-flyten.
-5. Brukerne har nå tilgang til flytene.
+4. Brukerne har nå tilgang til flyten.
 
 ### SharePoint-område
 

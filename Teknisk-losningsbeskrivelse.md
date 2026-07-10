@@ -89,12 +89,11 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 
 ### 2.4 Power Automate
 
-To flyter leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se Steg 5 i [Installasjonsveiledningen](./Deployment-guide.md)) og kjører i tjenestekontoens kontekst:
+Én flyt leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se Steg 5 i [Installasjonsveiledningen](./Deployment-guide.md)) og kjører i tjenestekontoens kontekst:
 
 - **Provisioning Request Approval** – godkjenningsprosessen. Trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`. Støtter godkjenning via Power Automate Approvals eller adaptive cards i en Teams-kanal. Er avslått som standard og må aktiveres etter installasjon. Se [Godkjenningsflyt](./Approval-flow.md).
-- **Check Space Availability** – sjekker om et område med samme navn/URL allerede finnes (mot Microsoft 365-grupper og `Provisioning Requests`-listen) før en bestilling kan sendes inn.
 
-Flytene bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering.
+Flyten bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering.
 
 ### 2.5 Klient (SPFx)
 
@@ -197,7 +196,7 @@ Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. Installa
 |--|--|
 | Identitet bak de delegerte API-tilkoblingene (Outlook, Users, SharePoint, Teams) | Sende e-postvarsler, lese brukerprofiler, lese/skrive i SharePoint-listene og poste adaptive cards i Teams – i delegert kontekst fra Logic Apps og flytene. Connectorene støtter ikke managed identity. |
 | Eier/site collection-administrator på Bestillingsportalen-området | Drift av backend-listene. |
-| Eier av Power Automate-flytene | Flytene `Provisioning Request Approval` og `Check Space Availability` kjører i tjenestekontoens kontekst. |
+| Eier av Power Automate-flyten | Flyten `Provisioning Request Approval` kjører i tjenestekontoens kontekst. |
 | Medlem av godkjennings-teamet i Teams | Kreves kun ved bruk av adaptive card-godkjenning, for å kunne poste kort i kanalen. |
 | Delegert Graph-tilgang via Entra ID-appen (uten MFA) | Kun ved aktivert sensitivitetsmerke-funksjonalitet (ROPC). |
 
