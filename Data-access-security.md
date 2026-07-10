@@ -29,7 +29,7 @@ App-roller tildelt den user-assigned managed identityen:
 | Group.ReadWrite.All | Application | Lese og skrive alle grupper | Brukes til å opprette grupper/team og legge til/fjerne eiere og medlemmer. Eier-operasjonene (`/owners/$ref`) gjør denne til minste praktiske tillatelse. |
 | InformationProtectionPolicy.Read.All | Application | Lese alle publiserte merker og merkepolicyer for en organisasjon. | Brukes til å synkronisere sensitivitetsmerker fra tenanten til en SharePoint-liste. |
 | Sites.Read.All | Application | Lese elementer i alle områdesamlinger | Brukes av `CheckSiteExists` til å lese tenant-admin-områdets aggregerte områdeliste (sjekke om en URL er i bruk, inkl. papirkurv). Erstatter tidligere Graph `Sites.FullControl.All` — det finnes ingen Graph-site-skriving i løsningen. |
-| TeamsTemplates.Read.All | Application | Lese alle tilgjengelige Teams-maler | Brukes til å lese Teams-maler i tenanten og synkronisere dem til en SharePoint-liste. |
+| TeamTemplates.Read.All | Application | Lese alle tilgjengelige Teams-maler | Brukes til å lese Teams-maler i tenanten og synkronisere dem til en SharePoint-liste. |
 | Community.ReadWrite.All | Application | Lese og skrive alle Viva Engage-fellesskap. | Brukes til å opprette Viva Engage-fellesskap. |
 | User.Invite.All | Application | Invitere gjestebrukere til organisasjonen | Brukes til å invitere gjestebrukere i Entra ID hvis forespurt. |
 | User.ReadWrite.All | Application | Lese og skrive til alle brukeres fulle profiler | Brukes til å oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere. |

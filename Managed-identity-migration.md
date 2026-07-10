@@ -45,7 +45,7 @@ Med managed identity utsteder Entra ID tokens direkte til Azure-ressursen. Det f
 | Ressurs | App-rolle |
 |--|--|
 | SharePoint | Sites.FullControl.All |
-| Microsoft Graph | Directory.Read.All, GroupSettings.ReadWrite.All, Group.ReadWrite.All, InformationProtectionPolicy.Read.All, Sites.Read.All, TeamsTemplates.Read.All, Community.ReadWrite.All, User.Invite.All, User.ReadWrite.All |
+| Microsoft Graph | Directory.Read.All, GroupSettings.ReadWrite.All, Group.ReadWrite.All, InformationProtectionPolicy.Read.All, Sites.Read.All, TeamTemplates.Read.All, Community.ReadWrite.All, User.Invite.All, User.ReadWrite.All |
 
 > Settet er minimert mot faktiske runtime-kall: `GroupSettings.ReadWrite.All` erstatter `Directory.ReadWrite.All` (eneste bruk var `POST /groups/{id}/settings`), og `Sites.Read.All` erstatter Graph `Sites.FullControl.All` (eneste bruk var lesekallene i `CheckSiteExists`). Se [Datatilgang og sikkerhet](Data-access-security.md) for kall-for-kall-begrunnelse.
 

@@ -20,7 +20,7 @@ param(
 #   Logic apps user-assigned identity (repair/manual setup - normally handled by deploy.ps1):
 #     ./AssignPermissionsToManagedIdentity.ps1 -ManagedIdentityId <objectId> -IncludeSharePointSitesFullControl -Scopes @(
 #       "Directory.Read.All", "GroupSettings.ReadWrite.All", "Group.ReadWrite.All",
-#       "InformationProtectionPolicy.Read.All", "Sites.Read.All", "TeamsTemplates.Read.All",
+#       "InformationProtectionPolicy.Read.All", "Sites.Read.All", "TeamTemplates.Read.All",
 #       "Community.ReadWrite.All", "User.Invite.All", "User.ReadWrite.All")
 
 try {

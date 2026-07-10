@@ -1197,7 +1197,7 @@ function AssignUamiPermissions {
     #   Group.ReadWrite.All              - create groups/teams, add/remove owners and members
     #   InformationProtectionPolicy.Read.All - sync sensitivity labels (SyncLabels)
     #   Sites.Read.All                   - CheckSiteExists reads of the tenant-admin aggregated site list
-    #   TeamsTemplates.Read.All          - sync Teams templates (GetTeamsTemplates)
+    #   TeamTemplates.Read.All          - sync Teams templates (GetTeamsTemplates)
     #   Community.ReadWrite.All          - create Viva Engage communities
     #   User.Invite.All                  - POST /invitations (guest invites)
     #   User.ReadWrite.All               - PATCH profile fields on invited guest users
@@ -1208,7 +1208,7 @@ function AssignUamiPermissions {
         @{ ResourceSp = $graphResource; RoleName = 'Group.ReadWrite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'InformationProtectionPolicy.Read.All' },
         @{ ResourceSp = $graphResource; RoleName = 'Sites.Read.All' },
-        @{ ResourceSp = $graphResource; RoleName = 'TeamsTemplates.Read.All' },
+        @{ ResourceSp = $graphResource; RoleName = 'TeamTemplates.Read.All' },
         @{ ResourceSp = $graphResource; RoleName = 'Community.ReadWrite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'User.Invite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'User.ReadWrite.All' }

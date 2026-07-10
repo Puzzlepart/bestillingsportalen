@@ -137,7 +137,7 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 | `Group.ReadWrite.All` | Application | Opprette Microsoft 365-grupper og team, legge til/fjerne eiere og medlemmer. |
 | `InformationProtectionPolicy.Read.All` | Application | Synkronisere sensitivitetsmerker fra Purview til `IP Labels`-listen. |
 | `Sites.Read.All` | Application | `CheckSiteExists` leser tenant-admin-områdets aggregerte områdeliste (sjekke om URL er i bruk, inkl. papirkurv). |
-| `TeamsTemplates.Read.All` | Application | Lese Teams-maler og synkronisere dem til `Teams Templates`-listen. |
+| `TeamTemplates.Read.All` | Application | Lese Teams-maler og synkronisere dem til `Teams Templates`-listen. |
 | `Community.ReadWrite.All` | Application | Opprette Viva Engage-fellesskap. |
 | `User.Invite.All` | Application | Invitere gjestebrukere til organisasjonen. |
 | `User.ReadWrite.All` | Application | Oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere. |
