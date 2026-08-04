@@ -1510,10 +1510,11 @@
                                                                     "type": "Wait",
                                                                     "inputs": {
                                                                         "interval": {
-                                                                            "count": 2,
-                                                                            "unit": "Minute"
+                                                                            "count": 30,
+                                                                            "unit": "Second"
                                                                         }
-                                                                    }
+                                                                    },
+                                                                    "description": "Was 2 minutes, which mostly duplicated the Until loop below - that already polls engagementAsyncOperations until the community reports succeeded. Kept short rather than removed so the first Get_create_community_operation does not race the operation id becoming readable."
                                                                 },
                                                                 "Parse_create_Viva_Engage_community_JSON": {
                                                                     "runAfter": {
@@ -3875,8 +3876,9 @@
                                                                     "content-type": "application/json"
                                                                 },
                                                                 "method": "GET",
-                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/members"
-                                                            }
+                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/members?$top=999"
+                                                            },
+                                                            "description": "$top=999 because the default page size is 100 - without it the 'already a member' check below silently misses everyone past the first page. No $select: Parse_group_members_JSON requires the full user properties. Groups with more than 999 members would still need @odata.nextLink paging."
                                                         },
                                                         "Get_group_owners": {
                                                             "runAfter": {},
@@ -3891,8 +3893,35 @@
                                                                     "content-type": "application/json"
                                                                 },
                                                                 "method": "GET",
-                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners"
-                                                            }
+                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners?$top=999"
+                                                            },
+                                                            "description": "$top=999 - see Get_group_members."
+                                                        },
+                                                        "Select_group_member_ids": {
+                                                            "runAfter": {
+                                                                "Parse_group_members_JSON": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "Select",
+                                                            "inputs": {
+                                                                "from": "@body('Parse_group_members_JSON')?['value']",
+                                                                "select": "@item()?['id']"
+                                                            },
+                                                            "description": "Projects the member ids into a flat array so the checks below can do a real array lookup instead of a substring match against the serialised JSON."
+                                                        },
+                                                        "Select_group_owner_ids": {
+                                                            "runAfter": {
+                                                                "Parse_group_owners_JSON": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "Select",
+                                                            "inputs": {
+                                                                "from": "@body('Parse_group_owners_JSON')?['value']",
+                                                                "select": "@item()?['id']"
+                                                            },
+                                                            "description": "See Select_group_member_ids."
                                                         },
                                                         "Loop_through_MemberIDs_array": {
                                                             "foreach": "@variables('MemberIDs')",
@@ -3925,7 +3954,7 @@
                                                                             {
                                                                                 "not": {
                                                                                     "contains": [
-                                                                                        "@string(body('Get_group_owners'))",
+                                                                                        "@body('Select_group_owner_ids')",
                                                                                         "@items('Loop_through_MemberIDs_array')"
                                                                                     ]
                                                                                 }
@@ -3933,7 +3962,7 @@
                                                                             {
                                                                                 "not": {
                                                                                     "contains": [
-                                                                                        "@string(body('Get_group_members'))",
+                                                                                        "@body('Select_group_member_ids')",
                                                                                         "@items('Loop_through_MemberIDs_array')"
                                                                                     ]
                                                                                 }
@@ -3945,7 +3974,10 @@
                                                                 }
                                                             },
                                                             "runAfter": {
-                                                                "Parse_group_members_JSON": [
+                                                                "Select_group_member_ids": [
+                                                                    "Succeeded"
+                                                                ],
+                                                                "Select_group_owner_ids": [
                                                                     "Succeeded"
                                                                 ]
                                                             },
@@ -3980,20 +4012,6 @@
                                                                                 "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/$ref"
                                                                             }
                                                                         },
-                                                                        "Delay_while_owner_is_added": {
-                                                                            "runAfter": {
-                                                                                "Add_owner_to_group": [
-                                                                                    "Succeeded"
-                                                                                ]
-                                                                            },
-                                                                            "type": "Wait",
-                                                                            "inputs": {
-                                                                                "interval": {
-                                                                                    "count": 1,
-                                                                                    "unit": "Minute"
-                                                                                }
-                                                                            }
-                                                                        }
                                                                     },
                                                                     "runAfter": {},
                                                                     "expression": {
@@ -4001,7 +4019,7 @@
                                                                             {
                                                                                 "not": {
                                                                                     "contains": [
-                                                                                        "@string(body('Get_group_owners'))",
+                                                                                        "@body('Select_group_owner_ids')",
                                                                                         "@items('Loop_through_OwnerIDs_array')"
                                                                                     ]
                                                                                 }
@@ -4014,9 +4032,27 @@
                                                             "runAfter": {
                                                                 "Loop_through_MemberIDs_array": [
                                                                     "Succeeded"
+                                                                ],
+                                                                "Select_group_owner_ids": [
+                                                                    "Succeeded"
                                                                 ]
                                                             },
                                                             "type": "Foreach"
+                                                        },
+                                                        "Delay_while_owners_are_added": {
+                                                            "runAfter": {
+                                                                "Loop_through_OwnerIDs_array": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "Wait",
+                                                            "inputs": {
+                                                                "interval": {
+                                                                    "count": 30,
+                                                                    "unit": "Second"
+                                                                }
+                                                            },
+                                                            "description": "One settle after the loop instead of a full minute inside every iteration. The old per-iteration wait could not help the 'already an owner' check anyway - that reads a single snapshot taken before the loop starts."
                                                         },
                                                         "Parse_group_members_JSON": {
                                                             "runAfter": {
@@ -4411,7 +4447,7 @@
                                                                 }
                                                             },
                                                             "runAfter": {
-                                                                "Loop_through_OwnerIDs_array": [
+                                                                "Delay_while_owners_are_added": [
                                                                     "Succeeded"
                                                                 ]
                                                             },
