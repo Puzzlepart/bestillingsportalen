@@ -4054,7 +4054,7 @@
                                                                                 "method": "POST",
                                                                                 "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/$ref"
                                                                             }
-                                                                        },
+                                                                        }
                                                                     },
                                                                     "runAfter": {},
                                                                     "expression": {

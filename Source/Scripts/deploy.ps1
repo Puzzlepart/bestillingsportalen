@@ -854,6 +854,47 @@ function WriteDeploymentReport {
 }
 
 # ---------------------------------------------------------------------------
+# ARM template validation
+#
+# az CLI parses --template-file with Python's json module, which rejects trailing
+# commas. PowerShell's ConvertFrom-Json accepts them, so "it parsed fine locally" is
+# not proof - and az only reports "Failed to parse '<file>', please check whether it
+# is a valid JSON format" with no line number, which is painful in a 5000-line
+# template.
+#
+# System.Text.Json is strict about trailing commas by default and reports line and
+# position, so this catches the same class of error az would, but usefully. Runs
+# before anything is created.
+# ---------------------------------------------------------------------------
+function ValidateArmTemplates {
+    Write-Host "Validating ARM templates..." -ForegroundColor Yellow
+
+    $templateDir = Join-Path $packageRootPath "ARMTemplates/LogicApps"
+    $invalid = @()
+
+    foreach ($template in (Get-ChildItem -Path $templateDir -Filter *.json -File)) {
+        try {
+            $json = Get-Content $template.FullName -Raw
+            [System.Text.Json.JsonDocument]::Parse($json).Dispose()
+        }
+        catch {
+            # System.Text.Json puts "LineNumber: N | BytePositionInLine: M" in the message
+            Write-Host "  INVALID: $($template.Name) - $($_.Exception.Message)" -ForegroundColor Red
+            $invalid += "$($template.Name): $($_.Exception.Message)"
+            continue
+        }
+        Write-Host "  OK: $($template.Name)" -ForegroundColor Gray
+    }
+
+    if ($invalid.Count -gt 0) {
+        RecordDeployStatus -Component "ARM template validation" -Status 'FAILED' -Detail ($invalid -join ' | ')
+        throw "One or more ARM templates are not valid JSON - az would reject them without telling you where. Fix the files listed above and re-run. Note that trailing commas are the usual cause: PowerShell's ConvertFrom-Json accepts them, az does not."
+    }
+
+    RecordDeployStatus -Component "ARM template validation" -Status 'OK'
+}
+
+# ---------------------------------------------------------------------------
 # Service account validation
 # The service account is used as site owner (New-PnPSite -Owners), for the delegated
 # API connections and as the identity that posts the Teams welcome message - but
@@ -1683,9 +1724,10 @@ Write-Host "Launching PnP sign-in (a browser window will open - sign in with the
 ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Connected to SPO" -ForegroundColor Green
 
-# All sign-ins are done and nothing has been changed yet - validate the service
-# account exists, then show the pre-flight summary and ask for confirmation
-# before the first mutating step.
+# All sign-ins are done and nothing has been changed yet - validate the templates and
+# the service account, then show the pre-flight summary and ask for confirmation before
+# the first mutating step.
+ValidateArmTemplates
 ValidateServiceAccount
 ConfirmDeployment
 
