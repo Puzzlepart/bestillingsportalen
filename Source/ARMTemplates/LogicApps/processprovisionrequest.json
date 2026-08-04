@@ -49,6 +49,10 @@
         "spoRootSiteUrl": {
             "defaultValue": "",
             "type": "string"
+        },
+        "keyVaultName": {
+            "defaultValue": "",
+            "type": "string"
         }
     },
     "variables": {
@@ -193,256 +197,6 @@
                             },
                             "runAfter": {
                                 "Process_Team": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "Scope"
-                        },
-                        "Apply_sensitivity_label": {
-                            "actions": {
-                                "Check_space_type_and_if_the_sensitivity_label_is_populated": {
-                                    "actions": {
-                                        "Add_service_account_to_group_-_apply_label": {
-                                            "type": "Http",
-                                            "inputs": {
-                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/$ref",
-                                                "method": "POST",
-                                                "body": {
-                                                    "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{body('Get_service_account_user_profile')?['id']}"
-                                                },
-                                                "authentication": {
-                                                    "audience": "https://graph.microsoft.com",
-                                                    "identity": "[variables('uamiId')]",
-                                                    "type": "ManagedServiceIdentity"
-                                                }
-                                            }
-                                        },
-                                        "Apply_sensitivity_label_to_the_group": {
-                                            "runAfter": {
-                                                "Parse_get_access_token_JSON": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Http",
-                                            "inputs": {
-                                                "uri": "@{variables('BetaGraphURL')}/groups/@{variables('GroupID')}",
-                                                "method": "PATCH",
-                                                "headers": {
-                                                    "authorization": "bearer @{body('Parse_get_access_token_JSON')?['access_token']}",
-                                                    "content-type": "application/json"
-                                                },
-                                                "body": {
-                                                    "assignedLabels": [
-                                                        {
-                                                            "labelId": "@{triggerBody()?['SensitivityLabelId']}"
-                                                        }
-                                                    ]
-                                                }
-                                            }
-                                        },
-                                        "Get_access_token_for_service_account": {
-                                            "runAfter": {
-                                                "URL_encode_service_account_password": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Http",
-                                            "inputs": {
-                                                "uri": "https://login.microsoftonline.com/@{variables('TenantID')}/oauth2/token",
-                                                "method": "POST",
-                                                "headers": {
-                                                    "content-type": "application/x-www-form-urlencoded"
-                                                },
-                                                "body": "grant_type=password&resource=https://graph.microsoft.com&client_id=@{body('Get_Client_ID')?['value']}&username=@{body('Get_service_account_username')?['value']}&password=@{outputs('URL_encode_service_account_password')}&client_secret=@{outputs('URL_encode_client_secret')}"
-                                            }
-                                        },
-                                        "Get_service_account_password": {
-                                            "runAfter": {
-                                                "Get_service_account_username": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "ApiConnection",
-                                            "inputs": {
-                                                "host": {
-                                                    "connection": {
-                                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                                    }
-                                                },
-                                                "method": "GET",
-                                                "path": "/secrets/@{encodeURIComponent('sapassword')}/value",
-                                                "runtimeConfiguration": {
-                                                    "secureData": {
-                                                        "properties": [
-                                                            "inputs",
-                                                            "outputs"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        "Get_service_account_username": {
-                                            "runAfter": {
-                                                "Wait_for_owner_to_be_added_-_apply_label": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "ApiConnection",
-                                            "inputs": {
-                                                "host": {
-                                                    "connection": {
-                                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                                    }
-                                                },
-                                                "method": "GET",
-                                                "path": "/secrets/@{encodeURIComponent('sausername')}/value"
-                                            },
-                                            "runtimeConfiguration": {
-                                                "secureData": {
-                                                    "properties": [
-                                                        "inputs",
-                                                        "outputs"
-                                                    ]
-                                                }
-                                            }
-                                        },
-                                        "Parse_get_access_token_JSON": {
-                                            "runAfter": {
-                                                "Get_access_token_for_service_account": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "ParseJson",
-                                            "inputs": {
-                                                "content": "@body('Get_access_token_for_service_account')",
-                                                "schema": {
-                                                    "properties": {
-                                                        "access_token": {
-                                                            "type": "string"
-                                                        },
-                                                        "expires_in": {
-                                                            "type": "string"
-                                                        },
-                                                        "expires_on": {
-                                                            "type": "string"
-                                                        },
-                                                        "ext_expires_in": {
-                                                            "type": "string"
-                                                        },
-                                                        "not_before": {
-                                                            "type": "string"
-                                                        },
-                                                        "resource": {
-                                                            "type": "string"
-                                                        },
-                                                        "token_type": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "type": "object"
-                                                }
-                                            }
-                                        },
-                                        "Remove_service_account_from_group_-_apply_label": {
-                                            "runAfter": {
-                                                "Apply_sensitivity_label_to_the_group": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Http",
-                                            "inputs": {
-                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/@{body('Get_service_account_user_profile')?['id']}/$ref",
-                                                "method": "DELETE",
-                                                "authentication": {
-                                                    "audience": "https://graph.microsoft.com",
-                                                    "identity": "[variables('uamiId')]",
-                                                    "type": "ManagedServiceIdentity"
-                                                }
-                                            }
-                                        },
-                                        "URL_encode_client_secret": {
-                                            "runAfter": {
-                                                "Get_service_account_password": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Compose",
-                                            "inputs": "@encodeUriComponent(body('Get_Client_Secret')?['value'])"
-                                        },
-                                        "URL_encode_service_account_password": {
-                                            "runAfter": {
-                                                "URL_encode_client_secret": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Compose",
-                                            "inputs": "@encodeUriComponent(body('Get_service_account_password')?['value'])"
-                                        },
-                                        "Wait_for_owner_to_be_added_-_apply_label": {
-                                            "runAfter": {
-                                                "Add_service_account_to_group_-_apply_label": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "Wait",
-                                            "inputs": {
-                                                "interval": {
-                                                    "count": 2,
-                                                    "unit": "Minute"
-                                                }
-                                            }
-                                        }
-                                    },
-                                    "else": {
-                                        "actions": {}
-                                    },
-                                    "expression": {
-                                        "and": [
-                                            {
-                                                "or": [
-                                                    {
-                                                        "equals": [
-                                                            "@triggerBody()?['SpaceTypeInternal']",
-                                                            "Office 365 Group"
-                                                        ]
-                                                    },
-                                                    {
-                                                        "equals": [
-                                                            "@triggerBody()?['SpaceTypeInternal']",
-                                                            "Project"
-                                                        ]
-                                                    },
-                                                    {
-                                                        "equals": [
-                                                            "@triggerBody()?['SpaceTypeInternal']",
-                                                            "Microsoft Teams Team"
-                                                        ]
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "and": [
-                                                    {
-                                                        "equals": [
-                                                            "@variables('EnableSensitivityLabels')",
-                                                            "@true"
-                                                        ]
-                                                    },
-                                                    {
-                                                        "equals": [
-                                                            "@empty(triggerBody()?['SensitivityLabelId'])",
-                                                            "@false"
-                                                        ]
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                    },
-                                    "type": "If"
-                                }
-                            },
-                            "runAfter": {
-                                "Invite_guests": [
                                     "Succeeded"
                                 ]
                             },
@@ -2150,7 +1904,10 @@
                                             "readOnlyGroup": "@triggerBody()?['ReadOnlyGroup']",
                                             "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
                                             "metadata": "@variables('Metadata')",
-                                            "parentSiteUrl": "@triggerBody()?['ParentSite']"
+                                            "parentSiteUrl": "@triggerBody()?['ParentSite']",
+                                            "keyVaultName": "[parameters('keyVaultName')]",
+                                            "tenantId": "[parameters('tenantId')]",
+                                            "enableSensitivityLabels": "@{variables('EnableSensitivityLabels')}"
                                         }
                                     }
                                 },
@@ -2257,58 +2014,6 @@
                             },
                             "type": "Compose",
                             "inputs": "@join(variables('Visitors'),',')"
-                        },
-                        "Get_Client_ID": {
-                            "runAfter": {
-                                "Initialize_CommunityID_variable": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "GET",
-                                "path": "/secrets/@{encodeURIComponent('appid')}/value"
-                            },
-                            "description": "Get Azure ad app client id from key vault.",
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
-                        },
-                        "Get_Client_Secret": {
-                            "runAfter": {
-                                "Get_Client_ID": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "GET",
-                                "path": "/secrets/@{encodeURIComponent('appsecret')}/value"
-                            },
-                            "description": "Get Azure ad app client id from key vault.",
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
                         },
                         "Get_Settings": {
                             "actions": {
@@ -2538,7 +2243,7 @@
                         },
                         "Get_service_account_user_profile": {
                             "runAfter": {
-                                "Get_Client_Secret": [
+                                "Initialize_CommunityID_variable": [
                                     "Succeeded"
                                 ]
                             },
@@ -2551,23 +2256,6 @@
                                 },
                                 "method": "GET",
                                 "path": "/codeless/v1.0/users/@{encodeURIComponent(variables('ServiceAccountUPN'))}"
-                            }
-                        },
-                        "Initialize_BetaGraphURL_variable": {
-                            "runAfter": {
-                                "Initialize_GraphURL_variable": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "InitializeVariable",
-                            "inputs": {
-                                "variables": [
-                                    {
-                                        "name": "BetaGraphURL",
-                                        "type": "string",
-                                        "value": "https://graph.microsoft.com/beta"
-                                    }
-                                ]
                             }
                         },
                         "Initialize_ChannelID_variable": {
@@ -2963,7 +2651,7 @@
                         },
                         "Initialize_Owners_variable": {
                             "runAfter": {
-                                "Initialize_BetaGraphURL_variable": [
+                                "Initialize_GraphURL_variable": [
                                     "Succeeded"
                                 ]
                             },
@@ -4847,9 +4535,12 @@
                                                     }
                                                 },
                                                 "Remove_service_account_from_group_-_post_welcome_message": {
+                                                    "description": "Runs on Failed/TimedOut as well as Succeeded - otherwise a failed welcome message leaves the service account as a permanent owner of the group.",
                                                     "runAfter": {
                                                         "Post_welcome_message_to_general_channel": [
-                                                            "Succeeded"
+                                                            "Succeeded",
+                                                            "Failed",
+                                                            "TimedOut"
                                                         ]
                                                     },
                                                     "type": "Http",
@@ -5345,7 +5036,7 @@
                                 }
                             },
                             "runAfter": {
-                                "Apply_sensitivity_label": [
+                                "Invite_guests": [
                                     "Succeeded"
                                 ]
                             },
@@ -5700,49 +5391,6 @@
                                 ]
                             }
                         },
-                        "Handle_Error_Apply_sensitivity_label": {
-                            "type": "Scope",
-                            "actions": {
-                                "Update_status_to_Space_Creation_Failed_Apply_sensitivity_label": {
-                                    "type": "ApiConnection",
-                                    "inputs": {
-                                        "host": {
-                                            "connection": {
-                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
-                                            }
-                                        },
-                                        "method": "PATCH",
-                                        "body": {
-                                            "Status": {
-                                                "Value": "Space Creation Failed"
-                                            },
-                                            "StatusReason": "Failed to apply sensitivity label",
-                                            "Teamify": "@triggerBody()?['Teamify']",
-                                            "Title": "@triggerBody()?['Title']"
-                                        },
-                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
-                                    },
-                                    "runAfter": {}
-                                },
-                                "Terminate_Apply_Sensitivity_Label": {
-                                    "type": "Terminate",
-                                    "inputs": {
-                                        "runStatus": "Failed"
-                                    },
-                                    "runAfter": {
-                                        "Update_status_to_Space_Creation_Failed_Apply_sensitivity_label": [
-                                            "Succeeded"
-                                        ]
-                                    }
-                                }
-                            },
-                            "runAfter": {
-                                "Apply_sensitivity_label": [
-                                    "Failed",
-                                    "TimedOut"
-                                ]
-                            }
-                        },
                         "Handle_Error_Store_expiration_date": {
                             "type": "Scope",
                             "actions": {
@@ -5865,17 +5513,6 @@
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-teams')]",
                                 "connectionName": "bestillingsportalen-teams",
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/teams')]"
-                            },
-                            "keyvault": {
-                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-kv')]",
-                                "connectionName": "bestillingsportalen-kv",
-                                "connectionProperties": {
-                                    "authentication": {
-                                        "type": "ManagedServiceIdentity",
-                                        "identity": "[variables('uamiId')]"
-                                    }
-                                },
-                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
                             }
                         }
                     }

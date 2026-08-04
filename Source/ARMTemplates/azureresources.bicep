@@ -28,6 +28,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
     enabledForTemplateDeployment: true
     enabledForDiskEncryption: true
     tenantId: tenantId
+    // Both policies must be listed here: accessPolicies on the vault resource is
+    // authoritative, so listing only one would remove the other on the next deploy.
     accessPolicies: [
       {
         tenantId: tenantId
@@ -35,6 +37,19 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
         permissions: {
           secrets: [
             'list'
+            'get'
+          ]
+        }
+      }
+      {
+        // The automation account's system-assigned identity reads the ROPC secrets
+        // from ConfigureSpace (sensitivity labels). Moved out of the logic app so the
+        // service account password, client secret and access token no longer appear
+        // in Logic App run history - see Sensitivity-labels.md.
+        tenantId: tenantId
+        objectId: automationAccount.identity.principalId
+        permissions: {
+          secrets: [
             'get'
           ]
         }
