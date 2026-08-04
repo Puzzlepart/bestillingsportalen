@@ -886,17 +886,27 @@ function CreateEntraIDAppSecret {
             }
         }
         else {
+            # After the managed identity migration the app is ONLY used by the delegated
+            # ROPC FALLBACK for sensitivity labels - and ConfigureSpace only reaches that
+            # fallback if the app-only route (Set-PnPTenantSite -SensitivityLabel) failed
+            # to put the label on the group. Measured August 2026 in a test tenant: the
+            # app-only route worked and propagated to the group in under 15 seconds, so
+            # the fallback may never be used. A missing app is therefore not fatal even
+            # with enableSensitivity on - the 'appid'/'appSecret' Key Vault secrets are
+            # simply created empty, and the runbook logs a precise error if it ever does
+            # need them. See Sensitivity-labels.md.
+            $global:appId = ""
+
             if ($parameters.enableSensitivity.Value) {
-                throw("Entra ID App '$($parameters.appName.Value)' does not exist. The sensitivity label functionality (enableSensitivity) requires it for the ROPC flow - run the createentraidapp.ps1 script first.")
+                Write-Host "Entra ID App '$($parameters.appName.Value)' was not found, but enableSensitivity is true." -ForegroundColor Yellow
+                Write-Host "  Continuing: sensitivity labels are applied app-only first, and the delegated fallback (which needs this app) is only used if that fails." -ForegroundColor Yellow
+                Write-Host "  If a provisioning run reports 'using the delegated flow', run createentraidapp.ps1 and re-run deploy." -ForegroundColor Yellow
+                RecordDeployStatus -Component "Entra ID app / secret" -Status 'WARNING' -Detail "App missing while enableSensitivity is true. Labelling works app-only; only the delegated fallback is unavailable. Run createentraidapp.ps1 if a run reports 'using the delegated flow'."
+                return
             }
 
-            # After the managed identity migration the app is ONLY used by the sensitivity
-            # label ROPC flow. With enableSensitivity disabled the solution runs entirely
-            # on managed identities, so a missing app is fine - the 'appid'/'appSecret'
-            # Key Vault secrets are simply created empty.
             Write-Host "Entra ID App '$($parameters.appName.Value)' was not found - OK: the app is only used for sensitivity labels, which are disabled. Skipping (createentraidapp.ps1 is not needed for this configuration)." -ForegroundColor Yellow
-            $global:appId = ""
-            RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED' -Detail "Not needed - enableSensitivity is false and the app is only used by the sensitivity label ROPC flow"
+            RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED' -Detail "Not needed - enableSensitivity is false and the app is only used by the sensitivity label ROPC fallback"
             return
         }
 
@@ -2113,12 +2123,30 @@ else {
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
 
 If ($parameters.enableSensitivity.Value) {
-    Write-Host "You chose to enable the sensitivity label functionality. Make sure the Service Account you use does NOT have MFA enabled." -ForegroundColor Yellow
+    # The service account is ONLY needed for the delegated ROPC fallback. ConfigureSpace
+    # applies the label app-only first (Set-PnPTenantSite -SensitivityLabel) and only
+    # falls back if that did not land on the group. Measured August 2026 in a test
+    # tenant: app-only worked and propagated in under 15 seconds. The prompt is therefore
+    # optional - cancel it to install without a non-MFA service account.
+    Write-Host ""
+    Write-Host "Sensitivity labels are enabled." -ForegroundColor Yellow
+    Write-Host "  Labels are applied app-only with the automation account's managed identity." -ForegroundColor Cyan
+    Write-Host "  A service account is only needed for the DELEGATED FALLBACK, used if the" -ForegroundColor Cyan
+    Write-Host "  app-only route fails to put the label on the group (see Sensitivity-labels.md)." -ForegroundColor Cyan
+    Write-Host "  The account must NOT have MFA enabled. Press Cancel to skip - you can add the" -ForegroundColor Cyan
+    Write-Host "  'sausername'/'sapassword' Key Vault secrets later if a run ever needs them." -ForegroundColor Cyan
 
-    # Add service account credentials to key vault (Required for sensitivity label functionality due to the current Graph API restriction only supporting delegated permissions)
-    $saCreds = Get-Credential -Message "Enter Service Account credentials (To enable sensitivity label functionality). Must NOT have MFA enabled."
-    $saUsername = $saCreds.UserName
-    $saPassword = $saCreds.GetNetworkCredential().password
+    # Cancelling Get-Credential returns $null - previously that crashed on .UserName.
+    $saCreds = Get-Credential -Message "Service account for the sensitivity label FALLBACK (optional - Cancel to skip). Must NOT have MFA."
+    if ($null -eq $saCreds) {
+        Write-Host "  Skipped - installing without the delegated fallback. Labelling will work as long as the app-only route does." -ForegroundColor Yellow
+        RecordDeployStatus -Component "Sensitivity label fallback credentials" -Status 'SKIPPED' -Detail "No service account supplied. App-only labelling still works; add sausername/sapassword to Key Vault if a run reports 'using the delegated flow'."
+    }
+    else {
+        $saUsername = $saCreds.UserName
+        $saPassword = $saCreds.GetNetworkCredential().password
+        RecordDeployStatus -Component "Sensitivity label fallback credentials" -Status 'OK' -Detail "Service account '$saUsername' stored in Key Vault for the delegated fallback"
+    }
 }
 
 if (-not $SkipBicepDeploy) {

@@ -8,15 +8,32 @@ For å bruke denne funksjonaliteten må sensitivitetsmerker være aktivert for T
 
 Funksjonaliteten må aktiveres og konfigureres for å fungere.
 
-_Merk – På grunn av begrensninger i Microsoft Graph API kan merker på **grupper og team** kun anvendes ved hjelp av Delegated permissions (re-verifisert august 2026). Dette betyr at en tjenestekonto (kan være samme som Bestillingsportalen bruker) er påkrevd. Denne kontoen MÅ IKKE ha MFA konfigurert._
+_Merk – Microsoft Graph støtter fortsatt ikke `assignedLabels` på grupper og team med Application permissions (re-verifisert august 2026). Løsningen omgår dette ved å sette merket via SharePoint sitt tenant-admin-API (`Set-PnPTenantSite -SensitivityLabel`), som propagerer til gruppen på tjenersiden og **fungerer app-only** – se [Kan tjenestekontoen fjernes?](#kan-tjenestekontoen-fjernes) under._
 
-_Brukernavn og passord for denne kontoen lagres i Key Vault, og leses av Automation-kontoens managed identity inne i `ConfigureSpace`-runbooken. Verdiene skrives ikke til jobbloggen._
+_En tjenestekonto uten MFA kreves derfor **ikke** lenger for å ta i bruk funksjonaliteten. Den brukes bare av den delegerte fallbacken, som `ConfigureSpace` går til hvis app-only-veien ikke fikk merket på gruppen. Oppgir du credentials, lagres de i Key Vault og leses av Automation-kontoens managed identity inne i runbooken – verdiene skrives ikke til jobbloggen._
 
 ### Kan tjenestekontoen fjernes?
 
-Kanskje – dette er ikke avklart, og det er verdt å måle i din egen tenant.
+**Sannsynligvis ja – men bekreft i din egen tenant først.**
 
-PnP dokumenterer `Set-PnPTenantSite -SensitivityLabel` som app-only-veien for gruppetilknyttede områder, men [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) rapporterer at kallet kan lykkes uten feil **uten** at merket faktisk settes – nettopp med managed identity.
+Målt 4. august 2026 i en testtenant (`tarjeieo`), på et gruppetilknyttet område uten merke fra før:
+
+| | Resultat |
+|--|--|
+| `Set-PnPTenantSite -SensitivityLabel` app-only (system-assigned MI) | Returnerte uten feil |
+| Merke på **området** | Satt, bekreftet ved tilbakelesing |
+| Merke på **gruppens `assignedLabels`** | Satt, bekreftet via Graph |
+| Propageringstid | **Under 15 sekunder** |
+
+Feilmodusen i [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) reproduserte altså ikke. Dette er ikke i konflikt med Graph-begrensningen: den gjelder `PATCH /groups/{id}` med `assignedLabels`, mens `Set-PnPTenantSite` går via SharePoint sitt tenant-admin-API, som propagerer container-merket til gruppen på tjenersiden.
+
+**Hva det betyr i praksis:** tjenestekontoen uten MFA og Entra ID-appen er ikke lenger et *krav* for å bruke funksjonaliteten. `deploy.ps1` godtar nå `enableSensitivity = true` uten at appen finnes (WARNING, ikke stopp), og credential-prompten kan avbrytes. Det fjerner en reell innvending i kundens sikkerhetsgjennomgang.
+
+**Hvorfor fallbacken beholdes likevel:** dette er **én måling, i én tenant, med ett merke, på ett område**. Merker med kryptering, andre publiseringsomfang eller andre policy-innstillinger kan oppføre seg annerledes, og resultatet er ikke bekreftet i en kundetenant. `ConfigureSpace` beholder derfor den delegerte veien som fallback, og logger hvilken vei som ble brukt.
+
+**Slik fjerner du ROPC helt:** bekreft UTFALL A i minst én kundetenant med kundens egne merker, verifiser at ingen kjøringer logger `using the delegated flow` over en periode, og fjern deretter `Set-GroupSensitivityLabelDelegated`, `sausername`/`sapassword`, client secret-en, `createentraidapp.ps1`, `appmanifest.json` og `Refreshing-app-secret.md`.
+
+PnP dokumenterer `Set-PnPTenantSite -SensitivityLabel` som app-only-veien for gruppetilknyttede områder, men [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) rapporterer at kallet kan lykkes uten feil **uten** at merket faktisk settes – nettopp med managed identity. Derfor leser runbooken alltid tilbake.
 
 `ConfigureSpace` håndterer derfor begge utfall: den forsøker app-only først, leser tilbake `assignedLabels` på gruppen, og faller bare tilbake på ROPC-flyten hvis merket ikke er der. Jobbloggen viser hvilken vei som ble brukt:
 

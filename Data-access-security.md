@@ -4,9 +4,14 @@ Bestillingsportalen bruker **Microsoft Graph API** og **SharePoint REST API** fo
 
 Provisjoneringen utføres via en **user-assigned managed identity** som er koblet til alle Logic Apps og har de nødvendige app-rollene mot Microsoft Graph og SharePoint. Managed identity har ingen secret eller sertifikat som kan utløpe eller lekke – Entra ID utsteder tokens direkte til Azure-ressursen. Se [Migrering til managed identity](Managed-identity-migration.md) for bakgrunn.
 
-Det finnes ett unntak – anvendelse av sensitivitetsmerker. Graph API støtter fortsatt ikke `assignedLabels` på grupper og team med Application Permissions (**re-verifisert august 2026** mot [group-update-dokumentasjonen](https://learn.microsoft.com/en-us/graph/api/group-update); gjelder også `Group.ManageProtection.All`, som finnes som app-rolle men er delegated-only for nettopp denne egenskapen). Det brukes derfor en tjenestekonto (uten MFA) med **Delegated Permissions** via en Entra ID App Registration (ROPC-flyt). Av samme grunn beholder Entra ID-appen en client secret – den brukes utelukkende i dette token-kallet.
+Det finnes ett unntak – anvendelse av sensitivitetsmerker. Graph API støtter fortsatt ikke `assignedLabels` på grupper og team med Application Permissions (**re-verifisert august 2026** mot [group-update-dokumentasjonen](https://learn.microsoft.com/en-us/graph/api/group-update); gjelder også `Group.ManageProtection.All`, som finnes som app-rolle men er delegated-only for nettopp denne egenskapen).
 
-Merkingen kjører i `ConfigureSpace`-runbooken, ikke i Logic App-en. Runbooken forsøker først den app-only-veien PnP dokumenterer for gruppetilknyttede områder (`Set-PnPTenantSite -SensitivityLabel`), leser tilbake `assignedLabels` på gruppen for å se om merket faktisk ble satt, og faller bare tilbake på ROPC-flyten hvis det ikke skjedde. Hvis app-only viser seg å holde i din tenant, kan ROPC-flyten, tjenestekonto-secretene og client secret-en fjernes helt – se [Sensitivitetsmerker](Sensitivity-labels.md).
+Merkingen kjører i `ConfigureSpace`-runbooken, ikke i Logic App-en, og går i to trinn:
+
+1. **App-only (primærveien).** `Set-PnPTenantSite -SensitivityLabel` setter container-merket via SharePoint sitt tenant-admin-API med Automation-kontoens managed identity. Dette omgår Graph-begrensningen: SharePoint propagerer merket til gruppen på tjenersiden. Målt 4. august 2026 i testtenant: virker, og `assignedLabels` på gruppen er satt innen 15 sekunder.
+2. **Delegert fallback.** Runbooken leser alltid tilbake `assignedLabels` på gruppen. Er merket ikke der, brukes en tjenestekonto uten MFA med **Delegated Permissions** via en Entra ID App Registration (ROPC). Kun for denne fallbacken beholder appen en client secret.
+
+**Konsekvens:** tjenestekonto uten MFA, Entra ID-appen og client secret-en er **ikke påkrevd** for å ta i bruk funksjonaliteten. `deploy.ps1` godtar `enableSensitivity = true` uten dem. Fallbacken beholdes fordi målingen så langt er én tenant med ett merke – se [Sensitivitetsmerker](Sensitivity-labels.md) for hva som må bekreftes før ROPC fjernes helt.
 
 Hvis du velger å deaktivere eller ikke bruke sensitivitetsmerkefunksjonaliteten, er verken tjenestekonto-credentials, app-secret eller den delegerte tillatelsen nødvendig.
 
