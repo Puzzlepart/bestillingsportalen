@@ -22,8 +22,26 @@
 
     Parameters should be filled out in the parameters.json file before executing the script.
 
+.PARAMETER SkipConfirmation
+    Skip the pre-flight summary/confirmation prompt, and reuse a cached Az/Azure CLI
+    session matching the target tenant without asking.
+
+.PARAMETER Force
+    Fully unattended. Implies -SkipConfirmation, and answers the "site already exists -
+    re-apply the PnP provisioning template?" prompt with NO, so configuration lists keep
+    their current content.
+
+    -Force means "do not stop to ask me anything", NOT "answer yes to everything": it
+    will not purge a soft-deleted site, purge a soft-deleted Microsoft 365 group, or
+    delete an active group and its site. Those are irreversible, so -Force aborts with a
+    message instead - re-run without it to decide.
+
 .EXAMPLE
     deploy.ps1
+
+.EXAMPLE
+    deploy.ps1 -Upgrade -Force
+    Unattended upgrade of an existing environment: no prompts, no template re-apply.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -39,8 +57,26 @@ param
     [switch]$SkipDeployAPIConnections,
     [switch]$SkipSPFxDeploy,
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
+    [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
     [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
 )
+
+# -Force means "do not stop to ask me anything", not "answer yes to everything".
+#
+# It reuses cached sign-in sessions, skips the pre-flight confirmation, and answers the
+# "site already exists - re-apply the PnP provisioning template?" prompt with NO, so an
+# unattended run never resets configuration lists to package defaults.
+#
+# It deliberately does NOT auto-approve the three destructive prompts in
+# CreateRequestsSharePointSite (purging a soft-deleted site, purging a soft-deleted
+# Microsoft 365 group, or permanently deleting an ACTIVE group and its site). Those are
+# irreversible and can destroy a real site, so with -Force they abort with a message
+# telling you to re-run interactively and decide.
+if ($Force) {
+    $SkipConfirmation = $true
+    Write-Host "-Force: running unattended. Cached sessions are reused, the pre-flight confirmation is skipped, and the PnP template will NOT be re-applied to an existing site." -ForegroundColor Yellow
+    Write-Host "        Destructive prompts (purging a deleted site or group, deleting an active group) still abort - re-run without -Force to decide on those." -ForegroundColor Yellow
+}
 
 Add-Type -AssemblyName System.Web
 
@@ -249,6 +285,9 @@ function CreateRequestsSharePointSite {
             $deletedSite = Get-PnPTenantDeletedSite -Identity $requestsSiteUrl -ErrorAction SilentlyContinue
             if ($null -ne $deletedSite) {
                 Write-Host "A deleted site with URL $requestsSiteUrl is in the tenant recycle bin - it blocks creating a new site on the same URL." -ForegroundColor Yellow
+                if ($Force) {
+                    throw "The site URL $requestsSiteUrl is occupied by a deleted site in the tenant recycle bin. Purging it is irreversible, so -Force will not do it: re-run without -Force to decide interactively, purge it yourself (Remove-PnPTenantDeletedSite), or choose a different requestsSiteName."
+                }
                 $purge = Read-Host "Permanently delete it from the recycle bin and continue? ( y / n = abort )"
                 if ($purge -ne 'y') {
                     throw "The site URL is occupied by a deleted site in the tenant recycle bin. Permanently delete it (Remove-PnPTenantDeletedSite) or choose a different requestsSiteName, then re-run."
@@ -266,6 +305,9 @@ function CreateRequestsSharePointSite {
             $deletedGroup = if ($deletedGroupJson) { @(($deletedGroupJson | ConvertFrom-Json).value) | Select-Object -First 1 } else { $null }
             if ($null -ne $deletedGroup) {
                 Write-Host "A deleted Microsoft 365 group with alias '$requestsSiteAlias' ('$($deletedGroup.displayName)') exists in Entra ID - the alias stays reserved until the group is permanently deleted." -ForegroundColor Yellow
+                if ($Force) {
+                    throw "The group alias '$requestsSiteAlias' is reserved by a soft-deleted Microsoft 365 group ('$($deletedGroup.displayName)'). Permanently deleting it is irreversible, so -Force will not do it: re-run without -Force to decide interactively, delete it yourself (Entra ID -> Groups -> Deleted groups), or choose a different requestsSiteName."
+                }
                 $purgeGroup = Read-Host "Permanently delete the group and continue? ( y / n = abort )"
                 if ($purgeGroup -ne 'y') {
                     throw "The group alias '$requestsSiteAlias' is reserved by a soft-deleted Microsoft 365 group. Permanently delete it (Entra ID -> Groups -> Deleted groups) or choose a different requestsSiteName, then re-run."
@@ -293,6 +335,9 @@ function CreateRequestsSharePointSite {
 
                 Write-Host "An ACTIVE Microsoft 365 group with alias '$requestsSiteAlias' already exists: '$($activeGroup.displayName)', created $($activeGroup.createdDateTime), site: $groupSiteUrl." -ForegroundColor Yellow
                 Write-Host "This is typically left behind by a previous partially failed site-creation attempt (the site ended up on a different URL). Check that the group/site contains nothing of value before deleting." -ForegroundColor Yellow
+                if ($Force) {
+                    throw "The group alias '$requestsSiteAlias' is in use by an ACTIVE Microsoft 365 group ('$($activeGroup.displayName)', site: $groupSiteUrl). Deleting it would take its site with it, so -Force will not do it: verify the group holds nothing of value, then re-run without -Force to confirm - or choose a different requestsSiteName."
+                }
                 $deleteGroup = Read-Host "PERMANENTLY delete this group (including its site) and continue? ( y / n = abort )"
                 if ($deleteGroup -ne 'y') {
                     throw "The group alias '$requestsSiteAlias' is in use by an existing Microsoft 365 group ('$($activeGroup.displayName)', site: $groupSiteUrl). Delete it or choose a different requestsSiteName, then re-run."
@@ -355,13 +400,24 @@ function CreateRequestsSharePointSite {
             Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
         }
         else {
-            Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
-            Write-Host "  y = re-apply template AND reset the configuration lists (Settings, Provisioning Types, Teams Templates etc.) to package defaults. Request data (Provisioning Requests / Guest Requests) is never touched." -ForegroundColor Cyan
-            Write-Host "  n = leave the site and ALL list content untouched (only reads the list ids), then continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
-            $overwrite = Read-Host " ( y / n )"
-            if ($overwrite -ne "y") {
+            # -Force answers this with NO on purpose. Re-applying the template resets the
+            # configuration lists (Settings, Provisioning Types, Teams Templates) to
+            # package defaults, which would silently discard customer configuration -
+            # never the right default for an unattended run. Use -Upgrade, or run
+            # interactively, when you actually want a schema change applied.
+            if ($Force) {
                 $global:skipApplyTemplate = $true
-                Write-Host "Template apply and list population will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                Write-Host "Site already exists. -Force: NOT re-applying the PnP template, so configuration lists keep their current content. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
+                Write-Host "  y = re-apply template AND reset the configuration lists (Settings, Provisioning Types, Teams Templates etc.) to package defaults. Request data (Provisioning Requests / Guest Requests) is never touched." -ForegroundColor Cyan
+                Write-Host "  n = leave the site and ALL list content untouched (only reads the list ids), then continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+                $overwrite = Read-Host " ( y / n )"
+                if ($overwrite -ne "y") {
+                    $global:skipApplyTemplate = $true
+                    Write-Host "Template apply and list population will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                }
             }
         }
 
@@ -1657,7 +1713,8 @@ $requestsSiteUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com/$(
 
 # Initialise connections - Azure Az/CLI. Both tools cache sessions across runs,
 # so existing sessions matching the target tenant/subscription are offered for
-# reuse instead of forcing a new MFA round trip on every run.
+# reuse instead of forcing a new MFA round trip on every run. -SkipConfirmation
+# (which -Force implies) reuses a matching session without asking.
 
 # --- Az PowerShell ---
 Write-Host "Checking for an existing Az PowerShell session..." -ForegroundColor Yellow

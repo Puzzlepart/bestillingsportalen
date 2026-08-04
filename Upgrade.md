@@ -175,6 +175,26 @@ Du kan kombinere med andre skip-flagg ved behov:
 ./deploy.ps1 -Upgrade -SkipSPFxDeploy
 ```
 
+##### Uovervåket kjøring med `-Force`
+
+Ved gjentatte kjøringer (typisk under utvikling og testing) blir promptene fort i veien:
+
+```powershell
+./deploy.ps1 -Upgrade -Force
+```
+
+`-Force` gjør tre ting:
+
+| | |
+|--|--|
+| Gjenbruker cachede Az/Azure CLI-sesjoner | Uten å spørre (samme som `-SkipConfirmation`) |
+| Hopper over pre-flight-bekreftelsen | Samme som `-SkipConfirmation` |
+| Svarer **nei** på «re-anvend PnP-template?» | Konfigurasjonslistene beholder innholdet sitt |
+
+Template-svaret er bevisst `nei`: å re-anvende malen nullstiller `Settings`, `Provisioning Types`, `Teams Templates` m.fl. til pakkens standardverdier, og det skal aldri skje stille i en uovervåket kjøring. Trenger du en skjemaendring anvendt, kjør interaktivt og svar `y`.
+
+> **`-Force` betyr «ikke stopp og spør meg», ikke «svar ja på alt».** De tre destruktive promptene — tømme en slettet site fra papirkurven, tømme en slettet Microsoft 365-gruppe, eller permanent slette en **aktiv** gruppe med tilhørende site — blir *ikke* auto-godkjent. De avbryter med en melding i stedet, siden de er irreversible og kan slette et reelt område. Treffer du en av dem, kjør uten `-Force` og ta stilling.
+
 #### Alternativ B: Manuell Logic App-oppdatering
 
 Hvis du foretrekker å oppdatere Logic Apps manuelt (nyttig for å gjennomgå endringer før de anvendes), kan du deploye ARM-malene direkte med Azure CLI i stedet for å kjøre hele skriptet. Bruk `--what-if` først for å se endringene:
@@ -375,7 +395,7 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
 - [ ] Verifiser at Node.js er installert (hvis SPFx skal deployes)
 - [ ] Varsle brukere om vedlikeholdsvindu
-- [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten)
+- [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten — eller bruk `-Force`, som svarer nei)
 - [ ] Verifiser at området lastes korrekt
 - [ ] Sjekk at alle lister og data er intakte (inkl. ny `Guest Requests`-liste)
 - [ ] Test `ProcessProvisionRequest` med en eksempel-bestilling
