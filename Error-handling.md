@@ -23,9 +23,10 @@ Følgende steg har automatisk feilhåndtering:
 5. **Apply_Site_Template** - Anvendelse av nettstedmal
 6. **Set_external_sharing** - Konfigurasjon av ekstern deling
 7. **Invite_guests** - Invitasjon av gjestebrukere
-8. **Apply_sensitivity_label** - Anvendelse av følsomhetsetikett
-9. **Store_expiration_date** - Lagring av utløpsdato
-10. **Configure_space** - Konfigurering via Azure Automation runbook
+8. **Store_expiration_date** - Lagring av utløpsdato
+9. **Configure_space** - Konfigurering via Azure Automation runbook
+
+Sensitivitetsmerking har ikke lenger et eget scope her – den gjøres i `ConfigureSpace`-runbooken og dekkes av `Handle_Error_Configure_space` (se [Sensitivitetsmerker](Sensitivity-labels.md)).
 
 > **Merk:** `Run_CustomerSpecific_runbook` (det kundeeide utvidelsespunktet som kjøres rett etter `Configure_space`) har ikke eget `Handle_Error`-scope — en feil *inne i* kundeskriptet gir Failed-status på Automation-jobben uten å sette bestillingen til «Space Creation Failed». Sjekk jobbhistorikken på `CustomerSpecific`-runbooken ved feilsøking av kundetilpasninger.
 
@@ -33,74 +34,92 @@ Følgende steg har automatisk feilhåndtering:
 
 For hvert steg over finnes det en tilhørende `Handle_Error_[StepName]` scope som:
 
-1. Aktiveres når hovedsteget får status `Failed`, `Skipped`, eller `TimedOut`
-2. Oppdaterer Provisioning Request-listeelementet med:
+1. Aktiveres når hovedsteget får status `Failed` eller `TimedOut`
+2. Henter den faktiske feilen fra steget med `result()` (`Filter_failed_actions_*` + `Compose_error_message_*`)
+3. Oppdaterer Provisioning Request-listeelementet med:
    - Status: "Space Creation Failed"
-   - StatusReason: Beskrivende feilmelding som forteller hvilket steg som feilet
-3. Avslutter Logic App-kjøringen med Failed-status
+   - StatusReason: hvilket steg som feilet **og** den underliggende feilmeldingen
+4. Avslutter Logic App-kjøringen med Failed-status
+
+> **Merk:** `Skipped` er *ikke* med i utløseren, i motsetning til hva denne dokumentasjonen tidligere hevdet. Et steg får `Skipped` først når en avhengighet feilet – og da har den avhengighetens eget `Handle_Error`-scope allerede kjørt `Terminate`. Å legge til `Skipped` ville gitt dobbel skriving til listeelementet.
 
 ### Eksempel på feilmelding
 
-Hvis steget "Apply_Site_Template" feiler, vil StatusReason-feltet settes til:
+Hvis "Apply_Site_Template" feiler, settes StatusReason til steget pluss den faktiske feilen, for eksempel:
+
 ```
-Failed to apply site template
+Failed to apply site template: Apply_site_template_to_site: The site design was not found.
 ```
+
+`result()` rapporterer de **umiddelbare** barne-actionene i scopet. Ved dypt nestede feil navngir meldingen derfor grenen som feilet framfor det innerste kallet – bruk Logic App-kjørehistorikken for å komme helt ned.
+
+For `Configure_space` brukes ikke `result()` (det er en connector-action, ikke et scope). Der leses Automation-jobbens `properties.exception`, som inneholder runbookens egen oppsummering:
+
+```
+Failed to configure space using runbook: An error occured: One or more configuration steps failed: ApplyTheme failed: ...
+```
+
+### Runbook-jobber som feiler med HTTP 200
+
+Azure Automation-connectoren returnerer HTTP 200 selv når runbook-jobben internt har status `Failed`. Etter `Configure_space` ligger derfor en egen `Check_runbook_status`-If som leser `body('Configure_space')?['properties']?['status']` og setter bestillingen til "Space Creation Failed" hvis jobben feilet. `Update_status_to_Space_Created` er kjedet etter denne sjekken, ikke etter `Configure_space` – ellers kunne en bestilling bli stemplet "Space Created" før `Terminate` rakk å stoppe kjøringen.
 
 ## Feilhåndtering i ConfigureSpace Runbook
 
 ConfigureSpace.ps1 runbook har også omfattende feilhåndtering for alle konfigurasjonsfunksjoner.
 
-### Nye funksjoner
+### `$ErrorActionPreference = 'Stop'`
 
-#### Set-SpaceCreationFailed
+Runbooken kjører med `Stop` på skriptnivå. Det er nødvendig for at feilhåndteringen skal fungere i det hele tatt: PnP-cmdleter produserer ofte **ikke-terminerende** feil, og uten `Stop` gikk disse rett forbi try/catch-blokkene. Kjøringen rapporterte da suksess selv om enkeltsteg ikke hadde utført noe.
 
-Denne funksjonen kalles fra try/catch-blokker i alle konfigurasjonsfunksjoner. Den:
-- Registrerer at en feil har oppstått
-- Lagrer feilmeldinger i en liste
-- Logger feilen til output
+Enkelte kall setter bevisst `-ErrorAction SilentlyContinue` fordi de *tester* om noe finnes (f.eks. `Get-PnPList -Identity "SiteAssets"` og `Get-PnPHubSite`). Det er tilsiktet og skal ikke fjernes.
 
-```powershell
-Set-SpaceCreationFailed -FunctionName "SetSiteLogo" -ErrorMessage "Failed to upload logo"
-```
+### `Invoke-Step`
 
-#### Update-ProvisioningRequestStatus
+Hvert konfigurasjonssteg kjøres via `Invoke-Step`, som erstatter de tidligere 22 identiske try/catch-blokkene. Den:
 
-Denne funksjonen logger statusoppdateringer og akkumulerte feilmeldinger. Merk at den faktiske oppdateringen av SharePoint-listen håndteres av Logic App-en via error handling scopes.
+- kaller steget og registrerer `Succeeded`/`Failed` med feilmelding i `$script:stepResults`
+- kaller `Set-SpaceCreationFailed`, som setter `$script:hasErrors` og legger meldingen i `$script:errorMessages`
+- lar kjøringen fortsette til neste steg, slik at f.eks. et ugyldig temanavn ikke stopper oppmerkingen
 
-### Håndterte funksjoner
+`Update-ProvisioningRequestStatus` er fjernet – den oppdaterte aldri noe, den logget bare, og navnet var misvisende. Listeoppdateringen tilhører Logic App-en.
 
-Alle følgende funksjoner er wrappet med try/catch og kaller `Set-SpaceCreationFailed` ved feil:
+### Steg som kjøres
 
-- SetSiteLogo
-- AddOwners
-- AddMembers
-- AddVisitors
-- AddReadOnlyGroup
-- AddSiteCollectionAdmins
-- SetExternalSharing
-- SetAccessRequestSettings
-- SetSiteClassification
-- JoinOrRegisterHubSite
-- SetRegionalSettings
-- SetStorageQuota
-- DisableDocumentSync
-- SetRetentionLabel
+Container-nivå først (merket overstyrer områdets privacy og delingsinnstillinger, så det må settes før dem):
+
 - SetSensitivityLabel
-- SetSensitivityLabelLibrary
-- ActivateFeatures
-- ApplyPnPTemplate
-- ApplyTheme
-- ApplySiteDesign
+- SetExternalSharing
+- DisableNoScript
+
+Deretter, med `EnableNoScript` garantert i `finally`:
+
+- AddOwners, AddMembers, AddVisitors, AddReadOnlyGroup, AddSiteCollectionAdmins
+- SetAccessRequestSettings, SetSiteLogo, SetRegionalSettings
+- ActivateFeatures, ApplyPnPTemplate, ApplyTheme
+- DisableDocumentSync, SetRetentionLabel, SetSensitivityLabelLibrary, SetSiteClassification
+- SetMetadata, JoinOrRegisterHubSite, SetStorageQuota, ApplySiteDesign, UpdateParentSite
 
 ### Feilhåndteringsflyt
 
-1. En funksjon kjører og feiler
-2. `Set-SpaceCreationFailed` kalles og logger feilen
-3. Funksjonen returnerer uten å krasje scriptet
-4. Hovedscriptet sjekker om det er akkumulerte feil
-5. Hvis ja, kastes en exception med alle feilmeldinger
-6. Logic App fanger opp feilen via `Handle_Error_Configure_space`
-7. Provisioning Request oppdateres med "Space Creation Failed"
+1. Et steg feiler (terminerende eller ikke-terminerende)
+2. `Invoke-Step` fanger feilen, registrerer den og går videre
+3. `EnableNoScript` kjøres uansett i `finally`
+4. `Write-StepSummary` skriver en per-steg-tabell til jobbloggen – **dette er det første du leser ved feilsøking**
+5. Hvis noen steg feilet, kastes en exception som navngir dem
+6. Automation-jobben får status `Failed` med exception-teksten
+7. Logic App-en fanger det via `Check_runbook_status` (jobb-status) eller `Handle_Error_Configure_space` (connector-feil)
+8. Provisioning Request oppdateres med "Space Creation Failed" og exception-teksten som StatusReason
+
+Eksempel på steg-tabellen:
+
+```
+================ Step summary ================
+  SetSensitivityLabel          Succeeded
+  SetExternalSharing           Succeeded
+  ApplyTheme                   Failed - Theme 'Foo' does not exist
+  SetRetentionLabel            Succeeded
+==============================================
+```
 
 ## Feilsøking
 
@@ -126,20 +145,25 @@ Når en forespørsel får status "Space Creation Failed":
 - Graph API-feil ved oppretting av gruppe
 
 #### "Failed to configure space using runbook"
-- PnP PowerShell-modul ikke tilgjengelig
+StatusReason inneholder runbookens egen oppsummering med navn på de feilende stegene. Åpne jobben i Automation-kontoen og les steg-tabellen nederst i loggen. Vanlige årsaker:
 - Managed Identity mangler tillatelser
-- Feil i konfigurasjonsfunksjoner (sjekk runbook logs)
+- Feil i et enkelt konfigurasjonssteg (temanavn, tidssone, hub-ID som ikke finnes)
+- Merk: etter at `$ErrorActionPreference = 'Stop'` ble innført vil steg som tidligere feilet *stille* nå rapporteres. En bestilling som «alltid har fungert» kan derfor begynne å feile – det er reelle feil som ble skjult før, ikke en regresjon.
 
 #### "Failed to apply site template"
 - Ugyldig Site Design ID
 - Site Design eksisterer ikke
 - Tillatelsesproblem
 
-#### "Failed to apply sensitivity label"
-- Følsomhetsetikett ikke publisert til grupper/sites
-- Service account mangler tillatelser
-- App secret (brukes kun av denne flyten) er utløpt – se [Refreshing-app-secret.md](Refreshing-app-secret.md)
-- Ugyldig Label ID
+#### Sensitivitetsmerke ble ikke satt
+Har ikke lenger eget scope – dukker opp under "Failed to configure space using runbook" med `SetSensitivityLabel` i steg-tabellen. Vanlige årsaker:
+- Merket er ikke publisert til grupper/sites i Purview (vent 24 timer etter publisering)
+- Ugyldig Label ID i bestillingen eller i `DefaultSensitivityLabel`
+- Tjenestekontoen mangler tilgang, har fått MFA, eller passordet er endret uten at `sapassword` i Key Vault er oppdatert
+- App secret utløpt – se [Refreshing-app-secret.md](Refreshing-app-secret.md)
+- Automation-kontoens managed identity mangler `secrets/get` på Key Vault
+
+Jobbloggen viser hvilken vei som ble forsøkt (app-only eller delegert) – se [Sensitivitetsmerker](Sensitivity-labels.md).
 
 #### 403 "Authorization_RequestDenied" rett etter installasjon/oppgradering
 - Managed identity-tokens caches i opptil ~24 timer, og nytildelte app-roller kan bruke tid på å propagere

@@ -96,10 +96,10 @@ Alle malene er deklarative: redeploy forrige git-revisjon med den gamle `deploy.
 2. Kjør de tilbakevendende Logic Apps manuelt: `GetHubSites` (SharePoint REST), `SyncLabels`/`SyncGroupSettings`/`GetTeamsTemplates` (Graph), `GetSiteTemplates` (Automation-connector + runbook).
 3. Send en testbestilling ende-til-ende via webdelen (dekker `ProcessProvisionRequest` inkl. Automation- og KV-tilkoblingene).
 4. Test gjesteinvitasjon (dekker `ProcessGuestRequest`/`ProcessGuests` + `AddGuestToSite`-runbooken).
-5. Hvis sensitivitetsmerker er aktivert: verifiser at merket faktisk settes på en ny gruppe (ROPC-flyten).
+5. Hvis sensitivitetsmerker er aktivert: verifiser at merket faktisk settes på en ny gruppe. Merkingen gjøres nå i `ConfigureSpace`-runbooken — sjekk jobbloggen for `Label confirmed on group ...`.
 
 ## Restrisiko og åpne punkter
 
 - **Designer-roundtrip:** Åpnes en Logic App i designeren og eksporteres tilbake til ARM-malene, blir `[variables('uamiId')]` til en hardkodet ressurs-ID. Behold ARM-uttrykkene ved manuell redigering av malene.
 - **Token-caching:** Managed identity-tokens caches (opptil ~24 t). Nye/endrede app-roller slår ikke inn umiddelbart.
-- **Graph-begrensningen for sensitivitetsmerker:** Sjekk jevnlig om `assignedLabels` har fått støtte for application permissions — da kan ROPC-flyten, tjenestekonto-secretene og client secret-en fjernes helt.
+- **Graph-begrensningen for sensitivitetsmerker:** Sjekk jevnlig om `assignedLabels` har fått støtte for application permissions — da kan ROPC-flyten, tjenestekonto-secretene og client secret-en fjernes helt. **Sist verifisert august 2026: begrensningen står fortsatt**, også med `Group.ManageProtection.All` (finnes som app-rolle, men er delegated-only for denne egenskapen). ROPC-flyten er flyttet fra Logic App-en til `ConfigureSpace`-runbooken, som først forsøker en app-only-vei — se [Sensitivitetsmerker](Sensitivity-labels.md) for hvordan du avgjør om tjenestekontoen kan fjernes i din tenant.

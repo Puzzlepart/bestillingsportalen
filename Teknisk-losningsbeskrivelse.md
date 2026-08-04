@@ -18,10 +18,10 @@ graph TD
     B --> C(Power Automate: Provisioning Request Approval)
     C --> D(Logic App: ProcessProvisionRequest)
     D --> E(User-assigned Managed Identity)
-    D -.-> |Kun sensitivitetsmerker: ROPC-secrets| F(Azure Key Vault)
     E --> |SharePoint Site| H[SharePoint REST API]
     E --> |Microsoft 365 Group / Team / Viva Engage| I(Microsoft Graph)
     D --> K(Azure Automation: ConfigureSpace)
+    K -.-> |Kun sensitivitetsmerker: ROPC-secrets| F(Azure Key Vault)
     K --> |System-assigned MI + PnP PowerShell| M(Provisjonert område)
     N(InviteGuests SPFx-webdel) --> |Gjesteforespørsel| O[(SharePoint-liste: Guest Requests)]
     O --> P(Logic App: ProcessGuestRequest) --> Q(Logic App: ProcessGuests) --> I
@@ -48,7 +48,7 @@ graph TD
 Hovedprinsipper:
 
 - Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere** for kjernen av løsningen.
-- Eneste unntak er anvendelse av **sensitivitetsmerker**, som (grunnet en begrensning i Graph API) bruker delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Client secret og tjenestekonto-credentials for dette lagres i en dedikert Azure Key Vault (input/output skjules i kjørehistorikken); secret-oppføringene opprettes alltid, men har kun verdier når funksjonaliteten er aktivert.
+- Eneste unntak er anvendelse av **sensitivitetsmerker** på grupper og team, som (grunnet en begrensning i Graph API, re-verifisert august 2026) krever delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Dette gjøres i `ConfigureSpace`-runbooken, som leser client secret og tjenestekonto-credentials fra en dedikert Azure Key Vault med Automation-kontoens systemtildelte identity. Secret-oppføringene opprettes alltid, men har kun verdier når funksjonaliteten er aktivert. Runbooken forsøker først en app-only-vei og bruker ROPC bare hvis merket ikke ble satt – se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` samt det kundeeide utvidelsespunktet `CustomerSpecific`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
 - E-post- og Teams-varsler sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
 
@@ -82,7 +82,7 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 | Ressurs | Beskrivelse |
 |--|--|
 | User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Key Vault- og Automation-API-tilkoblingene. |
-| Azure Key Vault | Standard SKU. Lagrer secrets: `appid`, `appSecret`, `sausername` og `sapassword` – alle kun i bruk for sensitivitetsmerke-funksjonaliteten (ROPC). Vi anbefaler en dedikert Key Vault for løsningen. |
+| Azure Key Vault | Standard SKU. Lagrer secrets: `appid`, `appSecret`, `sausername` og `sapassword` – alle kun i bruk for sensitivitetsmerke-funksjonaliteten (ROPC). Leses av Automation-kontoens systemtildelte identity (`secrets/get`); den user-assigned identityen har fortsatt `get`/`list`. Vi anbefaler en dedikert Key Vault for løsningen. |
 | Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til M365-gruppe/SharePoint-grupper) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — kundespesifikke tilpasninger legges der. |
 | Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
 | API-tilkoblinger (6 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) og `bestillingsportalen-kv` (Key Vault) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
@@ -170,7 +170,7 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 |--|--|--|
 | `Automation Job Operator` | Automation-kontoen `bestillingsportalen-auto` | Starte runbook-jobber fra Logic Apps. |
 | `Automation Runbook Operator` | Automation-kontoen `bestillingsportalen-auto` | Lese/operere på runbooks. |
-| Key Vault access policy: secrets `get`/`list` | Løsningens Key Vault | Hente ROPC-secrets (kun sensitivitetsmerke-funksjonaliteten). |
+| Key Vault access policy: secrets `get`/`list` | Løsningens Key Vault | Historisk – Logic App-en henter ikke lenger ROPC-secrets selv (det gjør runbooken). Kan strammes inn eller fjernes når oppgraderingen er verifisert. |
 
 ### 4.2 Systemtildelt managed identity (Azure Automation)
 
@@ -181,6 +181,7 @@ Runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSp
 | Microsoft Graph | `Group.ReadWrite.All` | Application |
 | Microsoft Graph | `User.Read.All` (kreves av `AddGuestToSite` for å slå opp gjestebrukere) | Application |
 | SharePoint (Office 365 SharePoint Online) | `Sites.FullControl.All` («Have full control of all site collections») | Application |
+| Key Vault access policy: secrets `get` | Løsningens Key Vault | Hente ROPC-secrets for sensitivitetsmerking i `ConfigureSpace`. Tildeles av `azureresources.bicep`. |
 
 ### 4.3 Entra ID-appen (kun sensitivitetsmerker)
 

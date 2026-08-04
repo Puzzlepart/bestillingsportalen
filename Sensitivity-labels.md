@@ -8,11 +8,24 @@ For å bruke denne funksjonaliteten må sensitivitetsmerker være aktivert for T
 
 Funksjonaliteten må aktiveres og konfigureres for å fungere.
 
-_Merk – På grunn av begrensninger i Microsoft Graph API kan merker kun anvendes ved hjelp av Delegated permissions. Dette betyr at en tjenestekonto (kan være samme som Bestillingsportalen bruker) er påkrevd. Denne kontoen MÅ IKKE ha MFA konfigurert._
+_Merk – På grunn av begrensninger i Microsoft Graph API kan merker på **grupper og team** kun anvendes ved hjelp av Delegated permissions (re-verifisert august 2026). Dette betyr at en tjenestekonto (kan være samme som Bestillingsportalen bruker) er påkrevd. Denne kontoen MÅ IKKE ha MFA konfigurert._
 
-_Brukernavn og passord for denne kontoen lagres i Key Vault for å sikre at det er så trygt som mulig._
+_Brukernavn og passord for denne kontoen lagres i Key Vault, og leses av Automation-kontoens managed identity inne i `ConfigureSpace`-runbooken. Verdiene skrives ikke til jobbloggen._
 
-_Når denne begrensningen fjernes, vil vi oppdatere Bestillingsportalen til å bruke Application permissions, slik at behovet for en tjenestekonto uten MFA elimineres._
+### Kan tjenestekontoen fjernes?
+
+Kanskje – dette er ikke avklart, og det er verdt å måle i din egen tenant.
+
+PnP dokumenterer `Set-PnPTenantSite -SensitivityLabel` som app-only-veien for gruppetilknyttede områder, men [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) rapporterer at kallet kan lykkes uten feil **uten** at merket faktisk settes – nettopp med managed identity.
+
+`ConfigureSpace` håndterer derfor begge utfall: den forsøker app-only først, leser tilbake `assignedLabels` på gruppen, og faller bare tilbake på ROPC-flyten hvis merket ikke er der. Jobbloggen viser hvilken vei som ble brukt:
+
+- `Label confirmed on group ... - app-only path was sufficient` → app-only holdt.
+- `Label not present ... - using the delegated flow` → ROPC var nødvendig.
+
+Ser du konsekvent den første meldingen over flere bestillinger, kan ROPC-flyten, tjenestekonto-secretene (`sausername`/`sapassword`), client secret-en og hele Entra ID-app-registreringen fjernes. Dokumentér funnet her før dere gjør det.
+
+For områder **uten** tilknyttet Microsoft 365-gruppe settes merket app-only og tjenestekontoen er aldri involvert.
 
 Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du aktiverer den.
 
@@ -24,7 +37,9 @@ Merker lagres som listeelementer i en SharePoint-liste kalt `IP Labels` i ShareP
 
 ![IP labels list screenshot](./Images/IPLabelsList.png)
 
-For at et merke skal vises i Bestillingsportalen webdel eller Teams app, må `Enabled`-kolonnen være huket av. Denne kolonnen er lagt til fordi Graph API ikke tillater filtrering på merker som kan anvendes på Sites/Groups vs. Document/Email-merker, og den sikrer at brukere ikke velger feil type merke. Du kan se at det finnes document/email-merker i IP Labels-listen. Sørg for at disse ikke er markert som `Enabled`, og at kun merker som kan anvendes på områder eller grupper er aktivert.
+For at et merke skal vises i Bestillingsportalen webdel eller Teams app, må `Enabled`-kolonnen være huket av.
+
+`SyncLabels` filtrerer allerede på `contentFormats` og synkroniserer kun merker som gjelder `site` eller `unifiedgroup` – document/email-merker skal derfor ikke havne i listen. (Tidligere versjoner av dette dokumentet oppgav at Graph ikke støttet slik filtrering; det stemmer ikke lenger.) `Enabled`-kolonnen fungerer nå først og fremst som en manuell «hvilke av disse skal brukerne faktisk få velge»-bryter. Ser du likevel document/email-merker i listen, sørg for at de ikke er markert som `Enabled`, og meld det inn – da er filteret for løst.
 
 Du kan validere hvilke merker som kan anvendes på områder/grupper via Security & Compliance Center.
 
@@ -43,7 +58,10 @@ Det finnes to måter å aktivere funksjonaliteten på:
 ### Manuell aktivering
 
 1. Gå til listen **`Provisioning Request Settings`** i SharePoint-området.
-2. Rediger listeelementet **`EnableSensitivityLabels`** og sett `Value`-feltet til **`true`**. Standardverdien er `false`.
+2. Rediger listeelementet **`EnableSensitivityLabels`** og sett `Value`-feltet til **`true`**. Standardverdien er `false`. Dette er også kill-switchen: står den på `false`, hopper `ConfigureSpace` over merkingen selv om en bestilling inneholder en label-ID.
+
+Stegene under (Key Vault-secrets) gjelder **kun anvendelse** av merker på grupper og team. Selve synkroniseringen inn i `IP Labels`-listen bruker managed identity med app-tillatelsen `InformationProtectionPolicy.Read.All` og trenger ingen tjenestekonto – du kan altså kjøre `SyncLabels` (steg 7–9) uten å opprette secretene, og se hvilke merker som finnes.
+
 3. Gå til **Azure Portal > Key Vaults** og klikk på Key Vault-en for Bestillingsportalen-installasjonen din.
 4. Velg **`Secrets`** fra venstre panel.
 
