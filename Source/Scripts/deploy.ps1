@@ -1179,6 +1179,31 @@ function AssignManagedIdentityPermissions {
         RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'OK'
     }
     Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
+
+    GrantAutomationKeyVaultAccess -AutomationPrincipalId $autoPrincipalId
+}
+
+# ConfigureSpace reads the ROPC secrets (sensitivity labels) from Key Vault with the
+# automation account's system-assigned identity. The access policy is declared in
+# azureresources.bicep, but that template is SKIPPED in upgrade mode - so grant it here
+# too, from a function that runs in both paths. Without this, an upgraded environment
+# gets a Key Vault 403 the first time a request carries a sensitivity label.
+# Idempotent: az keyvault set-policy is additive per object id.
+function GrantAutomationKeyVaultAccess {
+    param([Parameter(Mandatory = $true)][string] $AutomationPrincipalId)
+
+    $vaultName = $parameters.keyVaultName.Value
+    Write-Host "Granting the automation account's managed identity read access to Key Vault secrets ($vaultName)..." -ForegroundColor Yellow
+
+    az keyvault set-policy --name $vaultName --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --object-id $AutomationPrincipalId --secret-permissions get --output none
+    if ($LASTEXITCODE -ne 0) {
+        RecordDeployStatus -Component "Key Vault access: $automationAccountName (system-assigned MI)" -Status 'FAILED' -Detail "Could not grant secrets/get on '$vaultName'. Sensitivity labelling will fail with 403 - grant it manually in Azure Portal > Key Vault > Access policies."
+        Write-Host "  ERROR: could not grant secrets/get on '$vaultName'." -ForegroundColor Red
+        return
+    }
+
+    RecordDeployStatus -Component "Key Vault access: $automationAccountName (system-assigned MI)" -Status 'OK'
+    Write-Host "  secrets/get granted on $vaultName." -ForegroundColor Green
 }
 
 # Assigns Graph and SharePoint app roles to the user-assigned managed identity that the
