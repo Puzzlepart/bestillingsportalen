@@ -174,6 +174,18 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 **For senere oppdateringer av et miljø i drift, bruk `./deploy.ps1 -Upgrade`** (se [Oppgraderingsveiledning](/Upgrade.md)) — den hopper over listeutfylling og områdeoppsett helt.
 
+#### Runbookene vises som «PowerShell 5.1» i portalen — det er normalt
+
+Runbookene kjører på **PowerShell 7.4** i runtime environmentet `bestillingsportalen-ps74` (kreves av `PnP.PowerShell` 3.x), men Automation-kontoens **standard Runbooks-blad viser dem som «PowerShell 5.1»**. Det er en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle portalopplevelsen, som ikke kjenner runtime environments over 7.2:
+
+> «Runbooks created in Runtime environment experience with Runtime version PowerShell 7.2+ would show as PowerShell 5.1 runbooks in old experience.»
+
+**Slik ser du de riktige verdiene:** åpne Automation-kontoen i Azure Portal og bytt til **Runtime environment-opplevelsen** (bryteren ligger i banneret øverst på Automation-konto-oversikten / under `Process Automation`). Da vises både runtime environment og faktisk PowerShell-versjon korrekt for hver runbook, og `bestillingsportalen-ps74` blir synlig med sine pakker.
+
+Du trenger normalt ikke sjekke dette manuelt: `deploy.ps1` leser `properties.runtimeEnvironment` via REST for hver runbook og rapporterer **`Runbook runtime environment`** i DEPLOYMENT SUMMARY. Står den `OK`, kjører runbookene på 7.4 uansett hva Runbooks-bladet viser. Står den `FAILED`, er det et reelt problem — da ville produksjonsrunbookene feilet med `Connect-PnPOnline is not recognized`.
+
+Trenger du grunnsannheten fra inne i en jobb, kjør [`Source/Diagnostics/Test-RunbookRuntime.ps1`](/Source/Diagnostics/Test-RunbookRuntime.ps1) — den skriver ut `$PSVersionTable` og modulversjonene som faktisk er lastet.
+
 ### Autorisere API-tilkoblinger
 
 De fire delegerte API-tilkoblingene må autoriseres interaktivt med **tjenestekontoen**. Selve innloggingen kan ikke automatiseres (delegert OAuth krever at kontoen selv logger inn), men alt rundt er skriptet:

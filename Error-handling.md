@@ -165,6 +165,11 @@ Har ikke lenger eget scope – dukker opp under "Failed to configure space using
 
 Jobbloggen viser hvilken vei som ble forsøkt (app-only eller delegert) – se [Sensitivitetsmerker](Sensitivity-labels.md).
 
+#### Runbookene vises som «PowerShell 5.1» i Automation-kontoen
+**Ikke en feil.** Portalens standard Runbooks-blad kjenner ikke runtime environments over 7.2 og viser derfor alt som 5.1 — [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations). Bytt til **Runtime environment-opplevelsen** i Automation-kontoen, så vises riktig versjon. `deploy.ps1` verifiserer dette og rapporterer `Runbook runtime environment` i DEPLOYMENT SUMMARY.
+
+Er runbooken *faktisk* på klassisk 5.1-runtime, ser du det på et helt annet symptom: `Connect-PnPOnline is not recognized` ved hver kjøring, siden `PnP.PowerShell` 3.x krever 7.4. Kjør [`Source/Diagnostics/Test-RunbookRuntime.ps1`](Source/Diagnostics/Test-RunbookRuntime.ps1) for å se `$PSVersionTable` fra inne i jobben.
+
 #### 403 "Authorization_RequestDenied" rett etter installasjon/oppgradering
 - Managed identity-tokens caches i opptil ~24 timer, og nytildelte app-roller kan bruke tid på å propagere
 - Vent og prøv igjen før du feilsøker videre; verifiser deretter app-rollene på managed identityen

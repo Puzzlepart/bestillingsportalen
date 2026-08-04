@@ -22,7 +22,7 @@ Runbookene kjører på **PowerShell 7.4** via runtime environmentet `bestillings
 
 Tre måter å se den faktiske verdien:
 
-1. **Portalen:** Automation-konto → **Runtime environments** (ikke Runbooks-bladet) → `bestillingsportalen-ps74` → se hvilke runbooks som er knyttet til den.
+1. **Bytt portalopplevelse** (enkleste, og den anbefalte): åpne Automation-kontoen og bytt til **Runtime environment-opplevelsen** — bryteren ligger i banneret på Automation-konto-oversikten. Da vises runtime environment og faktisk PowerShell-versjon korrekt for hver runbook, og `bestillingsportalen-ps74` blir synlig med pakkene sine. Innstillingen huskes, så dette er verdt å gjøre én gang per tenant du jobber i.
 2. **REST API** — den autoritative kilden:
 
 ```bash
