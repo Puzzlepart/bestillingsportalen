@@ -34,9 +34,6 @@
 .PARAMETER Region
     Azure region for the resources. Default: norwayeast.
 
-.PARAMETER EnableSensitivity
-    Enable the sensitivity label functionality (requires a service account without MFA).
-
 .PARAMETER Force
     Overwrite an existing parameters.json without asking.
 
@@ -52,7 +49,6 @@ param
     [string]$OutputPath = ".\parameters.json",
     [string]$ServiceAccountUPN,
     [string]$Region = "norwayeast",
-    [switch]$EnableSensitivity,
     [switch]$Force
 )
 
@@ -231,7 +227,6 @@ $values = @{
     spoTenantName     = $spoTenantName
     region            = $Region
     serviceAccountUPN = $ServiceAccountUPN
-    enableSensitivity = [bool]$EnableSensitivity
 }
 
 foreach ($name in $values.Keys) {

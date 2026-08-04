@@ -57,15 +57,9 @@ Du kan angi et standardmerke og velge om brukeren må velge et merke ved å konf
 
 ## Aktivere funksjonaliteten
 
-Det finnes to måter å aktivere funksjonaliteten på:
+**Alt som trengs er allerede installert.** `SyncLabels`-Logic App-en, `IP Labels`-listen og app-tillatelsen `InformationProtectionPolicy.Read.All` settes opp uansett, og selve merkingen bruker Automation-kontoens managed identity. Det finnes derfor ingen installasjonsparameter for dette – funksjonaliteten skrus av og på i innstillinger-listen, når som helst, uten å kjøre `deploy.ps1` på nytt.
 
-1. Under kjøring av skriptet – en parameter `EnableSensitivity` finnes i `parameters.json` som aktiverer sensitivitetsmerke-funksjonaliteten. Hvis den er satt til `true`, aktiveres funksjonaliteten automatisk. Dette er dokumentert i [Installasjonsveiledningen](./Deployment-guide.md).
-
-2. Manuell aktivering – Følg stegene nedenfor for å aktivere funksjonaliteten manuelt hvis du ikke aktiverte den i `parameters.json`.
-
-### Manuell aktivering
-
-Aktiveringen består nå av to steg – det kreves ingen secrets, ingen app-registrering og ingen tjenestekonto.
+Aktiveringen består av to steg – ingen secrets, ingen app-registrering, ingen tjenestekonto.
 
 1. Gå til listen **`Provisioning Request Settings`** i SharePoint-området.
 2. Rediger listeelementet **`EnableSensitivityLabels`** og sett `Value`-feltet til **`true`**. Standardverdien er `false`. Dette er også kill-switchen: står den på `false`, hopper `ConfigureSpace` over merkingen selv om en bestilling inneholder en label-ID.

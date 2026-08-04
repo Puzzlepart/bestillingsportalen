@@ -553,11 +553,11 @@ function ConfigureSharePointSite {
             if ($setting.Title -eq "SPOManagedPath") {
                 $setting.Value = $parameters.managedPath.Value
             }
-            if ($setting.Title -eq "EnableSensitivityLabels") {
-                If ($parameters.enableSensitivity.Value) {
-                    $setting.Value = "true"
-                }
-            }
+            # Sensitivity labels are enabled by flipping EnableSensitivityLabels in the
+            # 'Provisioning Request Settings' list after install - there is no install-time
+            # parameter for it. Nothing is conditionally deployed: the SyncLabels logic app,
+            # the IP Labels list and InformationProtectionPolicy.Read.All are always in
+            # place, so the list item is the only switch. See Sensitivity-labels.md.
             $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
             $newItem = $siteRequestsSettingsList.AddItem($listItemCreationInformation)
             $newitem["Title"] = $setting.Title
@@ -996,7 +996,6 @@ function ConfirmDeployment {
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
     WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
-    WritePlanLine "Sensitivity labels" $(if ($parameters.enableSensitivity.Value) { "ENABLED (applied app-only with the automation account's managed identity - no service account needed)" } else { "disabled" })
 
     Write-Host ""
     Write-Host "############################################################" -ForegroundColor Magenta

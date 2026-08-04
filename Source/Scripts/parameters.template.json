@@ -55,10 +55,6 @@
         "Value": false,
         "Description": "Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank."
     },
-    "enableSensitivity": {
-        "Value": false,
-        "Description": "Enable the sensitivity label functionality. Labels are applied app-only with the automation account's managed identity - no Entra ID app registration or service account is needed."
-    },
     "skipApplySPOTemplate": {
         "Value": false,
         "Description": "Skip applying the PnP template to the SharePoint site."

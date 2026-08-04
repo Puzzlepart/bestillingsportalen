@@ -113,7 +113,7 @@ Beskrivelse av hver parameter:
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
-- `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merker settes app-only med Automation-kontoens managed identity, så det kreves verken app-registrering, Key Vault eller tjenestekonto for dette.
+> **Sensitivitetsmerker har ingen installasjonsparameter.** Alt som trengs settes opp uansett (`SyncLabels`, `IP Labels`-listen og app-tillatelsen), og merkingen bruker Automation-kontoens managed identity. Funksjonaliteten skrus på ved å sette `EnableSensitivityLabels` til `true` i `Provisioning Request Settings`-listen etter installasjon – se [Sensitivitetsmerker](./Sensitivity-labels.md).
 
 - `skipApplySPOTemplate` – Hopper over anvendelse av PnP-mal på SharePoint-området. La stå som `false` med mindre du har en spesifikk grunn til å hoppe over dette.
 
