@@ -120,24 +120,45 @@ function Invoke-Step {
 
 # The name of the default document library varies with the site's language - the old
 # hardcoded "Dokumenter" failed on every non-Norwegian site.
+#
+# Three strategies, most to least precise. IsDefaultDocumentLibrary is a CSOM property
+# that Get-PnPList does not necessarily retrieve, and reading an unretrieved CSOM
+# property throws PropertyOrFieldNotInitializedException - which under
+# $ErrorActionPreference = 'Stop' would kill the step before any fallback ran. Hence the
+# try/catch around the first attempt rather than a plain filter.
 function Get-DefaultDocumentLibrary {
-    $library = Get-PnPList | Where-Object {
-        $_.BaseTemplate -eq 101 -and $_.IsDefaultDocumentLibrary -eq $true
-    } | Select-Object -First 1
+    $documentLibraries = @(Get-PnPList | Where-Object { $_.BaseTemplate -eq 101 -and -not $_.Hidden })
 
-    if ($null -eq $library) {
-        # Fall back to the well-known server-relative names before giving up.
-        foreach ($candidate in @('Shared Documents', 'Dokumenter', 'Documents')) {
-            $library = Get-PnPList -Identity $candidate -ErrorAction SilentlyContinue
-            if ($null -ne $library) { break }
+    # 1. The property, if this PnP version populated it.
+    try {
+        $library = $documentLibraries | Where-Object { $_.IsDefaultDocumentLibrary } | Select-Object -First 1
+        if ($null -ne $library) {
+            Write-Output "Default document library: '$($library.Title)' (IsDefaultDocumentLibrary)"
+            return $library
+        }
+    }
+    catch {
+        Write-Output "IsDefaultDocumentLibrary was not available on this connection - falling back to name matching."
+    }
+
+    # 2. The well-known default titles, per site language.
+    foreach ($candidate in @('Dokumenter', 'Shared Documents', 'Documents')) {
+        $library = $documentLibraries | Where-Object { $_.Title -eq $candidate } | Select-Object -First 1
+        if ($null -ne $library) {
+            Write-Output "Default document library: '$($library.Title)' (matched a known default title)"
+            return $library
         }
     }
 
-    if ($null -eq $library) {
-        throw "Could not find the default document library on $siteUrl"
+    # 3. A single document library on the site can only be the default one.
+    if ($documentLibraries.Count -eq 1) {
+        Write-Output "Default document library: '$($documentLibraries[0].Title)' (only document library on the site)"
+        return $documentLibraries[0]
     }
 
-    return $library
+    throw ("Could not identify the default document library on $siteUrl. Found $($documentLibraries.Count) document libraries: " +
+        (($documentLibraries | ForEach-Object { "'$($_.Title)'" }) -join ', ') +
+        ". Add the site's default library title to Get-DefaultDocumentLibrary in ConfigureSpace.ps1.")
 }
 
 # Update-ProvisioningRequestStatus used to live here. It never updated anything - it
