@@ -1366,6 +1366,62 @@ function DeployARMTemplates {
     }
 }
 
+# Confirms each runbook is actually linked to the PowerShell 7.4 runtime environment.
+#
+# Worth checking explicitly for two reasons:
+#   1. The runbooks require PnP.PowerShell 3.x, which needs PowerShell 7.4. A runbook
+#      left on the classic 5.1 runtime fails with "Connect-PnPOnline is not recognized".
+#   2. The portal's default Runbooks blade ("old experience") displays every runbook
+#      linked to a PowerShell 7.2+ runtime environment as "PowerShell 5.1" - a
+#      documented display limitation, not a misconfiguration. Reporting the real value
+#      here saves an afternoon of chasing a phantom problem.
+#      https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations
+function VerifyRunbookRuntimeEnvironment {
+    Write-Host "Verifying runbook runtime environments..." -ForegroundColor Yellow
+
+    $runbookApiBase = "https://management.azure.com/subscriptions/$($parameters.subscriptionId.Value)/resourceGroups/$($parameters.resourceGroupName.Value)/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks"
+
+    function Get-RunbookRuntime([string] $Name) {
+        $value = az rest --method get --url "$runbookApiBase/$Name`?api-version=2024-10-23" --query "properties.runtimeEnvironment" --output tsv 2>$null
+        if ([string]::IsNullOrWhiteSpace($value) -or $value -eq 'null') { return '(classic runtime)' }
+        return $value
+    }
+
+    # The three repo-owned runbooks: deploy recreates these, so a mismatch is fixable.
+    $wrong = @()
+    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite')) {
+        $actual = Get-RunbookRuntime $runbookName
+        if ($actual -eq $runtimeEnvironmentName) {
+            Write-Host "  $runbookName : $actual" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  $runbookName : '$actual', expected '$runtimeEnvironmentName'" -ForegroundColor Red
+            $wrong += "$runbookName ('$actual')"
+        }
+    }
+
+    if ($wrong.Count -gt 0) {
+        RecordDeployStatus -Component "Runbook runtime environment" -Status 'FAILED' -Detail "Not on '$runtimeEnvironmentName': $($wrong -join ', '). PnP.PowerShell 3.x needs PowerShell 7.4, so these runbooks will fail with 'Connect-PnPOnline is not recognized'. Re-link them under Automation account > Runtime environments, or delete the runbook and re-run deploy."
+    }
+    else {
+        RecordDeployStatus -Component "Runbook runtime environment" -Status 'OK' -Detail "On '$runtimeEnvironmentName' (PowerShell 7.4). The portal's default Runbooks blade shows these as 'PowerShell 5.1' - a known display limitation, not a problem."
+    }
+
+    # CustomerSpecific is customer-owned and deliberately never overwritten, so deploy
+    # cannot fix it. Environments upgraded from before 1.11.0 may still have it on the
+    # classic runtime - report it, but do not fail the deployment over it.
+    $customerRuntime = Get-RunbookRuntime 'CustomerSpecific'
+    if ($customerRuntime -eq $runtimeEnvironmentName) {
+        Write-Host "  CustomerSpecific : $customerRuntime" -ForegroundColor Green
+    }
+    else {
+        Write-Host "  CustomerSpecific : '$customerRuntime', expected '$runtimeEnvironmentName'" -ForegroundColor Yellow
+        RecordDeployStatus -Component "Runbook: CustomerSpecific runtime" -Status 'WARNING' -Detail "On '$customerRuntime', not '$runtimeEnvironmentName'. Deploy never overwrites this runbook, so re-link it manually under Automation account > Runtime environments. Customer code using PnP 3.x cmdlets will otherwise fail."
+    }
+
+    Write-Host "  Note: the portal's default Runbooks blade shows 7.2+ runtime environments as 'PowerShell 5.1'. Use Automation account > Runtime environments to see the real value." -ForegroundColor Gray
+}
+
 # Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
 function DeployLocalRunbooks {
@@ -1423,6 +1479,9 @@ function DeployLocalRunbooks {
         Write-Host "CustomerSpecific runbook already exists - leaving it untouched (customer-owned content)." -ForegroundColor Gray
         RecordDeployStatus -Component "Runbook: CustomerSpecific" -Status 'OK' -Detail 'Existing customer-owned content preserved'
     }
+
+    # After CustomerSpecific exists, so a fresh deploy does not report it as missing.
+    VerifyRunbookRuntimeEnvironment
 
     Write-Host "Finished deploying runbooks (content published from Source/Runbooks/; CustomerSpecific is customer-owned)" -ForegroundColor Green
 }
