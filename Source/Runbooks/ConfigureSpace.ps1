@@ -73,6 +73,7 @@ $applyPnPTemplateEnabled = ConvertTo-Bool $applyPnPTemplate
 $script:hasErrors = $false
 $script:errorMessages = @()
 $script:stepResults = @()
+$script:currentStepSkipReason = $null
 
 # Connect helpers. Each step connects to the context it needs rather than relying on
 # whatever the previous step happened to leave behind - tenant-admin cmdlets such as
@@ -100,6 +101,18 @@ function Set-SpaceCreationFailed {
     Write-Error "[$FunctionName] $ErrorMessage" -ErrorAction Continue
 }
 
+# Called by a step that is not applicable to this request, right before it returns.
+# Without this the step summary reports 'Succeeded' for steps that did nothing, which is
+# technically true and useless when you are trying to work out why a theme was never
+# applied. Most requests exercise fewer than half the steps, so "did the work" and
+# "did not apply" have to be distinguishable.
+function Skip-Step {
+    param([Parameter(Mandatory = $true)][string] $Reason)
+
+    $script:currentStepSkipReason = $Reason
+    Write-Output "Skipped: $Reason"
+}
+
 # Runs one configuration step. A failing step is recorded and the run continues, so a
 # bad theme name does not stop the retention label from being applied. The collected
 # results are also what the caller reads back as the run's outcome.
@@ -108,13 +121,21 @@ function Invoke-Step {
 
     Write-Output ""
     Write-Output "--- $Name ---"
+    $script:currentStepSkipReason = $null
+
     try {
         & $Name
-        $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Succeeded'; Error = $null }
+
+        if ($null -ne $script:currentStepSkipReason) {
+            $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Skipped'; Detail = $script:currentStepSkipReason }
+        }
+        else {
+            $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Succeeded'; Detail = $null }
+        }
     }
     catch {
         Set-SpaceCreationFailed -FunctionName $Name -ErrorMessage $_.Exception.Message
-        $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Failed'; Error = $_.Exception.Message }
+        $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Failed'; Detail = $_.Exception.Message }
     }
 }
 
@@ -167,7 +188,7 @@ function Get-DefaultDocumentLibrary {
 
 function SetSiteLogo {
     if ($spaceImage -eq "") {
-        Write-Output "No space image supplied - skipping"
+        Skip-Step "No space image on the request"
         return
     }
 
@@ -200,8 +221,15 @@ function SetSiteLogo {
 }
 
 function AddOwners {
-    if ($spaceTypeInternal -in "Office 365 Group", "Project") { return }
-    if ($owners -eq "") { return }
+    # Group-backed space types get their owners from the M365 group, not the SP group.
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes owners from the M365 group, not the SP owners group"
+        return
+    }
+    if ($owners -eq "") {
+        Skip-Step "No owners on the request"
+        return
+    }
 
     Connect-Site
     Write-Output "Updating SP owners group"
@@ -213,7 +241,14 @@ function AddOwners {
 }
 
 function AddMembers {
-    if ($members -eq "" -or $spaceTypeInternal -in "Office 365 Group", "Project") { return }
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes members from the M365 group, not the SP members group"
+        return
+    }
+    if ($members -eq "") {
+        Skip-Step "No members on the request"
+        return
+    }
 
     Connect-Site
     Write-Output "Updating SP members group"
@@ -228,7 +263,10 @@ function AddMembers {
 }
 
 function AddVisitors {
-    if ($visitors -eq "") { return }
+    if ($visitors -eq "") {
+        Skip-Step "No visitors on the request"
+        return
+    }
 
     Connect-Site
     Write-Output "Updating SP visitors group"
@@ -242,7 +280,14 @@ function AddVisitors {
 }
 
 function AddReadOnlyGroup {
-    if (-not $readOnlyGroup -or $defaultReadOnlyGroup -eq "") { return }
+    if (-not $readOnlyGroup) {
+        Skip-Step "Read-only group not requested"
+        return
+    }
+    if ($defaultReadOnlyGroup -eq "") {
+        Skip-Step "Read-only group requested, but DefaultReadOnlyGroup is not set in the settings list"
+        return
+    }
 
     Connect-Site
     Write-Output "Updating SP visitors group with read-only group '$defaultReadOnlyGroup'"
@@ -255,9 +300,12 @@ function AddSiteCollectionAdmins {
     # The logic app never sends this parameter, so it is normally empty. Guard it
     # explicitly - "" -split "," yields one empty element, which used to be passed
     # straight to Add-PnPSiteCollectionAdmin.
-    if ($spaceTypeInternal -in "Office 365 Group", "Project") { return }
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes its administrators from the M365 group owners"
+        return
+    }
     if ([string]::IsNullOrWhiteSpace($siteCollectionAdmins)) {
-        Write-Output "No site collection administrators supplied - skipping"
+        Skip-Step "No site collection administrators supplied (the logic app does not currently send this parameter)"
         return
     }
 
@@ -272,7 +320,7 @@ function AddSiteCollectionAdmins {
 
 function SetExternalSharing {
     if (-not $externalSharingEnabled) {
-        Write-Output "External sharing not requested - skipping"
+        Skip-Step "External sharing not requested (ExternalSharingRequired = '$externalSharing')"
         return
     }
 
@@ -301,7 +349,10 @@ function SetExternalSharing {
 
 function SetAccessRequestSettings {
     #Disable access requests if visibility set to private
-    if (-not ($visibility -eq "Private" -and $enableAllowAccessRequests -eq $false)) { return }
+    if (-not ($visibility -eq "Private" -and $enableAllowAccessRequests -eq $false)) {
+        Skip-Step "Access requests are only disabled for private spaces with EnableAllowAccessRequests = false (visibility '$visibility')"
+        return
+    }
 
     Connect-Site
     Write-Output "Disabling access requests"
@@ -312,8 +363,14 @@ function SetAccessRequestSettings {
 }
 
 function SetSiteClassification {
-    if ($spaceTypeInternal -in "Office 365 Group", "Project") { return }
-    if ($classification -eq "") { return }
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' carries its classification on the M365 group"
+        return
+    }
+    if ($classification -eq "") {
+        Skip-Step "No classification on the request"
+        return
+    }
 
     Connect-Site
     Write-Output "Setting classification '$classification'"
@@ -351,7 +408,7 @@ function JoinOrRegisterHubSite {
         return
     }
 
-    Write-Output "Not joining or registering a hub site"
+    Skip-Step "Not joining a hub (JoinHub = '$joinHub') and this is not a hub site itself"
 }
 
 function SetRegionalSettings {
@@ -372,7 +429,10 @@ function SetRegionalSettings {
 }
 
 function SetStorageQuota {
-    if ($storageQuota -eq 0 -or $storageQuotaWarning -eq 0) { return }
+    if ($storageQuota -eq 0 -or $storageQuotaWarning -eq 0) {
+        Skip-Step "No storage quota configured (StorageQuota=$storageQuota, StorageQuotaWarning=$storageQuotaWarning)"
+        return
+    }
 
     Connect-Admin
     Write-Output "Setting site storage quota"
@@ -381,7 +441,10 @@ function SetStorageQuota {
 }
 
 function DisableDocumentSync {
-    if (-not $disableDocSync) { return }
+    if (-not $disableDocSync) {
+        Skip-Step "DisableDocumentSync not requested"
+        return
+    }
 
     Connect-Site
     $list = Get-DefaultDocumentLibrary
@@ -396,7 +459,10 @@ function DisableDocumentSync {
 }
 
 function SetRetentionLabel {
-    if ($retentionLabel -eq "") { return }
+    if ($retentionLabel -eq "") {
+        Skip-Step "No retention label on the request"
+        return
+    }
 
     Connect-Site
     $list = Get-DefaultDocumentLibrary
@@ -447,12 +513,15 @@ function Test-GroupLabelApplied {
 #
 # Requires the tenant admin connection - Set-PnPTenantSite is a tenant-admin cmdlet.
 function SetSensitivityLabel {
-    if ($sensitivityLabel -eq "") { return }
+    if ($sensitivityLabel -eq "") {
+        Skip-Step "No sensitivity label on the request"
+        return
+    }
 
     # Respect the admin kill-switch even if a request carries a label id anyway
     # (hand-edited list item, stale front-end).
     if ($enableSensitivityLabels -ne "" -and $enableSensitivityLabels -inotin @("true", "1")) {
-        Write-Output "Sensitivity labels are disabled (EnableSensitivityLabels = '$enableSensitivityLabels') - skipping label $sensitivityLabel"
+        Skip-Step "Request carries label $sensitivityLabel, but EnableSensitivityLabels is '$enableSensitivityLabels' in the settings list"
         return
     }
 
@@ -481,7 +550,10 @@ function SetSensitivityLabel {
 }
 
 function SetSensitivityLabelLibrary {
-    if ($sensitivityLabelLibrary -eq "") { return }
+    if ($sensitivityLabelLibrary -eq "") {
+        Skip-Step "No library sensitivity label on the request"
+        return
+    }
 
     Connect-Site
     $list = Get-DefaultDocumentLibrary
@@ -493,7 +565,10 @@ function SetSensitivityLabelLibrary {
 }
 
 function ActivateFeatures {
-    if ($featuresToActivate -eq "") { return }
+    if ($featuresToActivate -eq "") {
+        Skip-Step "No features to activate configured for this provisioning type"
+        return
+    }
 
     Connect-Site
     Write-Output "Activating features"
@@ -552,7 +627,10 @@ function ActivateFeatures {
 }
 
 function ApplyPnPTemplate {
-    if (-not $applyPnPTemplateEnabled) { return }
+    if (-not $applyPnPTemplateEnabled) {
+        Skip-Step "ApplyPnPTemplate not requested (value '$applyPnPTemplate')"
+        return
+    }
 
     Connect-Site
     Write-Output "Applying PnP template from $pnpTemplateUrl"
@@ -579,7 +657,10 @@ function ApplyPnPTemplate {
 }
 
 function ApplyTheme {
-    if ($themeName -eq "") { return }
+    if ($themeName -eq "") {
+        Skip-Step "No theme configured for this provisioning type"
+        return
+    }
 
     Connect-Site
     Write-Output "Applying $themeName theme"
@@ -589,7 +670,14 @@ function ApplyTheme {
 
 function ApplySiteDesign {
     # Reapply site design if we have applied a PnP template
-    if (-not $applyPnPTemplateEnabled -or [string]::IsNullOrWhiteSpace($siteDesignId)) { return }
+    if (-not $applyPnPTemplateEnabled) {
+        Skip-Step "Site design is only re-applied after a PnP template, which was not requested"
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($siteDesignId)) {
+        Skip-Step "No site design id on the request"
+        return
+    }
 
     Connect-Admin
     Write-Output "Applying site design $siteDesignId"
@@ -599,7 +687,7 @@ function ApplySiteDesign {
 
 function SetMetadata {
     if ($null -eq $metadata -or $metadata -eq "") {
-        Write-Output "No metadata provided"
+        Skip-Step "No metadata on the request"
         return
     }
 
@@ -616,9 +704,9 @@ function SetMetadata {
     $metadataObject = $metadataString | ConvertFrom-Json
     Write-Output "Successfully parsed metadata JSON"
 
-    # Handle propertyBagProps
+    # Handle propertyBagProps - the only metadata this runbook consumes
     if ($null -eq $metadataObject.propertyBagProps) {
-        Write-Output "No propertyBagProps in metadata"
+        Skip-Step "Metadata was supplied but contained no propertyBagProps"
         return
     }
 
@@ -646,7 +734,7 @@ function SetMetadata {
 
 function UpdateParentSite {
     if ([string]::IsNullOrWhiteSpace($parentSiteUrl)) {
-        Write-Output "No parent site specified, skipping UpdateParentSite"
+        Skip-Step "No parent site on the request"
         return
     }
 
@@ -779,20 +867,30 @@ function EnableNoScript {
 }
 
 # Per-step outcome table at the end of the job log. This is what you read first when a
-# request comes back as "Space Creation Failed" - it shows which steps ran, which one
-# broke, and what the underlying error was.
+# request comes back as "Space Creation Failed" - it shows which steps did work, which
+# ones did not apply and why, and which one broke.
+#
+# The Skipped/Succeeded distinction matters: a typical request exercises fewer than half
+# the steps, so a table of nothing but "Succeeded" cannot answer "why was my theme never
+# applied?".
 function Write-StepSummary {
+    $done = @($script:stepResults | Where-Object { $_.Status -eq 'Succeeded' }).Count
+    $skipped = @($script:stepResults | Where-Object { $_.Status -eq 'Skipped' }).Count
+    $failed = @($script:stepResults | Where-Object { $_.Status -eq 'Failed' }).Count
+
     Write-Output ""
-    Write-Output "================ Step summary ================"
+    Write-Output "===================== Step summary ====================="
     foreach ($result in $script:stepResults) {
-        if ($result.Status -eq 'Succeeded') {
-            Write-Output ("  {0,-28} {1}" -f $result.Step, $result.Status)
+        if ([string]::IsNullOrEmpty($result.Detail)) {
+            Write-Output ("  {0,-9} {1}" -f $result.Status, $result.Step)
         }
         else {
-            Write-Output ("  {0,-28} {1} - {2}" -f $result.Step, $result.Status, $result.Error)
+            Write-Output ("  {0,-9} {1,-28} {2}" -f $result.Status, $result.Step, $result.Detail)
         }
     }
-    Write-Output "=============================================="
+    Write-Output "--------------------------------------------------------"
+    Write-Output ("  $done applied, $skipped not applicable, $failed failed")
+    Write-Output "========================================================"
 }
 
 try {

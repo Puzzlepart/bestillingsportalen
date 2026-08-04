@@ -73,13 +73,19 @@ Runbooken kjører med `Stop` på skriptnivå. Det er nødvendig for at feilhånd
 
 Enkelte kall setter bevisst `-ErrorAction SilentlyContinue` fordi de *tester* om noe finnes (f.eks. `Get-PnPList -Identity "SiteAssets"` og `Get-PnPHubSite`). Det er tilsiktet og skal ikke fjernes.
 
-### `Invoke-Step`
+### `Invoke-Step` og de tre statusene
 
-Hvert konfigurasjonssteg kjøres via `Invoke-Step`, som erstatter de tidligere 22 identiske try/catch-blokkene. Den:
+Hvert konfigurasjonssteg kjøres via `Invoke-Step`, som erstatter de tidligere 22 identiske try/catch-blokkene. Hvert steg får én av tre statuser:
 
-- kaller steget og registrerer `Succeeded`/`Failed` med feilmelding i `$script:stepResults`
-- kaller `Set-SpaceCreationFailed`, som setter `$script:hasErrors` og legger meldingen i `$script:errorMessages`
-- lar kjøringen fortsette til neste steg, slik at f.eks. et ugyldig temanavn ikke stopper oppmerkingen
+| Status | Betyr |
+|--|--|
+| `Succeeded` | Steget gjorde faktisk arbeid |
+| `Skipped` | Steget gjaldt ikke denne bestillingen – **med årsak** |
+| `Failed` | Steget feilet. Kjøringen fortsetter, feilen samles opp |
+
+**Skillet mellom `Succeeded` og `Skipped` er hele poenget.** En typisk bestilling utløser under halvparten av stegene, så en tabell med bare `Succeeded` kan ikke svare på «hvorfor ble ikke temaet mitt satt?». Et steg som ikke gjelder kaller `Skip-Step` med en årsak før det returnerer, og årsaken havner både i loggen og i tabellen.
+
+Ved feil kaller `Invoke-Step` også `Set-SpaceCreationFailed`, som setter `$script:hasErrors` og legger meldingen i `$script:errorMessages`. `Skipped` teller **ikke** som feil.
 
 `Update-ProvisioningRequestStatus` er fjernet – den oppdaterte aldri noe, den logget bare, og navnet var misvisende. Listeoppdateringen tilhører Logic App-en.
 
@@ -113,13 +119,19 @@ Deretter, med `EnableNoScript` garantert i `finally`:
 Eksempel på steg-tabellen:
 
 ```
-================ Step summary ================
-  SetSensitivityLabel          Succeeded
-  SetExternalSharing           Succeeded
-  ApplyTheme                   Failed - Theme 'Foo' does not exist
-  SetRetentionLabel            Succeeded
-==============================================
+===================== Step summary =====================
+  Succeeded SetSensitivityLabel
+  Skipped   SetExternalSharing           External sharing not requested (ExternalSharingRequired = 'false')
+  Succeeded DisableNoScript
+  Skipped   AddOwners                    Space type 'Office 365 Group' takes owners from the M365 group, not the SP owners group
+  Failed    ApplyTheme                   Theme 'Foo' does not exist
+  Skipped   SetRetentionLabel            No retention label on the request
+--------------------------------------------------------
+  2 applied, 3 not applicable, 1 failed
+========================================================
 ```
+
+Tellelinja nederst er en rask helsesjekk: får du `0 applied` på en bestilling som skulle konfigurert noe, er det sannsynligvis parameterne fra Logic App-en som er tomme – ikke stegene som er ødelagte.
 
 ## Feilsøking
 
