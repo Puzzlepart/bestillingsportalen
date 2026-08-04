@@ -8,43 +8,32 @@ For å bruke denne funksjonaliteten må sensitivitetsmerker være aktivert for T
 
 Funksjonaliteten må aktiveres og konfigureres for å fungere.
 
-_Merk – Microsoft Graph støtter fortsatt ikke `assignedLabels` på grupper og team med Application permissions (re-verifisert august 2026). Løsningen omgår dette ved å sette merket via SharePoint sitt tenant-admin-API (`Set-PnPTenantSite -SensitivityLabel`), som propagerer til gruppen på tjenersiden og **fungerer app-only** – se [Kan tjenestekontoen fjernes?](#kan-tjenestekontoen-fjernes) under._
+## Hvordan merkingen skjer
 
-_En tjenestekonto uten MFA kreves derfor **ikke** lenger for å ta i bruk funksjonaliteten. Den brukes bare av den delegerte fallbacken, som `ConfigureSpace` går til hvis app-only-veien ikke fikk merket på gruppen. Oppgir du credentials, lagres de i Key Vault og leses av Automation-kontoens managed identity inne i runbooken – verdiene skrives ikke til jobbloggen._
+`ConfigureSpace`-runbooken setter merket med **Automation-kontoens system-assigned managed identity** – app-only, uten tjenestekonto, client secret eller Key Vault:
 
-### Kan tjenestekontoen fjernes?
+```powershell
+Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
+```
 
-**Sannsynligvis ja – men bekreft i din egen tenant først.**
+Kallet går via SharePoints tenant-admin-API, som propagerer container-merket til den koblede Microsoft 365-gruppen på tjenersiden. Det er derfor merkingen fungerer app-only selv om Microsoft Graph **fortsatt ikke** støtter `assignedLabels` på grupper med Application permissions (re-verifisert august 2026 mot [group-update](https://learn.microsoft.com/en-us/graph/api/group-update)) – vi bruker en annen vei enn den begrensningen gjelder for.
 
-Målt 4. august 2026 i en testtenant (`tarjeieo`), på et gruppetilknyttet område uten merke fra før:
+Runbooken **leser alltid tilbake** `assignedLabels` på gruppen etterpå, fordi `Set-PnPTenantSite` har vært rapportert å lykkes uten å sette merket ([pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917)). Uteblir merket, feiler steget med en melding som navngir de sannsynlige årsakene. Det er gruppen som er sannhetskilden – der styrer merket privacy og gjestedeling.
+
+Målt 4. august 2026 i testtenant, gruppetilknyttet område uten merke fra før:
 
 | | Resultat |
 |--|--|
-| `Set-PnPTenantSite -SensitivityLabel` app-only (system-assigned MI) | Returnerte uten feil |
-| Merke på **området** | Satt, bekreftet ved tilbakelesing |
-| Merke på **gruppens `assignedLabels`** | Satt, bekreftet via Graph |
-| Propageringstid | **Under 15 sekunder** |
+| `Set-PnPTenantSite -SensitivityLabel` app-only | Returnerte uten feil |
+| Merke på området | Satt |
+| Merke på gruppens `assignedLabels` | Satt |
+| Propageringstid | Under 15 sekunder |
 
-Feilmodusen i [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) reproduserte altså ikke. Dette er ikke i konflikt med Graph-begrensningen: den gjelder `PATCH /groups/{id}` med `assignedLabels`, mens `Set-PnPTenantSite` går via SharePoint sitt tenant-admin-API, som propagerer container-merket til gruppen på tjenersiden.
+> **Historikk:** tidligere versjoner brukte en ROPC-flyt med en tjenestekonto **uten MFA** og en Entra ID-app med client secret, fordi Graph-begrensningen ble antatt å være uomgåelig. Den flyten, Key Vault-en, app-registreringen og MFA-kravet er fjernet i denne versjonen. Eksisterende installasjoner må rydde bort restene manuelt – se [Oppgraderingsveiledningen](./Upgrade.md).
 
-**Hva det betyr i praksis:** tjenestekontoen uten MFA og Entra ID-appen er ikke lenger et *krav* for å bruke funksjonaliteten. `deploy.ps1` godtar nå `enableSensitivity = true` uten at appen finnes (WARNING, ikke stopp), og credential-prompten kan avbrytes. Det fjerner en reell innvending i kundens sikkerhetsgjennomgang.
+Vil du verifisere oppførselen i din egen tenant, ligger [`Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1`](Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1) i repoet. Den gjør kallet mot et testområde du peker på, poller `assignedLabels` i opptil fem minutter og skriver ut en entydig konklusjon. Se [Source/Diagnostics/README.md](Source/Diagnostics/README.md).
 
-**Hvorfor fallbacken beholdes likevel:** dette er **én måling, i én tenant, med ett merke, på ett område**. Merker med kryptering, andre publiseringsomfang eller andre policy-innstillinger kan oppføre seg annerledes, og resultatet er ikke bekreftet i en kundetenant. `ConfigureSpace` beholder derfor den delegerte veien som fallback, og logger hvilken vei som ble brukt.
-
-**Slik fjerner du ROPC helt:** bekreft UTFALL A i minst én kundetenant med kundens egne merker, verifiser at ingen kjøringer logger `using the delegated flow` over en periode, og fjern deretter `Set-GroupSensitivityLabelDelegated`, `sausername`/`sapassword`, client secret-en, `createentraidapp.ps1`, `appmanifest.json` og `Refreshing-app-secret.md`.
-
-PnP dokumenterer `Set-PnPTenantSite -SensitivityLabel` som app-only-veien for gruppetilknyttede områder, men [pnp/powershell#4917](https://github.com/pnp/powershell/issues/4917) rapporterer at kallet kan lykkes uten feil **uten** at merket faktisk settes – nettopp med managed identity. Derfor leser runbooken alltid tilbake.
-
-`ConfigureSpace` håndterer derfor begge utfall: den forsøker app-only først, leser tilbake `assignedLabels` på gruppen, og faller bare tilbake på ROPC-flyten hvis merket ikke er der. Jobbloggen viser hvilken vei som ble brukt:
-
-- `Label confirmed on group ... - app-only path was sufficient` → app-only holdt.
-- `Label not present ... - using the delegated flow` → ROPC var nødvendig.
-
-Ser du konsekvent den første meldingen over flere bestillinger, kan ROPC-flyten, tjenestekonto-secretene (`sausername`/`sapassword`), client secret-en og hele Entra ID-app-registreringen fjernes. Dokumentér funnet her før dere gjør det.
-
-Vil du måle dette isolert framfor å lese jobblogger, ligger det et diagnoseskript i repoet: [`Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1`](Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1). Det gjør kallet mot et testområde du peker på, poller `assignedLabels` på gruppen i opptil fem minutter og skriver ut en entydig konklusjon. Se [Source/Diagnostics/README.md](Source/Diagnostics/README.md) for hvordan du importerer og kjører det.
-
-For områder **uten** tilknyttet Microsoft 365-gruppe settes merket app-only og tjenestekontoen er aldri involvert.
+For områder **uten** tilknyttet Microsoft 365-gruppe settes merket på selve området, og det er ingenting å verifisere mot en gruppe.
 
 Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du aktiverer den.
 
@@ -76,40 +65,18 @@ Det finnes to måter å aktivere funksjonaliteten på:
 
 ### Manuell aktivering
 
+Aktiveringen består nå av to steg – det kreves ingen secrets, ingen app-registrering og ingen tjenestekonto.
+
 1. Gå til listen **`Provisioning Request Settings`** i SharePoint-området.
 2. Rediger listeelementet **`EnableSensitivityLabels`** og sett `Value`-feltet til **`true`**. Standardverdien er `false`. Dette er også kill-switchen: står den på `false`, hopper `ConfigureSpace` over merkingen selv om en bestilling inneholder en label-ID.
-
-Stegene under (Key Vault-secrets) gjelder **kun anvendelse** av merker på grupper og team. Selve synkroniseringen inn i `IP Labels`-listen bruker managed identity med app-tillatelsen `InformationProtectionPolicy.Read.All` og trenger ingen tjenestekonto – du kan altså kjøre `SyncLabels` (steg 7–9) uten å opprette secretene, og se hvilke merker som finnes.
-
-3. Gå til **Azure Portal > Key Vaults** og klikk på Key Vault-en for Bestillingsportalen-installasjonen din.
-4. Velg **`Secrets`** fra venstre panel.
-
-![Key vault secrets screenshot](./Images/KeyVaultSecrets.png)
-
-5. Klikk **`Generate/Import`** og opprett følgende secret:
-
-![Generate secret screenshot](./Images/KeyVaultGenerateSecret.png)
-
-Name: `sausername`
-
-Value: UPN for tjenestekontoen din
-
-Klikk `Create` når ferdig.
-
-![Create username secret screenshot](./Images/KeyVaultUsernameSecret.png)
-
-6. Gjenta steget over og opprett følgende secret:
-
-Name: `sapassword`
-
-Value: Passord for tjenestekontoen
-
-7. Finn Logic App-en **`SyncLabels`** i Azure Portal og klikk på den.
-8. Klikk **`Run Trigger > Run`** og vent til kjøringen fullfører.
+3. Finn Logic App-en **`SyncLabels`** i Azure Portal og klikk på den.
+4. Klikk **`Run Trigger > Run`** og vent til kjøringen fullfører.
 
 ![Sync labels logic app screenshot](./Images/SyncLabelsLA.png)
 
-9. Gå til listen **`IP Labels`** i SharePoint-området og valider at merkene er tilstede (se skjermbildet av IP Labels-listen øverst i dokumentet). Hvis det ikke finnes noen listeelementer, har **`SyncLabels`** Logic App-en feilet under kjøring. Sjekk kjørehistorikken til Logic App-en og undersøk eventuelle feil.
+5. Gå til listen **`IP Labels`** i SharePoint-området og valider at merkene er tilstede (se skjermbildet av IP Labels-listen øverst i dokumentet). Hvis det ikke finnes noen listeelementer, har **`SyncLabels`** Logic App-en feilet under kjøring. Sjekk kjørehistorikken til Logic App-en og undersøk eventuelle feil.
+
+`SyncLabels` bruker managed identity med app-tillatelsen `InformationProtectionPolicy.Read.All`, så synkroniseringen har aldri trengt en tjenestekonto.
 
 ## Konfigurasjon
 

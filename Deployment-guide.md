@@ -7,18 +7,18 @@ For å komme i gang trenger du:
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
 - Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** (E1/E3/E5 har alt dette) — frontline-lisenser (F1/F3) er ikke tilstrekkelig til å eie og aktivere godkjenningsflyten i Steg 5.
-- Tjenestekonto for sensitivitetsmerke-funksjonalitet: **normalt ikke nødvendig.** Merker settes app-only med Automation-kontoens managed identity (målt 4. august 2026: virker, og propagerer til gruppen på under 15 sekunder). Kontoen brukes bare av en delegert fallback som slår inn hvis app-only-veien ikke får merket på gruppen — og trengs den, må den være **uten MFA**, siden Graph ikke støtter application permissions for `assignedLabels` ([group-update](https://learn.microsoft.com/en-us/graph/api/group-update)). Du kan installere uten den og legge den til senere hvis en kjøring rapporterer at fallbacken ble brukt. Se [Sensitivitetsmerker](./Sensitivity-labels.md).
+- Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
 - **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
-- Global Administrator (for å kjøre `createentraidapp.ps1`-skriptet og opprette/autorisere PnP app registration).
+- Global Administrator (for å opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
 - App Registration for PnP PowerShell (se nedenfor).
 
-> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor ikke noe sertifikat, og client secret opprettes kun hvis sensitivitetsmerke-funksjonaliteten aktiveres. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
+> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor ikke noe sertifikat, og client secret opprettes kun hvis sensitivitetsmerke-funksjonaliteten aktiveres. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
 
 #### PnP PowerShell App Registration
 
@@ -103,8 +103,6 @@ Beskrivelse av hver parameter:
 
 - `resourceGroupName` – Navn på ny ressursgruppe løsningen installeres i. Skriptet oppretter denne.
 
-- `appName` – Navn på Entra ID-appen, f.eks. `Bestillingsportalen` (kun i bruk når `enableSensitivity` er aktivert – se Steg 3).
-
 - `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
@@ -115,35 +113,19 @@ Beskrivelse av hver parameter:
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
-- `KeyVaultName` – Navn på Key Vault som installasjonsskriptet oppretter. Key Vault lagrer `app id` og `secret` for Entra ID-appen samt tjenestekonto-credentials (alle kun i bruk når sensitivitetsmerke-funksjonaliteten er aktivert). Navnet må være unikt på tvers av Azure-regionen du installerer i. Hvis en Key Vault med samme navn eksisterer ***i*** det aktuelle abonnementet, kan den brukes. **MERK – HVIS DU BRUKER EN EKSISTERENDE KEY VAULT, VIL DEN BLI OVERSKREVET OG KONFIGURASJON SOM ROLE ASSIGNMENTS GÅR TAPT. VI ANBEFALER EN DEDIKERT KEY VAULT FOR Bestillingsportalen.** Skriptet validerer at navnet er tilgjengelig, og hvis ikke må et annet navn oppgis.
-
-- `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merk – dette krever en tjenestekonto UTEN MFA. Kan være samme tjenestekonto som over.
+- `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merker settes app-only med Automation-kontoens managed identity, så det kreves verken app-registrering, Key Vault eller tjenestekonto for dette.
 
 - `skipApplySPOTemplate` – Hopper over anvendelse av PnP-mal på SharePoint-området. La stå som `false` med mindre du har en spesifikk grunn til å hoppe over dette.
 
-## Steg 3: Kjør skriptene
+## Steg 3: Kjør skriptet
 
-### Opprettelse av Entra ID-app (kun ved sensitivitetsmerker)
-
-> **Hopp over dette steget hvis `enableSensitivity` er `false`.** Etter managed identity-migreringen brukes Entra ID-appen utelukkende av ROPC-flyten som anvender sensitivitetsmerker — alt annet autentiserer med managed identity. Bruker du ikke sensitivitetsmerker, trenger ikke appen å finnes: `deploy.ps1` oppdager at den mangler og hopper over den automatisk. (Denne appen er *ikke* det samme som PnP PowerShell-appen fra forutsetningene — den trengs uansett.)
-
-Skal du bruke sensitivitetsmerker: kjør det dedikerte skriptet som oppretter Entra ID-appen og gir admin consent for den delegerte Graph-tillatelsen.
-
-**Denne delen av installasjonen krever en brukerkonto med Global Administrator-tilgang.**
-
-1. Åpne et PowerShell 7-vindu som administrator.
-2. Gå til `Scripts`-mappen.
-3. Kjør `createentraidapp`-skriptet i PowerShell-vinduet – ```.\createentraidapp.ps1```.
-4. Oppgi et navn for Entra ID-appen når du blir spurt (**Dette må være samme navn som `appName`-parameteren i `parameters.json`**).
-5. Vent til skriptet er ferdig.
+> Løsningen krever **ingen egen Entra ID-app-registrering**. Alt i drift autentiserer med managed identity, også sensitivitetsmerking. Den eneste app-registreringen som er involvert er PnP PowerShell-appen fra forutsetningene, som bare brukes under installasjonen.
 
 ### Installasjon av ressurser
 
 Neste steg er å kjøre deploy-skriptet.
 
 **Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet, er SharePoint Administrator, og kan tildele app-roller til managed identities.**
-
-**Hvis sensitivitetsmerke-funksjonaliteten aktiveres, genererer installasjonsskriptet en secret for Entra ID-appen opprettet over (standard utløpstid 1 år, brukes kun av ROPC-flyten for sensitivitetsmerker). For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
 
 Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure CLI og PnP PowerShell), men **eksisterende sesjoner gjenbrukes**: finner skriptet en cachet sesjon som matcher tenant/subscription i `parameters.json`, blir du spurt om å gjenbruke den (`y`) i stedet for å logge inn på nytt — ved gjentatte kjøringer slipper du dermed MFA-rundene. Svar `n` for å tvinge frisk innlogging (f.eks. med en annen konto).
 
@@ -155,8 +137,6 @@ PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første t
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, Entra ID-app, SharePoint-område, Key Vault/Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret. For automatiserte kjøringer kan prompten hoppes over med `-SkipConfirmation`.
 
-Hvis du aktiverer sensitivitetsmerke-funksjonaliteten, vises en dialog som ber om passordet for tjenestekontoen. Fullfør dialogen.
-
 På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`, etterfulgt av de gjenstående manuelle stegene med henvisning til riktig steg i denne veiledningen. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
 
 ![Deployment summary etter vellykket kjøring](/Images/InstallationSuccess.png)
@@ -166,10 +146,9 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 **Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
 
-- Eksisterende Entra ID-app, SharePoint-område og Key Vault gjenkjennes (du får spørsmål der det er relevant).
+- Eksisterende SharePoint-område gjenkjennes (du får spørsmål der det er relevant).
 - På spørsmålet om PnP-malen: svar **`n`** for å beholde alt eksisterende listeinnhold urørt (skriptet henter da bare liste-ID-ene). Svar **`y`** kun hvis du vil nullstille konfigurasjonslistene (Settings, Provisioning Types, Teams Templates m.fl.) til pakkens standardverdier — bestillingsdata (Provisioning Requests / Guest Requests) røres aldri.
 - App-roller sjekkes per rolle og tildeles kun det som mangler; Logic Apps og API-tilkoblinger oppdateres til malens definisjon.
-- Med `enableSensitivity` aktivert roteres appens client secret ved hver kjøring (Key Vault oppdateres automatisk i samme kjøring).
 - Sjekk at de delegerte API-tilkoblingene fortsatt står som `Connected` etterpå — en re-deploy kan i noen tilfeller kreve re-autorisering.
 
 **For senere oppdateringer av et miljø i drift, bruk `./deploy.ps1 -Upgrade`** (se [Oppgraderingsveiledning](/Upgrade.md)) — den hopper over listeutfylling og områdeoppsett helt.

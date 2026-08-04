@@ -76,15 +76,26 @@ Bruk oppgraderingsmodus når du vil:
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
    - Innholdet i `CustomerSpecific`-runbooken (kundeeid utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
-   - Key Vault
    - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
 
-4. **Entra ID-app:**
-   - Application registration
-   - App secrets
-   - Tilganger
+## Manuell opprydding etter oppgradering: Key Vault og Entra ID-appen
+
+Fra denne versjonen har løsningen **ingen Key Vault, ingen client secret og ingen egen Entra ID-app-registrering**. Sensitivitetsmerker settes app-only med Automation-kontoens managed identity, så ROPC-flyten som krevde en tjenestekonto uten MFA er borte. Se [Sensitivitetsmerker](./Sensitivity-labels.md).
+
+**ARM sletter ikke ressurser som fjernes fra en mal.** Disse blir derfor liggende igjen etter oppgradering og må ryddes manuelt:
+
+| Rest | Handling |
+|--|--|
+| Key Vault (`kv-…`) med secrets `appid`, `appSecret`, `sausername`, `sapassword` | Slett Key Vault-en. Den brukes ikke av noe lenger. |
+| API-tilkoblingen `bestillingsportalen-kv` | Slett tilkoblingen (ingen Logic App refererer til den). |
+| Entra ID-app-registreringen (`Bestillingsportalen`) med client secret | Slett app-registreringen. Merk: **ikke** PnP-appen (`pnpAppId`), som er en annen app og brukes under installasjon. |
+| `appName` og `keyVaultName` i `parameters.json` | Fjern nøklene – de leses ikke lenger. |
+
+**Roter tjenestekontoens passord.** Har miljøet kjørt med `enableSensitivity = true` på en tidligere versjon, har passordet, client secret-en og et delegert Graph-token ligget lesbart i `ProcessProvisionRequest`s kjørehistorikk. Oppgraderingen fjerner kilden, men sletter ikke historikken. Roter passordet, og re-autoriser deretter de fire delegerte API-tilkoblingene (`Authorize-ApiConnections.ps1`).
+
+MFA kan nå slås på for tjenestekontoen. Den brukes fortsatt som områdeeier, til de delegerte API-tilkoblingene og til å poste velkomstmeldingen i Teams – men ingen av disse krever at MFA er avslått.
 
 ### Den interaktive `Site already exists`-prompten
 

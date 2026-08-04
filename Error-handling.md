@@ -159,11 +159,9 @@ StatusReason inneholder runbookens egen oppsummering med navn på de feilende st
 Har ikke lenger eget scope – dukker opp under "Failed to configure space using runbook" med `SetSensitivityLabel` i steg-tabellen. Vanlige årsaker:
 - Merket er ikke publisert til grupper/sites i Purview (vent 24 timer etter publisering)
 - Ugyldig Label ID i bestillingen eller i `DefaultSensitivityLabel`
-- Tjenestekontoen mangler tilgang, har fått MFA, eller passordet er endret uten at `sapassword` i Key Vault er oppdatert
-- App secret utløpt – se [Refreshing-app-secret.md](Refreshing-app-secret.md)
-- Automation-kontoens managed identity mangler `secrets/get` på Key Vault
+- Automation-kontoens managed identity mangler SharePoint `Sites.FullControl.All` (tenant-admin-kallet feiler) eller Graph `Group.ReadWrite.All` (tilbakelesingen av `assignedLabels` feiler)
 
-Jobbloggen viser hvilken vei som ble forsøkt (app-only eller delegert) – se [Sensitivitetsmerker](Sensitivity-labels.md).
+Feilmeldingen navngir de vanligste årsakene direkte. Merket verifiseres alltid mot **gruppen** etter at det er satt – står det på området men ikke på gruppen, er merket sannsynligvis ikke publisert til grupper og områder. Se [Sensitivitetsmerker](Sensitivity-labels.md).
 
 #### Runbookene vises som «PowerShell 5.1» i Automation-kontoen
 **Ikke en feil.** Portalens standard Runbooks-blad kjenner ikke runtime environments over 7.2 og viser derfor alt som 5.1 — [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations). Bytt til **Runtime environment-opplevelsen** i Automation-kontoen, så vises riktig versjon. `deploy.ps1` verifiserer dette og rapporterer `Runbook runtime environment` i DEPLOYMENT SUMMARY.

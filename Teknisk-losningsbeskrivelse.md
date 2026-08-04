@@ -21,7 +21,6 @@ graph TD
     E --> |SharePoint Site| H[SharePoint REST API]
     E --> |Microsoft 365 Group / Team / Viva Engage| I(Microsoft Graph)
     D --> K(Azure Automation: ConfigureSpace)
-    K -.-> |Kun sensitivitetsmerker: ROPC-secrets| F(Azure Key Vault)
     K --> |System-assigned MI + PnP PowerShell| M(Provisjonert område)
     N(InviteGuests SPFx-webdel) --> |Gjesteforespørsel| O[(SharePoint-liste: Guest Requests)]
     O --> P(Logic App: ProcessGuestRequest) --> Q(Logic App: ProcessGuests) --> I
@@ -47,14 +46,14 @@ graph TD
 
 Hovedprinsipper:
 
-- Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST, Key Vault og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere** for kjernen av løsningen.
-- Eneste unntak er anvendelse av **sensitivitetsmerker** på grupper og team, som (grunnet en begrensning i Graph API, re-verifisert august 2026) krever delegert tilgang via en tjenestekonto og en ROPC-flyt mot en Entra ID app registration. Dette gjøres i `ConfigureSpace`-runbooken, som leser client secret og tjenestekonto-credentials fra en dedikert Azure Key Vault med Automation-kontoens systemtildelte identity. Secret-oppføringene opprettes alltid, men har kun verdier når funksjonaliteten er aktivert. Runbooken forsøker først en app-only-vei og bruker ROPC bare hvis merket ikke ble satt – se [Sensitivitetsmerker](./Sensitivity-labels.md).
+- Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere**.
+- **Det finnes ingen unntak:** løsningen har ingen client secret, ingen Key Vault og ingen egen Entra ID-app-registrering i drift. Også sensitivitetsmerker settes app-only – `ConfigureSpace` bruker `Set-PnPTenantSite -SensitivityLabel` med Automation-kontoens managed identity, som via SharePoints tenant-admin-API propagerer container-merket til gruppen. Runbooken leser tilbake `assignedLabels` for å bekrefte at merket landet. Se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` samt det kundeeide utvidelsespunktet `CustomerSpecific`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
 - E-post- og Teams-varsler sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
 
 ## 2. Hva som settes opp og installeres
 
-Installasjonen utføres fra en administrators arbeidsstasjon med `deploy.ps1` (alt, inkludert bygg og publisering av SPFx-pakkene) — og, **kun når sensitivitetsmerker skal brukes**, `createentraidapp.ps1` (oppretter Entra ID-appen for ROPC-flyten; hoppes over automatisk av deploy hvis appen ikke finnes). Følgende komponenter etableres:
+Installasjonen utføres i sin helhet fra en administrators arbeidsstasjon med `deploy.ps1` (inkludert bygg og publisering av SPFx-pakkene). Følgende komponenter etableres:
 
 ### 2.1 SharePoint Online
 
@@ -69,11 +68,9 @@ Installasjonen utføres fra en administrators arbeidsstasjon med `deploy.ps1` (a
 
 | Komponent | Beskrivelse |
 |--|--|
-| App registration | Entra ID-app (navn fra `appName`, f.eks. `Bestillingsportalen`) opprettes av `createentraidapp.ps1` med admin consent. Etter managed identity-migreringen brukes appen i drift **kun** til ROPC-flyten for sensitivitetsmerker (delegert `Group.ReadWrite.All`). **Kreves kun når `enableSensitivity` er aktivert** — ellers hopper `deploy.ps1` automatisk over appen hvis den ikke finnes. Application-tillatelsene som fortsatt ligger på appen er ikke lenger i bruk og kan fjernes når migreringen er verifisert («fase 2» i [migreringsdokumentet](./Managed-identity-migration.md)); brukes ikke sensitivitetsmerker kan hele app-registreringen slettes. |
-| Client secret | Opprettes av `deploy.ps1` **kun når `enableSensitivity` er `true`**. Standard gyldighet er **1 år** – se [Fornye App Secret](./Refreshing-app-secret.md). Brukes utelukkende i ROPC-token-kallet for sensitivitetsmerker. |
 | Service principals for managed identities | Den user-assigned managed identityen og Automation-kontoens systemtildelte identitet får app-roller tildelt i Entra ID (se kapittel 4). |
 
-Det brukes **ikke** lenger sertifikat for Graph-/SharePoint-autentisering, og appen trenger **ikke** lenger registreres som SharePoint add-in (ACS).
+Løsningen oppretter **ingen egen app-registrering**. Den eneste som er involvert er PnP PowerShell-appen (`pnpAppId`), og den brukes bare under installasjon med interaktiv pålogging. Det brukes verken sertifikat eller client secret for Graph-/SharePoint-autentisering, og ingenting trenger registreres som SharePoint add-in (ACS).
 
 ### 2.3 Azure (egen ressursgruppe)
 
@@ -81,11 +78,10 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 
 | Ressurs | Beskrivelse |
 |--|--|
-| User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Key Vault- og Automation-API-tilkoblingene. |
-| Azure Key Vault | Standard SKU. Lagrer secrets: `appid`, `appSecret`, `sausername` og `sapassword` – alle kun i bruk for sensitivitetsmerke-funksjonaliteten (ROPC). Leses av Automation-kontoens systemtildelte identity (`secrets/get`); den user-assigned identityen har fortsatt `get`/`list`. Vi anbefaler en dedikert Key Vault for løsningen. |
+| User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Automation-API-tilkoblingen. |
 | Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til M365-gruppe/SharePoint-grupper) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. **Merk at portalens standard Runbooks-blad viser disse som «PowerShell 5.1»** – en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle opplevelsen, som ikke kjenner runtime environments over 7.2. Faktisk versjon ses under **Runtime environments**, og `deploy.ps1` verifiserer og rapporterer den ved hver kjøring. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — kundespesifikke tilpasninger legges der. |
 | Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
-| API-tilkoblinger (6 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) og `bestillingsportalen-kv` (Key Vault) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
+| API-tilkoblinger (5 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
 
 ### 2.4 Power Automate
 
@@ -106,11 +102,10 @@ Flyten bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering
 
 | Konto/rolle | Brukes til | Kommentar |
 |--|--|--|
-| **Global Administrator** | Opprette/godkjenne PnP PowerShell app registration, samt kjøre `createentraidapp.ps1` (kun ved sensitivitetsmerker — oppretter Entra ID-appen og gir admin consent). | Kun nødvendig under installasjon. |
-| **Owner på Azure-abonnementet** | Kjøre `deploy.ps1`: opprette ressursgruppe, managed identity, Key Vault, Automation-konto, Logic Apps og API-tilkoblinger, inkl. RBAC-tildelinger i bicep-malen. | Abonnementet MÅ tilhøre samme Entra ID-tenant som Microsoft 365. |
+| **Global Administrator** | Opprette/godkjenne PnP PowerShell app registration. | Kun nødvendig under installasjon. |
+| **Owner på Azure-abonnementet** | Kjøre `deploy.ps1`: opprette ressursgruppe, managed identity, Automation-konto, Logic Apps og API-tilkoblinger, inkl. RBAC-tildelinger i bicep-malen. | Abonnementet MÅ tilhøre samme Entra ID-tenant som Microsoft 365. |
 | **SharePoint Administrator** | Opprette og konfigurere SharePoint-området og publisere SPFx-pakker til App Catalog under `deploy.ps1`. | Samme konto som over (kontoen som kjører `deploy.ps1` bør også være Power Platform- og Teams-administrator). |
 | Rettighet til å tildele app-roller til managed identities | `deploy.ps1` tildeler Graph-/SharePoint-app-roller til både den user-assigned identityen (`AssignUamiPermissions`) og Automation-kontoens systemtildelte identitet. | Krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator. `Source/Scripts/AssignPermissionsToManagedIdentity.ps1` kan brukes til manuell reparasjon/tildeling. |
-| Rettighet til å opprette app secrets | Kun relevant når `enableSensitivity` er `true` – `deploy.ps1` genererer da secret for Entra ID-appen. | Rollen **Cloud Application Administrator** er tilstrekkelig. |
 
 ### 3.2 PnP PowerShell app registration (midlertidig installasjonsidentitet)
 
@@ -127,7 +122,6 @@ Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullfør
 
 - Standard Microsoft 365-brukerkonto med lisens for SharePoint Online, Exchange Online og Teams. Skal **ikke** være administrator. Kan ha MFA.
 - Brukes under installasjon til å autorisere API-tilkoblingene `bestillingsportalen-o365`, `bestillingsportalen-o365users`, `bestillingsportalen-spo` og `bestillingsportalen-teams`.
-- Ved bruk av sensitivitetsmerke-funksjonaliteten kreves en tjenestekonto **uten MFA** (kan være samme konto), siden Graph-endepunktet for merking kun støtter delegert tilgang (ROPC). Kontoens brukernavn/passord lagres da i Key Vault. Verifiser mot gjeldende Graph-dokumentasjon om begrensningen fortsatt gjelder.
 
 ### 3.4 Arbeidsstasjon, tenant og nettverk
 
@@ -142,7 +136,7 @@ Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullfør
 
 ### 4.1 User-assigned managed identity (Logic Apps)
 
-Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot Microsoft Graph og SharePoint REST, samt Key Vault- og Automation-API-tilkoblingene. Ingen secret eller sertifikat – Entra ID utsteder tokens direkte til Azure-ressursen.
+Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot Microsoft Graph og SharePoint REST, samt Automation-API-tilkoblingen. Ingen secret eller sertifikat – Entra ID utsteder tokens direkte til Azure-ressursen.
 
 **Microsoft Graph (app-roller):**
 
@@ -164,13 +158,12 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 |--|--|--|
 | `Sites.FullControl.All` | Application | Opprette områdesamlinger (`POST /_api/SPSiteManager/create`), anvende site designs på nyopprettede områder og lese hub-områder. Kan ikke erstattes av `Sites.Selected`: målområdet finnes ikke før opprettelseskallet, så det er ingenting å gi en per-site-tillatelse på. |
 
-**Azure RBAC og Key Vault (tildeles av `azureresources.bicep`):**
+**Azure RBAC (tildeles av `azureresources.bicep`):**
 
 | Tilgang | Omfang | Brukes til |
 |--|--|--|
 | `Automation Job Operator` | Automation-kontoen `bestillingsportalen-auto` | Starte runbook-jobber fra Logic Apps. |
 | `Automation Runbook Operator` | Automation-kontoen `bestillingsportalen-auto` | Lese/operere på runbooks. |
-| Key Vault access policy: secrets `get`/`list` | Løsningens Key Vault | Historisk – Logic App-en henter ikke lenger ROPC-secrets selv (det gjør runbooken). Kan strammes inn eller fjernes når oppgraderingen er verifisert. |
 
 ### 4.2 Systemtildelt managed identity (Azure Automation)
 
@@ -181,17 +174,8 @@ Runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSp
 | Microsoft Graph | `Group.ReadWrite.All` | Application |
 | Microsoft Graph | `User.Read.All` (kreves av `AddGuestToSite` for å slå opp gjestebrukere) | Application |
 | SharePoint (Office 365 SharePoint Online) | `Sites.FullControl.All` («Have full control of all site collections») | Application |
-| Key Vault access policy: secrets `get` | Løsningens Key Vault | Hente ROPC-secrets for sensitivitetsmerking i `ConfigureSpace`. Tildeles av `azureresources.bicep`. |
 
-### 4.3 Entra ID-appen (kun sensitivitetsmerker)
-
-| API-tillatelse | Type | Brukes til |
-|--|--|--|
-| `Group.ReadWrite.All` | Delegated | Anvende sensitivitetsmerker på opprettede grupper/team (ROPC-flyt med tjenestekontoen og client secret fra Key Vault). |
-
-Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. Installasjoner fra før managed identity-migreringen kan fortsatt ha application-tillatelser på appen; disse er ikke i bruk og kan fjernes når migreringen er verifisert. Brukes ikke sensitivitetsmerker, kan hele app-registreringen slettes.
-
-### 4.4 Tjenestekontoen
+### 4.3 Tjenestekontoen
 
 | Tilgang | Brukes til |
 |--|--|
@@ -199,9 +183,8 @@ Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. Installa
 | Eier/site collection-administrator på Bestillingsportalen-området | Drift av backend-listene. |
 | Eier av Power Automate-flyten | Flyten `Provisioning Request Approval` kjører i tjenestekontoens kontekst. |
 | Medlem av godkjennings-teamet i Teams | Kreves kun ved bruk av adaptive card-godkjenning, for å kunne poste kort i kanalen. |
-| Delegert Graph-tilgang via Entra ID-appen (uten MFA) | Kun ved aktivert sensitivitetsmerke-funksjonalitet (ROPC). |
 
-### 4.5 Sluttbrukere og administratorer
+### 4.4 Sluttbrukere og administratorer
 
 | Hvem | Tilgang | Kommentar |
 |--|--|--|
@@ -212,12 +195,11 @@ Nye installasjoner oppretter appen med kun denne delegerte tillatelsen. Installa
 
 ## 5. Hemmeligheter – livssyklus
 
-Etter managed identity-migreringen finnes det ingen roterende credentials for kjernen av løsningen. Gjenstående hemmeligheter gjelder kun sensitivitetsmerke-funksjonaliteten og installasjonen:
+**Løsningen har ingen hemmeligheter i drift.** Alt autentiserer med managed identity, som Entra ID utsteder tokens til direkte – ingenting å rotere, ingenting som kan utløpe eller lekke.
 
-| Element | Lagres i | Standard gyldighet | Kommentar |
-|--|--|--|--|
-| Client secret (Entra ID-app) | Key Vault (`appSecret`) | 1 år | Opprettes kun ved `enableSensitivity`. Brukes kun i ROPC-token-kallet. Fornyelse: se [Fornye App Secret](./Refreshing-app-secret.md). |
-| Tjenestekonto-påloggingsinfo | Key Vault (`sausername`/`sapassword`) | Følger organisasjonens passordpolicy | Kun ved aktivert sensitivitetsmerke-funksjonalitet. |
+Det eneste som finnes er tjenestekontoens ordinære passord, som følger organisasjonens passordpolicy og brukes til å autorisere de fire delegerte API-tilkoblingene. Endres det, må tilkoblingene re-autoriseres (`Authorize-ApiConnections.ps1`).
+
+> Tidligere versjoner hadde en client secret (1 års gyldighet) og tjenestekonto-credentials i en Key Vault, for ROPC-flyten som satte sensitivitetsmerker. Alt dette er fjernet – se [Oppgraderingsveiledningen](./Upgrade.md) for opprydding i eksisterende miljøer.
 
 ## 6. Referanser
 
@@ -227,4 +209,3 @@ Etter managed identity-migreringen finnes det ingen roterende credentials for kj
 - [Datalagre](./Data-stores.md) – alle SharePoint-lister og felter
 - [Godkjenningsflyt](./Approval-flow.md) – godkjenningsprosessen
 - [Oppgraderingsveiledning](./Upgrade.md) – oppgradering uten datatap
-- [Fornye App Secret](./Refreshing-app-secret.md) – fornyelse av secret (kun sensitivitetsmerker)

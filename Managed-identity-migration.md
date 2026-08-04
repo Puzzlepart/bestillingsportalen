@@ -2,6 +2,8 @@
 
 Dette dokumentet beskriver hvorfor og hvordan Bestillingsportalen er migrert fra client secret- og sertifikatbasert autentisering til **user-assigned managed identity** for Logic Apps, hva som bevisst *ikke* er endret, og hvordan eksisterende installasjoner oppgraderes.
 
+> **Oppdatering:** dette dokumentet beskriver migreringen i 1.11.0, der ett unntak sto igjen – ROPC-flyten for sensitivitetsmerker, med tjenestekonto uten MFA, client secret og Key Vault. **Det unntaket er senere fjernet:** merker settes nå app-only med Automation-kontoens managed identity, og løsningen har ingen Key Vault, ingen client secret og ingen egen Entra ID-app-registrering i drift. Der dette dokumentet omtaler Key Vault, ROPC eller client secret, gjelder det historikken – ikke dagens løsning. Se [Sensitivitetsmerker](Sensitivity-labels.md) for dagens mekanisme og [Oppgraderingsveiledningen](Upgrade.md) for opprydding i eksisterende miljøer.
+
 ## Bakgrunn og motivasjon
 
 Før migreringen var kjøretidsautentiseringen i løsningen avhengig av to roterende credentials på Entra ID-appen:
@@ -51,9 +53,9 @@ App-rollene på den user-assigned managed identityen (9 Graph + 1 SharePoint) og
 
 ### Entra ID-appen (fase 2)
 
-Entra ID-appen («Bestillingsportalen») trenger etter migreringen i praksis bare den delegerte `Group.ReadWrite.All`-tillatelsen (ROPC). `appmanifest.json` er derfor trimmet til kun denne tillatelsen — **nye installasjoner** får ikke lenger application-tillatelser på appen i det hele tatt.
+Etter 1.11.0 trengte Entra ID-appen («Bestillingsportalen») i praksis bare den delegerte `Group.ReadWrite.All`-tillatelsen for ROPC-flyten.
 
-For **eksisterende installasjoner** fjerner ikke `createentraidapp.ps1` allerede innvilget admin consent: application-tillatelsene (app role assignments på appens service principal) må fjernes manuelt i Entra-portalen **etter** at managed identity-migreringen er verifisert i produksjon. Dette gjøres bevisst ikke automatisk, for å gjøre rollback enkel.
+**Dette er senere gjort irrelevant:** ROPC-flyten er fjernet, og løsningen oppretter ikke lenger noen egen app-registrering. Har du en installasjon fra 1.11.0 eller tidligere, kan **hele app-registreringen slettes** – ikke bare application-tillatelsene. Se [Oppgraderingsveiledningen](Upgrade.md) for den fulle oppryddingslista (app-registrering, Key Vault og KV-tilkoblingen).
 
 ## Endringsoversikt
 
