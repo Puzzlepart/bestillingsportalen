@@ -1926,9 +1926,58 @@
                                 }
                             }
                         },
-                        "Run_CustomerSpecific_runbook": {
+                        "Check_runbook_status": {
+                            "description": "The Azure Automation connector returns HTTP 200 even when the runbook job itself failed, so the action status alone is not enough. Mirrors Check_runbook_status in ProcessGuestRequest.",
                             "runAfter": {
                                 "Configure_space": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "If",
+                            "expression": {
+                                "equals": [
+                                    "@body('Configure_space')?['properties']?['status']",
+                                    "Failed"
+                                ]
+                            },
+                            "actions": {
+                                "Update_status_to_Space_Creation_Failed_runbook_job": {
+                                    "runAfter": {},
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Failed to configure space using runbook: @{coalesce(body('Configure_space')?['properties']?['exception'], 'the ConfigureSpace job reported Failed without exception detail')}",
+                                            "Teamify": "@triggerBody()?['Teamify']",
+                                            "Title": "@triggerBody()?['Title']"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    }
+                                },
+                                "Terminate_Configure_Space_job_failed": {
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_runbook_job": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    }
+                                }
+                            }
+                        },
+                        "Run_CustomerSpecific_runbook": {
+                            "runAfter": {
+                                "Check_runbook_status": [
                                     "Succeeded"
                                 ]
                             },
@@ -5079,8 +5128,9 @@
                             "type": "Scope"
                         },
                         "Update_status_to_Space_Created": {
+                            "description": "Chained after Check_runbook_status, not Configure_space - otherwise this would race the check and could stamp 'Space Created' on a request whose ConfigureSpace job actually failed.",
                             "runAfter": {
-                                "Configure_space": [
+                                "Check_runbook_status": [
                                     "Succeeded"
                                 ]
                             },
@@ -5129,6 +5179,24 @@
                         "Handle_Error_Check_if_space_exists": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Check_if_space_exists": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Check_if_space_exists')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Check_if_space_exists, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Check_if_space_exists": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Check_if_space_exists'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Check_if_space_exists'))?['error']?['message'], first(body('Filter_failed_actions_Check_if_space_exists'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Check_if_space_exists": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Check_if_space_exists": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5142,13 +5210,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed during space existence check",
+                                            "StatusReason": "Failed during space existence check: @{outputs('Compose_error_message_Check_if_space_exists')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Check_if_space_exists": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Check_If_Space_Exists": {
                                     "type": "Terminate",
@@ -5172,6 +5244,24 @@
                         "Handle_Error_Check_space_type": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Check_space_type": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Check_space_type')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Check_space_type, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Check_space_type": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Check_space_type'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Check_space_type'))?['error']?['message'], first(body('Filter_failed_actions_Check_space_type'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Check_space_type": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Check_space_type": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5185,13 +5275,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed during space type validation",
+                                            "StatusReason": "Failed during space type validation: @{outputs('Compose_error_message_Check_space_type')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Check_space_type": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Check_Space_Type": {
                                     "type": "Terminate",
@@ -5215,6 +5309,24 @@
                         "Handle_Error_Process_Owners_and_Members": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Process_Owners_and_Members": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Process_Owners_and_Members')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Process_Owners_and_Members, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Process_Owners_and_Members": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Process_Owners_and_Members'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Process_Owners_and_Members'))?['error']?['message'], first(body('Filter_failed_actions_Process_Owners_and_Members'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Process_Owners_and_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Process_Owners_and_Members": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5228,13 +5340,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to process owners and members",
+                                            "StatusReason": "Failed to process owners and members: @{outputs('Compose_error_message_Process_Owners_and_Members')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Process_Owners_and_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Process_Owners_And_Members": {
                                     "type": "Terminate",
@@ -5258,6 +5374,24 @@
                         "Handle_Error_Process_Team": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Process_Team": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Process_Team')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Process_Team, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Process_Team": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Process_Team'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Process_Team'))?['error']?['message'], first(body('Filter_failed_actions_Process_Team'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Process_Team": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Process_Team": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5271,13 +5405,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to process team settings",
+                                            "StatusReason": "Failed to process team settings: @{outputs('Compose_error_message_Process_Team')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Process_Team": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Process_Team": {
                                     "type": "Terminate",
@@ -5301,6 +5439,24 @@
                         "Handle_Error_Apply_Site_Template": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Apply_Site_Template": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Apply_Site_Template')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Apply_Site_Template, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Apply_Site_Template": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Apply_Site_Template'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Apply_Site_Template'))?['error']?['message'], first(body('Filter_failed_actions_Apply_Site_Template'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Apply_Site_Template": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Apply_Site_Template": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5314,13 +5470,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to apply site template",
+                                            "StatusReason": "Failed to apply site template: @{outputs('Compose_error_message_Apply_Site_Template')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Apply_Site_Template": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Apply_Site_Template": {
                                     "type": "Terminate",
@@ -5344,6 +5504,24 @@
                         "Handle_Error_Set_external_sharing": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Set_external_sharing": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Set_external_sharing')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Set_external_sharing, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Set_external_sharing": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Set_external_sharing'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Set_external_sharing'))?['error']?['message'], first(body('Filter_failed_actions_Set_external_sharing'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Set_external_sharing": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Set_external_sharing": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5357,13 +5535,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to set external sharing settings",
+                                            "StatusReason": "Failed to set external sharing settings: @{outputs('Compose_error_message_Set_external_sharing')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Set_external_sharing": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Set_External_Sharing": {
                                     "type": "Terminate",
@@ -5387,6 +5569,24 @@
                         "Handle_Error_Invite_guests": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Invite_guests": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Invite_guests')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Invite_guests, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Invite_guests": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Invite_guests'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Invite_guests'))?['error']?['message'], first(body('Filter_failed_actions_Invite_guests'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Invite_guests": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Invite_guests": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5400,13 +5600,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to invite guests",
+                                            "StatusReason": "Failed to invite guests: @{outputs('Compose_error_message_Invite_guests')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Invite_guests": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Invite_Guests": {
                                     "type": "Terminate",
@@ -5430,6 +5634,24 @@
                         "Handle_Error_Store_expiration_date": {
                             "type": "Scope",
                             "actions": {
+                                "Filter_failed_actions_Store_expiration_date": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Store_expiration_date')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() reports the immediate child actions of Store_expiration_date, so this names the failing branch and its error instead of a fixed string."
+                                },
+                                "Compose_error_message_Store_expiration_date": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Store_expiration_date'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Store_expiration_date'))?['error']?['message'], first(body('Filter_failed_actions_Store_expiration_date'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Store_expiration_date": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
                                 "Update_status_to_Space_Creation_Failed_Store_expiration_date": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -5443,13 +5665,17 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to store expiration date",
+                                            "StatusReason": "Failed to store expiration date: @{outputs('Compose_error_message_Store_expiration_date')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
                                         "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
                                     },
-                                    "runAfter": {}
+                                    "runAfter": {
+                                        "Compose_error_message_Store_expiration_date": [
+                                            "Succeeded"
+                                        ]
+                                    }
                                 },
                                 "Terminate_Store_Expiration_Date": {
                                     "type": "Terminate",
@@ -5486,7 +5712,7 @@
                                             "Status": {
                                                 "Value": "Space Creation Failed"
                                             },
-                                            "StatusReason": "Failed to configure space using runbook",
+                                            "StatusReason": "Failed to configure space using runbook: @{coalesce(body('Configure_space')?['properties']?['exception'], 'no exception detail from the Automation job')}",
                                             "Teamify": "@triggerBody()?['Teamify']",
                                             "Title": "@triggerBody()?['Title']"
                                         },
