@@ -25,6 +25,8 @@ PnP dokumenterer `Set-PnPTenantSite -SensitivityLabel` som app-only-veien for gr
 
 Ser du konsekvent den første meldingen over flere bestillinger, kan ROPC-flyten, tjenestekonto-secretene (`sausername`/`sapassword`), client secret-en og hele Entra ID-app-registreringen fjernes. Dokumentér funnet her før dere gjør det.
 
+Vil du måle dette isolert framfor å lese jobblogger, ligger det et diagnoseskript i repoet: [`Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1`](Source/Diagnostics/Test-AppOnlySensitivityLabel.ps1). Det gjør kallet mot et testområde du peker på, poller `assignedLabels` på gruppen i opptil fem minutter og skriver ut en entydig konklusjon. Se [Source/Diagnostics/README.md](Source/Diagnostics/README.md) for hvordan du importerer og kjører det.
+
 For områder **uten** tilknyttet Microsoft 365-gruppe settes merket app-only og tjenestekontoen er aldri involvert.
 
 Vi går først gjennom hvordan funksjonaliteten fungerer, og deretter hvordan du aktiverer den.
