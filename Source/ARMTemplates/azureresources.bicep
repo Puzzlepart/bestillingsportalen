@@ -2,96 +2,22 @@ param location string = resourceGroup().location
 param automationAccountName string = 'bestillingsportalen-auto'
 param uamiName string = 'bestillingsportalen-uami'
 param tenantId string
-param appClientId string
-@secure()
-param appSecret string
 param logoUrl string
-param keyVaultName string
-param saUsername string
-@secure()
-param saPassword string
+
+// The solution no longer deploys a Key Vault. Its only purpose was to hold the client
+// secret and non-MFA service account credentials for the delegated ROPC flow that
+// applied sensitivity labels. Labels are now applied app-only with the automation
+// account's managed identity via Set-PnPTenantSite -SensitivityLabel, so there are no
+// runtime secrets left to store. Existing installations must delete the vault and the
+// Entra ID app manually - ARM does not remove resources dropped from a template.
+// See Upgrade.md and Sensitivity-labels.md.
 
 // User-assigned managed identity shared by all logic apps. Used for Graph/SharePoint
-// HTTP actions and the Key Vault/Azure Automation API connections, replacing the
-// Entra ID app client secret and certificate.
+// HTTP actions and the Azure Automation API connection, replacing the Entra ID app
+// client secret and certificate.
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: uamiName
   location: location
-}
-
-// Key vault & secrets
-resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
-  name: keyVaultName
-  location: location
-  properties: {
-    enabledForDeployment: true
-    enabledForTemplateDeployment: true
-    enabledForDiskEncryption: true
-    tenantId: tenantId
-    // Both policies must be listed here: accessPolicies on the vault resource is
-    // authoritative, so listing only one would remove the other on the next deploy.
-    accessPolicies: [
-      {
-        tenantId: tenantId
-        objectId: uami.properties.principalId
-        permissions: {
-          secrets: [
-            'list'
-            'get'
-          ]
-        }
-      }
-      {
-        // The automation account's system-assigned identity reads the ROPC secrets
-        // from ConfigureSpace (sensitivity labels). Moved out of the logic app so the
-        // service account password, client secret and access token no longer appear
-        // in Logic App run history - see Sensitivity-labels.md.
-        tenantId: tenantId
-        objectId: automationAccount.identity.principalId
-        permissions: {
-          secrets: [
-            'get'
-          ]
-        }
-      }
-    ]
-    sku: {
-      name: 'standard'
-      family: 'A'
-    }
-  }
-}
-
-resource keyVaultAppIdSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  parent: keyVault
-  name:  'appid'
-  properties: {
-    value: appClientId
-  }
-}
-
-resource keyVaultAppSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  parent: keyVault
-  name:  'appSecret'
-  properties: {
-    value: appSecret
-  }
-}
-
-resource keyVaultsaUsernameSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  parent: keyVault
-  name:  'sausername'
-  properties: {
-    value: saUsername
-  }
-}
-
-resource keyVaultsaPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  parent: keyVault
-  name:  'sapassword'
-  properties: {
-    value: saPassword
-  }
 }
 
 // Automation account

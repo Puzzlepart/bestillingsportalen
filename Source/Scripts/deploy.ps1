@@ -3,7 +3,7 @@
     Deploys the following assets of the Bestillingsportalen solution -
 
         -SharePoint Site & Assets
-        -User-assigned managed identity (used by the Logic Apps for Graph/SharePoint/Key Vault/Azure Automation)
+        -User-assigned managed identity (used by the Logic Apps for Graph/SharePoint/Azure Automation)
         -Azure Automation Account & Runbooks
         -Logic App
 
@@ -11,10 +11,9 @@
     Deploys the Bestillingsportalen solution (excluding Flows).
     This script uses the Azure CLI, Azure Az PowerShell and PnP PowerShell Modules to perform the deployment.
 
-    The Logic Apps authenticate with a user-assigned managed identity, so no certificate is needed.
-    Only when the sensitivity label functionality is enabled (enableSensitivity) will the script
-    generate a secret for the Entra ID App created by the 'createentraidapp.ps1' script - the secret
-    is used exclusively by the ROPC flow that applies sensitivity labels (delegated-only Graph API).
+    Everything authenticates with managed identity - no certificate, client secret or Key Vault.
+    Sensitivity labels are applied app-only by the ConfigureSpace runbook, so the solution no longer
+    needs an Entra ID app registration or a non-MFA service account.
 
     The account running this script must be able to grant app roles to the managed identities
     (e.g. Global Administrator, or Privileged Role Administrator + Cloud Application Administrator).
@@ -35,7 +34,6 @@ param
     [switch]$SkipVerifyModules,
     [switch]$SkipSharepointSite,
     [switch]$SkipBicepDeploy,
-    [switch]$SkipCreateEntraIDAppSecret,
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipDeployAPIConnections,
@@ -107,9 +105,6 @@ $RequirementFieldName = "Requirement"
 $imageFolderUpload = "$siteAssetsListURL/$provRequestsFolderName/$provTypesImageFolderName"
 $iconFolderUpload = "$siteAssetsListURL/$provRequestsFolderName/$provTypesIconFolderName"
 
-$saUsername = ""
-$saPassword = ""
-
 $automationAccountName = "bestillingsportalen-auto"
 $runtimeEnvironmentName = "bestillingsportalen-ps74" # Keep in sync with runbooks.bicep
 $uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in parameters.json if present
@@ -125,8 +120,6 @@ $global:siteTemplatesListId = $null
 $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
 $global:guestRequestsListId = $null
-$global:appId = $null
-$global:appSecret = $null
 $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
@@ -203,18 +196,8 @@ function ValidateParameters {
         $isValid = $false;
     }
 
-    if (-not (IsValidParam($parameters.appName))) {
-        Write-Host "Invalid appName" -ForegroundColor Red
-        $isValid = $false;
-    }
-
     if (-not (IsValidParam($parameters.serviceAccountUPN))) {
         Write-Host "Invalid serviceAccountUPN" -ForegroundColor Red
-        $isValid = $false;
-    }
-    
-    if (-not (IsValidParam($parameters.keyVaultName))) {
-        Write-Host "Invalid keyVaultName" -ForegroundColor Red
         $isValid = $false;
     }
 
@@ -249,52 +232,6 @@ function VerifyModules {
         }
     }
 }
-
-# Test for availability of Azure resources
-function Test-AzNameAvailability {
-    param(
-        [Parameter(Mandatory = $true)] [string] $AuthorizationToken,
-        [Parameter(Mandatory = $true)] [string] $SubscriptionId,
-        [Parameter(Mandatory = $true)] [string] $Name,
-        [Parameter(Mandatory = $true)] [ValidateSet(
-            'ApiManagement', 'KeyVault', 'ManagementGroup', 'Sql', 'StorageAccount', 'WebApp')]
-        $ServiceType
-    )
- 
-    $uriByServiceType = @{
-        ApiManagement   = 'https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.ApiManagement/checkNameAvailability?api-version=2019-01-01'
-        KeyVault        = 'https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.KeyVault/checkNameAvailability?api-version=2019-09-01'
-        ManagementGroup = 'https://management.azure.com/providers/Microsoft.Management/checkNameAvailability?api-version=2018-03-01-preview'
-        Sql             = 'https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.Sql/checkNameAvailability?api-version=2018-06-01-preview'
-        StorageAccount  = 'https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.Storage/checkNameAvailability?api-version=2019-06-01'
-        WebApp          = 'https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.Web/checkNameAvailability?api-version=2019-08-01'
-    }
- 
-    $typeByServiceType = @{
-        ApiManagement   = 'Microsoft.ApiManagement/service'
-        KeyVault        = 'Microsoft.KeyVault/vaults'
-        ManagementGroup = '/providers/Microsoft.Management/managementGroups'
-        Sql             = 'Microsoft.Sql/servers'
-        StorageAccount  = 'Microsoft.Storage/storageAccounts'
-        WebApp          = 'Microsoft.Web/sites'
-    }
- 
-    $uri = $uriByServiceType[$ServiceType] -replace ([regex]::Escape('{subscriptionId}')), $SubscriptionId
-    $body = '"name": "{0}", "type": "{1}"' -f $Name, $typeByServiceType[$ServiceType]
- 
-    $response = (Invoke-WebRequest -Uri $uri -UseBasicParsing -Method Post -Body "{$body}" -ContentType "application/json" -Headers @{Authorization = $AuthorizationToken }).content
-    $response | ConvertFrom-Json |
-    Select-Object @{N = 'Name'; E = { $Name } }, @{N = 'Type'; E = { $ServiceType } }, @{N = 'Available'; E = { $_ | Select-Object -ExpandProperty *available } }, Reason, Message
-}
-
-# Get Azure access token for current user
-function Get-AccessTokenFromCurrentUser {
-    $azContext = Get-AzContext
-    $azProfile = [Microsoft.Azure.Commands.Common.Authentication.Abstractions.AzureRmProfileProvider]::Instance.Profile
-    $profileClient = New-Object -TypeName Microsoft.Azure.Commands.ResourceManager.Common.RMProfileClient -ArgumentList $azProfile
-    $token = $profileClient.AcquireAccessToken($azContext.Subscription.TenantId)
-    ('Bearer ' + $token.AccessToken)
-}     
 
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
@@ -847,78 +784,6 @@ function UploadAssets {
     }
 }
 
-# Gets the Entra ID app
-function GetEntraIDApp {
-    param ($appName)
-    $app = az ad app list --filter "displayName eq '$appName'" | ConvertFrom-Json
-    return $app
-}
-
-function CreateEntraIDAppSecret {
-    try {
-        Write-Host "### Entra ID APP SECRET CREATION ###" -ForegroundColor Yellow
-
-        # Check if the app already exists - script has been previously executed
-        $app = GetEntraIDApp $parameters.appName.Value
-
-        if (-not ([string]::IsNullOrEmpty($app))) {
-
-            $global:appId = $app.appId
-
-            Write-Host "Entra ID App $($parameters.appName.Value) found..." -ForegroundColor Yellow
-
-            if ($parameters.enableSensitivity.Value) {
-                # The secret is only used by the ROPC flow that applies sensitivity labels
-                # (the Graph API only supports delegated permissions for this operation).
-                # All other authentication uses the user-assigned managed identity.
-                Write-Host "Creating secret for Entra ID App - $($parameters.appName.Value) (required for the sensitivity label ROPC flow)..." -ForegroundColor Yellow
-
-                $secret = az ad app credential reset --id $global:appId
-
-                $secretValue = $secret | ConvertFrom-Json | Select-Object password
-
-                $global:appSecret = $secretValue.password
-
-                Write-Host "Created secret for app" -ForegroundColor Green
-            }
-            else {
-                Write-Host "Sensitivity label functionality is disabled - skipping secret creation (not needed; the Logic Apps authenticate with managed identity)." -ForegroundColor Yellow
-            }
-        }
-        else {
-            # After the managed identity migration the app is ONLY used by the delegated
-            # ROPC FALLBACK for sensitivity labels - and ConfigureSpace only reaches that
-            # fallback if the app-only route (Set-PnPTenantSite -SensitivityLabel) failed
-            # to put the label on the group. Measured August 2026 in a test tenant: the
-            # app-only route worked and propagated to the group in under 15 seconds, so
-            # the fallback may never be used. A missing app is therefore not fatal even
-            # with enableSensitivity on - the 'appid'/'appSecret' Key Vault secrets are
-            # simply created empty, and the runbook logs a precise error if it ever does
-            # need them. See Sensitivity-labels.md.
-            $global:appId = ""
-
-            if ($parameters.enableSensitivity.Value) {
-                Write-Host "Entra ID App '$($parameters.appName.Value)' was not found, but enableSensitivity is true." -ForegroundColor Yellow
-                Write-Host "  Continuing: sensitivity labels are applied app-only first, and the delegated fallback (which needs this app) is only used if that fails." -ForegroundColor Yellow
-                Write-Host "  If a provisioning run reports 'using the delegated flow', run createentraidapp.ps1 and re-run deploy." -ForegroundColor Yellow
-                RecordDeployStatus -Component "Entra ID app / secret" -Status 'WARNING' -Detail "App missing while enableSensitivity is true. Labelling works app-only; only the delegated fallback is unavailable. Run createentraidapp.ps1 if a run reports 'using the delegated flow'."
-                return
-            }
-
-            Write-Host "Entra ID App '$($parameters.appName.Value)' was not found - OK: the app is only used for sensitivity labels, which are disabled. Skipping (createentraidapp.ps1 is not needed for this configuration)." -ForegroundColor Yellow
-            RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED' -Detail "Not needed - enableSensitivity is false and the app is only used by the sensitivity label ROPC fallback"
-            return
-        }
-
-        Write-Host "### Entra ID APP SECRET CREATION FINISHED ###" -ForegroundColor Green
-        RecordDeployStatus -Component "Entra ID app / secret" -Status 'OK'
-    }
-    catch {
-        RecordDeployStatus -Component "Entra ID app / secret" -Status 'FAILED' -Detail $_.Exception.Message
-        throw('Failed to create the secret for the Entra ID App {0}', $_.Exception.Message)
-    }
-}
-
 # ---------------------------------------------------------------------------
 # Deployment report
 # Each major component records its outcome here and WriteDeploymentReport prints
@@ -990,10 +855,11 @@ function WriteDeploymentReport {
 
 # ---------------------------------------------------------------------------
 # Service account validation
-# The service account is used as site owner (New-PnPSite -Owners), for the
-# delegated API connections and (with enableSensitivity) the ROPC flow - but
-# nothing creates it. Fail early with a clear message instead of crashing
-# midway through site creation when the account doesn't exist.
+# The service account is used as site owner (New-PnPSite -Owners), for the delegated
+# API connections and as the identity that posts the Teams welcome message - but
+# nothing creates it. Fail early with a clear message instead of crashing midway
+# through site creation when the account doesn't exist.
+# Note: it no longer needs MFA disabled - that was only the sensitivity label ROPC flow.
 # ---------------------------------------------------------------------------
 function ValidateServiceAccount {
     $upn = $parameters.serviceAccountUPN.Value
@@ -1077,20 +943,19 @@ function ConfirmDeployment {
     }
 
     WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
-    WritePlanLine "Entra ID app" "$($parameters.appName.Value)$(if ($parameters.enableSensitivity.Value) { ' + client secret (sensitivity label ROPC)' } else { ' (only used for sensitivity labels - skipped automatically if it does not exist)' })" $SkipCreateEntraIDAppSecret
     WritePlanLine "SharePoint site" "$requestsSiteUrl (prompts before overwriting an existing site)" $SkipSharepointSite
-    WritePlanLine "Azure resources" "Key Vault '$($parameters.keyVaultName.Value)', Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
+    WritePlanLine "Azure resources" "Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
     WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
     if ($global:upgrade) {
         WritePlanLine "Logic Apps" "ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
     }
     else {
-        WritePlanLine "API connections" "6 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
+        WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
     WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
-    WritePlanLine "Sensitivity labels" $(if ($parameters.enableSensitivity.Value) { "ENABLED (service account credentials will be requested and stored in Key Vault)" } else { "disabled" })
+    WritePlanLine "Sensitivity labels" $(if ($parameters.enableSensitivity.Value) { "ENABLED (applied app-only with the automation account's managed identity - no service account needed)" } else { "disabled" })
 
     Write-Host ""
     Write-Host "############################################################" -ForegroundColor Magenta
@@ -1189,31 +1054,6 @@ function AssignManagedIdentityPermissions {
         RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'OK'
     }
     Write-Host "Finished assigning app roles to managed identity." -ForegroundColor Green
-
-    GrantAutomationKeyVaultAccess -AutomationPrincipalId $autoPrincipalId
-}
-
-# ConfigureSpace reads the ROPC secrets (sensitivity labels) from Key Vault with the
-# automation account's system-assigned identity. The access policy is declared in
-# azureresources.bicep, but that template is SKIPPED in upgrade mode - so grant it here
-# too, from a function that runs in both paths. Without this, an upgraded environment
-# gets a Key Vault 403 the first time a request carries a sensitivity label.
-# Idempotent: az keyvault set-policy is additive per object id.
-function GrantAutomationKeyVaultAccess {
-    param([Parameter(Mandatory = $true)][string] $AutomationPrincipalId)
-
-    $vaultName = $parameters.keyVaultName.Value
-    Write-Host "Granting the automation account's managed identity read access to Key Vault secrets ($vaultName)..." -ForegroundColor Yellow
-
-    az keyvault set-policy --name $vaultName --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --object-id $AutomationPrincipalId --secret-permissions get --output none
-    if ($LASTEXITCODE -ne 0) {
-        RecordDeployStatus -Component "Key Vault access: $automationAccountName (system-assigned MI)" -Status 'FAILED' -Detail "Could not grant secrets/get on '$vaultName'. Sensitivity labelling will fail with 403 - grant it manually in Azure Portal > Key Vault > Access policies."
-        Write-Host "  ERROR: could not grant secrets/get on '$vaultName'." -ForegroundColor Red
-        return
-    }
-
-    RecordDeployStatus -Component "Key Vault access: $automationAccountName (system-assigned MI)" -Status 'OK'
-    Write-Host "  secrets/get granted on $vaultName." -ForegroundColor Green
 }
 
 # Assigns Graph and SharePoint app roles to the user-assigned managed identity that the
@@ -1312,7 +1152,7 @@ function DeployARMTemplates {
         if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
 
-            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "keyvaultName=$($parameters.keyVaultName.Value)" --output none
+            az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" --output none
             RecordAzResult "API connections"
 
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
@@ -1336,7 +1176,7 @@ function DeployARMTemplates {
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" "keyVaultName=$($parameters.keyVaultName.Value)" --output none
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
         RecordAzResult "Logic App: ProcessProvisionRequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
@@ -1510,7 +1350,7 @@ function DeployUpgradeLogicApp {
 
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" "keyVaultName=$($parameters.keyVaultName.Value)" --output none
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
         RecordAzResult "Logic App: ProcessProvisionRequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
@@ -1649,96 +1489,6 @@ function ValidateAzureLocation {
     }
 }
 
-# Check that the Key Vault does not already exist and ensure the name is valid
-function ValidateKeyVault {
-    try {
-        Write-Host "Checking for availability of Key Vault..." -ForegroundColor Yellow
-
-        $availabilityResult = $null
-
-        $availabilityParams = @{
-            Name               = $parameters.keyVaultName.Value
-            ServiceType        = 'KeyVault'
-            AuthorizationToken = Get-AccessTokenFromCurrentUser
-            SubscriptionId     = $parameters.subscriptionId.Value
-        }
-    
-        $availabilityResult = Test-AzNameAvailability @availabilityParams
-
-        if ($availabilityResult.Available) {
-            Write-Host "Key Vault is available." -ForegroundColor Green
-        }
-
-        if ($availabilityResult.Reason -eq "AlreadyExists") {
-
-            #Check if the key vault exists in this subscription
-            $keyVault = Get-AzKeyVault -Name $parameters.keyVaultName.Value
-
-            if ($null -ne $keyVault) {
-                Write-Host "Key Vault already exists in this Azure subscription. Do you wish to use it? THIS WILL OVERWRITE THE KEY VAULT AND REMOVE ANY EXISTING CONFIGURATIONS INCLUDING ROLE ASSIGNMENTS." -ForegroundColor DarkYellow
-                $update = Read-Host " ( y (yes) / n (exit) ) "
-                if ($update -ne "y") {
-                    Write-Host "Script terminated. Please specify a different Key Vault name or choose to use the existing Key Vault when re-executing the script." -ForegroundColor Red
-                    break
-                }
-                else {
-                    Write-Host "Existing Key Vault $($parameters.keyVaultName.Value) will be used." -ForegroundColor Yellow
-            
-                }   
-            }
-            else {
-                throw "Key Vault already exists in another Azure subscription. Please specify a different name."
-            }
-        }
-
-        if ($availabilityResult.reason -eq "Invalid") {
-    
-            throw $availabilityResult.message
-        } 
-    }
-    catch {
-        throw('Failed to validate availability of the key vault {0}', $_.Exception.Message)
-    }
-
-}
-
-# Returns the latest (furthest-out) endDateTime among the app's credentials, or $null.
-# Reads live from the app registration, so it reflects the current cert/secret in every mode
-# (full deploy, upgrade, or when creation was skipped). -CertificateCredentials switches from
-# password (client secret) credentials to certificate credentials. Best-effort — never throws.
-function GetLatestAppCredentialEndDate {
-    param
-    (
-        [string]$AppId,
-        [switch]$CertificateCredentials
-    )
-
-    if ([string]::IsNullOrEmpty($AppId)) {
-        return $null
-    }
-
-    try {
-        $credentials = if ($CertificateCredentials) {
-            az ad app credential list --id $AppId --cert 2>$null | ConvertFrom-Json
-        }
-        else {
-            az ad app credential list --id $AppId 2>$null | ConvertFrom-Json
-        }
-
-        $latest = $credentials |
-        Where-Object { -not [string]::IsNullOrEmpty($_.endDateTime) } |
-        Sort-Object { [datetime]$_.endDateTime } -Descending |
-        Select-Object -First 1
-
-        if ($null -ne $latest) {
-            return $latest.endDateTime
-        }
-    }
-    catch {}
-
-    return $null
-}
-
 # Sends an anonymous deployment pingback to the shared PP365 install/deploy telemetry function.
 # Mirrors the Prosjektportalen installation pingback. Best-effort only — never fails the deployment.
 # Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
@@ -1767,26 +1517,6 @@ function SendDeployPingback {
 
     if (-not [string]::IsNullOrEmpty($deployUser)) {
         $deployEntry.InstallUser = $deployUser
-    }
-
-    # Report when the app's client secret and certificate expire (latest of each), so upcoming
-    # renewals show up in the telemetry. Queried live from the app registration, so it reflects the
-    # current setup in every mode (full deploy, upgrade, or when creation was skipped).
-    if ([string]::IsNullOrEmpty($global:appId)) {
-        # Best-effort only — surface (never throw) so a missing/renamed app doesn't manifest as
-        # silently absent expiry dates, especially in upgrade mode where nothing is created.
-        Write-Host "[WARN] Entra ID app id is not set; ClientSecretEndDate/CertificateEndDate will be omitted from the pingback. Check that parameters.appName matches the app's displayName and that the signed-in Azure account can see it." -ForegroundColor Yellow
-    }
-    else {
-        $clientSecretEndDate = GetLatestAppCredentialEndDate -AppId $global:appId
-        if (-not [string]::IsNullOrEmpty($clientSecretEndDate)) {
-            $deployEntry.ClientSecretEndDate = $clientSecretEndDate
-        }
-
-        $certificateEndDate = GetLatestAppCredentialEndDate -AppId $global:appId -CertificateCredentials
-        if (-not [string]::IsNullOrEmpty($certificateEndDate)) {
-            $deployEntry.CertificateEndDate = $certificateEndDate
-        }
     }
 
     try {
@@ -1873,12 +1603,11 @@ if ($global:upgrade) {
     Write-Host "" -ForegroundColor Yellow
     
     # Automatically set skip flags for upgrade mode
-    $SkipCreateEntraIDAppSecret = $true
     $SkipBicepDeploy = $true
     $SkipCreateResourceGroup = $true
     $SkipDeployAPIConnections = $true
 
-    Write-Host "Automatically skipping: Entra ID App Secret, Bicep Deploy, Resource Group Creation, API Connections" -ForegroundColor DarkGray
+    Write-Host "Automatically skipping: Bicep Deploy, Resource Group Creation, API Connections" -ForegroundColor DarkGray
     Write-Host "" -ForegroundColor Yellow
 }
 
@@ -1916,7 +1645,6 @@ if ($null -eq $azConnect) {
 # Skip validation steps in upgrade mode
 if (-not $global:upgrade) {
     if (-not $SkipBicepDeploy) {
-        ValidateKeyVault
     }
     ValidateAzureLocation
 }
@@ -1960,19 +1688,6 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 # before the first mutating step.
 ValidateServiceAccount
 ConfirmDeployment
-
-if (-not $SkipCreateEntraIDAppSecret) {
-    CreateEntraIDAppSecret
-}
-else {
-    RecordDeployStatus -Component "Entra ID app / secret" -Status 'SKIPPED'
-    $app = GetEntraIDApp $parameters.appName.Value
-
-    if (-not ([string]::IsNullOrEmpty($app))) {
-
-        $global:appId = $app.appId
-    }
-}
 
 if (-not $SkipSharepointSite) {
     CreateRequestsSharePointSite
@@ -2044,12 +1759,6 @@ if ($global:upgrade) {
     
     # Get the location from parameters for the logic app deployment
     $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
-    
-    # Still need to get app ID for logic app deployment
-    $app = GetEntraIDApp $parameters.appName.Value
-    if (-not ([string]::IsNullOrEmpty($app))) {
-        $global:appId = $app.appId
-    }
 
     # Ensure new runbooks (e.g. AddGuestToSite in 1.11.0) exist BEFORE the Logic Apps
     # that invoke them are deployed.
@@ -2122,37 +1831,10 @@ else {
 
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
 
-If ($parameters.enableSensitivity.Value) {
-    # The service account is ONLY needed for the delegated ROPC fallback. ConfigureSpace
-    # applies the label app-only first (Set-PnPTenantSite -SensitivityLabel) and only
-    # falls back if that did not land on the group. Measured August 2026 in a test
-    # tenant: app-only worked and propagated in under 15 seconds. The prompt is therefore
-    # optional - cancel it to install without a non-MFA service account.
-    Write-Host ""
-    Write-Host "Sensitivity labels are enabled." -ForegroundColor Yellow
-    Write-Host "  Labels are applied app-only with the automation account's managed identity." -ForegroundColor Cyan
-    Write-Host "  A service account is only needed for the DELEGATED FALLBACK, used if the" -ForegroundColor Cyan
-    Write-Host "  app-only route fails to put the label on the group (see Sensitivity-labels.md)." -ForegroundColor Cyan
-    Write-Host "  The account must NOT have MFA enabled. Press Cancel to skip - you can add the" -ForegroundColor Cyan
-    Write-Host "  'sausername'/'sapassword' Key Vault secrets later if a run ever needs them." -ForegroundColor Cyan
-
-    # Cancelling Get-Credential returns $null - previously that crashed on .UserName.
-    $saCreds = Get-Credential -Message "Service account for the sensitivity label FALLBACK (optional - Cancel to skip). Must NOT have MFA."
-    if ($null -eq $saCreds) {
-        Write-Host "  Skipped - installing without the delegated fallback. Labelling will work as long as the app-only route does." -ForegroundColor Yellow
-        RecordDeployStatus -Component "Sensitivity label fallback credentials" -Status 'SKIPPED' -Detail "No service account supplied. App-only labelling still works; add sausername/sapassword to Key Vault if a run reports 'using the delegated flow'."
-    }
-    else {
-        $saUsername = $saCreds.UserName
-        $saPassword = $saCreds.GetNetworkCredential().password
-        RecordDeployStatus -Component "Sensitivity label fallback credentials" -Status 'OK' -Detail "Service account '$saUsername' stored in Key Vault for the delegated fallback"
-    }
-}
-
 if (-not $SkipBicepDeploy) {
-    Write-Host "Deploying key vault, automation account and managed identity..." -ForegroundColor Yellow
-    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "appClientId=$($global:appId)" "appSecret=$($global:appSecret)" "logoUrl=$($parameters.siteLogoPath.Value)" "keyVaultName=$($parameters.keyVaultName.Value)" "uamiName=$uamiName" "saUsername=$($saUsername)" "saPassword=$($saPassword)" --output none
-    RecordAzResult "Azure resources (bicep: Key Vault, Automation, UAMI)"
+    Write-Host "Deploying automation account and managed identity..." -ForegroundColor Yellow
+    az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "logoUrl=$($parameters.siteLogoPath.Value)" "uamiName=$uamiName" --output none
+    RecordAzResult "Azure resources (bicep: Automation, UAMI)"
     if ($LASTEXITCODE -ne 0) {
         # Everything after this point (permissions, runbooks, logic apps) depends on
         # these resources - no point continuing.

@@ -35,13 +35,9 @@
         "Value": "rg-bestillingsportalen",
         "Description": "A name for a new resource group to deploy the solution to - if the resource group does not exist it will be created."
     },
-    "appName": {
-        "Value": "Bestillingsportalen",
-        "Description": "Name for the Entra ad app registration that will be created."
-    },
     "uamiName": {
         "Value": "bestillingsportalen-uami",
-        "Description": "Name for the user-assigned managed identity that the logic apps use to authenticate against Microsoft Graph, SharePoint, Key Vault and Azure Automation."
+        "Description": "Name for the user-assigned managed identity that the logic apps use to authenticate against Microsoft Graph, SharePoint and Azure Automation."
     },
     "pnpAppId": {
         "Value": "da6c31a6-b557-4ac3-9994-7315da06ea3a",
@@ -59,13 +55,9 @@
         "Value": false,
         "Description": "Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank."
     },
-    "keyVaultName": {
-        "Value": "kv-bestillingsportalen",
-        "Description": "Name for the Key Vault that will be provisioned to store the Entra ID app ID, the app secret (only used for the sensitivity label ROPC flow) and the service account credentials. The Key Vault name must be unique and not exist in another subscription."
-    },
     "enableSensitivity": {
         "Value": false,
-        "Description": "Enable the sensitivity label functionality."
+        "Description": "Enable the sensitivity label functionality. Labels are applied app-only with the automation account's managed identity - no Entra ID app registration or service account is needed."
     },
     "skipApplySPOTemplate": {
         "Value": false,

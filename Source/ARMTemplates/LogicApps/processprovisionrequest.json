@@ -49,10 +49,6 @@
         "spoRootSiteUrl": {
             "defaultValue": "",
             "type": "string"
-        },
-        "keyVaultName": {
-            "defaultValue": "",
-            "type": "string"
         }
     },
     "variables": {
@@ -1906,8 +1902,6 @@
                                             "defaultReadOnlyGroup": "@variables('DefaultReadOnlyGroup')",
                                             "metadata": "@variables('Metadata')",
                                             "parentSiteUrl": "@triggerBody()?['ParentSite']",
-                                            "keyVaultName": "[parameters('keyVaultName')]",
-                                            "tenantId": "[parameters('tenantId')]",
                                             "enableSensitivityLabels": "@{variables('EnableSensitivityLabels')}"
                                         }
                                     }

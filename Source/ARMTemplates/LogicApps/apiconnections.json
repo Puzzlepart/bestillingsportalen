@@ -13,10 +13,6 @@
         "location": {
             "defaultValue": "",
             "type": "string"
-        },
-        "keyvaultName": {
-            "defaultValue": "",
-            "type": "string"
         }
     },
     "resources": [
@@ -83,22 +79,6 @@
                 "customParameterValues": {},
                 "api": {
                     "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/teams')]"
-                }
-            }
-        },
-        {
-            "type": "Microsoft.Web/connections",
-            "apiVersion": "2016-06-01",
-            "name": "bestillingsportalen-kv",
-            "location": "[parameters('location')]",
-            "properties": {
-                "displayName": "Bestillingsportalen - Key Vault",
-                "parameterValueType": "Alternative",
-                "alternativeParameterValues": {
-                    "vaultName": "[parameters('keyvaultName')]"
-                },
-                "api": {
-                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
                 }
             }
         }

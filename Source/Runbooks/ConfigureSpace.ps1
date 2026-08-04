@@ -39,12 +39,9 @@ Param
     [string] $defaultReadOnlyGroup,
     $metadata,
     [string] $parentSiteUrl,
-    # Only used by the sensitivity label step - see SetSensitivityLabel.
-    # enableSensitivityLabels mirrors the EnableSensitivityLabels item in the
-    # 'Provisioning Request Settings' list and is the admin kill-switch for the feature.
-    # Passed as a string because the logic app interpolates its boolean variable.
-    [string] $keyVaultName,
-    [string] $tenantId,
+    # Mirrors the EnableSensitivityLabels item in the 'Provisioning Request Settings'
+    # list and is the admin kill-switch for the feature. Passed as a string because the
+    # logic app interpolates its boolean variable.
     [string] $enableSensitivityLabels
 )
 
@@ -424,108 +421,6 @@ function Test-GroupLabelApplied {
     }
 }
 
-# Delegated fallback for group-connected containers.
-#
-# Microsoft Graph still does not support application permissions for
-# PATCH /groups/{id} with assignedLabels (re-verified August 2026, including with
-# Group.ManageProtection.All, which exists as an app role but is delegated-only for
-# this property). A service account without MFA plus a ROPC token is therefore the
-# only way, and the credentials live in Key Vault.
-#
-# This used to be a 12-action scope in the ProcessProvisionRequest logic app, where
-# the password, the client secret and the resulting access token were all visible in
-# the run history. Keeping it here means none of them leave this process.
-function Set-GroupSensitivityLabelDelegated {
-    param(
-        [Parameter(Mandatory = $true)][string] $GroupId,
-        [Parameter(Mandatory = $true)][string] $LabelId
-    )
-
-    if ($keyVaultName -eq "" -or $tenantId -eq "") {
-        throw "Delegated sensitivity label flow needs both keyVaultName and tenantId, but at least one was empty."
-    }
-
-    # PnP.PowerShell is already loaded at this point, so Az loads second - the order
-    # that avoids the Microsoft.Extensions assembly conflict between the two modules.
-    Connect-AzAccount -Identity | Out-Null
-
-    $appId        = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name 'appid' -AsPlainText
-    $appSecret    = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name 'appSecret' -AsPlainText
-    $saUserName   = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name 'sausername' -AsPlainText
-    $saPassword   = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name 'sapassword' -AsPlainText
-
-    if ([string]::IsNullOrWhiteSpace($saUserName) -or [string]::IsNullOrWhiteSpace($saPassword)) {
-        throw "Service account credentials are missing from Key Vault '$keyVaultName'. Sensitivity labels are enabled but 'sausername'/'sapassword' have no value - see Sensitivity-labels.md."
-    }
-
-    # Invoke-RestMethod form-encodes a hashtable body, so no manual URL encoding.
-    $tokenResponse = Invoke-RestMethod -Method Post `
-        -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
-        -ContentType 'application/x-www-form-urlencoded' `
-        -Body @{
-            client_id     = $appId
-            client_secret = $appSecret
-            grant_type    = 'password'
-            username      = $saUserName
-            password      = $saPassword
-            scope         = 'https://graph.microsoft.com/.default'
-        }
-
-    $ownerAdded = $false
-    try {
-        # The service account needs write access to the group, which for a plain
-        # licensed user means being an owner.
-        try {
-            Add-PnPMicrosoft365GroupOwner -Identity $GroupId -Users $saUserName
-            $ownerAdded = $true
-            Write-Output "Added service account as temporary owner of group $GroupId"
-        }
-        catch {
-            # Most likely already an owner. Deliberately leave $ownerAdded false so we
-            # never remove an owner we did not add ourselves.
-            Write-Output "Could not add service account as owner (may already be one): $($_.Exception.Message)"
-        }
-
-        $patchBody = @{ assignedLabels = @(@{ labelId = $LabelId }) } | ConvertTo-Json -Depth 4
-        $maxAttempts = 6
-
-        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            try {
-                # Retry instead of a fixed wait: the ownership above needs a moment to
-                # propagate, and the PATCH returns 403 until it has.
-                Invoke-RestMethod -Method Patch -Uri "https://graph.microsoft.com/v1.0/groups/$GroupId" `
-                    -Headers @{ Authorization = "Bearer $($tokenResponse.access_token)" } `
-                    -ContentType 'application/json' -Body $patchBody | Out-Null
-
-                Write-Output "Applied sensitivity label to group $GroupId on attempt $attempt"
-                return
-            }
-            catch {
-                if ($attempt -eq $maxAttempts) {
-                    throw "Failed to apply sensitivity label to group $GroupId after $maxAttempts attempts: $($_.Exception.Message)"
-                }
-
-                Write-Output "Attempt $attempt of $maxAttempts failed ($($_.Exception.Message)) - retrying in 15 seconds"
-                Start-Sleep -Seconds 15
-            }
-        }
-    }
-    finally {
-        # Always give the ownership back, including on failure. The logic app only did
-        # this on success, so a failed labelling left the service account as a
-        # permanent owner of the group.
-        if ($ownerAdded) {
-            try {
-                Remove-PnPMicrosoft365GroupOwner -Identity $GroupId -Users $saUserName
-                Write-Output "Removed service account from owners of group $GroupId"
-            }
-            catch {
-                Write-Output "WARNING: could not remove service account from owners of group $GroupId : $($_.Exception.Message). Remove it manually."
-            }
-        }
-    }
-}
-
 # Applies the Purview container label. Runs before the settings the label governs
 # (privacy, external sharing, unmanaged devices), because the label overrides them.
 #
@@ -542,37 +437,23 @@ function SetSensitivityLabel {
 
     Connect-Admin
 
-    Write-Output "Setting sensitivity label $sensitivityLabel (app-only attempt)"
-    try {
-        Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
-        Write-Output "Set-PnPTenantSite returned without error"
-    }
-    catch {
-        # Deliberately swallowed: the delegated fallback below is the real path when
-        # app-only is not allowed. Only an unlabelled group at the end is a failure.
-        Write-Output "App-only label call failed: $($_.Exception.Message)"
-    }
+    Write-Output "Setting sensitivity label $sensitivityLabel"
+    Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
 
     if ([string]::IsNullOrWhiteSpace($groupId)) {
-        # No group behind the site, so the label lives on the site alone and
-        # app-only is documented to work. Nothing to verify against a group.
+        # No group behind the site, so the label lives on the site alone - nothing to
+        # verify against a group.
         Write-Output "Site is not group-connected - finished setting sensitivity label"
         return
     }
 
-    # Set-PnPTenantSite can report success without the label ever being applied on
-    # group-connected sites (pnp/powershell#4917), so no exception is not proof.
-    # Read it back off the group before deciding whether the fallback is needed.
-    if (Test-GroupLabelApplied -GroupId $groupId -LabelId $sensitivityLabel) {
-        Write-Output "Label confirmed on group $groupId - app-only path was sufficient"
-        return
-    }
-
-    Write-Output "Label not present on group $groupId after the app-only attempt - using the delegated flow"
-    Set-GroupSensitivityLabelDelegated -GroupId $groupId -LabelId $sensitivityLabel
-
+    # Set-PnPTenantSite has been observed to report success without the label being
+    # applied (pnp/powershell#4917), so no exception is not proof. Read it back off the
+    # group - that is where the label actually governs privacy and guest sharing.
     if (-not (Test-GroupLabelApplied -GroupId $groupId -LabelId $sensitivityLabel)) {
-        throw "Sensitivity label $sensitivityLabel was not present on group $groupId after the delegated flow completed."
+        throw ("Sensitivity label $sensitivityLabel was set on the site but never appeared on group $groupId. " +
+            "Check that the label is published to groups and sites in Purview (a label scoped only to files/email cannot be applied here), " +
+            "that it is not still within the 24 hours after publishing, and that the label id matches an entry in the 'IP Labels' list. See Sensitivity-labels.md.")
     }
 
     Write-Output "Label confirmed on group $groupId - finished setting sensitivity label"
