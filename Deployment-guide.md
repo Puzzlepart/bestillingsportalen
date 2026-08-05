@@ -6,7 +6,7 @@ For å komme i gang trenger du:
 
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** (E1/E3/E5 har alt dette) — frontline-lisenser (F1/F3) er ikke tilstrekkelig til å eie og aktivere godkjenningsflyten i Steg 5.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** — E1/E3/E5 har alt dette. Frontline-lisenser (F1/F3) inkluderer [ifølge Microsofts lisens-FAQ](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/faqs#office-365-license-questions) også seeded Power Automate, men vi har sett en F-lisensiert konto (service plan `FLOW_O365_S1`) feile med `FlowNotOriginalAuthor` ved aktiveringen av godkjenningsflyten i Steg 5. Installasjonen kan fint startes med F3 (lisenssjekken i skriptet er kun en advarsel, og ingenting må installeres på nytt) — men vær forberedt på å bytte til en lisens med fulle Power Automate-rettigheter på denne ene kontoen hvis aktiveringen feiler.
 - Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
@@ -18,7 +18,7 @@ For å komme i gang trenger du:
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
 - App Registration for PnP PowerShell (se nedenfor).
 
-> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor ikke noe sertifikat, og client secret opprettes kun hvis sensitivitetsmerke-funksjonaliteten aktiveres. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
+> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor verken sertifikat eller client secret. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
 
 #### PnP PowerShell App Registration
 
@@ -109,7 +109,7 @@ Beskrivelse av hver parameter:
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
-- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E1/E3/E5 — ikke F1/F3, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
+- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E1/E3/E5 anbefales — F-lisenser har gitt feil ved flyt-aktiveringen, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
@@ -254,6 +254,8 @@ Flyten `Provisioning Request Approval` er ikke en del av Azure-deployen — den 
 
 Flyten distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
 
+> **Før import: gi tjenestekontoen rollen System Customizer i standardmiljøet.** Solution-flyter er Dataverse-poster, og Environment Maker-rollen alle brukere har automatisk i standardmiljøet dekker kun flyter *utenfor* solutions ([rolletabellen](https://learn.microsoft.com/power-platform/admin/database-security#summary-of-resources-available-to-predefined-security-roles)) — import og eierskap av solution-flyter krever **System Customizer**. Tildelingen krever Power Platform Administrator eller Global Administrator: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → tjenestekontoen → **System Customizer**. Uten rollen feiler import eller aktivering med tilgangsfeil/`FlowNotOriginalAuthor` (se feilsøkingsboksen under «Aktivere flyten»).
+
 1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flyten skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
 2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
 
@@ -285,11 +287,11 @@ Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjene
 
 (Import-loggen kan vise `0x80048026` om språketiketter for språk 1033 — ren kosmetikk, ignorer.)
 
-> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Solution-flyter er Dataverse-poster, og tjenestekontoen trenger en tilstrekkelig **sikkerhetsrolle i standardmiljøet** for å håndtere dem. Som Global Admin: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → gi tjenestekontoen rollen **System Customizer** (se skjermbilde). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
+> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Sjekk først at tjenestekontoen faktisk fikk rollen **System Customizer** i standardmiljøet (se «Før import»-noten i starten av dette steget, og skjermbilde under). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
 >
 > ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
 >
-> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — er årsaken gjerne **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter (F1/F3 holder ikke, se forutsetningene). Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
+> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — er årsaken gjerne **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter — en konto uten gyldig lisens får dessuten access mode «Administrative» i Dataverse og kan da heller ikke importere ([kjent årsak](https://learn.microsoft.com/troubleshoot/power-platform/dataverse/working-with-solutions/install-failure-priviledge-not-assigned)). F-lisenser har gitt akkurat denne feilen i praksis, se forutsetningene. Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
 
 ## Steg 6: Dele flyt og SharePoint-område
 

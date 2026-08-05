@@ -981,14 +981,17 @@ function ValidateServiceAccount {
             return
         }
         # The account must be able to own and activate the solution flow (guide step 5).
-        # Frontline plans (FLOW_O365_S1) and unprovisioned viral trials (FLOW_P2_VIRAL
-        # without _REAL) are not sufficient - seeded Power Automate from E1/E3/E5
-        # (FLOW_O365_P1/P2/P3) or a standalone/per-user Flow plan is required.
+        # Microsoft's licensing FAQ lists F-plans as including seeded Power Automate,
+        # but frontline plans (FLOW_O365_S1) have failed flow activation with
+        # FlowNotOriginalAuthor in practice, and unprovisioned viral trials
+        # (FLOW_P2_VIRAL without _REAL) are not usable - seeded Power Automate from
+        # E1/E3/E5 (FLOW_O365_P1/P2/P3) or a standalone/per-user Flow plan is the
+        # safe choice, hence the warning below.
         $flowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' -and $_ -notin @('FLOW_O365_S1', 'FLOW_P2_VIRAL') })
         if ($flowPlans.Count -eq 0) {
             $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
             if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
-            Write-Host "WARN: The service account has no usable Power Automate plan (found: $foundFlowPlans). Importing and activating the approval flow (guide step 5) requires seeded Power Automate (E1/E3/E5) or a standalone Flow plan - frontline (F1/F3) licenses are not sufficient." -ForegroundColor Yellow
+            Write-Host "WARN: The service account has no Power Automate plan known to work (found: $foundFlowPlans). Frontline (F1/F3) plans have failed flow activation (FlowNotOriginalAuthor) in testing - seeded Power Automate from E1/E3/E5 or a standalone Flow plan is the safe choice. The deployment continues; if activating the approval flow (guide step 5) fails, swap the license on this account and retry." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no usable Power Automate plan for the approval flow"
             return
         }
