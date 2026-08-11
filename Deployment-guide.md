@@ -95,7 +95,13 @@ Beskrivelse av hver parameter:
 
 - `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `contoso.onmicrosoft.com`.
 
-- `requestsSiteName` – Navn på SharePoint-området som skal lagre bestillinger (URL/alias genereres automatisk). Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
+- `requestsSiteName` – Visningsnavnet på SharePoint-området som skal lagre bestillinger, f.eks. `Bestillingsportalen`. Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
+
+- `requestsSiteAlias` – Aliaset til området, som bestemmer **URL-en** (`/<managedPath>/<alias>`) og **e-postadressen til Microsoft 365-gruppen** (`<alias>@<maildomene>`). Standard er `bestillingsportalen-site`.
+
+  > **Aliaset deler navnerom med alle brukere og grupper i tenanten.** Har kunden en tjenestekonto som `bestillingsportalen@kunde.no`, er aliaset `bestillingsportalen` opptatt — og SharePoint **feiler ikke** på det, det oppretter gruppen som `bestillingsportalen1` i stedet. Da peker alle URL-ene skriptet har regnet ut på et område som ikke finnes, og kjøringen stopper lenger ned med `Object reference not set to an instance of an object`. Derfor er standardaliaset `bestillingsportalen-site` og ikke `bestillingsportalen`, og derfor validerer `deploy.ps1` aliaset mot tjenestekontoen og mot brukere i tenanten før noe opprettes.
+  >
+  > **Ved oppgradering av et eksisterende miljø: la denne stå tom.** Da utledes aliaset fra `requestsSiteName` som før, slik at kjøringen peker på området som allerede er installert. Setter du den, flytter du deg til en ny URL.
 
 - `requestsSiteDesc` – Beskrivelse av området som opprettes.
 

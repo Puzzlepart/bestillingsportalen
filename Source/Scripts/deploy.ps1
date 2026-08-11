@@ -412,7 +412,22 @@ function CreateRequestsSharePointSite {
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 try {
                     Write-Host "Creating the site (group-connected site provisioning is synchronous and can take several minutes - the command returns when SharePoint reports the site ready)..." -ForegroundColor Yellow
-                    New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
+                    $createdSiteUrl = New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
+
+                    # Trust what SharePoint created, not what we asked for. If the alias is
+                    # taken, SharePoint appends a number instead of failing - so the site
+                    # ends up somewhere other than the URL computed above, and every later
+                    # step addressing the expected URL fails with an unhelpful null
+                    # reference. ValidateSiteAlias catches the collision we know about
+                    # (the service account); this catches the rest - naming policies,
+                    # blocked words, or any other object holding the alias.
+                    $createdSiteUrl = "$createdSiteUrl".Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($createdSiteUrl) -and $createdSiteUrl -ine $requestsSiteUrl) {
+                        Write-Host "WARN: SharePoint created the site at $createdSiteUrl, not the requested $requestsSiteUrl - the alias '$requestsSiteAlias' was not available." -ForegroundColor Yellow
+                        Write-Host "      Continuing against the URL SharePoint actually created. To get the intended URL instead, delete this site and its group, set requestsSiteAlias in $parametersFileName to a free alias, and re-run." -ForegroundColor Yellow
+                        $script:requestsSiteUrl = $createdSiteUrl
+                        $script:requestsSiteAlias = ($createdSiteUrl -split '/')[-1]
+                    }
                     break
                 }
                 catch {
@@ -470,7 +485,9 @@ function CreateRequestsSharePointSite {
     }
     catch {
         RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
-        throw('Failed to create the SharePoint site {0}', $_.Exception.Message)
+        # 'throw(a, b)' throws a two-element array - the message reached the console with
+        # a literal {0} in it. -f actually formats.
+        throw ("Failed to create the SharePoint site: {0}" -f $_.Exception.Message)
     }
 }
 
@@ -1001,6 +1018,8 @@ function ValidateServiceAccount {
         throw "Service account '$upn' was not found in the tenant. Create the account (a standard user licensed for SharePoint, Exchange Online and Teams) before running the deployment, or correct serviceAccountUPN in $parametersFileName. Nothing has been changed in the environment."
     }
     $script:serviceAccountDisplayName = $saUser.displayName
+    $script:serviceAccountMailNickname = $saUser.mailNickname
+    $script:serviceAccountUpnLocalPart = ($upn -split '@')[0]
 
     # Best-effort license check - warning only: the exact license requirements
     # are the customer's call.
@@ -1032,6 +1051,55 @@ function ValidateServiceAccount {
 
     Write-Host "Service account verified: $($saUser.displayName) ($upn)" -ForegroundColor Green
     RecordDeployStatus -Component "Service account" -Status 'OK'
+}
+
+# Fails the deployment when the site alias would collide with the service account.
+#
+# The alias becomes the Microsoft 365 group's mailNickname, so it shares a namespace
+# with every user and group in the tenant. A service account named after the solution
+# (bestillingsportalen@<domain>) therefore owns the alias the solution wants. SharePoint
+# does not report this as an error: it creates the group as '<alias>1' instead, the URL
+# no longer matches what this script computed, and the run dies further down with
+# "Object reference not set to an instance of an object" from the first cmdlet that
+# addresses the expected URL. Better to stop here, before anything is created.
+#
+# Runs after ValidateServiceAccount so the account's mailNickname is known.
+function ValidateSiteAlias {
+    $upn = $parameters.serviceAccountUPN.Value
+    $collidesWith = $null
+
+    if ($requestsSiteAlias -ieq $script:serviceAccountUpnLocalPart) {
+        $collidesWith = "the service account's UPN ($upn)"
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($script:serviceAccountMailNickname) -and
+        $requestsSiteAlias -ieq $script:serviceAccountMailNickname) {
+        $collidesWith = "the service account's mail nickname ($($script:serviceAccountMailNickname))"
+    }
+
+    # Any user holding the alias causes the same rename, not just the service account -
+    # a shared mailbox or another account named after the solution does it too. The
+    # existing checks in CreateRequestsSharePointSite only look for GROUPS on the alias,
+    # which is what missed this in practice. Best-effort: skip quietly if the lookup
+    # fails, the specific check above still stands.
+    if ($null -eq $collidesWith) {
+        try {
+            $aliasUserJson = az rest --method get --url "https://graph.microsoft.com/v1.0/users?`$filter=mailNickname eq '$requestsSiteAlias'&`$select=userPrincipalName,displayName" 2>$null
+            $aliasUser = if ($aliasUserJson) { @(($aliasUserJson | ConvertFrom-Json).value) | Select-Object -First 1 } else { $null }
+            if ($null -ne $aliasUser) {
+                $collidesWith = "an existing user: '$($aliasUser.displayName)' ($($aliasUser.userPrincipalName))"
+            }
+        }
+        catch {}
+    }
+
+    if ($null -eq $collidesWith) {
+        Write-Host "Site alias '$requestsSiteAlias' is free (no user or service account holds it)." -ForegroundColor Green
+        return
+    }
+
+    $suggestion = "$requestsSiteAlias-site"
+    RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail "Site alias '$requestsSiteAlias' collides with $collidesWith"
+    throw "The site alias '$requestsSiteAlias' collides with $collidesWith. The alias becomes the Microsoft 365 group's mail nickname, so it cannot be one that is already taken - SharePoint would not fail, it would silently create the group as '$($requestsSiteAlias)1', and every URL this script computed would point at a site that does not exist. Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion') and re-run. Nothing has been changed in the environment."
 }
 
 # Reads the language (LCID) of the tenant's root site collection for the pre-flight
@@ -1110,7 +1178,7 @@ function ConfirmDeployment {
     }
 
     WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
-    WritePlanLine "SharePoint site" "$requestsSiteUrl (prompts before overwriting an existing site)" $SkipSharepointSite
+    WritePlanLine "SharePoint site" "$requestsSiteUrl (alias '$requestsSiteAlias'; prompts before overwriting an existing site)" $SkipSharepointSite
     WritePlanLine "Azure resources" "Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
     WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
@@ -1778,7 +1846,21 @@ if ($global:upgrade) {
 }
 
 $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
-$requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')
+
+# The alias decides both the site URL and the Microsoft 365 group mail, so it is an
+# explicit parameter rather than always derived from the title: a title like
+# "Bestillingsportalen" derives the alias 'bestillingsportalen', which collides with a
+# service account called bestillingsportalen@<domain> - and SharePoint resolves that
+# collision by silently creating the group as 'bestillingsportalen1'.
+#
+# Falls back to the old title-derived alias when the parameter is absent or blank, so
+# existing parameters.json files keep pointing at the site they already installed.
+if ($parameters.PSObject.Properties.Name -contains 'requestsSiteAlias' -and (IsValidParam($parameters.requestsSiteAlias))) {
+    $requestsSiteAlias = ($parameters.requestsSiteAlias.Value -replace ' ', '').Trim().Trim('/')
+}
+else {
+    $requestsSiteAlias = $parameters.requestsSiteName.Value -replace (' ', '')
+}
 $requestsSiteUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com/$($parameters.managedPath.Value)/$requestsSiteAlias"
 
 # Initialise connections - Azure Az/CLI. Both tools cache sessions across runs,
@@ -1855,6 +1937,7 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 # the first mutating step.
 ValidateArmTemplates
 ValidateServiceAccount
+ValidateSiteAlias
 ConfirmDeployment
 
 if (-not $SkipSharepointSite) {

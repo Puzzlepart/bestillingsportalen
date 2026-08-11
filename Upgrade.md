@@ -133,6 +133,7 @@ Før du starter oppgraderingen:
 4. **Ha parameterne klare**
    - Bruk samme parameterfil som ved første installasjon (`-ParametersPath` hvis den heter noe annet enn `parameters.json`)
    - Verifiser at alle verdiene fortsatt er gyldige
+   - **La `requestsSiteAlias` stå tom** hvis du regenererer parameterfila. Den er ny, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName` — da peker oppgraderingen på en annen URL enn området du har i drift. Tom verdi gir gammel oppførsel.
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
