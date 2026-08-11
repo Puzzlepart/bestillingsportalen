@@ -412,7 +412,15 @@ function CreateRequestsSharePointSite {
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
                 try {
                     Write-Host "Creating the site (group-connected site provisioning is synchronous and can take several minutes - the command returns when SharePoint reports the site ready)..." -ForegroundColor Yellow
-                    $createdSiteUrl = New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value -Owners $parameters.serviceAccountUPN.Value
+                    # Deliberately NO -Owners here. Passing the service account as the only
+                    # owner leaves the CALLING user (the installing admin) without any
+                    # access to the new site - group-connected sites grant access solely
+                    # through group membership - and New-PnPSite's readiness wait then
+                    # hangs indefinitely: the site shows up in the admin center while the
+                    # cmdlet never returns. Creating without -Owners makes the caller
+                    # group owner and member automatically, so the wait can complete. The
+                    # service account is added as owner and member right after creation.
+                    $createdSiteUrl = New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value
 
                     # Trust what SharePoint created, not what we asked for. If the alias is
                     # taken, SharePoint appends a number instead of failing - so the site
@@ -445,6 +453,46 @@ function CreateRequestsSharePointSite {
             
             Start-sleep -Seconds 60
             Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
+
+            # The service account was intentionally not the -Owners of New-PnPSite (see
+            # the comment above the call) - it is put in place here instead, as both
+            # OWNER and MEMBER: owner does not imply member in Microsoft 365 groups, and
+            # the approval flow and Teams welcome message run as this account and need
+            # actual access. Done with az (the CLI session is the installing admin) so it
+            # works regardless of the PnP app's delegated Graph permissions.
+            Write-Host "Adding the service account as group owner and member..." -ForegroundColor Yellow
+            try {
+                $saObjectId = az ad user show --id $parameters.serviceAccountUPN.Value --query id --output tsv
+                if ([string]::IsNullOrWhiteSpace($saObjectId)) { throw "could not resolve the service account's object id" }
+
+                # The group is seconds old - give the directory a few tries to show it.
+                $groupId = $null
+                for ($lookupAttempt = 1; $lookupAttempt -le 5; $lookupAttempt++) {
+                    $groupJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups?`$filter=mailNickname eq '$requestsSiteAlias'&`$select=id" 2>$null
+                    $groupId = if ($groupJson) { @(($groupJson | ConvertFrom-Json).value) | Select-Object -First 1 -ExpandProperty id } else { $null }
+                    if ($groupId) { break }
+                    Start-Sleep -Seconds 15
+                }
+                if (-not $groupId) { throw "the Microsoft 365 group with alias '$requestsSiteAlias' did not show up in the directory" }
+
+                # Idempotent: adding an existing owner/member is an error, so check first.
+                $ownersJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$groupId/owners?`$select=id" 2>$null
+                $existingOwners = if ($ownersJson) { @(($ownersJson | ConvertFrom-Json).value.id) } else { @() }
+                if ($existingOwners -notcontains $saObjectId) {
+                    az ad group owner add --group $groupId --owner-object-id $saObjectId --output none
+                    if ($LASTEXITCODE -ne 0) { throw "az ad group owner add failed - see the error above" }
+                }
+                $isMember = az ad group member check --group $groupId --member-id $saObjectId --query value --output tsv 2>$null
+                if ($isMember -ne 'true') {
+                    az ad group member add --group $groupId --member-id $saObjectId --output none
+                    if ($LASTEXITCODE -ne 0) { throw "az ad group member add failed - see the error above" }
+                }
+                Write-Host "Service account added as group owner and member." -ForegroundColor Green
+            }
+            catch {
+                Write-Host "WARN: Could not add the service account as group owner/member ($(($_.Exception.Message -split "`r?`n")[0]))." -ForegroundColor Yellow
+                Write-Host "      Add $($parameters.serviceAccountUPN.Value) manually as OWNER and MEMBER of the '$($parameters.requestsSiteName.Value)' Microsoft 365 group (Entra ID or the site's group membership) - the approval flow and the Teams welcome message run as this account and need the access." -ForegroundColor Yellow
+            }
         }
         else {
             # -Force answers this with NO on purpose. Re-applying the template resets the
@@ -468,13 +516,12 @@ function CreateRequestsSharePointSite {
             }
         }
 
-        # Group-connected sites only grant access through group membership, and the
-        # group owner is the SERVICE ACCOUNT (-Owners above) - not even the installing
-        # SharePoint admin can open the site. The rest of the install connects to the
-        # site AS the installing user (delegated auth) to apply the PnP template and
-        # configure lists, so grant them site collection admin via the tenant admin
-        # connection (works without site access for SharePoint admins). Additive - it
-        # does not remove existing admins.
+        # On a fresh creation the installing user is already group owner (New-PnPSite
+        # without -Owners), but grant site collection admin explicitly anyway: it also
+        # covers re-runs against a site created by an OLDER version of this script,
+        # where the service account was the only group owner and the installing admin
+        # had no access at all. Works via the tenant admin connection without site
+        # access, and is additive - it does not remove existing admins.
         if (-not [string]::IsNullOrEmpty($deployUser)) {
             Write-Host "Granting the installing user ($deployUser) site collection admin on the site..." -ForegroundColor Yellow
             Set-PnPTenantSite -Identity $requestsSiteUrl -Owners $deployUser
