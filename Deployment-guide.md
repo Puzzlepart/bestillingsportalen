@@ -69,7 +69,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts):
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts). Skriptet verifiserer samtidig at tjenestekontoen faktisk finnes i tenanten (re-prompter hvis ikke), og at PnP-appen `pnpAppId` er registrert der — mangler den, sier skriptet det i «Next steps»:
 
 ```powershell
 ./GenerateParameters.ps1
@@ -139,7 +139,7 @@ Etter at alle innloggingene er fullført — men **før noe opprettes eller endr
 
 For gjentatte eller uovervåkede kjøringer: `-SkipConfirmation` hopper over denne prompten og gjenbruker cachede sesjoner, og `-Force` gjør i tillegg at «re-anvend PnP-template?»-prompten svares **nei**. `-Force` auto-godkjenner bevisst **ikke** de destruktive promptene (tømme slettet site/gruppe fra papirkurv, slette en aktiv gruppe) — de avbryter i stedet. Se [Oppgraderingsveiledningen](/Upgrade.md#uovervåket-kjøring-med--force).
 
-På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`, etterfulgt av de gjenstående manuelle stegene med henvisning til riktig steg i denne veiledningen. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
+På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (tjenestekonto, SharePoint-område, ressursgruppe, Azure-ressurser, app-roller på begge managed identities, runbook-innhold og runbook-runtime, API-tilkoblinger, Logic Apps og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`, etterfulgt av de gjenstående manuelle stegene med henvisning til riktig steg i denne veiledningen. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
 
 ![Deployment summary etter vellykket kjøring](/Images/InstallationSuccess.png)
 

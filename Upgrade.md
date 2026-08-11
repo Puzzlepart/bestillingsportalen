@@ -129,7 +129,6 @@ Før du starter oppgraderingen:
    - Site Collection Administrator på Bestillingsportalen-området
    - Azure Owner-rolle på ressursgruppen/abonnementet (bicep-malen oppretter RBAC-tildelinger)
    - Rettighet til å tildele app-roller til managed identities – oppgraderingen kjører `AssignManagedIdentityPermissions` og `AssignUamiPermissions`, som krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator
-   - Rettighet til å endre Key Vault access policies – `AssignManagedIdentityPermissions` gir Automation-kontoens identity `secrets/get` på løsningens Key Vault (kreves av sensitivitetsmerking i `ConfigureSpace`). Tildelingen ligger også i `azureresources.bicep`, men den malen hoppes over i upgrade-modus, så den gjøres eksplisitt her
 
 4. **Ha parameterne klare**
    - Bruk samme `parameters.json` som ved første installasjon

@@ -1944,11 +1944,11 @@ if (-not $SkipBicepDeploy) {
     AssignManagedIdentityPermissions
     AssignUamiPermissions
     DeployLocalRunbooks
-    Write-Host "Finished deploying key vault, automation account and managed identity..." -ForegroundColor Green
+    Write-Host "Finished deploying automation account and managed identity..." -ForegroundColor Green
 }
 else {
     Write-Host "Skipping azureresources.bicep deployment" -ForegroundColor Yellow
-    RecordDeployStatus -Component "Azure resources (bicep: Key Vault, Automation, UAMI)" -Status 'SKIPPED'
+    RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'SKIPPED'
     # The logic apps and API connections still need the app roles on the user-assigned
     # managed identity - keep them in sync even when the bicep deployment is skipped.
     AssignUamiPermissions
