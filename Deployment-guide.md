@@ -2,7 +2,35 @@
 
 ## Forutsetninger
 
-For å komme i gang trenger du:
+### Sjekkliste
+
+Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe må ofte bestilles hos kundens administratorer — gjør det tidlig, de har ledetid.
+
+**Maskinen som kjører installasjonen:**
+
+- [ ] Windows 10/11 med PowerShell **7.4+**
+- [ ] Azure CLI installert, og `az login` fungerer gjennom brannmur/proxy
+- [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, ImportExcel, WriteAscii
+- [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxDeploy`)
+
+**Kontoen som kjører installasjonen:**
+
+- [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen
+- [ ] SharePoint Administrator (Teams- og Power Platform-administrator trengs også, for stegene etter selve skriptet)
+- [ ] Kan tildele app-roller til managed identities: Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator — **mangler du dette, bruk `-SkipAppRoles`** (se noten under detaljene)
+
+**Tenanten og abonnementet (bestilles hos kundens admin ved behov):**
+
+- [ ] Fakturerbart Azure-abonnement i **samme tenant** som Microsoft 365
+- [ ] **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic`, `Microsoft.Web` — registrering krever rettigheter på *abonnementsnivå*, se detaljene. ([Om resource providers – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types))
+- [ ] Power Automate (seeded licenses) aktivert og utrullet i organisasjonen
+- [ ] Tenant app-katalog opprettet i SharePoint Admin Center
+- [ ] Tjenestekonto opprettet, med E1/E3/E5-lisens (**ikke** F-lisens — se detaljene)
+- [ ] PnP app registration i tenanten (Prosjektportalen sin kan gjenbrukes — se «PnP PowerShell App Registration»)
+
+Pre-flight-sjekkene i `deploy.ps1` verifiserer tjenestekontoen, område-aliaset, RBAC-rettighetene og resource providers **før noe opprettes** — en glipp i sjekklisten stopper altså med en konkret feilmelding, ikke en halvferdig installasjon.
+
+### Detaljer
 
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
@@ -16,7 +44,7 @@ For å komme i gang trenger du:
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
-- **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic` og `Microsoft.Web`. I et ferskt abonnement er de typisk *ikke* registrert. Pre-flight sjekker dette og registrerer dem automatisk hvis kontoen har rettigheter på **abonnementsnivå** — men registrering er en abonnementsoperasjon, så med Owner kun på ressursgruppen stopper skriptet med de nøyaktige `az provider register`-kommandoene en abonnementsadministrator må kjøre (engangsjobb, tar et par minutter).
+- **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic` og `Microsoft.Web` ([hva resource providers er – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types)). I et ferskt abonnement er de typisk *ikke* registrert, og deployen feiler da med `MissingSubscriptionRegistration`. Pre-flight sjekker dette og registrerer dem automatisk hvis kontoen har rettigheter på **abonnementsnivå** — men registrering er en abonnementsoperasjon, så med Owner kun på ressursgruppen stopper skriptet med de nøyaktige `az provider register`-kommandoene en abonnementsadministrator må kjøre (engangsjobb, tar et par minutter; det aktiverer kun ressurstypene og oppretter ingenting). Sjekk status selv med `az provider show --namespace Microsoft.Automation --query registrationState`.
 - App Registration for PnP PowerShell (se nedenfor).
 
 > **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor verken sertifikat eller client secret. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Datatilgang og sikkerhet](Data-access-security.md) for hvilke app-roller som tildeles.
