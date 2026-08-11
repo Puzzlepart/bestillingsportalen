@@ -6,55 +6,57 @@ For å komme i gang trenger du:
 
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA.
-- Tjenestekonto for sensitivitetsmerke-funksjonalitet (anvendelse av sensitivitetsmerker), hvis du vil bruke funksjonaliteten. Kan være samme konto som over, men kontoen kan være forhindret fra å bruke MFA grunnet begrensninger i Microsoft Graph. Verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview) da denne begrensningen kan ha blitt fjernet.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** — E1/E3/E5 har alt dette. Frontline-lisenser (F1/F3) inkluderer [ifølge Microsofts lisens-FAQ](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/faqs#office-365-license-questions) også seeded Power Automate, men vi har sett en F-lisensiert konto (service plan `FLOW_O365_S1`) feile med `FlowNotOriginalAuthor` ved aktiveringen av godkjenningsflyten i Steg 5. Installasjonen kan fint startes med F3 (lisenssjekken i skriptet er kun en advarsel, og ingenting må installeres på nytt) — men vær forberedt på å bytte til en lisens med fulle Power Automate-rettigheter på denne ene kontoen hvis aktiveringen feiler.
+- Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
-- PowerShell 7 lastet ned og installert – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
+- PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
 - **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
-- Global Administrator (for å kjøre `createentraidapp.ps1`-skriptet og opprette/autorisere PnP app registration).
+- Global Administrator (for å opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
-- Et sertifikat (self-signed er greit) for Microsoft Graph og SharePoint REST API-autentisering (**valgfritt** – installasjonsskriptet kan opprette et self-signed cert for deg).
 - App Registration for PnP PowerShell (se nedenfor).
+
+> **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor verken sertifikat eller client secret. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Migrering til managed identity](Managed-identity-migration.md).
 
 #### PnP PowerShell App Registration
 
-PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger.
+PnP PowerShell støtter ikke lenger alternativet `multi-tenant app registration`. Dette opprettet tidligere en app registration automatisk for PnP PowerShell med alle nødvendige tilganger. For å autentisere med PnP PowerShell trenger du derfor en app registration i kundens tenant.
 
-For å autentisere og bruke PnP PowerShell framover må du opprette din egen app registration med de nødvendige tillatelsene.
+Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive prompts), og bruker **interaktiv pålogging**: du logger inn i nettleseren som kontoen som kjører skriptet — ingen sertifikater å opprette eller forvalte. Dette samsvarer med [PnP sin egen veiledning](https://pnp.github.io/powershell/articles/registerapplication.html), der app-only med sertifikat kun anbefales for skript som kjører *uten* brukerinteraksjon.
 
-Før du kjører installasjonsskriptet for Bestillingsportalen, sørg for at du har opprettet denne app-en og har sertifikatet og passordet tilgjengelig.
+**Alternativ A: Gjenbruk Prosjektportalen sin PnP-app.** Har tenanten allerede [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) installert, finnes det normalt en PnP-app-registrering fra før — standardverdien for `pnpAppId` i `parameters.json` (`da6c31a6-b557-4ac3-9994-7315da06ea3a`) peker på denne. Ingen ny registrering nødvendig.
 
-Minimumskravene til PnP app registration for å kunne kjøre installasjonsskriptet er:
+**Alternativ B: Registrer en ny app for interaktiv pålogging.** Kjør følgende som Global Administrator (PnP.PowerShell-modulen må være installert). Kommandoen oppretter app-registreringen med delegerte tilganger og ber om admin consent i nettleseren:
 
-**Microsoft Graph**
+```powershell
+Register-PnPEntraIDAppForInteractiveLogin `
+    -ApplicationName "Bestillingsportalen PnP" `
+    -Tenant "<kunde>.onmicrosoft.com" `
+    -GraphDelegatePermissions "Group.ReadWrite.All" `
+    -SharePointDelegatePermissions "AllSites.FullControl"
+```
 
-- Group.Create
-- Group.Read.All
-
-**SharePoint**
-
-- Sites.FullControl.All
+**App-ID-en (Client ID)** fra outputen settes som `pnpAppId` i `parameters.json`. Under installasjonen åpner `deploy.ps1` nettleseren for pålogging (kun ved første tilkobling — tokens caches). De effektive rettighetene er snittet av dine rettigheter og appens delegerte tilganger; kontoen som kjører skriptet er uansett SharePoint-administrator.
 
 Når installasjonen av Bestillingsportalen er fullført, kan du slette PnP PowerShell app registration eller fjerne tilgangene hvis du ikke trenger dem.
 
 Mer informasjon om endringer i PnP PowerShell-autentisering finner du [her](https://pnp.github.io/blog/post/changes-pnp-management-shell-registration/).
 
-Se [denne videoen](https://www.youtube.com/watch?v=ecRZrHOucz4&t=359s) for hvordan du oppretter og bruker app registration.
+Hvis `AllSites.FullControl` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
 
-Hvis `Sites.FullControl.All` er et problem, kan du opprette SharePoint-området for Bestillingsportalen manuelt og sørge for at navnet i `parameters.json` matcher navnet på området du opprettet.
+#### PowerShell 7.4+
 
-#### PowerShell 7.x
+Installasjonsskriptet for Bestillingsportalen krever PowerShell 7.4 eller nyere (PnP.PowerShell 3.x støtter ikke eldre versjoner) og støtter ikke 5.1. Sørg for at PowerShell 7.4+ er installert før du installerer PowerShell-modulene nedenfor.
 
-Installasjonsskriptet for Bestillingsportalen krever PowerShell 7 og støtter ikke lenger 5.1. Sørg for at PowerShell 7 er installert før du installerer PowerShell-modulene nedenfor.
+> **Kjente konflikter mellom Az og PnP.PowerShell:** Modulene leverer ulike versjoner av `Microsoft.Extensions.*`-assemblies. Skriptet laster derfor PnP.PowerShell *før* Az. Får du likevel feilen `Method 'get_Services' in type '...LoggingBuilder' ... does not have an implementation`, start et **nytt** PowerShell-vindu og kjør skriptet på nytt — en økt der Az allerede er lastet kan ikke repareres.
 
 #### PowerShell-moduler
 
 Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres før skriptet kjøres:
 
-- PnP.PowerShell (3.1)
+- PnP.PowerShell (3.2 eller nyere — versjonen sjekkes av installasjonsskriptet)
 - Az
 - ImportExcel
 - WriteAscii
@@ -67,7 +69,17 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-Du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Key Vault-navnet sjekkes for global tilgjengelighet med en gang, og du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts):
+
+```powershell
+./GenerateParameters.ps1
+# eller uten prompts:
+./GenerateParameters.ps1 -Tenant contoso.onmicrosoft.com -ServiceAccountUPN svc-bp@contoso.com -Force
+```
+
+Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
+
+Alternativt kan du fylle ut manuelt: du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
 
 Erstatt `<<value>>` med passende verdier for alle påkrevde parametre.
 
@@ -76,6 +88,8 @@ Beskrivelse av hver parameter:
 - `tenantId` – ID til tenanten du skal installere i. Finnes i Microsoft Entra ID-bladet.
 
 - `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `puzzlepart`.
+
+- `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `contoso.onmicrosoft.com`.
 
 - `requestsSiteName` – Navn på SharePoint-området som skal lagre bestillinger (URL/alias genereres automatisk). Kan inneholde mellomrom. Hvis området finnes, spørres det om overskriving og PnP-provisjoneringsmal anvendes.
 
@@ -89,75 +103,85 @@ Beskrivelse av hver parameter:
 
 - `resourceGroupName` – Navn på ny ressursgruppe løsningen installeres i. Skriptet oppretter denne.
 
-- `appName` – Navn på Entra ID-appen som opprettes, f.eks. `Bestillingsportalen`.
-
-- `createSelfSignedCert` – Angir om et self-signed sertifikat skal opprettes som del av installasjonen. Hvis `true`, opprettes et self-signed cert via Azure CLI med navnet i `certName`.
-
-- `certName` – Navn på det self-signed sertifikatet, f.eks. `cert-bestillingsportalen`. Hvis du lager ditt eget sertifikat, er denne parameteren fortsatt påkrevd og skal matche navnet på sertifikatet ditt.
-
-- `certValidityDays` – Antall dager sertifikatet er gyldig (hvis `createSelfSignedCert` er `true`). Standard er 365 dager.
+- `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
 
-- `pnpCertPath` – Sti til PnP-sertifikatet på din lokale maskin som du opprettet da du konfigurerte PnP PowerShell.
-
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
-- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser. Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
+- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E1/E3/E5 anbefales — F-lisenser har gitt feil ved flyt-aktiveringen, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
-- `KeyVaultName` – Navn på Key Vault som installasjonsskriptet oppretter. Key Vault lagrer `app id` og `secret` for Entra ID-appen. Navnet må være unikt på tvers av Azure-regionen du installerer i. Hvis en Key Vault med samme navn eksisterer ***i*** det aktuelle abonnementet, kan den brukes. **MERK – HVIS DU BRUKER EN EKSISTERENDE KEY VAULT, VIL DEN BLI OVERSKREVET OG KONFIGURASJON SOM ROLE ASSIGNMENTS GÅR TAPT. VI ANBEFALER EN DEDIKERT KEY VAULT FOR Bestillingsportalen.** Skriptet validerer at navnet er tilgjengelig, og hvis ikke må et annet navn oppgis.
-
-- `enableSensitivity` – Aktiverer sensitivitetsmerke-funksjonaliteten. Merk – dette krever en tjenestekonto UTEN MFA. Kan være samme tjenestekonto som over.
+> **Sensitivitetsmerker har ingen installasjonsparameter.** Alt som trengs settes opp uansett (`SyncLabels`, `IP Labels`-listen og app-tillatelsen), og merkingen bruker Automation-kontoens managed identity. Funksjonaliteten skrus på ved å sette `EnableSensitivityLabels` til `true` i `Provisioning Request Settings`-listen etter installasjon – se [Sensitivitetsmerker](./Sensitivity-labels.md).
 
 - `skipApplySPOTemplate` – Hopper over anvendelse av PnP-mal på SharePoint-området. La stå som `false` med mindre du har en spesifikk grunn til å hoppe over dette.
 
-## Steg 3: Kjør skriptene
+## Steg 3: Kjør skriptet
 
-### Opprettelse av Entra ID-app
-
-Første steg er å kjøre det dedikerte skriptet som oppretter Entra ID-appen og gir admin consent for Microsoft Graph API-tillatelsene.
-
-**Denne delen av installasjonen krever en brukerkonto med Global Administrator-tilgang.**
-
-1. Åpne et PowerShell 7-vindu som administrator.
-2. Gå til `Scripts`-mappen.
-3. Kjør `createentraidapp`-skriptet i PowerShell-vinduet – ```.\createentraidapp.ps1```.
-4. Oppgi et navn for Entra ID-appen når du blir spurt (**Dette må være samme navn som `appName`-parameteren i `parameters.json`**).
-5. Vent til skriptet er ferdig.
+> Løsningen krever **ingen egen Entra ID-app-registrering**. Alt i drift autentiserer med managed identity, også sensitivitetsmerking. Den eneste app-registreringen som er involvert er PnP PowerShell-appen fra forutsetningene, som bare brukes under installasjonen.
 
 ### Installasjon av ressurser
 
 Neste steg er å kjøre deploy-skriptet.
 
-**Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet og også er SharePoint Administrator.**
+**Sørg for at kontoen du bruker på dette steget har owner-rettigheter til Azure-abonnementet, er SharePoint Administrator, og kan tildele app-roller til managed identities.**
 
-**Installasjonsskriptet genererer en secret for Entra ID-appen opprettet over. Standard utløpstid for denne secret-en er 1 år. For detaljer om hvordan du fornyer secret-en når den utløper, se [Fornye App Secret](./Refreshing-app-secret.md).**
-
-Siden skriptet bruker flere PowerShell-moduler under installasjon, vil det be om autentisering flere ganger.
+Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure CLI og PnP PowerShell), men **eksisterende sesjoner gjenbrukes**: finner skriptet en cachet sesjon som matcher tenant/subscription i `parameters.json`, blir du spurt om å gjenbruke den (`y`) i stedet for å logge inn på nytt — ved gjentatte kjøringer slipper du dermed MFA-rundene. Svar `n` for å tvinge frisk innlogging (f.eks. med en annen konto).
 
 1. Åpne et PowerShell 7-vindu som administrator.
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
 
-Du blir bedt om passordet for PnP app registration-sertifikatet underveis.
+PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første tilkobling i kjøringen; logg inn med kontoen du kjører skriptet med. Tokenet gjenbrukes for resten av kjøringen (innloggingen persisteres bevisst *ikke* på tvers av økter, så det ikke blir liggende tokens for kundetenants på maskinen).
 
-Hvis du aktiverer sensitivitetsmerke-funksjonaliteten, vises en dialog som ber om passordet for tjenestekontoen. Fullfør dialogen.
+Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, SharePoint-område, Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret.
 
-Når meldingen **«DEPLOYMENT COMPLETED SUCCESSFULLY»** vises, går du videre til neste steg.
+For gjentatte eller uovervåkede kjøringer: `-SkipConfirmation` hopper over denne prompten og gjenbruker cachede sesjoner, og `-Force` gjør i tillegg at «re-anvend PnP-template?»-prompten svares **nei**. `-Force` auto-godkjenner bevisst **ikke** de destruktive promptene (tømme slettet site/gruppe fra papirkurv, slette en aktiv gruppe) — de avbryter i stedet. Se [Oppgraderingsveiledningen](/Upgrade.md#uovervåket-kjøring-med--force).
 
-**Hvis skriptet feiler av noen årsak, kan det kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes.**
+På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en statuslinje per delkomponent (SharePoint-område, Entra ID-app, Azure-ressurser, app-roller, runbooks, API-tilkoblinger, hver Logic App og SPFx-pakkene) med `OK`, `FAILED`, `WARNING` eller `SKIPPED`, etterfulgt av de gjenstående manuelle stegene med henvisning til riktig steg i denne veiledningen. Oppsummeringen vises også hvis skriptet stopper på en feil underveis, slik at du ser hvilke komponenter som rakk å fullføre.
+
+![Deployment summary etter vellykket kjøring](/Images/InstallationSuccess.png)
+
+- Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
+- Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
+
+**Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
+
+- Eksisterende SharePoint-område gjenkjennes (du får spørsmål der det er relevant).
+- På spørsmålet om PnP-malen: svar **`n`** for å beholde alt eksisterende listeinnhold urørt (skriptet henter da bare liste-ID-ene). Svar **`y`** kun hvis du vil nullstille konfigurasjonslistene (Settings, Provisioning Types, Teams Templates m.fl.) til pakkens standardverdier — bestillingsdata (Provisioning Requests / Guest Requests) røres aldri.
+- App-roller sjekkes per rolle og tildeles kun det som mangler; Logic Apps og API-tilkoblinger oppdateres til malens definisjon.
+- Sjekk at de delegerte API-tilkoblingene fortsatt står som `Connected` etterpå — en re-deploy kan i noen tilfeller kreve re-autorisering.
+
+**For senere oppdateringer av et miljø i drift, bruk `./deploy.ps1 -Upgrade`** (se [Oppgraderingsveiledning](/Upgrade.md)) — den hopper over listeutfylling og områdeoppsett helt.
+
+#### Runbookene vises som «PowerShell 5.1» i portalen — det er normalt
+
+Runbookene kjører på **PowerShell 7.4** i runtime environmentet `bestillingsportalen-ps74` (kreves av `PnP.PowerShell` 3.x), men Automation-kontoens **standard Runbooks-blad viser dem som «PowerShell 5.1»**. Det er en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle portalopplevelsen, som ikke kjenner runtime environments over 7.2:
+
+> «Runbooks created in Runtime environment experience with Runtime version PowerShell 7.2+ would show as PowerShell 5.1 runbooks in old experience.»
+
+**Slik ser du de riktige verdiene:** åpne Automation-kontoen i Azure Portal og bytt til **Runtime environment-opplevelsen** (bryteren ligger i banneret øverst på Automation-konto-oversikten / under `Process Automation`). Da vises både runtime environment og faktisk PowerShell-versjon korrekt for hver runbook, og `bestillingsportalen-ps74` blir synlig med sine pakker.
+
+Du trenger normalt ikke sjekke dette manuelt: `deploy.ps1` leser `properties.runtimeEnvironment` via REST for hver runbook og rapporterer **`Runbook runtime environment`** i DEPLOYMENT SUMMARY. Står den `OK`, kjører runbookene på 7.4 uansett hva Runbooks-bladet viser. Står den `FAILED`, er det et reelt problem — da ville produksjonsrunbookene feilet med `Connect-PnPOnline is not recognized`.
+
+Trenger du grunnsannheten fra inne i en jobb, kjør [`Source/Diagnostics/Test-RunbookRuntime.ps1`](/Source/Diagnostics/Test-RunbookRuntime.ps1) — den skriver ut `$PSVersionTable` og modulversjonene som faktisk er lastet.
 
 ### Autorisere API-tilkoblinger
 
-Skriptet oppretter flere API-tilkoblinger som må autoriseres manuelt.
-I Microsoft Azure Portal, gå til ressursgruppen som ble opprettet av skriptet.
+De fire delegerte API-tilkoblingene må autoriseres interaktivt med **tjenestekontoen**. Selve innloggingen kan ikke automatiseres (delegert OAuth krever at kontoen selv logger inn), men alt rundt er skriptet:
 
-1. Klikk på API-tilkoblingen med navnet `bestillingsportalen-o365`.
-2. Klikk `Edit API connection` i venstre meny.
-3. Klikk `Authorize`. Bruk tjenestekontoen for å autentisere.
-4. Gjenta handlingene for `bestillingsportalen-o365users`, `bestillingsportalen-spo` og `bestillingsportalen-teams` API-tilkoblinger.
+**Anbefalt: kjør hjelpeskriptet** fra `Scripts`-mappen (bruker az CLI-sesjonen fra deploy):
+
+```powershell
+./Authorize-ApiConnections.ps1
+```
+
+Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede er `Connected`), åpner en samtykkelenke i nettleseren per tilkobling — **logg inn som tjenestekontoen**, ikke admin-kontoen din — fanger opp samtykket og verifiserer at statusen blir `Connected` til slutt. Kan kjøres på nytt når som helst, f.eks. etter en oppgradering hvis en tilkobling står som `Error`.
+
+> Underveis viser Microsoft en advarsel om at «this connection was created from a different organization» med phishing-varsel. Det er forventet: samtykkelenken genereres av admin-sesjonen din, mens tjenestekontoen er den som samtykker. Huk av `I have verified this request and trust the source` og velg `Allow access`.
+
+**Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
 ### SPFx-løsninger (`InviteGuests`-webdel)
 
@@ -222,39 +246,65 @@ Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span st
 
 Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
 
-## Steg 5: Aktivere `Provisioning Request Approval`-flyten
+## Steg 5: Importere og aktivere flyten
 
-**`Provisioning Request Approval`** er avslått som standard og må aktiveres.
+Flyten `Provisioning Request Approval` er ikke en del av Azure-deployen — den lever i Power Automate i **tjenestekontoens** miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes den gjerne allerede (hopp da til aktiveringen nedenfor); i en ny installasjon importeres den først.
 
-Følg stegene for å aktivere den:
+### Importere flyten
 
-1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
-2. Finn flyten **`Provisioning Request Approval`**.
-3. Klikk på flyten.
-4. Klikk `Turn on` i toppmenyen.
+Flyten distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
 
-## Steg 6: Dele flyter og SharePoint-område
+> **Før import: gi tjenestekontoen rollen System Customizer i standardmiljøet.** Solution-flyter er Dataverse-poster, og Environment Maker-rollen alle brukere har automatisk i standardmiljøet dekker kun flyter *utenfor* solutions ([rolletabellen](https://learn.microsoft.com/power-platform/admin/database-security#summary-of-resources-available-to-predefined-security-roles)) — import og eierskap av solution-flyter krever **System Customizer**. Tildelingen krever Power Platform Administrator eller Global Administrator: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → tjenestekontoen → **System Customizer**. Uten rollen feiler import eller aktivering med tilgangsfeil/`FlowNotOriginalAuthor` (se feilsøkingsboksen under «Aktivere flyten»).
 
-Før Bestillingsportalen kan rulles ut, må flytene og SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
+1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flyten skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
+2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
 
-### Steg 6a (midlertidig): Overskriv runbooken `ConfigureSpace`
+   ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
 
-Under installasjonen hentes runbooken `ConfigureSpace` fra et offentlig repo. Denne bør erstattes med versjonen i dette repoet. En enkel copy/paste er nok. Dette er midlertidig til dette repoet er offentlig. [Lenke til Runbook](/Source/Runbooks/ConfigureSpace.ps1)
+3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. Flyten er pakket i Draft-tilstand og aktiveres uansett manuelt etter importen (siste seksjon i dette steget).
 
-### Flyter
+   ![Import solution - detaljer](/Images/FlowImportDetails.png)
 
-Del flytene som brukes av Bestillingsportalen med administratorer som ønsker å se flyt-kjøringer eller redigere flytene. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer. Gjenta stegene for hver flyt.
+4. Koble til/opprett de fem tilkoblingene (Teams, Approvals, Outlook, SharePoint, pluss en ekstra SharePoint-tilkobling som kreves for miljøvariablene) **som tjenestekontoen**. Grønn hake betyr klar.
 
-To flyter leveres med Bestillingsportalen:
+   ![Import solution - tilkoblinger](/Images/FlowImportConnections.png)
 
-- **Provisioning Request Approval** – Gir godkjenningsprosess for bestillinger. Se [Godkjenningsflyt](/Approval-flow.md) for detaljer.
-- **Check Space Availability** – Sjekker om et område som matcher angitt tittel/URL allerede finnes. Bruker `Office 365 Groups`-connector for å sjekke om en gruppe med samme detaljer finnes, og sjekker også `Provisioning Requests`-listen for en matchende bestilling. Brukere kan kun fortsette hvis området ikke finnes og ingen bestilling med samme navn finnes. Hvis en bestilling finnes i listen og ble opprettet av SAMME bruker, blir brukeren bedt om å redigere den andre bestillingen i stedet.
+5. Fyll inn de fire **environment variables**:
+   - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
+   - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
+
+   ![Import solution - miljøvariabler](/Images/FlowImportEnvironmentVariables.png)
+
+   > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
+6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at flyten `Provisioning Request Approval` finnes.
+
+### Aktivere flyten
+
+Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjenestekontoen:
+
+1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen og åpne løsningen **«Bestillingsportalen Flows»**.
+2. Klikk på **`Provisioning Request Approval`** → `Turn on` i toppmenyen.
+
+(Import-loggen kan vise `0x80048026` om språketiketter for språk 1033 — ren kosmetikk, ignorer.)
+
+> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Sjekk først at tjenestekontoen faktisk fikk rollen **System Customizer** i standardmiljøet (se «Før import»-noten i starten av dette steget, og skjermbilde under). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
+>
+> ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
+>
+> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — er årsaken gjerne **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter — en konto uten gyldig lisens får dessuten access mode «Administrative» i Dataverse og kan da heller ikke importere ([kjent årsak](https://learn.microsoft.com/troubleshoot/power-platform/dataverse/working-with-solutions/install-failure-priviledge-not-assigned)). F-lisenser har gitt akkurat denne feilen i praksis, se forutsetningene. Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
+
+## Steg 6: Dele flyt og SharePoint-område
+
+Før Bestillingsportalen kan rulles ut, må SharePoint-området deles med alle brukerne som skal sende inn bestillinger, og flyten eventuelt med administratorer.
+
+### Flyt
+
+Del flyten `Provisioning Request Approval` (godkjenningsprosessen for bestillinger, se [Godkjenningsflyt](/Approval-flow.md)) med administratorer som ønsker å se flyt-kjøringer eller redigere flyten. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer.
 
 1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
 2. Finn flyten **`Provisioning Request Approval`** og klikk `Share` i toppmenyen.
 3. Legg til brukere eller grupper du vil dele flyten med, og velg `OK` i `Before you share`-dialogen.
-4. Gjenta stegene for `Check Space Availability`-flyten.
-5. Brukerne har nå tilgang til flytene.
+4. Brukerne har nå tilgang til flyten.
 
 ### SharePoint-område
 
@@ -329,3 +379,12 @@ Hvis du ikke ønsker å bruke den innebygde Power Automate-godkjenningsprosessen
 For å aktivere, gå til innstillingslisten, rediger listeelementet `EnableAutoApproval` og sett `Value`-kolonnen til `true`.
 
 Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams app, settes statusen til `Approved`. Godkjenningsflyten kjører da ikke, og provisjoneringsprosessen starter umiddelbart.
+
+## Merknad: Bestillings-webdelen distribueres separat
+
+Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår ikke i dette repoet — per i dag følger den **Prosjektportalen**-leveransen. Etter at den er tilgjengelig i tenanten:
+
+1. Legg webdelen inn manuelt på en SharePoint-side der brukerne skal bestille.
+2. Sett URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`) slik at bestillingene skrives til riktige lister.
+
+Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 6) før de kan bestille.

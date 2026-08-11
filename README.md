@@ -23,13 +23,13 @@ Bestillingsportalen tilbyr følgende:
 
 Løsningen bruker Microsoft Graph og SharePoint REST API-ene for provisjonering. Azure Runbooks brukes sammen med PnP PowerShell for oppgaver som ikke kan utføres via Graph API.
 
-Application permissions brukes gjennom en Entra ID app registration. Secret-en for Entra ID-appen lagres i en Key Vault.
+Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity, og runbookene med Automation-kontoens systemtildelte identity. **Løsningen har ingen client secret, ingen Key Vault og ingen egen Entra ID-app-registrering i drift** – ingenting som må fornyes eller kan lekke. Se [Migrering til managed identity](Managed-identity-migration.md) for bakgrunn.
+
+> **Om tilganger:** Løsningen tildeles et minimert sett API-tillatelser der hver tillatelse er knyttet til konkrete kjøretidskall – se [Datatilgang og sikkerhet](Data-access-security.md) for den fulle koblingen. Merk at noen av tillatelsene kun er i bruk av **valgfri funksjonalitet**: gjesteinvitasjon (`User.Invite.All`, `User.ReadWrite.All`), Viva Engage-fellesskap (`Community.ReadWrite.All`) og sensitivitetsmerker (`InformationProtectionPolicy.Read.All`). Organisasjoner som ikke bruker disse funksjonene kan stramme inn ytterligere – se merknaden om funksjonsbundne tillatelser i sikkerhetsdokumentet.
 
 Provisjonering og andre automatiseringsoppgaver løses gjennom Azure Logic Apps, som gir lav kjøretidkostnad og mulighet til å sikre tilgang til alle ressurser.
 
-For mer detaljer om arkitekturen, les [Arkitektur](Architecture.md)-dokumentasjonen.
-
-For en samlet oversikt over hva som installeres og hvilke tilganger som kreves – både for installasjon og for løsningen i drift – se [Teknisk løsningsbeskrivelse](Teknisk-losningsbeskrivelse.md).
+For arkitekturdiagrammer og en samlet oversikt over hva som installeres og hvilke tilganger som kreves – både for installasjon og for løsningen i drift – se [Teknisk løsningsbeskrivelse](Teknisk-losningsbeskrivelse.md).
 
 ## Kom i gang
 
@@ -51,7 +51,11 @@ Se våre [retningslinjer for bidrag](/CONTRIBUTING.md) for hvordan du kan bidra.
 
 Hvis du ønsker å bli involvert i å videreutvikle Bestillingsportalen – enten det er å foreslå ny funksjonalitet, oppdatere dokumentasjonen eller fikse bugs – vil vi gjerne høre fra deg.
 
+## Lisens
+
+Bestillingsportalen er lisensiert under [MIT-lisensen](/LICENSE) © SoftwareOne. Løsningen er basert på [Provision Assist](https://github.com/pnp/provision-assist-m365) fra Microsoft 365 & Power Platform Community (PnP), også MIT-lisensiert – opphavsnotisen deres er beholdt i lisensfila.
+
 ---
 
-| [Teknisk løsningsbeskrivelse](/Teknisk-losningsbeskrivelse.md) | [Installasjonsveiledning](/Deployment-guide.md) | [Oppgraderingsveiledning](/Upgrade.md) | [Arkitektur](/Architecture.md) | [Datalagre](/Data-stores.md) | [Kostnadsestimater](/Cost-estimates.md) | [Datatilgang og sikkerhet](/Data-access-security.md) | [Navnekonvensjoner](/Naming-conventions.md) | [Forretningsenheter](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivitetsmerker](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Oppbevaringsmerker](/Retention-labels.md) | [Godkjenningsflyt](/Approval-flow.md) | [Regionale innstillinger](/Regional-settings.md) | [Fornye App Secret](/Refreshing-app-secret.md) | [Feilhåndtering](/Error-handling.md) |
-| ----------------------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------ | ---------------------------- | --------------------------------------- | ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------- | -------------------------------------------- | ------------------------------------ | --------------------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------------ | ------------------------------------- | ------------------------------------------------ | ---------------------------------------------- | ------------------------------------ |
+| [Teknisk løsningsbeskrivelse](/Teknisk-losningsbeskrivelse.md) | [Installasjonsveiledning](/Deployment-guide.md) | [Oppgraderingsveiledning](/Upgrade.md) | [Managed identity](/Managed-identity-migration.md) | [Datalagre](/Data-stores.md) | [Datatilgang og sikkerhet](/Data-access-security.md) | [Navnekonvensjoner](/Naming-conventions.md) | [Forretningsenheter](/Business-units.md) | [Provisioning Types](/Provisioning-types.md) | [Site Templates](/Site-templates.md) | [Sensitivitetsmerker](/Sensitivity-labels.md) | [Teams Templates](/Teams-templates.md) | [PnP Templates](/PnP-templates.md) | [Oppbevaringsmerker](/Retention-labels.md) | [Godkjenningsflyt](/Approval-flow.md) | [Regionale innstillinger](/Regional-settings.md) | [Feilhåndtering](/Error-handling.md) |
+| ----------------------------------------------- | ----------------------------------------------- | -------------------------------------- | ---------------------------- | ---------------------------- | ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------- | -------------------------------------------- | ------------------------------------ | --------------------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------------ | ------------------------------------- | ------------------------------------------------ | ------------------------------------ |

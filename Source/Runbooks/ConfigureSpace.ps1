@@ -38,14 +38,53 @@ Param
     [bool] $readOnlyGroup,
     [string] $defaultReadOnlyGroup,
     $metadata,
-    [string] $parentSiteUrl
+    [string] $parentSiteUrl,
+    # Mirrors the EnableSensitivityLabels item in the 'Provisioning Request Settings'
+    # list and is the admin kill-switch for the feature. Passed as a string because the
+    # logic app interpolates its boolean variable.
+    [string] $enableSensitivityLabels
 )
 
-$tenantName = $siteUrl.Substring(0, $siteUrl.IndexOf(".")).Replace("https://", "")
+# Fail fast inside each step. Without this, non-terminating PnP errors slip past every
+# catch block below and the run reports success while individual steps did nothing.
+# Invoke-Step turns each step's failure back into "record it and carry on", so the
+# accumulate-and-continue behaviour of this runbook is preserved.
+$ErrorActionPreference = 'Stop'
+
+# The SharePoint host name, not just the tenant prefix: parsing on the first '.' broke
+# on anything that is not exactly https://tenant.sharepoint.com/...
+$siteUri = [System.Uri]$siteUrl
+$tenantName = $siteUri.Host.Split('.')[0]
+$adminUrl = "https://$tenantName-admin.sharepoint.com"
+
+# Several parameters arrive as strings from the logic app because it interpolates its
+# own boolean variables ("True"/"False"). `if ($someString)` is true for any non-empty
+# string, so "false" used to switch features ON.
+function ConvertTo-Bool {
+    param([string] $Value)
+    return $Value -iin @('true', '1')
+}
+
+$externalSharingEnabled = ConvertTo-Bool $externalSharing
+$joinHubEnabled = ConvertTo-Bool $joinHub
+$applyPnPTemplateEnabled = ConvertTo-Bool $applyPnPTemplate
 
 # Global variables for error tracking
 $script:hasErrors = $false
 $script:errorMessages = @()
+$script:stepResults = @()
+$script:currentStepSkipReason = $null
+
+# Connect helpers. Each step connects to the context it needs rather than relying on
+# whatever the previous step happened to leave behind - tenant-admin cmdlets such as
+# Set-PnPTenantSite used to be called while the connection pointed at the site itself.
+function Connect-Admin {
+    Connect-PnPOnline -Url $adminUrl -ManagedIdentity
+}
+
+function Connect-Site {
+    Connect-PnPOnline -Url $siteUrl -ManagedIdentity
+}
 
 # Function to handle errors and update the provisioning request status
 function Set-SpaceCreationFailed {
@@ -53,902 +92,887 @@ function Set-SpaceCreationFailed {
         [string]$FunctionName,
         [string]$ErrorMessage
     )
-    
+
     $script:hasErrors = $true
     $script:errorMessages += "$FunctionName failed: $ErrorMessage"
-    
-    Write-Error "[$FunctionName] $ErrorMessage"
+
+    # -ErrorAction Continue because $ErrorActionPreference is Stop for the script - we
+    # want this on the error stream for the job log, not as a terminating error.
+    Write-Error "[$FunctionName] $ErrorMessage" -ErrorAction Continue
 }
 
-# Function to update the provisioning request status to "Space Creation Failed"
-function Update-ProvisioningRequestStatus {
-    param(
-        [string]$SiteUrl,
-        [string]$Status,
-        [string]$StatusReason
-    )
-    
+# Called by a step that is not applicable to this request, right before it returns.
+# Without this the step summary reports 'Succeeded' for steps that did nothing, which is
+# technically true and useless when you are trying to work out why a theme was never
+# applied. Most requests exercise fewer than half the steps, so "did the work" and
+# "did not apply" have to be distinguishable.
+function Skip-Step {
+    param([Parameter(Mandatory = $true)][string] $Reason)
+
+    $script:currentStepSkipReason = $Reason
+    Write-Output "Skipped: $Reason"
+}
+
+# Runs one configuration step. A failing step is recorded and the run continues, so a
+# bad theme name does not stop the retention label from being applied. The collected
+# results are also what the caller reads back as the run's outcome.
+function Invoke-Step {
+    param([Parameter(Mandatory = $true)][string] $Name)
+
+    Write-Output ""
+    Write-Output "--- $Name ---"
+    $script:currentStepSkipReason = $null
+
     try {
-        Write-Output "Updating provisioning request status to: $Status"
-        Write-Output "Status reason: $StatusReason"
-        
-        # Note: The actual status update will be performed by the Logic App
-        # This runbook will throw an error which the Logic App will catch
-        # and handle via the error handling scopes
-        
-        # Log all accumulated errors
-        if ($script:errorMessages.Count -gt 0) {
-            Write-Output "Accumulated errors during space configuration:"
-            foreach ($msg in $script:errorMessages) {
-                Write-Output "  - $msg"
-            }
+        & $Name
+
+        if ($null -ne $script:currentStepSkipReason) {
+            $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Skipped'; Detail = $script:currentStepSkipReason }
+        }
+        else {
+            $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Succeeded'; Detail = $null }
         }
     }
     catch {
-        Write-Error "Failed to log status update: $($_.Exception.Message)"
-        throw $_
+        Set-SpaceCreationFailed -FunctionName $Name -ErrorMessage $_.Exception.Message
+        $script:stepResults += [pscustomobject]@{ Step = $Name; Status = 'Failed'; Detail = $_.Exception.Message }
     }
 }
+
+# The name of the default document library varies with the site's language - the old
+# hardcoded "Dokumenter" failed on every non-Norwegian site.
+#
+# Three strategies, most to least precise. IsDefaultDocumentLibrary is a CSOM property
+# that Get-PnPList does not necessarily retrieve, and reading an unretrieved CSOM
+# property throws PropertyOrFieldNotInitializedException - which under
+# $ErrorActionPreference = 'Stop' would kill the step before any fallback ran. Hence the
+# try/catch around the first attempt rather than a plain filter.
+function Get-DefaultDocumentLibrary {
+    $documentLibraries = @(Get-PnPList | Where-Object { $_.BaseTemplate -eq 101 -and -not $_.Hidden })
+
+    # 1. The property, if this PnP version populated it.
+    try {
+        $library = $documentLibraries | Where-Object { $_.IsDefaultDocumentLibrary } | Select-Object -First 1
+        if ($null -ne $library) {
+            Write-Output "Default document library: '$($library.Title)' (IsDefaultDocumentLibrary)"
+            return $library
+        }
+    }
+    catch {
+        Write-Output "IsDefaultDocumentLibrary was not available on this connection - falling back to name matching."
+    }
+
+    # 2. The well-known default titles, per site language.
+    foreach ($candidate in @('Dokumenter', 'Shared Documents', 'Documents')) {
+        $library = $documentLibraries | Where-Object { $_.Title -eq $candidate } | Select-Object -First 1
+        if ($null -ne $library) {
+            Write-Output "Default document library: '$($library.Title)' (matched a known default title)"
+            return $library
+        }
+    }
+
+    # 3. A single document library on the site can only be the default one.
+    if ($documentLibraries.Count -eq 1) {
+        Write-Output "Default document library: '$($documentLibraries[0].Title)' (only document library on the site)"
+        return $documentLibraries[0]
+    }
+
+    throw ("Could not identify the default document library on $siteUrl. Found $($documentLibraries.Count) document libraries: " +
+        (($documentLibraries | ForEach-Object { "'$($_.Title)'" }) -join ', ') +
+        ". Add the site's default library title to Get-DefaultDocumentLibrary in ConfigureSpace.ps1.")
+}
+
+# Update-ProvisioningRequestStatus used to live here. It never updated anything - it
+# only logged, because the actual list update belongs to the logic app. Write-StepSummary
+# plus the thrown exception message now serve that purpose without the misleading name.
 
 function SetSiteLogo {
-    try {
-        if ($spaceImage -ne "") {
-            Write-Output "Adding site logo (convert base64 to image)"
-            $logoFileName = "$groupId.png"
-            $logoPath = "$env:TEMP\$logoFileName"
-            Write-Output  $logoFileName
-            Write-Output  $logoPath
-
-            $base64 = $spaceImage
-            $bytes = [System.Convert]::FromBase64String($base64)
-            [System.IO.File]::WriteAllBytes($logoPath, $bytes)
-            
-            Write-Output "Setting site logo"
-
-            try {
-                Set-PnPMicrosoft365Group -Identity $groupId -GroupLogoPath $logoPath
-            }
-            catch {
-                Write-Output "Error setting site logo (Set-PnPMicrosoft365Group): $($_.Exception.Message)"
-                throw $_
-            }
-
-            Write-Output "Adding logo to site assets library"
-
-            $web = Get-PnPWeb
-            $siteAssets = Get-PnPList -Identity "SiteAssets" -ErrorAction SilentlyContinue
-            if ($null -eq $siteAssets) {
-                $web.Lists.EnsureSiteAssetsLibrary()
-                Invoke-PnPQuery -ErrorAction SilentlyContinue
-            }
-
-            $uploadedFile = Add-PnPFile -Path $logoPath -Folder "SiteAssets" -ErrorAction SilentlyContinue
-            $siteAssetsLogoPath = "$($web.ServerRelativeUrl)/SiteAssets/$($logoFileName)"
-            $webOutput = Set-PnPWebHeader -SiteLogoUrl $siteAssetsLogoPath -SiteThumbnailUrl $siteAssetsLogoPath -ErrorAction SilentlyContinue
-            Write-Output "Finished setting site logo"
-        }
+    if ($spaceImage -eq "") {
+        Skip-Step "No space image on the request"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetSiteLogo" -ErrorMessage $_.Exception.Message
+
+    Connect-Site
+
+    Write-Output "Adding site logo (convert base64 to image)"
+    $logoFileName = "$groupId.png"
+    $logoPath = Join-Path $env:TEMP $logoFileName
+
+    $bytes = [System.Convert]::FromBase64String($spaceImage)
+    [System.IO.File]::WriteAllBytes($logoPath, $bytes)
+
+    Write-Output "Setting group logo"
+    Set-PnPMicrosoft365Group -Identity $groupId -GroupLogoPath $logoPath
+
+    Write-Output "Adding logo to site assets library"
+
+    $web = Get-PnPWeb
+    # Probing for existence, so a miss here is expected and stays silent.
+    $siteAssets = Get-PnPList -Identity "SiteAssets" -ErrorAction SilentlyContinue
+    if ($null -eq $siteAssets) {
+        $web.Lists.EnsureSiteAssetsLibrary()
+        Invoke-PnPQuery
     }
+
+    Add-PnPFile -Path $logoPath -Folder "SiteAssets" | Out-Null
+    $siteAssetsLogoPath = "$($web.ServerRelativeUrl)/SiteAssets/$($logoFileName)"
+    Set-PnPWebHeader -SiteLogoUrl $siteAssetsLogoPath -SiteThumbnailUrl $siteAssetsLogoPath | Out-Null
+    Write-Output "Finished setting site logo"
 }
 
 function AddOwners {
-    try {
-        If ($spaceTypeInternal -notin "Office 365 Group", "Project") {
-            Write-Output "Updating SP owners group"
-            $group = Get-PnPGroup -AssociatedOwnerGroup
-            ForEach ($owner in $owners -split ",") {
-                #Get the group
-                Write-Output("Adding '$owner' to Owners")
-                Add-PnPGroupMember -LoginName $owner -Identity $group
-            }
-        }
+    # Group-backed space types get their owners from the M365 group, not the SP group.
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes owners from the M365 group, not the SP owners group"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "AddOwners" -ErrorMessage $_.Exception.Message
+    if ($owners -eq "") {
+        Skip-Step "No owners on the request"
+        return
+    }
+
+    Connect-Site
+    Write-Output "Updating SP owners group"
+    $group = Get-PnPGroup -AssociatedOwnerGroup
+    ForEach ($owner in $owners -split ",") {
+        Write-Output("Adding '$owner' to Owners")
+        Add-PnPGroupMember -LoginName $owner -Identity $group
     }
 }
 
 function AddMembers {
-    try {
-        Write-Output("Running 'AddMembers'")
-        If ($members -ne "" -and $spaceTypeInternal -notin "Office 365 Group", "Project") {
-            Write-Output "Updating SP members group"
-            ForEach ($member in $members -split ",") {
-                #Get the group
-                $group = Get-PnPGroup -AssociatedMemberGroup
-                Add-PnPGroupMember -LoginName $member -Identity $group
-            }
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes members from the M365 group, not the SP members group"
+        return
+    }
+    if ($members -eq "") {
+        Skip-Step "No members on the request"
+        return
+    }
 
-            Write-Output "Finished updating SP members group"
-        }
+    Connect-Site
+    Write-Output "Updating SP members group"
+    # Fetched once - this used to be re-read on every iteration.
+    $group = Get-PnPGroup -AssociatedMemberGroup
+    ForEach ($member in $members -split ",") {
+        Write-Output("Adding '$member' to Members")
+        Add-PnPGroupMember -LoginName $member -Identity $group
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "AddMembers" -ErrorMessage $_.Exception.Message
-    }
+
+    Write-Output "Finished updating SP members group"
 }
 
 function AddVisitors {
-    try {
-        Write-Output("Running 'AddVisitors'")
-        if ($visitors -ne "") {
-            Write-Output "Updating SP visitors group"
-            ForEach ($visitor in $visitors -split ",") {
-                #Get the group
-                $group = Get-PnPGroup -AssociatedVisitorGroup
-                Add-PnPUserToGroup -LoginName $visitor -Identity $group
-            }
+    if ($visitors -eq "") {
+        Skip-Step "No visitors on the request"
+        return
+    }
 
-            Write-Output "Finished updating SP visitors group"
-        }
+    Connect-Site
+    Write-Output "Updating SP visitors group"
+    $group = Get-PnPGroup -AssociatedVisitorGroup
+    ForEach ($visitor in $visitors -split ",") {
+        Write-Output("Adding '$visitor' to Visitors")
+        Add-PnPUserToGroup -LoginName $visitor -Identity $group
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "AddVisitors" -ErrorMessage $_.Exception.Message
-    }
+
+    Write-Output "Finished updating SP visitors group"
 }
 
 function AddReadOnlyGroup {
-    try {
-        Write-Output("Running 'AddReadOnlyGroup'")
-        if ($readOnlyGroup -and $defaultReadOnlyGroup -ne "") {
-            try {
-                Write-Output "Updating SP visitors group with read-only group"
-                #Get the group
-                $group = Get-PnPGroup -AssociatedVisitorGroup
-                Add-PnPGroupMember -Group $group -LoginName $defaultReadOnlyGroup
-                Write-Output "Finished updating SP visitors group"
-            }
-            catch {
-                Write-Output "Error updating SP visitors group with read-only group: $($_.Exception.Message)"
-                throw $_
-            }
-        }
+    if (-not $readOnlyGroup) {
+        Skip-Step "Read-only group not requested"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "AddReadOnlyGroup" -ErrorMessage $_.Exception.Message
+    if ($defaultReadOnlyGroup -eq "") {
+        Skip-Step "Read-only group requested, but DefaultReadOnlyGroup is not set in the settings list"
+        return
     }
+
+    Connect-Site
+    Write-Output "Updating SP visitors group with read-only group '$defaultReadOnlyGroup'"
+    $group = Get-PnPGroup -AssociatedVisitorGroup
+    Add-PnPGroupMember -Group $group -LoginName $defaultReadOnlyGroup
+    Write-Output "Finished updating SP visitors group"
 }
 
 function AddSiteCollectionAdmins {
-    try {
-        Write-Output("Running 'AddSiteCollectionAdmins'")
-        If ($spaceTypeInternal -notin "Office 365 Group", "Project") {
-            Write-Output "Adding Site Collection Administrators"
-            ForEach ($sca in $siteCollectionAdmins -split ",") {
-                #Add the sca
-                Add-PnPSiteCollectionAdmin -Owners $sca
-            }
-            Write-Output "Finished adding Site Collection Administrators"
-        }
+    # The logic app never sends this parameter, so it is normally empty. Guard it
+    # explicitly - "" -split "," yields one empty element, which used to be passed
+    # straight to Add-PnPSiteCollectionAdmin.
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' takes its administrators from the M365 group owners"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "AddSiteCollectionAdmins" -ErrorMessage $_.Exception.Message
+    if ([string]::IsNullOrWhiteSpace($siteCollectionAdmins)) {
+        Skip-Step "No site collection administrators supplied (the logic app does not currently send this parameter)"
+        return
     }
+
+    Connect-Site
+    Write-Output "Adding Site Collection Administrators"
+    ForEach ($sca in $siteCollectionAdmins -split ",") {
+        if ([string]::IsNullOrWhiteSpace($sca)) { continue }
+        Add-PnPSiteCollectionAdmin -Owners $sca.Trim()
+    }
+    Write-Output "Finished adding Site Collection Administrators"
 }
 
 function SetExternalSharing {
-    try {
-        Write-Output("Running 'SetExternalSharing'")
-        if ($externalSharing) {
+    if (-not $externalSharingEnabled) {
+        Skip-Step "External sharing not requested (ExternalSharingRequired = '$externalSharing')"
+        return
+    }
 
-            Write-Output "External sharing is required - configuring sharing settings"
+    # Set-PnPTenantSite is a tenant-admin cmdlet.
+    Connect-Admin
 
-            Switch ($defaultExternalSharingSetting) {
+    Write-Output "External sharing is required - configuring sharing settings"
 
-                "NewExistingGuests" {  
-                    Set-PnPTenantSite -Url $siteUrl -SharingCapability ExternalUserSharingOnly
-
-                }
-
-                "Anyone" {
-                    Set-PnPTenantSite -Url $siteUrl -SharingCapability ExternalUserAndGuestSharing
-                }
-
-                "ExistingGuests" {
-                    Set-PnPTenantSite -Url $siteUrl -SharingCapability ExistingExternalUserSharingOnly
-                }
-			
-            }
-
-            Write-Output "Finished configuring sharing settings"
+    Switch ($defaultExternalSharingSetting) {
+        "NewExistingGuests" {
+            Set-PnPTenantSite -Url $siteUrl -SharingCapability ExternalUserSharingOnly
+        }
+        "Anyone" {
+            Set-PnPTenantSite -Url $siteUrl -SharingCapability ExternalUserAndGuestSharing
+        }
+        "ExistingGuests" {
+            Set-PnPTenantSite -Url $siteUrl -SharingCapability ExistingExternalUserSharingOnly
+        }
+        default {
+            Write-Output "Unknown DefaultExternalSharingSetting '$defaultExternalSharingSetting' - leaving the site's sharing capability unchanged"
         }
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetExternalSharing" -ErrorMessage $_.Exception.Message
-    }
+
+    Write-Output "Finished configuring sharing settings"
 }
 
 function SetAccessRequestSettings {
-    try {
-        Write-Output("Running 'SetAccessRequestSettings'")
-        #Disable access requests if visibility set to private
-        If ($visibility -eq "Private" -and $enableAllowAccessRequests -eq $false) {
-            Write-Output "Disabling access requests"
-            $ctx = Get-PnPContext
-            $ctx.Web.RequestAccessEmail = ""
-            $ctx.ExecuteQuery()
-            Write-Output "Finished disabling access requests"
-        }
+    #Disable access requests if visibility set to private
+    if (-not ($visibility -eq "Private" -and $enableAllowAccessRequests -eq $false)) {
+        Skip-Step "Access requests are only disabled for private spaces with EnableAllowAccessRequests = false (visibility '$visibility')"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetAccessRequestSettings" -ErrorMessage $_.Exception.Message
-    }
+
+    Connect-Site
+    Write-Output "Disabling access requests"
+    $ctx = Get-PnPContext
+    $ctx.Web.RequestAccessEmail = ""
+    $ctx.ExecuteQuery()
+    Write-Output "Finished disabling access requests"
 }
 
 function SetSiteClassification {
-    try {
-        If ($spaceTypeInternal -notin "Office 365 Group", "Project") {
-            Write-Output $classification
-            If ($classification -ne "") {
-                Write-Output "Setting classification"
-                Set-PnPSite -Classification $classification
-                Write-Output "Finished setting classification"
-            }
-        }
+    if ($spaceTypeInternal -in "Office 365 Group", "Project") {
+        Skip-Step "Space type '$spaceTypeInternal' carries its classification on the M365 group"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetSiteClassification" -ErrorMessage $_.Exception.Message
+    if ($classification -eq "") {
+        Skip-Step "No classification on the request"
+        return
     }
+
+    Connect-Site
+    Write-Output "Setting classification '$classification'"
+    Set-PnPSite -Classification $classification
+    Write-Output "Finished setting classification"
 }
 
 function JoinOrRegisterHubSite {
-    try {
-        Write-Output "Checking if joining a hub site"
-        #Join hub site if space type is not a hub
-        if ($joinHub -eq $true -and $spaceTypeInternal -ne "Hub Site") {
-            Write-Output "Joining hub site"
-            Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
+    # Both branches are tenant-admin operations.
+    Connect-Admin
 
-            #Get hub site url
-            $hubSite = Get-PnPHubSite | Where-Object SiteId -eq $hubSiteId | Select-Object -Property SiteUrl
-            Add-PnPHubSiteAssociation -Site $siteUrl -HubSite $hubSite.SiteUrl
+    if ($joinHubEnabled -and $spaceTypeInternal -ne "Hub Site") {
+        Write-Output "Joining hub site $hubSiteId"
 
-            Write-Output "Finished joining hub site"
+        $hubSite = Get-PnPHubSite | Where-Object SiteId -eq $hubSiteId | Select-Object -Property SiteUrl
+        if ($null -eq $hubSite) {
+            throw "Hub site with id '$hubSiteId' was not found in the tenant."
         }
-        else {
-            Write-Output "Checking if provisioning a hub site"
-            #Register as a hub site
-            if ($spaceTypeInternal -eq "Hub Site") {
-        
-                try {
-                    Write-Output "Registering site as a hub"
-                    Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
-                    Register-PnPHubSite -Site $siteUrl
-                    Write-Output "Finished registering site as a hub"
 
-                    if ($syncHubPermissions) {
-                        Write-Output "Enabling hub permissions sync"
-                        Set-PnPHubSite -Identity $siteUrl -EnablePermissionsSync
-                        Write-Output "Finished enabling hub permissions sync"
-                    }
-                }
-                catch {
-                    Write-Output $_.Exception.Message
-                    throw $_
-                }
-            }
+        Add-PnPHubSiteAssociation -Site $siteUrl -HubSite $hubSite.SiteUrl
+        Write-Output "Finished joining hub site"
+        return
+    }
+
+    if ($spaceTypeInternal -eq "Hub Site") {
+        Write-Output "Registering site as a hub"
+        Register-PnPHubSite -Site $siteUrl
+        Write-Output "Finished registering site as a hub"
+
+        if ($syncHubPermissions) {
+            Write-Output "Enabling hub permissions sync"
+            Set-PnPHubSite -Identity $siteUrl -EnablePermissionsSync
+            Write-Output "Finished enabling hub permissions sync"
         }
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "JoinOrRegisterHubSite" -ErrorMessage $_.Exception.Message
-    }
+
+    Skip-Step "Not joining a hub (JoinHub = '$joinHub') and this is not a hub site itself"
 }
 
 function SetRegionalSettings {
-    try {
-        #Set regional settings for the site
-        Write-Output "Setting regional settings"
-        $web = Get-PnPWeb -Includes RegionalSettings, RegionalSettings.TimeZones
-        $timeZone = $web.RegionalSettings.TimeZones | Where-Object { $_.Id -eq $timeZoneId }
-        $web.RegionalSettings.LocaleId = $lcid
-        $web.RegionalSettings.TimeZone = $timeZone
-        $web.Update()
-        Invoke-PnPQuery
-        Write-Output "Finished setting regional settings"
+    Connect-Site
+
+    #Set regional settings for the site
+    Write-Output "Setting regional settings (lcid $lcid, time zone $timeZoneId)"
+    $web = Get-PnPWeb -Includes RegionalSettings, RegionalSettings.TimeZones
+    $timeZone = $web.RegionalSettings.TimeZones | Where-Object { $_.Id -eq $timeZoneId }
+    if ($null -eq $timeZone) {
+        throw "Time zone id '$timeZoneId' was not found among the web's available time zones."
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetRegionalSettings" -ErrorMessage $_.Exception.Message
-    }
-} 
+    $web.RegionalSettings.LocaleId = $lcid
+    $web.RegionalSettings.TimeZone = $timeZone
+    $web.Update()
+    Invoke-PnPQuery
+    Write-Output "Finished setting regional settings"
+}
 
 function SetStorageQuota {
-    try {
-        If ($storageQuota -ne 0 -and $storageQuotaWarning -ne 0) {
-            Write-Output "Setting site storage quota"
-
-            Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
-            Set-PnPTenantSite -Url $siteUrl -StorageMaximumLevel $storageQuota -StorageWarningLevel $storageQuotaWarning
-
-            Write-Output "Finished setting storage quota"
-        }
+    if ($storageQuota -eq 0 -or $storageQuotaWarning -eq 0) {
+        Skip-Step "No storage quota configured (StorageQuota=$storageQuota, StorageQuotaWarning=$storageQuotaWarning)"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetStorageQuota" -ErrorMessage $_.Exception.Message
-    }
+
+    Connect-Admin
+    Write-Output "Setting site storage quota"
+    Set-PnPTenantSite -Url $siteUrl -StorageMaximumLevel $storageQuota -StorageWarningLevel $storageQuotaWarning
+    Write-Output "Finished setting storage quota"
 }
 
 function DisableDocumentSync {
-    try {
-        if ($disableDocSync) {
-            Write-Output "Disabling sync option in 'Dokumenter' library"
-
-            $list = Get-PnPList "Dokumenter"
- 
-            #Exclude List or Library from Sync
-            $List.ExcludeFromOfflineClient = $true
-            $List.Update()
-            Invoke-PnPQuery
-
-            Write-Output "Finished disabling sync option"
-        }
+    if (-not $disableDocSync) {
+        Skip-Step "DisableDocumentSync not requested"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "DisableDocumentSync" -ErrorMessage $_.Exception.Message
-    }
+
+    Connect-Site
+    $list = Get-DefaultDocumentLibrary
+    Write-Output "Disabling sync option in '$($list.Title)' library"
+
+    #Exclude List or Library from Sync
+    $list.ExcludeFromOfflineClient = $true
+    $list.Update()
+    Invoke-PnPQuery
+
+    Write-Output "Finished disabling sync option"
 }
 
 function SetRetentionLabel {
-    try {
-        if ($retentionLabel -ne "") {
-            Write-Output "Setting retention label $retentionLabel on 'Dokumenter' library"
-
-            $list = Get-PnPList "Dokumenter"
-
-            Set-PnPLabel -List $list -Label $retentionLabel
-
-            Write-Output "Finished setting retention label"
-        }
+    if ($retentionLabel -eq "") {
+        Skip-Step "No retention label on the request"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetRetentionLabel" -ErrorMessage $_.Exception.Message
+
+    Connect-Site
+    $list = Get-DefaultDocumentLibrary
+    Write-Output "Setting retention label $retentionLabel on '$($list.Title)' library"
+
+    Set-PnPLabel -List $list -Label $retentionLabel
+
+    Write-Output "Finished setting retention label"
+}
+
+# Reads the sensitivity labels currently assigned to a Microsoft 365 group.
+# Invoke-PnPGraphMethod reuses the managed identity token from the PnP connection.
+function Get-GroupAssignedLabelId {
+    param([Parameter(Mandatory = $true)][string] $GroupId)
+
+    $response = Invoke-PnPGraphMethod -Url ('v1.0/groups/' + $GroupId + '?$select=assignedLabels') -Method Get
+    return @($response.assignedLabels | ForEach-Object { $_.labelId })
+}
+
+# Polls until the label shows up on the group, or the timeout expires. Applying a
+# container label is asynchronous, so a single read straight after the write is not
+# conclusive either way.
+function Test-GroupLabelApplied {
+    param(
+        [Parameter(Mandatory = $true)][string] $GroupId,
+        [Parameter(Mandatory = $true)][string] $LabelId,
+        [int] $TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($true) {
+        try {
+            if ((Get-GroupAssignedLabelId -GroupId $GroupId) -contains $LabelId) {
+                return $true
+            }
+        }
+        catch {
+            Write-Output "Could not read assignedLabels on group $GroupId : $($_.Exception.Message)"
+        }
+
+        if ((Get-Date) -ge $deadline) { return $false }
+        Start-Sleep -Seconds 15
     }
 }
 
+# Applies the Purview container label. Runs before the settings the label governs
+# (privacy, external sharing, unmanaged devices), because the label overrides them.
+#
+# Requires the tenant admin connection - Set-PnPTenantSite is a tenant-admin cmdlet.
 function SetSensitivityLabel {
-    try {
-        if ($sensitivityLabel -ne "") {
-            try {
-                Write-Output "Setting sensitivity label $sensitivityLabel on site"
-                
-                Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
-                
-                Write-Output "Finished setting sensitivity label on site"
-            }
-            catch {
-                Write-Output $_.Exception.Message
-                throw $_
-            }
-        }
+    if ($sensitivityLabel -eq "") {
+        Skip-Step "No sensitivity label on the request"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetSensitivityLabel" -ErrorMessage $_.Exception.Message
+
+    # Respect the admin kill-switch even if a request carries a label id anyway
+    # (hand-edited list item, stale front-end).
+    if ($enableSensitivityLabels -ne "" -and $enableSensitivityLabels -inotin @("true", "1")) {
+        Skip-Step "Request carries label $sensitivityLabel, but EnableSensitivityLabels is '$enableSensitivityLabels' in the settings list"
+        return
     }
+
+    Connect-Admin
+
+    Write-Output "Setting sensitivity label $sensitivityLabel"
+    Set-PnPTenantSite -Identity $siteUrl -SensitivityLabel $sensitivityLabel
+
+    if ([string]::IsNullOrWhiteSpace($groupId)) {
+        # No group behind the site, so the label lives on the site alone - nothing to
+        # verify against a group.
+        Write-Output "Site is not group-connected - finished setting sensitivity label"
+        return
+    }
+
+    # Set-PnPTenantSite has been observed to report success without the label being
+    # applied (pnp/powershell#4917), so no exception is not proof. Read it back off the
+    # group - that is where the label actually governs privacy and guest sharing.
+    if (-not (Test-GroupLabelApplied -GroupId $groupId -LabelId $sensitivityLabel)) {
+        throw ("Sensitivity label $sensitivityLabel was set on the site but never appeared on group $groupId. " +
+            "Check that the label is published to groups and sites in Purview (a label scoped only to files/email cannot be applied here), " +
+            "that it is not still within the 24 hours after publishing, and that the label id matches an entry in the 'IP Labels' list. See Sensitivity-labels.md.")
+    }
+
+    Write-Output "Label confirmed on group $groupId - finished setting sensitivity label"
 }
 
 function SetSensitivityLabelLibrary {
-    try {
-        if ($sensitivityLabelLibrary -ne "") {
-            try {
-                Write-Output "Setting sensitivity label $sensitivityLabelLibrary on 'Dokumenter' library"
-
-                $list = Get-PnPList "Dokumenter"
-                
-                Set-PnPList -Identity $list -DefaultSensitivityLabelForLibrary $sensitivityLabelLibrary
-
-                Write-Output "Finished setting sensitivity label"
-            }
-            catch {
-                Write-Output $_.Exception.Message
-                throw $_
-            }
-        }
+    if ($sensitivityLabelLibrary -eq "") {
+        Skip-Step "No library sensitivity label on the request"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetSensitivityLabelLibrary" -ErrorMessage $_.Exception.Message
-    }
+
+    Connect-Site
+    $list = Get-DefaultDocumentLibrary
+    Write-Output "Setting sensitivity label $sensitivityLabelLibrary on '$($list.Title)' library"
+
+    Set-PnPList -Identity $list -DefaultSensitivityLabelForLibrary $sensitivityLabelLibrary
+
+    Write-Output "Finished setting sensitivity label on the library"
 }
 
 function ActivateFeatures {
-    try {
-        If ($featuresToActivate -ne "") {
-            try {
-                Write-Output "Activating features"
+    if ($featuresToActivate -eq "") {
+        Skip-Step "No features to activate configured for this provisioning type"
+        return
+    }
 
-                $ctx = Get-PnPContext
-                $site = $ctx.Site
-                $ctx.Load($site)
-                $ctx.ExecuteQuery()
+    Connect-Site
+    Write-Output "Activating features"
 
-                $web = $ctx.Web
-                $ctx.Load($web)
-                $ctx.ExecuteQuery()
+    $ctx = Get-PnPContext
+    $site = $ctx.Site
+    $ctx.Load($site)
+    $ctx.ExecuteQuery()
 
-                $force = $true
+    $web = $ctx.Web
+    $ctx.Load($web)
+    $ctx.ExecuteQuery()
 
-                # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
-                if ($featuresToActivate.ToLower().Contains('web')) {
+    $force = $true
 
-                    $featureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
+    # Check if we are activating a web feature - need to activate the push notifications feature first to prevent an error
+    if ($featuresToActivate.ToLower().Contains('web')) {
 
-                    try {
-                        Write-Output "Pre-activating push notifications feature"
-                        $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
-                        $ctx.ExecuteQuery()
-                        Write-Output "Push notifications feature activated successfully"
-                    }
-                    catch {
-                        Write-Output "Warning: Could not activate push notifications feature: $($_.Exception.Message)"
-                        # Continue anyway - this is not critical
-                    }
-                }
+        $pushNotificationsFeatureId = "41e1d4bf-b1a2-47f7-ab80-d5d6cbba3092"
 
-                ForEach ($feature in $featuresToActivate -split ",") {
-                    $featureId = $feature.Substring($feature.IndexOf(':') + 1)
-
-                    If ($feature.ToLower().StartsWith("web")) {
-                        Write-Output "Activating web feature $featureId"
-			
-                        $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
-                        $ctx.ExecuteQuery()
-
-                        Write-Output "Activated web feature $featureId"
-                    }
-			
-                    If ($feature.ToLower().StartsWith("site")) {
-                        Write-Output "Activating site feature $featureId"
-
-                        $site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
-                        $ctx.ExecuteQuery()
-
-                        Write-Output "Activated site feature $featureId"
-                    }
-
-                }
-
-                Write-Output "Finished activating features"
-            }
-            catch {
-                Write-Output $_.Exception.Message
-                throw $_
-            }
+        try {
+            Write-Output "Pre-activating push notifications feature"
+            $web.Features.Add($pushNotificationsFeatureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+            $ctx.ExecuteQuery()
+            Write-Output "Push notifications feature activated successfully"
+        }
+        catch {
+            Write-Output "Warning: Could not activate push notifications feature: $($_.Exception.Message)"
+            # Continue anyway - this is not critical
         }
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "ActivateFeatures" -ErrorMessage $_.Exception.Message
+
+    ForEach ($feature in $featuresToActivate -split ",") {
+        $featureId = $feature.Substring($feature.IndexOf(':') + 1)
+
+        If ($feature.ToLower().StartsWith("web")) {
+            Write-Output "Activating web feature $featureId"
+
+            $web.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::None)
+            $ctx.ExecuteQuery()
+
+            Write-Output "Activated web feature $featureId"
+        }
+
+        If ($feature.ToLower().StartsWith("site")) {
+            Write-Output "Activating site feature $featureId"
+
+            $site.Features.Add($featureId, $force, [Microsoft.SharePoint.Client.FeatureDefinitionScope]::Farm)
+            $ctx.ExecuteQuery()
+
+            Write-Output "Activated site feature $featureId"
+        }
     }
+
+    Write-Output "Finished activating features"
 }
 
 function ApplyPnPTemplate {
-    try {
-        if ($applyPnPTemplate -eq $true) {
-            Write-Output "Applying PnP template"
-
-            $maxRetries = 3
-            $retryCount = 0
-            $success = $false
-
-            while ($retryCount -lt $maxRetries -and -not $success) {
-                try {
-                    $retryCount++
-                    Write-Output "Attempt $retryCount of $maxRetries to apply PnP template"
-
-                    #Apply the template
-                    Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
-
-                    $success = $true
-                    Write-Output "Finished applying PnP template"
-                }
-                catch {
-                    Write-Output "Error applying PnP template (Attempt $retryCount): $($_.Exception.Message)"
-
-                    if ($retryCount -lt $maxRetries) {
-                        $waitTime = 10 * $retryCount
-                        Write-Output "Waiting $waitTime seconds before retry..."
-                        Start-Sleep -Seconds $waitTime
-                    }
-                    else {
-                        Write-Error "Failed to apply PnP template after $maxRetries attempts: $($_.Exception.Message)"
-                        throw $_
-                    }
-                }
-            }
-        }
+    if (-not $applyPnPTemplateEnabled) {
+        Skip-Step "ApplyPnPTemplate not requested (value '$applyPnPTemplate')"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "ApplyPnPTemplate" -ErrorMessage $_.Exception.Message
+
+    Connect-Site
+    Write-Output "Applying PnP template from $pnpTemplateUrl"
+
+    $maxRetries = 3
+
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            Write-Output "Attempt $attempt of $maxRetries to apply PnP template"
+            Invoke-PnPSiteTemplate -Path $pnpTemplateUrl -ClearNavigation
+            Write-Output "Finished applying PnP template"
+            return
+        }
+        catch {
+            if ($attempt -eq $maxRetries) {
+                throw "Failed to apply PnP template after $maxRetries attempts: $($_.Exception.Message)"
+            }
+
+            $waitTime = 10 * $attempt
+            Write-Output "Error applying PnP template (attempt $attempt): $($_.Exception.Message). Retrying in $waitTime seconds."
+            Start-Sleep -Seconds $waitTime
+        }
     }
 }
 
 function ApplyTheme {
-    try {
-        if ($themeName -ne "") {
-            Write-Output "Applying $themeName theme"
-
-            #Apply the theme
-            Set-PnPWebTheme -Theme $themeName
-
-            Write-Output "Finished applying theme"
-		
-        }
+    if ($themeName -eq "") {
+        Skip-Step "No theme configured for this provisioning type"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "ApplyTheme" -ErrorMessage $_.Exception.Message
-    }
+
+    Connect-Site
+    Write-Output "Applying $themeName theme"
+    Set-PnPWebTheme -Theme $themeName
+    Write-Output "Finished applying theme"
 }
 
 function ApplySiteDesign {
-    try {
-        # Reapply site design if we have applied a PnP template
-        if ($applyPnPTemplate -eq $true -and $siteDesignId -ne $null -and $siteDesignId -ne "") {
-            Write-Output "Applying site design"
-
-            Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
-            Invoke-PnPSiteDesign -Identity $siteDesignId -WebUrl $siteUrl
-
-            Write-Output "Finished applying site design"
-        }
+    # Reapply site design if we have applied a PnP template
+    if (-not $applyPnPTemplateEnabled) {
+        Skip-Step "Site design is only re-applied after a PnP template, which was not requested"
+        return
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "ApplySiteDesign" -ErrorMessage $_.Exception.Message
+    if ([string]::IsNullOrWhiteSpace($siteDesignId)) {
+        Skip-Step "No site design id on the request"
+        return
     }
+
+    Connect-Admin
+    Write-Output "Applying site design $siteDesignId"
+    Invoke-PnPSiteDesign -Identity $siteDesignId -WebUrl $siteUrl
+    Write-Output "Finished applying site design"
 }
 
 function SetMetadata {
-    try {
-        Write-Output "Running 'SetMetadata'"
+    if ($null -eq $metadata -or $metadata -eq "") {
+        Skip-Step "No metadata on the request"
+        return
+    }
 
-        if ($null -ne $metadata -and $metadata -ne "") {
-            # Convert metadata to string if it's not already
-            if ($metadata -is [string]) {
-                $metadataString = $metadata
-            }
-            else {
-                $metadataString = $metadata | ConvertTo-Json -Compress -Depth 10
-            }
-            
-            try {
-                $metadataObject = $metadataString | ConvertFrom-Json
-                Write-Output "Successfully parsed metadata JSON"
-            }
-            catch {
-                Write-Error "Failed to parse metadata JSON: $($_.Exception.Message)"
-                throw $_
-            }
+    Connect-Site
 
-            # Handle propertyBagProps
-            if ($null -ne $metadataObject.propertyBagProps) {
-                Write-Output ""
-                Write-Output "Processing propertyBagProps"
-                Write-Output "***************************"
-                try {
-                    # NoScript is already disabled for the whole configuration run (see DisableNoScript/EnableNoScript)
-                    foreach ($prop in $metadataObject.propertyBagProps) {
-                        $propName = $prop.name
-                        $propValue = $prop.value
-                        if ($null -ne $propName -and $null -ne $propValue) {
-                            try {
-                                Write-Output "Adding property bag value for '$propName'"
-                                
-                                if ($prop.indexed -eq $true) {
-                                    Write-Output "Setting property '$propName' as indexed"
-                                    Set-PnPPropertyBagValue -Key $propName -Value $propValue -Indexed
-                                }
-                                else {
-                                    Set-PnPPropertyBagValue -Key $propName -Value $propValue
-                                }
-                            }
-                            catch {
-                                Write-Output "Error adding property bag value for '$propName': $($_.Exception.Message)"
-                                throw $_
-                            }
-                        }
-                    }
+    # Convert metadata to string if it's not already
+    if ($metadata -is [string]) {
+        $metadataString = $metadata
+    }
+    else {
+        $metadataString = $metadata | ConvertTo-Json -Compress -Depth 10
+    }
 
-                    Write-Output "Finished processing propertyBagProps"
-                }
-                catch {
-                    Write-Output "Error processing propertyBagProps: $($_.Exception.Message)"
-                    throw $_
-                }
-            }
+    $metadataObject = $metadataString | ConvertFrom-Json
+    Write-Output "Successfully parsed metadata JSON"
 
-            Write-Output "Finished processing metadata"
+    # Handle propertyBagProps - the only metadata this runbook consumes
+    if ($null -eq $metadataObject.propertyBagProps) {
+        Skip-Step "Metadata was supplied but contained no propertyBagProps"
+        return
+    }
+
+    Write-Output "Processing propertyBagProps"
+
+    # NoScript is already disabled for the whole configuration run (see DisableNoScript/EnableNoScript)
+    foreach ($prop in $metadataObject.propertyBagProps) {
+        $propName = $prop.name
+        $propValue = $prop.value
+        if ($null -eq $propName -or $null -eq $propValue) { continue }
+
+        Write-Output "Adding property bag value for '$propName'"
+
+        if ($prop.indexed -eq $true) {
+            Write-Output "Setting property '$propName' as indexed"
+            Set-PnPPropertyBagValue -Key $propName -Value $propValue -Indexed
         }
         else {
-            Write-Output "No metadata provided"
+            Set-PnPPropertyBagValue -Key $propName -Value $propValue
         }
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "SetMetadata" -ErrorMessage $_.Exception.Message
-    }
+
+    Write-Output "Finished processing metadata"
 }
 
 function UpdateParentSite {
-    try {
-        Write-Output "Running 'UpdateParentSite'"
+    if ([string]::IsNullOrWhiteSpace($parentSiteUrl)) {
+        Skip-Step "No parent site on the request"
+        return
+    }
 
-        if ($null -ne $parentSiteUrl -and "" -ne $parentSiteUrl) {
-            Write-Output "Parent site specified: $parentSiteUrl" 
+    Write-Output "Parent site specified: $parentSiteUrl"
 
-            Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-            $currentSite = Get-PnPSite -Includes Id, Url
-            $currentWeb = Get-PnPWeb
-            $currentSiteId = $currentSite.Id.ToString()
-            $currentSiteTitle = $currentWeb.Title
-            $currentSiteUrl = $currentSite.Url
+    Connect-Site
+    $currentSite = Get-PnPSite -Includes Id, Url
+    $currentWeb = Get-PnPWeb
+    $currentSiteId = $currentSite.Id.ToString()
+    $currentSiteTitle = $currentWeb.Title
+    $currentSiteUrl = $currentSite.Url
 
-            $hubSiteInfo = $null
-            $hubSiteUrl = ""
-            $hubSiteTitle = ""
-            
-            if ($null -ne $hubSiteId -and "" -ne $hubSiteId) {
-                try {
-                    Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
-                    $hubSiteInfo = Get-PnPHubSite -Identity $hubSiteId -ErrorAction SilentlyContinue
-                    
-                    if ($null -ne $hubSiteInfo) {
-                        $hubSiteUrl = $hubSiteInfo.SiteUrl
-                        $hubSiteTitle = $hubSiteInfo.Title
-                        Write-Output "Hub site information retrieved: $hubSiteTitle ($hubSiteUrl)"
-                    }
-                }
-                catch {
-                    Write-Output "Could not retrieve hub site information: $($_.Exception.Message)"
-                    throw $_
-                }
-            }
+    $hubSiteUrl = ""
+    $hubSiteTitle = ""
 
-            $childProjectObject = @{
-                key          = $currentSiteId
-                SiteId       = $currentSiteId
-                Title        = $currentSiteTitle
-                Path         = $currentSiteUrl
-                HubSiteId    = $hubSiteId
-                HubSiteUrl   = $hubSiteUrl
-                HubSiteTitle = $hubSiteTitle
-            }
+    if (-not [string]::IsNullOrWhiteSpace($hubSiteId)) {
+        Connect-Admin
+        # Probing - a missing hub site is not fatal here, we just skip the hub update.
+        $hubSiteInfo = Get-PnPHubSite -Identity $hubSiteId -ErrorAction SilentlyContinue
 
-            $childProjectJson = ConvertTo-Json @($childProjectObject) -Compress
+        if ($null -ne $hubSiteInfo) {
+            $hubSiteUrl = $hubSiteInfo.SiteUrl
+            $hubSiteTitle = $hubSiteInfo.Title
+            Write-Output "Hub site information retrieved: $hubSiteTitle ($hubSiteUrl)"
+        }
+    }
 
-            Write-Output "Child project data: $childProjectJson"
+    $childProjectObject = @{
+        key          = $currentSiteId
+        SiteId       = $currentSiteId
+        Title        = $currentSiteTitle
+        Path         = $currentSiteUrl
+        HubSiteId    = $hubSiteId
+        HubSiteUrl   = $hubSiteUrl
+        HubSiteTitle = $hubSiteTitle
+    }
 
+    Write-Output "Child project data: $(ConvertTo-Json @($childProjectObject) -Compress)"
+
+    # Merges $childProjectObject into an existing GtChildProjects JSON string,
+    # replacing any entry for the same SiteId.
+    function Merge-ChildProjects {
+        param([string] $ExistingJson)
+
+        $projects = @()
+        if (-not [string]::IsNullOrWhiteSpace($ExistingJson)) {
             try {
-                Write-Output "Connecting to parent site: $parentSiteUrl"
-                Connect-PnPOnline -Url $parentSiteUrl -ManagedIdentity
-
-                $parentSite = Get-PnPSite -Includes Id
-                $parentSiteId = $parentSite.Id.ToString()
-
-                Write-Output "Getting first item from 'Prosjektegenskaper' list on parent site"
-                $listItem = Get-PnPListItem -List "Prosjektegenskaper" -PageSize 1
-                
-                if ($null -ne $listItem -and $listItem.Count -gt 0) {
-                    
-                    $existingChildProjects = $listItem["GtChildProjects"]
-                    $childProjectsArray = @()
-
-                    if ($null -ne $existingChildProjects -and "" -ne $existingChildProjects) {
-                        try {
-                            $childProjectsArray = @($existingChildProjects | ConvertFrom-Json)
-                            Write-Output "Existing child projects found: $($childProjectsArray.Count)"
-                        }
-                        catch {
-                            Write-Output "Could not parse existing GtChildProjects, starting with new array"
-                            $childProjectsArray = @()
-                        }
-                    }
-
-                    # Add new child project if not already present
-                    $existingProject = $childProjectsArray | Where-Object { $_.SiteId -eq $currentSiteId }
-                    if ($null -eq $existingProject) {
-                        $childProjectsArray = $childProjectsArray + $childProjectObject
-                        Write-Output "Added new child project to array"
-                    }
-                    else {
-                        Write-Output "Child project already exists in parent site, updating entry"
-                        $childProjectsArray = @($childProjectsArray | Where-Object { $_.SiteId -ne $currentSiteId })
-                        $childProjectsArray = $childProjectsArray + $childProjectObject
-                    }
-
-                    $updatedChildProjectsJson = ConvertTo-Json @($childProjectsArray) -Compress
-                    Write-Output "Updating parent site 'Prosjektegenskaper' with: $updatedChildProjectsJson"
-                    
-                    Set-PnPListItem -List "Prosjektegenskaper" -Identity $listItem.Id -Values @{
-                        "GtChildProjects" = $updatedChildProjectsJson
-                    }
-                    
-                    Write-Output "Successfully updated parent site 'Prosjektegenskaper' list"
-                }
-                else {
-                    Write-Warning "No items found in 'Prosjektegenskaper' list on parent site"
-                }
+                $projects = @($ExistingJson | ConvertFrom-Json)
+                Write-Output "Existing child projects found: $($projects.Count)"
             }
             catch {
-                Write-Output "Error updating parent site: $($_.Exception.Message)"
-                throw $_
+                Write-Output "Could not parse existing GtChildProjects, starting with new array"
+                $projects = @()
             }
-
-            if ($null -ne $hubSiteUrl -and "" -ne $hubSiteUrl) {
-                try {
-                    Write-Output "Connecting to hub site: $hubSiteUrl"
-                    Connect-PnPOnline -Url $hubSiteUrl -ManagedIdentity
-
-                    Write-Output "Searching for project in 'Prosjekter' list where GtSiteId equals parent site ID: $parentSiteId"
-                    
-                    $prosjekterItems = Get-PnPListItem -List "Prosjekter" -PageSize 5000
-                    
-                    $parentProjectItem = $prosjekterItems | Where-Object { 
-                        $_.FieldValues["GtSiteId"] -eq $parentSiteId 
-                    }
-
-                    if ($null -ne $parentProjectItem) {
-                        Write-Output "Found parent project item in hub site 'Prosjekter' list (ID: $($parentProjectItem.Id))"
-                        
-                        $existingHubChildProjects = $parentProjectItem["GtChildProjects"]
-                        $hubChildProjectsArray = @()
-
-                        if ($null -ne $existingHubChildProjects -and "" -ne $existingHubChildProjects) {
-                            try {
-                                $hubChildProjectsArray = @($existingHubChildProjects | ConvertFrom-Json)
-                                Write-Output "Existing child projects found in hub site: $($hubChildProjectsArray.Count)"
-                            }
-                            catch {
-                                Write-Output "Could not parse existing GtChildProjects in hub site, starting with new array"
-                                $hubChildProjectsArray = @()
-                            }
-                        }
-
-                        $existingHubProject = $hubChildProjectsArray | Where-Object { $_.SiteId -eq $currentSiteId }
-                        if ($null -eq $existingHubProject) {
-                            $hubChildProjectsArray = $hubChildProjectsArray + $childProjectObject
-                            Write-Output "Added new child project to hub site array"
-                        }
-                        else {
-                            Write-Output "Child project already exists in hub site, updating entry"
-                            $hubChildProjectsArray = @($hubChildProjectsArray | Where-Object { $_.SiteId -ne $currentSiteId })
-                            $hubChildProjectsArray = $hubChildProjectsArray + $childProjectObject
-                        }
-
-                        $updatedHubChildProjectsJson = ConvertTo-Json @($hubChildProjectsArray) -Compress
-                        Write-Output "Updating hub site 'Prosjekter' with: $updatedHubChildProjectsJson"
-                        
-                        Set-PnPListItem -List "Prosjekter" -Identity $parentProjectItem.Id -Values @{
-                            "GtChildProjects" = $updatedHubChildProjectsJson
-                        }
-                        
-                        Write-Output "Successfully updated hub site 'Prosjekter' list"
-                    }
-                    else {
-                        Write-Warning "Could not find parent project (GtSiteId: $parentSiteId) in hub site 'Prosjekter' list"
-                    }
-                }
-                catch {
-                    Write-Output "Error updating hub site 'Prosjekter' list: $($_.Exception.Message)"
-                    throw $_
-                }
-            }
-            else {
-                Write-Output "Hub site information not available, skipping hub site update"
-            }
-
-            Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-
-            Write-Output "Finished updating parent site and hub site"
         }
-        else {
-            Write-Output "No parent site specified, skipping UpdateParentSite"
+
+        $projects = @($projects | Where-Object { $_.SiteId -ne $currentSiteId })
+        $projects = $projects + $childProjectObject
+        return ConvertTo-Json @($projects) -Compress
+    }
+
+    Write-Output "Connecting to parent site: $parentSiteUrl"
+    Connect-PnPOnline -Url $parentSiteUrl -ManagedIdentity
+
+    $parentSite = Get-PnPSite -Includes Id
+    $parentSiteId = $parentSite.Id.ToString()
+
+    Write-Output "Getting first item from 'Prosjektegenskaper' list on parent site"
+    $listItem = Get-PnPListItem -List "Prosjektegenskaper" -PageSize 1
+
+    if ($null -ne $listItem -and $listItem.Count -gt 0) {
+        $updatedChildProjectsJson = Merge-ChildProjects -ExistingJson $listItem["GtChildProjects"]
+        Write-Output "Updating parent site 'Prosjektegenskaper' with: $updatedChildProjectsJson"
+
+        Set-PnPListItem -List "Prosjektegenskaper" -Identity $listItem.Id -Values @{
+            "GtChildProjects" = $updatedChildProjectsJson
         }
+
+        Write-Output "Successfully updated parent site 'Prosjektegenskaper' list"
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "UpdateParentSite" -ErrorMessage $_.Exception.Message
+    else {
+        Write-Warning "No items found in 'Prosjektegenskaper' list on parent site"
     }
+
+    if ([string]::IsNullOrWhiteSpace($hubSiteUrl)) {
+        Write-Output "Hub site information not available, skipping hub site update"
+        return
+    }
+
+    Write-Output "Connecting to hub site: $hubSiteUrl"
+    Connect-PnPOnline -Url $hubSiteUrl -ManagedIdentity
+
+    Write-Output "Searching for project in 'Prosjekter' list where GtSiteId equals parent site ID: $parentSiteId"
+
+    $parentProjectItem = Get-PnPListItem -List "Prosjekter" -PageSize 5000 | Where-Object {
+        $_.FieldValues["GtSiteId"] -eq $parentSiteId
+    }
+
+    if ($null -eq $parentProjectItem) {
+        Write-Warning "Could not find parent project (GtSiteId: $parentSiteId) in hub site 'Prosjekter' list"
+        return
+    }
+
+    Write-Output "Found parent project item in hub site 'Prosjekter' list (ID: $($parentProjectItem.Id))"
+
+    $updatedHubChildProjectsJson = Merge-ChildProjects -ExistingJson $parentProjectItem["GtChildProjects"]
+    Write-Output "Updating hub site 'Prosjekter' with: $updatedHubChildProjectsJson"
+
+    Set-PnPListItem -List "Prosjekter" -Identity $parentProjectItem.Id -Values @{
+        "GtChildProjects" = $updatedHubChildProjectsJson
+    }
+
+    Write-Output "Successfully updated hub site 'Prosjekter' list"
 }
 
 function DisableNoScript {
-    try {
-        Write-Output "Disabling NoScript mode so all site customizations can be applied"
-        Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$false
-        Write-Output "NoScript mode disabled"
-    }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "DisableNoScript" -ErrorMessage $_.Exception.Message
-    }
+    # Tenant-admin cmdlet.
+    Connect-Admin
+    Write-Output "Disabling NoScript mode so all site customizations can be applied"
+    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$false
+    Write-Output "NoScript mode disabled"
 }
 
 function EnableNoScript {
-    try {
-        Write-Output "Re-enabling NoScript mode after site configuration"
-        # Reconnect to the site context before toggling - earlier steps may have switched the connection
-        Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-        Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$true
-        Write-Output "NoScript mode re-enabled"
+    # Tenant-admin cmdlet, and earlier steps may have left the connection on a site.
+    Connect-Admin
+    Write-Output "Re-enabling NoScript mode after site configuration"
+    Set-PnPTenantSite -Url $siteUrl -NoScriptSite:$true
+    Write-Output "NoScript mode re-enabled"
+}
+
+# Per-step outcome table at the end of the job log. This is what you read first when a
+# request comes back as "Space Creation Failed" - it shows which steps did work, which
+# ones did not apply and why, and which one broke.
+#
+# The Skipped/Succeeded distinction matters: a typical request exercises fewer than half
+# the steps, so a table of nothing but "Succeeded" cannot answer "why was my theme never
+# applied?".
+function Write-StepSummary {
+    $done = @($script:stepResults | Where-Object { $_.Status -eq 'Succeeded' }).Count
+    $skipped = @($script:stepResults | Where-Object { $_.Status -eq 'Skipped' }).Count
+    $failed = @($script:stepResults | Where-Object { $_.Status -eq 'Failed' }).Count
+
+    Write-Output ""
+    Write-Output "===================== Step summary ====================="
+    foreach ($result in $script:stepResults) {
+        if ([string]::IsNullOrEmpty($result.Detail)) {
+            Write-Output ("  {0,-9} {1}" -f $result.Status, $result.Step)
+        }
+        else {
+            Write-Output ("  {0,-9} {1,-28} {2}" -f $result.Status, $result.Step, $result.Detail)
+        }
     }
-    catch {
-        Set-SpaceCreationFailed -FunctionName "EnableNoScript" -ErrorMessage $_.Exception.Message
-    }
+    Write-Output "--------------------------------------------------------"
+    Write-Output ("  $done applied, $skipped not applicable, $failed failed")
+    Write-Output "========================================================"
 }
 
 try {
     #Connect to spo
-    Connect-PnPOnline -Url "https://$tenantName-admin.sharepoint.com" -ManagedIdentity
+    Connect-Admin
 
     #Check connection
-    $context = Get-PnPContext
-    if ($context) {
-        Write-Output "Connected to SharePoint Online"
+    if (-not (Get-PnPContext)) {
+        throw "Issue connecting to SharePoint Online"
+    }
+    Write-Output "Connected to SharePoint Online"
 
-        if ($spaceTypeInternal -ne "Viva Engage Community") {
-
-            SetExternalSharing
-
-            Connect-PnPOnline -Url $siteUrl -ManagedIdentity
-
-            # Disable NoScript so all site customizations (PnP template/custom packages,
-            # features, property bag, etc.) can be applied. Restored in the finally block.
-            DisableNoScript
-
-            try {
-                AddOwners
-                AddMembers
-                AddVisitors
-                AddReadOnlyGroup
-                AddSiteCollectionAdmins
-                SetAccessRequestSettings
-                SetSiteLogo
-                SetRegionalSettings
-                ActivateFeatures
-                ApplyPnPTemplate
-                ApplyTheme
-                DisableDocumentSync
-                SetRetentionLabel
-                SetSensitivityLabel
-                SetSensitivityLabelLibrary
-                SetSiteClassification
-                SetMetadata
-                JoinOrRegisterHubSite
-                SetStorageQuota
-                ApplySiteDesign
-                UpdateParentSite
-            }
-            finally {
-                # Always restore NoScript, even if a configuration step failed
-                EnableNoScript
-            }
-
-            # Check if any errors occurred during configuration
-            if ($script:hasErrors) {
-                $combinedErrorMessage = "One or more configuration steps failed: " + ($script:errorMessages -join "; ")
-                Update-ProvisioningRequestStatus -SiteUrl $siteUrl -Status "Space Creation Failed" -StatusReason $combinedErrorMessage
-                throw $combinedErrorMessage
-            }
-            else {
-                Write-Output "Site configuration successful"
-            }
-
-        }
-        else {
-            Write-Output "Site configuration not required"
-        }
-    
+    if ($spaceTypeInternal -eq "Viva Engage Community") {
+        Write-Output "Site configuration not required"
     }
     else {
-        $errorMsg = "Issue connecting to SharePoint Online"
-        Write-Error $errorMsg
-        Update-ProvisioningRequestStatus -SiteUrl $siteUrl -Status "Space Creation Failed" -StatusReason $errorMsg
-        throw $errorMsg
+        # Container-level settings first. A sensitivity label overrides the site's
+        # privacy, external sharing and unmanaged-device policy, so it has to be
+        # applied before the settings it governs.
+        Invoke-Step 'SetSensitivityLabel'
+        Invoke-Step 'SetExternalSharing'
+
+        # Disable NoScript so all site customizations (PnP template/custom packages,
+        # features, property bag, etc.) can be applied. Restored in the finally block.
+        Invoke-Step 'DisableNoScript'
+
+        try {
+            $configurationSteps = @(
+                'AddOwners'
+                'AddMembers'
+                'AddVisitors'
+                'AddReadOnlyGroup'
+                'AddSiteCollectionAdmins'
+                'SetAccessRequestSettings'
+                'SetSiteLogo'
+                'SetRegionalSettings'
+                'ActivateFeatures'
+                'ApplyPnPTemplate'
+                'ApplyTheme'
+                'DisableDocumentSync'
+                'SetRetentionLabel'
+                'SetSensitivityLabelLibrary'
+                'SetSiteClassification'
+                'SetMetadata'
+                'JoinOrRegisterHubSite'
+                'SetStorageQuota'
+                'ApplySiteDesign'
+                'UpdateParentSite'
+            )
+
+            foreach ($step in $configurationSteps) {
+                Invoke-Step $step
+            }
+        }
+        finally {
+            # Always restore NoScript, even if a configuration step failed
+            Invoke-Step 'EnableNoScript'
+        }
+
+        Write-StepSummary
+
+        # Check if any errors occurred during configuration
+        if ($script:hasErrors) {
+            # This message becomes the Automation job's exception, which the logic app
+            # reads back into StatusReason - so it has to name the failing steps.
+            throw ("One or more configuration steps failed: " + ($script:errorMessages -join "; "))
+        }
+
+        Write-Output "Site configuration successful"
     }
 }
 catch {
     #Script error
     $errorMsg = "An error occured: $($PSItem.ToString())"
-    Write-Error $errorMsg
-    
-    # Update status if not already updated
-    if ($script:hasErrors) {
-        Update-ProvisioningRequestStatus -SiteUrl $siteUrl -Status "Space Creation Failed" -StatusReason $errorMsg
+
+    # The step table has not been written yet if we failed outside the step loop.
+    if ($script:stepResults.Count -gt 0 -and -not $script:hasErrors) {
+        Write-StepSummary
     }
-    
-    # Re-throw the error so Logic App can catch it
+
+    Write-Error $errorMsg -ErrorAction Continue
+
+    # Re-throw so the Automation job fails and the logic app can pick up the reason
     throw $errorMsg
 }

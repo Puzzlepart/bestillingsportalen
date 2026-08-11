@@ -26,6 +26,7 @@ Bruk oppgraderingsmodus når du vil:
 - Førstegangs installasjon (bruk standard installasjonsprosess)
 - Større breaking changes som krever datamigrering
 - Komplette miljørebygginger
+- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Se [Managed-identity-migration.md](Managed-identity-migration.md). Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes.
 
 ## Hva som blir oppdatert
 
@@ -43,14 +44,12 @@ Bruk oppgraderingsmodus når du vil:
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
-3. **Runbooks (lokale)** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
-   - Nye runbook-RESSURSER opprettes (f.eks. `AddGuestToSite` i 1.11.0)
-   - Eksisterende runbook-INNHOLD oppdateres bare hvis `publishContentLink.version` er bumpet i `runbooks.bicep`
-   - **Manuell paste for `AddGuestToSite`**: Bicep-templaten har foreløpig en placeholder-URI (ConfigureSpace.ps1) inntil dette repoet blir public. Etter førstegangs deploy må du åpne Azure Portal → Automation Account → Runbooks → `AddGuestToSite` → Edit, lime inn innhold fra [Source/Runbooks/AddGuestToSite.ps1](Source/Runbooks/AddGuestToSite.ps1), og publisere. Senere upgrade-runs beholder den manuelt-limte koden så lenge `version` ikke bumpes.
+3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
+   - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
+   - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
+   - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (kundeeid innhold — tilpasninger legges der)
 
-4. **Upstream runbooks** (`ConfigureSpace`, `GetSiteTemplates`) — bare hvis `azureresources.bicep` deployes (IKKE med `-SkipBicepDeploy`)
-
-5. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
+4. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
    - `npm install` (kun ved første gang / hvis `node_modules` mangler) + `npm run build`
    - `.sppkg` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`
@@ -76,16 +75,27 @@ Bruk oppgraderingsmodus når du vil:
 
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
-   - Innhold i eksisterende runbooks (Bicep `publishContentLink` re-importerer kun ved bumpet version i `azureresources.bicep`)
-   - Key Vault
-   - Sertifikater
+   - Innholdet i `CustomerSpecific`-runbooken (kundeeid utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
+   - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
 
-4. **Entra ID-app:**
-   - Application registration
-   - App secrets
-   - Tilganger
+## Manuell opprydding etter oppgradering: Key Vault og Entra ID-appen
+
+Fra denne versjonen har løsningen **ingen Key Vault, ingen client secret og ingen egen Entra ID-app-registrering**. Sensitivitetsmerker settes app-only med Automation-kontoens managed identity, så ROPC-flyten som krevde en tjenestekonto uten MFA er borte. Se [Sensitivitetsmerker](./Sensitivity-labels.md).
+
+**ARM sletter ikke ressurser som fjernes fra en mal.** Disse blir derfor liggende igjen etter oppgradering og må ryddes manuelt:
+
+| Rest | Handling |
+|--|--|
+| Key Vault (`kv-…`) med secrets `appid`, `appSecret`, `sausername`, `sapassword` | Slett Key Vault-en. Den brukes ikke av noe lenger. |
+| API-tilkoblingen `bestillingsportalen-kv` | Slett tilkoblingen (ingen Logic App refererer til den). |
+| Entra ID-app-registreringen (`Bestillingsportalen`) med client secret | Slett app-registreringen. Merk: **ikke** PnP-appen (`pnpAppId`), som er en annen app og brukes under installasjon. |
+| `appName` og `keyVaultName` i `parameters.json` | Fjern nøklene – de leses ikke lenger. |
+
+**Roter tjenestekontoens passord.** Har miljøet kjørt med `enableSensitivity = true` på en tidligere versjon, har passordet, client secret-en og et delegert Graph-token ligget lesbart i `ProcessProvisionRequest`s kjørehistorikk. Oppgraderingen fjerner kilden, men sletter ikke historikken. Roter passordet, og re-autoriser deretter de fire delegerte API-tilkoblingene (`Authorize-ApiConnections.ps1`).
+
+MFA kan nå slås på for tjenestekontoen. Den brukes fortsatt som områdeeier, til de delegerte API-tilkoblingene og til å poste velkomstmeldingen i Teams – men ingen av disse krever at MFA er avslått.
 
 ### Den interaktive `Site already exists`-prompten
 
@@ -117,8 +127,9 @@ Før du starter oppgraderingen:
 3. **Verifiser tilganger**
    - Samme tilganger som ved første installasjon
    - Site Collection Administrator på Bestillingsportalen-området
-   - Azure Contributor-rolle på ressursgruppen
-   - Application Administrator eller tilsvarende for Entra ID
+   - Azure Owner-rolle på ressursgruppen/abonnementet (bicep-malen oppretter RBAC-tildelinger)
+   - Rettighet til å tildele app-roller til managed identities – oppgraderingen kjører `AssignManagedIdentityPermissions` og `AssignUamiPermissions`, som krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator
+   - Rettighet til å endre Key Vault access policies – `AssignManagedIdentityPermissions` gir Automation-kontoens identity `secrets/get` på løsningens Key Vault (kreves av sensitivitetsmerking i `ConfigureSpace`). Tildelingen ligger også i `azureresources.bicep`, men den malen hoppes over i upgrade-modus, så den gjøres eksplisitt her
 
 4. **Ha parameterne klare**
    - Bruk samme `parameters.json` som ved første installasjon
@@ -127,7 +138,7 @@ Før du starter oppgraderingen:
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
    - Tenant app-katalog må være opprettet i SharePoint Admin Center
-   - PnP-appen må ha `Sites.FullControl.All` (App-only) for å publisere til app-katalogen
+   - PnP-appen må ha delegert `AllSites.FullControl` for å publisere til app-katalogen (interaktiv pålogging — kontoen som kjører skriptet må være SharePoint-administrator)
 
 ## Oppgraderingsprosess
 
@@ -156,9 +167,6 @@ Kjør deploy-skriptet med `-Upgrade`-flagget:
 Du kan kombinere med andre skip-flagg ved behov:
 
 ```powershell
-# Eksempel: Hopp over sertifikatgenerering hvis det allerede finnes
-./deploy.ps1 -Upgrade -SkipGenerateCertificate
-
 # Eksempel: Hopp over opprettelse av ressursgruppe
 ./deploy.ps1 -Upgrade -SkipCreateResourceGroup
 
@@ -167,46 +175,49 @@ Du kan kombinere med andre skip-flagg ved behov:
 ./deploy.ps1 -Upgrade -SkipSPFxDeploy
 ```
 
+##### Uovervåket kjøring med `-Force`
+
+Ved gjentatte kjøringer (typisk under utvikling og testing) blir promptene fort i veien:
+
+```powershell
+./deploy.ps1 -Upgrade -Force
+```
+
+`-Force` gjør tre ting:
+
+| | |
+|--|--|
+| Gjenbruker cachede Az/Azure CLI-sesjoner | Uten å spørre (samme som `-SkipConfirmation`) |
+| Hopper over pre-flight-bekreftelsen | Samme som `-SkipConfirmation` |
+| Svarer **nei** på «re-anvend PnP-template?» | Konfigurasjonslistene beholder innholdet sitt |
+
+Template-svaret er bevisst `nei`: å re-anvende malen nullstiller `Settings`, `Provisioning Types`, `Teams Templates` m.fl. til pakkens standardverdier, og det skal aldri skje stille i en uovervåket kjøring. Trenger du en skjemaendring anvendt, kjør interaktivt og svar `y`.
+
+> **`-Force` betyr «ikke stopp og spør meg», ikke «svar ja på alt».** De tre destruktive promptene — tømme en slettet site fra papirkurven, tømme en slettet Microsoft 365-gruppe, eller permanent slette en **aktiv** gruppe med tilhørende site — blir *ikke* auto-godkjent. De avbryter med en melding i stedet, siden de er irreversible og kan slette et reelt område. Treffer du en av dem, kjør uten `-Force` og ta stilling.
+
 #### Alternativ B: Manuell Logic App-oppdatering
 
-Hvis du foretrekker å oppdatere Logic App-en manuelt (nyttig for å gjennomgå endringer før de anvendes):
+Hvis du foretrekker å oppdatere Logic Apps manuelt (nyttig for å gjennomgå endringer før de anvendes), kan du deploye ARM-malene direkte med Azure CLI i stedet for å kjøre hele skriptet. Bruk `--what-if` først for å se endringene:
 
-1. Generer Logic App JSON-definisjonen:
+1. Finn parameterverdiene malen trenger (liste-ID-er m.m.) – se hvilke parametre `deploy.ps1` sender i `DeployARMTemplates`-funksjonen, eller les dem ut av eksisterende Logic App i Azure Portal.
+
+2. Forhåndsvis endringene:
 
    ```powershell
-   ./generateProcessProvisionRequest.ps1
+   az deployment group what-if --resource-group <ressursgruppe> --template-file ../ARMTemplates/LogicApps/processprovisionrequest.json --parameters <parametre...>
    ```
 
-   Skriptet vil:
-   - Koble til SharePoint via PnP-appen og sertifikatet i `parameters.json`
-   - Hente liste-ID-ene automatisk fra Bestillingsportalen-området
-   - Generere `ProcessProvisionRequest.json` med alle verdier ferdig populert
-   - Be om passord for PnP-sertifikatet ved behov
+3. Deploy når du er fornøyd (bytt `what-if` med `create`).
 
-2. (Valgfritt) Generer uten å koble til SharePoint:
+4. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
 
    ```powershell
-   ./generateProcessProvisionRequest.ps1 -SkipListIds
-   ```
-
-   Dette oppretter en fil med plassholderverdier som du må erstatte manuelt.
-
-3. Åpne den genererte filen og gå gjennom endringene.
-
-4. I Azure Portal:
-   - Gå til `ProcessProvisionRequest` Logic App-en
-   - Klikk `Logic app code view`
-   - Kopier hele innholdet fra `ProcessProvisionRequest.json`
-   - Lim det inn i Logic App code view (erstatt all eksisterende kode)
-   - Klikk `Save`
-
-5. Hvis du brukte alternativ B, må du fortsatt anvende PnP-malen manuelt:
-
-   ```powershell
-   # Koble til med PnP-app-legitimasjonen
-   Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -CertificatePath <path-to-cert>
+   # Koble til med PnP-appen (interaktiv nettleserinnlogging)
+   Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -Interactive
    Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation
    ```
+
+   I praksis er **Alternativ A anbefalt** – skriptet henter liste-ID-er og øvrige parametre automatisk.
 
 ### Steg 3: Hva som skjer under oppgraderingen
 
@@ -217,9 +228,10 @@ Skriptet vil:
 3. **Prompt om PnP-mal** – Hvis området finnes, spør om template skal anvendes (se «Den interaktive prompten» over)
 4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen UTEN å endre listedata
 5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
-6. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
-7. **Bygge og publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Kjør `npm install`/`npm run build` og last opp `.sppkg` til tenant app-katalog
-8. **Fullføre** – Vise suksessmelding
+6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2), og runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres automatisk.
+7. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
+8. **Bygge og publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Kjør `npm install`/`npm run build` og last opp `.sppkg` til tenant app-katalog
+9. **Fullføre** – Vise deployment summary
 
 ### Steg 4: Verifisering etter oppgradering
 
@@ -383,7 +395,7 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
 - [ ] Verifiser at Node.js er installert (hvis SPFx skal deployes)
 - [ ] Varsle brukere om vedlikeholdsvindu
-- [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten)
+- [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten — eller bruk `-Force`, som svarer nei)
 - [ ] Verifiser at området lastes korrekt
 - [ ] Sjekk at alle lister og data er intakte (inkl. ny `Guest Requests`-liste)
 - [ ] Test `ProcessProvisionRequest` med en eksempel-bestilling

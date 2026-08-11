@@ -25,10 +25,15 @@
         "siteTemplatesListId": {
             "defaultValue": "",
             "type": "string"
+        },
+        "uamiName": {
+            "defaultValue": "",
+            "type": "string"
         }
     },
     "variables": {
-        "Singlequote": "'"
+        "Singlequote": "'",
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
     },
     "resources": [
         {
@@ -37,6 +42,12 @@
             "apiVersion": "2017-07-01",
             "name": "GetSiteTemplates",
             "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
             "properties": {
                 "state": "Enabled",
                 "definition": {
@@ -485,6 +496,12 @@
                             "azureautomation": {
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-automation')]",
                                 "connectionName": "bestillingsportalen-automation",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[variables('uamiId')]"
+                                    }
+                                },
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
                             },
                             "sharepointonline": {

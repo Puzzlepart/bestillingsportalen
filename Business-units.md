@@ -8,7 +8,7 @@ Du kan definere et tekst-prefiks og -suffiks per forretningsenhet. For eksempel 
 
 Når en bruker bestiller via Bestillingsportalen webdel eller Teams app, anvendes navnekonvensjonen, og en forhåndsvisning av hvordan navnet blir seende ut i kombinasjon med tittelen brukeren har angitt vises (se `Space display name` nedenfor).
 
-![Business units drop down screenshot](./images/BusinessUnitsApp.png)
+![Business units drop down screenshot](./Images/BusinessUnitsApp.png)
 
 En oppslagskolonne i `Provisioning Requests`-listen lagrer forretningsenheten brukeren valgte i webdel eller Teams app.
 
@@ -38,13 +38,13 @@ Godkjennere for forretningsenheter konfigureres i `Business Units`-listen – fl
 
 **Godkjenning per forretningsenhet trenger ikke å være aktivert for at forretningsenhet-funksjonaliteten skal fungere. Hvis deaktivert, vil godkjenning skje som normalt.**
 
-![Business units settings screenshot](./images/BusinessUnitsSettings.png)
+![Business units settings screenshot](./Images/BusinessUnitsSettings.png)
 
 ## Opprette forretningsenheter
 
 For å opprette en forretningsenhet, gå til `Business Units`-listen i Bestillingsportalen-området i SharePoint og opprett et nytt listeelement.
 
-![Business units list screenshot](./images/BusinessUnitsList.png)
+![Business units list screenshot](./Images/BusinessUnitsList.png)
 
 Fyll inn kolonnene som følger:
 

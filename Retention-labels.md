@@ -18,7 +18,7 @@ Oppbevaringsmerker lagres som listeelementer i en SharePoint-liste kalt `Retenti
 
 Merker må legges til manuelt i listen `Retention Labels`. Sørg for at verdien i kolonnen `Label Name` **matcher nøyaktig navnet på merket i Purview**.
 
-![Retention labels list screenshot](./images/RetentionLabelsList.png)
+![Retention labels list screenshot](./Images/RetentionLabelsList.png)
 
 Hvis funksjonaliteten er aktivert, vises merkene til brukeren i en kombinasjonsboks på «Datakategorisering»-steget.
 
@@ -37,6 +37,6 @@ Når funksjonaliteten er aktivert, kan den konfigureres slik:
 2. Angi et standardmerke (valgfritt) ved å sette verdien på listeelementet **`DefaultRetentionLabel`** i **`Provisioning Request Settings`**-listen til navnet på det valgte merket. Navnet må **nøyaktig** matche et gyldig merkenavn fra Retention Labels-listen. Du finner navnet i kolonnen **`Label Name`**.
 3. Velg om brukeren skal måtte velge et merke (valgfritt). Standardverdien er **`false`**, som betyr at brukeren ikke er tvunget til å velge et merke og kan la kombinasjonsboksen stå tom. For å kreve at brukere velger et merke, sett verdien på listeelementet **`RequireRetentionLabel`** til **`true`**.
 
-![Retention label configuration in settings list screenshot](./images/RetentionLabelSettings.png)
+![Retention label configuration in settings list screenshot](./Images/RetentionLabelSettings.png)
 
-5. Funksjonaliteten er nå konfigurert, og når brukere starter Bestillingsportalen webdel eller Teams app for å bestille områder, vil de se kombinasjonsboksen for oppbevaringsmerke på «Datakategorisering»-skjermen.
+4. Funksjonaliteten er nå konfigurert, og når brukere starter Bestillingsportalen webdel eller Teams app for å bestille områder, vil de se kombinasjonsboksen for oppbevaringsmerke på «Datakategorisering»-skjermen.

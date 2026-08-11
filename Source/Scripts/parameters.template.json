@@ -35,29 +35,13 @@
         "Value": "rg-bestillingsportalen",
         "Description": "A name for a new resource group to deploy the solution to - if the resource group does not exist it will be created."
     },
-    "appName": {
-        "Value": "Bestillingsportalen",
-        "Description": "Name for the Entra ad app registration that will be created."
-    },
-    "createSelfSignedCert": {
-        "Value": true,
-        "Description": "Specifies whether a self signed certificate should be created and uploaded to the AD app and Key Vault. If set to false, the certificate must be uploaded manually to the app registration and Key Vault."
-    },
-    "certName": {
-        "Value": "cert-bestillingsportalen",
-        "Description": "Name for the self signed certificate that will be created (if createSelfSignedCert is set to true)."
-    },
-    "certValidityDays": {
-        "Value": 900,
-        "Description": "Number of days the self signed certificate will be valid for (if createSelfSignedCert is set to true)."
+    "uamiName": {
+        "Value": "bestillingsportalen-uami",
+        "Description": "Name for the user-assigned managed identity that the logic apps use to authenticate against Microsoft Graph, SharePoint and Azure Automation."
     },
     "pnpAppId": {
         "Value": "da6c31a6-b557-4ac3-9994-7315da06ea3a",
         "Description": "Id of the PnP Entra app registration. (defaults to Prosjektportalen PnP app)"
-    },
-    "pnpCertPath": {
-        "Value": "",
-        "Description": "Path to your PnP certificate that will be used to connect with PnP PowerShell. Please ensure to double escape the backslashes above."
     },
     "siteLogoPath": {
         "Value": "",
@@ -70,14 +54,6 @@
     "isEdu": {
         "Value": false,
         "Description": "Specifies whether the current tenant is an Education tenant. If set to true, the Education Teams Templates will be deployed. These will be skipped if set to false or left blank."
-    },
-    "keyVaultName": {
-        "Value": "kv-bestillingsportalen",
-        "Description": "Name for the Key Vault that will be provisioned to store the Entra ID app ID and secret. The Key Vault name must be unique and not exist in another subscription."
-    },
-    "enableSensitivity": {
-        "Value": false,
-        "Description": "Enable the sensitivity label functionality."
     },
     "skipApplySPOTemplate": {
         "Value": false,

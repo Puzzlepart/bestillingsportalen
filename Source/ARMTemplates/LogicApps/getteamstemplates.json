@@ -26,13 +26,14 @@
             "defaultValue": "",
             "type": "string"
         },
-        "certName": {
+        "uamiName": {
             "defaultValue": "",
             "type": "string"
         }
     },
     "variables": {
-        "Singlequote": "'"
+        "Singlequote": "'",
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
     },
     "resources": [
         {
@@ -40,6 +41,12 @@
             "apiVersion": "2017-07-01",
             "name": "GetTeamsTemplates",
             "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
             "properties": {
                 "state": "Enabled",
                 "definition": {
@@ -65,60 +72,9 @@
                         }
                     },
                     "actions": {
-                        "Get_Certificate": {
-                            "runAfter": {
-                                "Get_Client_ID": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "get",
-                                "path": "[concat('/secrets/@{encodeURIComponent(',variables('singlequote'),parameters('certName'),variables('singlequote'),')}/value')]"
-                            },
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
-                        },
-                        "Get_Client_ID": {
-                            "runAfter": {
-                                "Initialize_TeamsTemplateExists_variable": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "get",
-                                "path": "/secrets/@{encodeURIComponent('appid')}/value"
-                            },
-                            "description": "Get Azure ad app client id from key vault.",
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
-                        },
                         "Get_teams_templates": {
                             "runAfter": {
-                                "Get_Certificate": [
+                                "Initialize_TeamsTemplateExists_variable": [
                                     "Succeeded"
                                 ]
                             },
@@ -126,11 +82,8 @@
                             "inputs": {
                                 "authentication": {
                                     "audience": "https://graph.microsoft.com",
-                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                    "password": "@null",
-                                    "pfx": "@body('Get_Certificate')?['value']",
-                                    "tenant": "@variables('TenantID')",
-                                    "type": "ActiveDirectoryOAuth"
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
                                 },
                                 "method": "GET",
                                 "uri": "@{variables('GraphURL')}/teamwork/teamTemplates?$expand=definitions&filter=definitions/any(a:a/languageTag+eq+'en-US')"
@@ -533,11 +486,6 @@
                 "parameters": {
                     "$connections": {
                         "value": {
-                            "keyvault": {
-                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-kv')]",
-                                "connectionName": "bestillingsportalen-kv",
-                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
-                            },
                             "sharepointonline": {
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-spo')]",
                                 "connectionName": "bestillingsportalen-spo",

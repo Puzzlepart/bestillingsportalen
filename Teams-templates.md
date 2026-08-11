@@ -86,7 +86,7 @@ Malene er dermed tilgjengelige i Bestillingsportalen webdel eller Teams app for 
 6. Åpne listen `Teams Templates`.
 7. Verifiser at malen er opprettet som et listeelement.
 
-![GetTeamsTemplates logic app screenshot](./images/GetTeamsTemplatesLA.png)
+![GetTeamsTemplates logic app screenshot](./Images/GetTeamsTemplatesLA.png)
 
 Malen er nå klar til bruk – sørg for å oppfriske/laste inn Bestillingsportalen webdel eller Teams app på nytt hvis du har den åpen. Når en bruker bestiller et team fra den nye malen, vil det opprettes med det forhåndsdefinerte innholdet du konfigurerte i Admin Center.
 
@@ -124,6 +124,6 @@ For å bruke denne funksjonaliteten, følg stegene nedenfor.
 
 Nøkkelen er å populere `Team Id`-kolonnen i stedet for `Template Id`. Dette er hvordan provisjoneringen avgjør om vi kloner et team eller oppretter fra en Admin Center-mal.
 
-![Creating template for cloning team screenshot](./images/CloneTeamsTemplate.png)
+![Creating template for cloning team screenshot](./Images/CloneTeamsTemplate.png)
 
 Malen er nå klar til bruk. Når en bruker sender inn en bestilling som godkjennes, vil teamet klones og settes opp som et nytt team.

@@ -2,41 +2,64 @@
 
 Bestillingsportalen bruker **Microsoft Graph API** og **SharePoint REST API** for å provisjonere grupper, områder, team og Viva Engage-fellesskap.
 
-Provisjoneringen utføres via en **Entra ID App Registration** som har de nødvendige tillatelsene til Microsoft Graph API. For det meste brukes **Application Permissions**, med ett unntak – anvendelse av sensitivitetsmerker.
+Provisjoneringen utføres via en **user-assigned managed identity** som er koblet til alle Logic Apps og har de nødvendige app-rollene mot Microsoft Graph og SharePoint. Managed identity har ingen secret eller sertifikat som kan utløpe eller lekke – Entra ID utsteder tokens direkte til Azure-ressursen. Se [Migrering til managed identity](Managed-identity-migration.md) for bakgrunn.
 
-Per juli 2023 støttet ikke Graph API anvendelse av sensitivitetsmerker på grupper og team med Application Permissions. Denne begrensningen kan ha blitt fjernet siden – verifiser mot gjeldende [Microsoft Graph-dokumentasjon](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview). Inntil dette er bekreftet, brukes en tjenestekonto (uten MFA) med **Delegated Permissions** konfigurert mot det relevante Graph-endepunktet.
+**Det finnes ingen unntak lenger.** Løsningen har ingen client secret, ingen Key Vault og ingen Entra ID-app-registrering i drift. Alt kjører på managed identity.
 
-Hvis du velger å deaktivere eller ikke bruke sensitivitetsmerkefunksjonaliteten, er ikke dette nødvendig.
+Også sensitivitetsmerker: `ConfigureSpace`-runbooken setter container-merket med Automation-kontoens managed identity via `Set-PnPTenantSite -SensitivityLabel`, som går gjennom SharePoints tenant-admin-API og propagerer merket til den koblede gruppen på tjenersiden. Microsoft Graph støtter fortsatt ikke `assignedLabels` på grupper med Application Permissions (re-verifisert august 2026 mot [group-update](https://learn.microsoft.com/en-us/graph/api/group-update); gjelder også `Group.ManageProtection.All`), men den begrensningen gjelder en annen vei enn den vi bruker. Runbooken leser alltid tilbake `assignedLabels` for å bekrefte at merket landet. Se [Sensitivitetsmerker](Sensitivity-labels.md).
 
-**Client ID** og **Client Secret** for Entra ID-appen lagres i en dedikert Key Vault som opprettes for Bestillingsportalen. Disse hentes deretter til bruk i Logic Apps via Key Vault-handlingen, som er konfigurert til å skjule input og output slik at secret-verdien ikke er synlig i kjørehistorikken.
+> **Historikk og oppryddingskrav:** tidligere versjoner brukte en ROPC-flyt med en tjenestekonto uten MFA og en Entra ID-app med client secret, lagret i en dedikert Key Vault. I versjonene fram til og med 1.10 kjørte flyten som et scope i `ProcessProvisionRequest`, der `secureData` var feilplassert på Key Vault-kallet for passordet og manglet helt på URL-enkodingen, token-kallet og PATCH-en – tjenestekontoens passord, client secret og et levende delegert Graph-token var dermed lesbare i Logic App-ens kjørehistorikk ved hver merket bestilling.
+>
+> Har du kjørt en tidligere versjon med `enableSensitivity = true`: **roter tjenestekontoens passord** og **slett Entra ID-appen og Key Vault-en** etter oppgradering. Kjørehistorikk slettes ikke av en oppgradering. Se [Oppgraderingsveiledningen](Upgrade.md).
+
+De delegerte API-tilkoblingene (SharePoint Online, Outlook, Office 365 Users, Teams) autoriseres interaktivt med tjenestekontoen – disse connectorene støtter ikke managed identity. Tjenestekontoen er også områdeeier og identiteten som poster velkomstmeldingen i Teams, men den har **ingen** krav om at MFA er avslått; det var utelukkende ROPC-flyten.
 
 Den fullstendige listen over påkrevde API-tillatelser for Microsoft Graph og SharePoint-tenanten finner du nedenfor.
 
 ## API-tillatelser
 
-Påkrevde API-tillatelser for Entra ID-appen:
+### Managed identity (Logic Apps)
 
-### Microsoft Graph
+App-roller tildelt den user-assigned managed identityen:
+
+#### Microsoft Graph
 
 | API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
-| Directory.Read.All | Application | Lese katalogdata | Brukes til å lese Users, Groups og Teams fra tenanten. |
-| Directory.ReadWrite.All | Application | Lese og skrive katalogdata | Brukes til å opprette gjestebrukere i Entra ID hvis forespurt. |
-| Group.ReadWrite.All | Delegated | Lese og skrive alle grupper | Brukes til å anvende sensitivitetsmerker på opprettede grupper/team. |
-| Group.ReadWrite.All | Application | Lese og skrive alle grupper | Brukes til å opprette og oppdatere egenskaper på grupper/team. |
+| Directory.Read.All | Application | Lese katalogdata | Brukes til å lese gruppe-lifecycle-policyer (`GET /groupLifecyclePolicies`) under provisjoneringen. Dette er dokumentert minste tillatelse for endepunktet (`Group.Read.All` dekker det ikke). |
+| GroupSettings.ReadWrite.All | Application | Lese og skrive alle gruppeinnstillinger | Brukes til å deaktivere gjestedeling per gruppe (`Group.Unified.Guest`-innstillingen, `POST /groups/{id}/settings`) og lese gruppeinnstillinger for synkronisering. Erstatter tidligere `Directory.ReadWrite.All` (minste dokumenterte tillatelse for endepunktet). |
+| Group.ReadWrite.All | Application | Lese og skrive alle grupper | Brukes til å opprette grupper/team og legge til/fjerne eiere og medlemmer. Eier-operasjonene (`/owners/$ref`) gjør denne til minste praktiske tillatelse. |
 | InformationProtectionPolicy.Read.All | Application | Lese alle publiserte merker og merkepolicyer for en organisasjon. | Brukes til å synkronisere sensitivitetsmerker fra tenanten til en SharePoint-liste. |
-| Sites.FullControl.All | Application | Full kontroll over alle områder. | Oppdatere egenskapene til provisjonerte SharePoint-områder. |
-| TeamsTemplates.Read.All | Application | Lese alle tilgjengelige Teams-maler | Brukes til å lese Teams-maler i tenanten og synkronisere dem til en SharePoint-liste. |
+| Sites.Read.All | Application | Lese elementer i alle områdesamlinger | Brukes av `CheckSiteExists` til å lese tenant-admin-områdets aggregerte områdeliste (sjekke om en URL er i bruk, inkl. papirkurv). Erstatter tidligere Graph `Sites.FullControl.All` — det finnes ingen Graph-site-skriving i løsningen. |
+| TeamTemplates.Read.All | Application | Lese alle tilgjengelige Teams-maler | Brukes til å lese Teams-maler i tenanten og synkronisere dem til en SharePoint-liste. |
 | Community.ReadWrite.All | Application | Lese og skrive alle Viva Engage-fellesskap. | Brukes til å opprette Viva Engage-fellesskap. |
 | User.Invite.All | Application | Invitere gjestebrukere til organisasjonen | Brukes til å invitere gjestebrukere i Entra ID hvis forespurt. |
-| User.ReadWrite.All | Application | Lese og skrive til alle brukeres fulle profiler | Brukes til å oppdatere gjestebrukere i Entra ID hvis forespurt. |
+| User.ReadWrite.All | Application | Lese og skrive til alle brukeres fulle profiler | Brukes til å oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere. |
 
-### SharePoint
+> **Funksjonsbundne tillatelser:** Tre av tillatelsene er kun i bruk av valgfri funksjonalitet: `User.Invite.All` + `User.ReadWrite.All` (gjesteinvitasjon), `Community.ReadWrite.All` (Viva Engage-fellesskap) og `InformationProtectionPolicy.Read.All` (sensitivitetsmerke-synkronisering). Bruker ikke organisasjonen disse funksjonene, kan tillatelsene fjernes manuelt fra managed identityen i Entra-portalen — men merk at de tilhørende Logic Apps da må deaktiveres (`SyncLabels` kjører f.eks. ukentlig og vil feile uten `InformationProtectionPolicy.Read.All`), og at `deploy.ps1` tildeler hele settet på nytt ved neste kjøring/oppgradering.
+
+#### SharePoint
 
 | API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
-| Sites.FullControl.All | Application | Full kontroll over alle områder | Brukes til å lese og skrive til opprettede SharePoint-områder. |
+| Sites.FullControl.All | Application | Full kontroll over alle områder | Brukes til å opprette områdesamlinger (`POST /_api/SPSiteManager/create`), anvende site designs på nyopprettede områder og lese hub-områder. Kan ikke erstattes av `Sites.Selected`: målområdet finnes ikke før opprettelseskallet, så det er ingenting å gi en per-site-tillatelse på. |
 
-I tillegg må Entra ID-appen registreres som en **SharePoint add-in** og få **Full Control**-tillatelser mot SharePoint-tenanten.
+### Systemtildelt managed identity (Azure Automation)
 
-Dette er nødvendig fordi provisjoneringen sjekker om et SharePoint-område som matcher URL-en allerede finnes – både som et aktivt område og i tenantens papirkurv.
+App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSpecific` (kundeeid utvidelsespunkt) via PnP PowerShell `-ManagedIdentity`:
+
+| API Permission | Type | Beskrivelse | Årsak |
+|--|--|--|--|
+| Group.ReadWrite.All (Microsoft Graph) | Application | Lese og skrive alle grupper | Brukes av runbookene til å endre gruppemedlemskap og -egenskaper. |
+| User.Read.All (Microsoft Graph) | Application | Lese alle brukeres fulle profiler | Kreves av `AddGuestToSite` for å slå opp gjestebrukere på e-post før de legges til. |
+| Sites.FullControl.All (SharePoint) | Application | Full kontroll over alle områder | Brukes av `ConfigureSpace` til tenant-admin-operasjoner (`Set-PnPTenantSite`, hub-registrering/-tilknytning, site designs) og til etterkonfigurasjon av dynamisk opprettede områder, forelder- og hub-områder (PnP-maler, temaer m.m.). Tenant-admin-cmdletene kan ikke kjøres med `Sites.Selected`, og runbooken må kunne koble til områder som ikke fantes da tilgangen ble gitt. Dette er også tilgangen som muliggjør ad hoc-/kundetilpasninger i runbooks mot provisjonerte områder. |
+
+### Entra ID-app-registrering
+
+**Løsningen har ingen egen app-registrering i drift.** Den som fantes ble kun brukt av ROPC-flyten for sensitivitetsmerker, og er fjernet. Har du en installasjon fra før: appen kan slettes – se [Oppgraderingsveiledningen](Upgrade.md).
+
+Den eneste app-registreringen som er involvert er **PnP PowerShell-appen** (`pnpAppId`), og den brukes bare *under installasjon* med interaktiv pålogging. Den kan slettes eller få tilgangene fjernet etter fullført installasjon – se [Installasjonsveiledningen](Deployment-guide.md).
+
+## Kompenserende kontroll: Azure RBAC på ressursgruppen
+
+Managed identities har ingen credential som kan lekke — den reelle angrepsflaten for de brede tilgangene (`Sites.FullControl.All` på begge identitetene) er **hvem som kan redigere Logic Apps og runbooks** og dermed kjøre vilkårlig kode som identitetene. Begrens derfor hvem som har `Contributor`, `Logic App Contributor` eller `Automation Contributor` på løsningens ressursgruppe, og behandle disse rollene som tilsvarende SharePoint-administrator-tilgang i tilgangsstyringen.

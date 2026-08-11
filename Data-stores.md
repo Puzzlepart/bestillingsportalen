@@ -87,6 +87,13 @@ Denne listen lagrer gjesteforespørsler opprettet via `InviteGuests`-webdelen. H
 | InviteRedeemUrl | Note | Innløsings-URL gjesten kan bruke for å akseptere invitasjonen. |
 | ErrorMessage | Note | Feilmelding hvis `Status=Failed`. Vises i tooltip på badge i webdel-DataGrid. |
 | RequestedBy | User | Brukeren som initierte invitasjonen via webdelen. |
+| FirstName | Single line of text | Fornavn (valgfri) — fra Graph-oppslag eller manuell input i drawer-en. Brukes i `invitedUserDisplayName` på invitasjonen og PATCH-es som `givenName` på Entra-brukeren. |
+| LastName | Single line of text | Etternavn (valgfri) — PATCH-es som `surname` på Entra-brukeren. |
+| Company | Single line of text | Selskap (valgfri) — PATCH-es som `companyName` på Entra-brukeren. |
+| M365GroupRole | Choice | `None`/`Visitor`/`Member`/`Owner` (default `Visitor`) — rollen gjesten skal ha på området. På M365-gruppe-koblede områder håndteres `Owner`/`Member` via Graph-cmdletene; `Visitor` (og alle roller på ikke-gruppekoblede områder) via SP associated-gruppene. |
+| SPGroupAction | Choice | `None`/`AddToExisting`/`CreateNew` — valgfri SharePoint-brukergruppe-tilføyelse. |
+| SPGroupName | Single line of text | Navn på eksisterende eller ny SP-gruppe (avhengig av `SPGroupAction`). |
+| SPPermissionLevel | Choice | `Read`/`Contribute`/`Edit`/`Full Control` — tilgangsnivå når `SPGroupAction = CreateNew`. |
 
 ### Provisioning Request Settings
 

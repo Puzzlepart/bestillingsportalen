@@ -30,7 +30,7 @@
             "defaultValue": "",
             "type": "string"
         },
-        "certName": {
+        "uamiName": {
             "defaultValue": "",
             "type": "string"
         },
@@ -42,7 +42,8 @@
     "variables": {
         "Singlequote": "'",
         "ID": "ID",
-        "LoopName": "Loop_through_list_items"
+        "LoopName": "Loop_through_list_items",
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
     },
     "resources": [
         {
@@ -50,6 +51,12 @@
             "apiVersion": "2017-07-01",
             "name": "GetHubSites",
             "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
             "properties": {
                 "state": "Enabled",
                 "definition": {
@@ -71,59 +78,9 @@
                         }
                     },
                     "actions": {
-                        "Get_Certificate": {
-                            "runAfter": {
-                                "Get_Client_ID": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "get",
-                                "path": "[concat('/secrets/@{encodeURIComponent(',variables('singlequote'),parameters('certName'),variables('singlequote'),')}/value')]"
-                            },
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
-                        },
-                        "Get_Client_ID": {
-                            "runAfter": {
-                                "Initialize_HubSiteExists_variable": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "ApiConnection",
-                            "inputs": {
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['keyvault']['connectionId']"
-                                    }
-                                },
-                                "method": "get",
-                                "path": "/secrets/@{encodeURIComponent('appid')}/value"
-                            },
-                            "runtimeConfiguration": {
-                                "secureData": {
-                                    "properties": [
-                                        "inputs",
-                                        "outputs"
-                                    ]
-                                }
-                            }
-                        },
                         "Get_Hub_Sites": {
                             "runAfter": {
-                                "Get_Certificate": [
+                                "Initialize_HubSiteExists_variable": [
                                     "Succeeded"
                                 ]
                             },
@@ -131,11 +88,8 @@
                             "inputs": {
                                 "authentication": {
                                     "audience": "[parameters('spoRootSiteUrl')]",
-                                    "clientId": "@body('Get_Client_ID')?['value']",
-                                    "password": "@null",
-                                    "pfx": "@body('Get_Certificate')?['value']",
-                                    "tenant": "@variables('TenantID')",
-                                    "type": "ActiveDirectoryOAuth"
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
                                 },
                                 "headers": {
                                     "Accept": "application/json;odata=verbose",
@@ -544,20 +498,10 @@
                 "parameters": {
                     "$connections": {
                         "value": {
-                            "azureautomation": {
-                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-automation')]",
-                                "connectionName": "bestillingsportalen-automation",
-                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/azureautomation')]"
-                            },
                             "sharepointonline": {
                                 "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-spo')]",
                                 "connectionName": "bestillingsportalen-spo",
                                 "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/sharepointonline')]"
-                            },
-                            "keyvault": {
-                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-kv')]",
-                                "connectionName": "bestillingsportalen-kv",
-                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/keyvault')]"
                             }
                         }
                     }
