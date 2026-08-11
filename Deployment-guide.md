@@ -16,6 +16,7 @@ For å komme i gang trenger du:
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
 - Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
+- **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic` og `Microsoft.Web`. I et ferskt abonnement er de typisk *ikke* registrert. Pre-flight sjekker dette og registrerer dem automatisk hvis kontoen har rettigheter på **abonnementsnivå** — men registrering er en abonnementsoperasjon, så med Owner kun på ressursgruppen stopper skriptet med de nøyaktige `az provider register`-kommandoene en abonnementsadministrator må kjøre (engangsjobb, tar et par minutter).
 - App Registration for PnP PowerShell (se nedenfor).
 
 > **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor verken sertifikat eller client secret. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Datatilgang og sikkerhet](Data-access-security.md) for hvilke app-roller som tildeles.

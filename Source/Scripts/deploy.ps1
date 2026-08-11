@@ -1167,6 +1167,36 @@ function ValidateServiceAccount {
     RecordDeployStatus -Component "Service account" -Status 'OK'
 }
 
+# Wildcard matching as ARM does it: '*' and prefix wildcards in actions. Used by the
+# RBAC and resource provider pre-flight checks.
+function TestActionMatch([string[]]$patterns, [string]$action) {
+    foreach ($pattern in $patterns) {
+        $regex = '^' + [regex]::Escape($pattern).Replace('\*', '.*') + '$'
+        if ($action -imatch $regex) { return $true }
+    }
+    return $false
+}
+
+# Returns whether the signed-in account's EFFECTIVE permissions at $Scope include
+# $Action. $null when the permissions endpoint cannot be read - the caller decides
+# whether unknown blocks or not.
+function TestAzureAction([string]$Scope, [string]$Action) {
+    try {
+        $permsJson = az rest --method get --url "https://management.azure.com$Scope/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" 2>$null
+        if (-not $permsJson) { return $null }
+        $perms = @(($permsJson | ConvertFrom-Json).value)
+        foreach ($entry in $perms) {
+            if ((TestActionMatch @($entry.actions) $Action) -and -not (TestActionMatch @($entry.notActions) $Action)) {
+                return $true
+            }
+        }
+        return $false
+    }
+    catch {
+        return $null
+    }
+}
+
 # Fails the deployment early when the deploying account cannot create RBAC role
 # assignments. azureresources.bicep contains two Microsoft.Authorization/roleAssignments
 # (Automation Job/Runbook Operator for the UAMI), and ARM authorizes those at SUBMIT:
@@ -1191,27 +1221,8 @@ function ValidateAzureRbac {
             $scopeLabel = "resource group $rgName"
         }
 
-        $permsJson = az rest --method get --url "https://management.azure.com$scope/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" 2>$null
-        if (-not $permsJson) { throw "the permissions endpoint returned nothing" }
-        $perms = @(($permsJson | ConvertFrom-Json).value)
-
-        # Wildcard matching as ARM does it: '*' and prefix wildcards in actions.
-        function TestActionMatch([string[]]$patterns, [string]$action) {
-            foreach ($pattern in $patterns) {
-                $regex = '^' + [regex]::Escape($pattern).Replace('\*', '.*') + '$'
-                if ($action -imatch $regex) { return $true }
-            }
-            return $false
-        }
-
-        $requiredAction = 'Microsoft.Authorization/roleAssignments/write'
-        $hasWrite = $false
-        foreach ($entry in $perms) {
-            if ((TestActionMatch @($entry.actions) $requiredAction) -and -not (TestActionMatch @($entry.notActions) $requiredAction)) {
-                $hasWrite = $true
-                break
-            }
-        }
+        $hasWrite = TestAzureAction -Scope $scope -Action 'Microsoft.Authorization/roleAssignments/write'
+        if ($null -eq $hasWrite) { throw "the permissions endpoint could not be read" }
     }
     catch {
         # A failed CHECK must not block a deployment that might work - only a
@@ -1227,6 +1238,98 @@ function ValidateAzureRbac {
 
     RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'FAILED' -Detail "The deploying account lacks Microsoft.Authorization/roleAssignments/write on $scopeLabel"
     throw "The deploying account does not have 'Microsoft.Authorization/roleAssignments/write' on $scopeLabel. azureresources.bicep creates two role assignments (Automation Job/Runbook Operator for the managed identity), and ARM rejects the whole deployment at submit without this permission - with an error the Azure CLI does not even display. Grant the account Owner or User Access Administrator on the subscription (see the prerequisites) or on the resource group, then re-run. Nothing has been changed in the environment."
+}
+
+# ---------------------------------------------------------------------------
+# Resource provider registration
+# A fresh subscription has most resource providers unregistered, and the deployment
+# then fails with MissingSubscriptionRegistration - seen in the wild for
+# Microsoft.Automation, with Microsoft.Logic queued up as the next failure across
+# all nine logic apps. Registration is a SUBSCRIPTION-level action: Owner on the
+# resource group gives nothing here, so the RBAC granted for the deployment itself
+# does not cover it.
+#
+# Pre-flight (ValidateResourceProviders) checks the states. Unregistered providers
+# are either queued for automatic registration - started right after the
+# confirmation prompt, awaited just before the Azure deployments, so site creation
+# usually absorbs the wait - or, when the account provably lacks subscription-scope
+# rights, the run stops with the exact commands a subscription admin must run.
+# ---------------------------------------------------------------------------
+$script:providersToRegister = @()
+
+function ValidateResourceProviders {
+    $required = @()
+    if (-not $SkipBicepDeploy) { $required += @('Microsoft.Automation', 'Microsoft.ManagedIdentity') }
+    if (-not $SkipDeployARMTemplates) { $required += @('Microsoft.Logic', 'Microsoft.Web') }
+    if ($required.Count -eq 0) { return }
+
+    Write-Host "Checking resource provider registrations in the subscription..." -ForegroundColor Yellow
+    $unregistered = @()
+    foreach ($namespace in $required) {
+        $state = az provider show --namespace $namespace --subscription $parameters.subscriptionId.Value --query registrationState --output tsv 2>$null
+        if ($state -eq 'Registered') {
+            Write-Host "  $namespace : Registered" -ForegroundColor Gray
+        }
+        else {
+            Write-Host "  $namespace : $(if ($state) { $state } else { 'unknown' })" -ForegroundColor Yellow
+            $unregistered += $namespace
+        }
+    }
+    if ($unregistered.Count -eq 0) { return }
+
+    # Registering needs <namespace>/register/action at subscription scope. When the
+    # permissions endpoint CONFIRMS the account lacks it, stop now with the admin
+    # commands - not after minutes of site provisioning. An unreadable endpoint does
+    # not block: the registration attempt after confirmation will give the verdict.
+    $canRegister = TestAzureAction -Scope "/subscriptions/$($parameters.subscriptionId.Value)" -Action "$($unregistered[0])/register/action"
+    if ($canRegister -eq $false) {
+        $adminCommands = @($unregistered | ForEach-Object { "az provider register --namespace $_" }) -join "`n  "
+        RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'FAILED' -Detail "Resource providers not registered: $($unregistered -join ', ') - and the deploying account cannot register them (needs subscription-scope rights)"
+        throw "The following resource providers are not registered in subscription $($parameters.subscriptionId.Value): $($unregistered -join ', '). Registering them is a SUBSCRIPTION-level action which this account cannot perform (no rights at subscription scope - a role on the resource group does not help). Have a subscription Contributor/Owner run:`n  $adminCommands`nRegistration takes a few minutes; verify with 'az provider show --namespace <ns> --query registrationState', then re-run this script. Nothing has been changed in the environment."
+    }
+
+    $script:providersToRegister = $unregistered
+    Write-Host "The providers above will be registered automatically right after the confirmation prompt (registration runs in the background and is awaited before the Azure deployment)." -ForegroundColor Cyan
+}
+
+# Kicks off the registrations queued by ValidateResourceProviders. Deliberately
+# WITHOUT --wait: registration takes minutes, and the site creation that follows
+# takes minutes anyway - WaitForResourceProviders picks up the result right before
+# the first deployment that needs it.
+function RegisterResourceProviders {
+    foreach ($namespace in $script:providersToRegister) {
+        Write-Host "Registering resource provider $namespace (in the background)..." -ForegroundColor Yellow
+        az provider register --namespace $namespace --subscription $parameters.subscriptionId.Value --output none
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to start registration of resource provider $namespace - see the error above. Have a subscription Contributor/Owner run 'az provider register --namespace $namespace' and re-run this script."
+        }
+    }
+}
+
+function WaitForResourceProviders {
+    if ($script:providersToRegister.Count -eq 0) { return }
+    Write-Host "Waiting for resource provider registration to complete..." -ForegroundColor Yellow
+    $deadline = [DateTime]::UtcNow.AddMinutes(10)
+    $pending = @($script:providersToRegister)
+    while ($true) {
+        $stillPending = @()
+        foreach ($namespace in $pending) {
+            $state = az provider show --namespace $namespace --subscription $parameters.subscriptionId.Value --query registrationState --output tsv 2>$null
+            if ($state -eq 'Registered') {
+                Write-Host "  $namespace : Registered" -ForegroundColor Green
+            }
+            else {
+                $stillPending += $namespace
+            }
+        }
+        $pending = $stillPending
+        if ($pending.Count -eq 0) { break }
+        if ([DateTime]::UtcNow -gt $deadline) {
+            throw "Resource provider(s) still not registered after 10 minutes: $($pending -join ', '). Check the state with 'az provider show --namespace <ns> --query registrationState' and re-run the script when it says Registered."
+        }
+        Start-Sleep -Seconds 15
+    }
+    $script:providersToRegister = @()
 }
 
 # Fails the deployment when the site alias would collide with the service account.
@@ -2165,7 +2268,9 @@ ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
 ValidateAzureRbac
+ValidateResourceProviders
 ConfirmDeployment
+RegisterResourceProviders
 
 if (-not $SkipSharepointSite) {
     CreateRequestsSharePointSite
@@ -2308,6 +2413,10 @@ else {
 }
 
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow
+
+# Registrations kicked off after the confirmation prompt have had the whole site
+# provisioning to complete in - this blocks only if they are genuinely not done.
+WaitForResourceProviders
 
 if (-not $SkipBicepDeploy) {
     Write-Host "Deploying automation account and managed identity..." -ForegroundColor Yellow
