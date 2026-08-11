@@ -19,6 +19,8 @@ For å komme i gang trenger du:
 - App Registration for PnP PowerShell (se nedenfor).
 
 > **Managed identity:** Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation med en user-assigned managed identity som opprettes av installasjonsskriptet. Det trengs derfor verken sertifikat eller client secret. Kontoen som kjører `deploy.ps1` må kunne tildele app-roller til managed identities (Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator). Se [Datatilgang og sikkerhet](Data-access-security.md) for hvilke app-roller som tildeles.
+>
+> **Har du ikke Global Administrator?** Kjør `./deploy.ps1 -SkipAppRoles`. Alt annet installeres, og skriptet skriver ut en ferdig kommando (med object-ID-ene fylt inn) som en Global Administrator kjører etterpå — send vedkommende den ene filen `Source/Scripts/AssignPermissionsToManagedIdentity.ps1` og kommandoen. Rollelistene er innbakt i skriptet, så GA-en trenger ingenting annet fra installasjonen (kun PowerShell 7+ og Microsoft.Graph-modulen). Merk at Logic Apps får 401/403 ved kjøring frem til kommandoen er kjørt, så bestillinger kan ikke behandles før da. Kommandoen er trygg å kjøre flere ganger — eksisterende roller hoppes over.
 
 #### PnP PowerShell App Registration
 
@@ -157,6 +159,22 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 - Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
 - Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
+
+### Kjøre uten Global Administrator (`-SkipAppRoles`)
+
+App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Administrator. Har ikke kontoen din den rollen i kundens tenant:
+
+1. Kjør `./deploy.ps1 -SkipAppRoles`. Alt annet installeres som normalt, og `App roles`-linjene i DEPLOYMENT SUMMARY står som `SKIPPED` med en ferdig kommando i detaljene.
+2. Send **én fil** til kundens Global Administrator: `Source/Scripts/AssignPermissionsToManagedIdentity.ps1`, sammen med kommandoen skriptet skrev ut — den har tenant-ID og begge identitetenes object-ID-er ferdig utfylt:
+
+   ```powershell
+   ./AssignPermissionsToManagedIdentity.ps1 -TenantId <tenantId> -AutomationIdentityId <objectId> -UamiId <objectId>
+   ```
+
+3. GA-en trenger PowerShell 7+ og Microsoft.Graph-modulen (`Install-Module Microsoft.Graph.Applications`), logger inn interaktivt, og godkjenner scopene `AppRoleAssignment.ReadWrite.All` + `Application.Read.All`. Rollelistene er innbakt i skriptet og dokumentert i [Datatilgang og sikkerhet](Data-access-security.md).
+4. **Frem til kommandoen er kjørt får Logic Apps 401/403** — bestillinger kan ikke behandles. Nye app-roller kan bruke noen minutter på å propagere, og managed identity-tokens caches i opptil ~24 timer.
+
+Kommandoen er idempotent — eksisterende roller hoppes over, så den kan trygt kjøres på nytt, også etter en oppgradering som legger til nye roller.
 
 **Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
 

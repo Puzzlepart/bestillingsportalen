@@ -31,6 +31,15 @@
     every run. The path is resolved before anything else happens, so a typo fails
     immediately rather than after three sign-ins.
 
+.PARAMETER SkipAppRoles
+    Skip assigning Graph/SharePoint app roles to the managed identities - the one
+    step that requires Global Administrator (or Privileged Role Administrator +
+    Cloud Application Administrator). Use this when the account running the
+    deployment does not have those rights: everything else deploys, and the script
+    prints a ready-to-run AssignPermissionsToManagedIdentity.ps1 command (object
+    ids filled in) to hand to a Global Administrator. The logic apps get 401/403
+    at runtime until that command has been run.
+
 .PARAMETER SkipConfirmation
     Skip the pre-flight summary/confirmation prompt, and reuse a cached Az/Azure CLI
     session matching the target tenant without asking.
@@ -69,6 +78,7 @@ param
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipDeployAPIConnections,
+    [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
@@ -1350,7 +1360,12 @@ function ConfirmDeployment {
     WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
     WritePlanLine "SharePoint site" "$requestsSiteUrl (alias '$requestsSiteAlias'; prompts before overwriting an existing site)" $SkipSharepointSite
     WritePlanLine "Azure resources" "Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
-    WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
+    if ($SkipAppRoles) {
+        WritePlanLine "App roles" "(skipped - a handover command for a Global Administrator is printed instead)" $true
+    }
+    else {
+        WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
+    }
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
     if ($global:upgrade) {
         WritePlanLine "Logic Apps" "ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
@@ -1369,6 +1384,47 @@ function ConfirmDeployment {
         exit 0
     }
     Write-Host "Confirmed - starting deployment..." -ForegroundColor Green
+}
+
+# -SkipAppRoles: assigning app roles is the only step that needs Global Administrator
+# (or Privileged Role Administrator + Cloud Application Administrator). This function
+# replaces the two assignment functions in that scenario: it resolves the identities'
+# object ids and prints the exact AssignPermissionsToManagedIdentity.ps1 command a
+# Global Administrator must run - the role sets are baked into that script, so the
+# GA needs that ONE file and this ONE command, nothing else from the deployment.
+function EmitAppRoleHandover {
+    Write-Host "Skipping app role assignment (-SkipAppRoles) - building the handover command for a Global Administrator..." -ForegroundColor Yellow
+
+    $autoPrincipalId = az resource show --resource-group $parameters.resourceGroupName.Value --name $automationAccountName --resource-type "Microsoft.Automation/automationAccounts" --query identity.principalId --output tsv 2>$null
+    $uamiPrincipalId = az identity show --resource-group $parameters.resourceGroupName.Value --name $uamiName --query principalId --output tsv 2>$null
+
+    $handoverArgs = @("-TenantId", $parameters.tenantId.Value)
+    if (-not [string]::IsNullOrWhiteSpace($autoPrincipalId)) {
+        $handoverArgs += @("-AutomationIdentityId", $autoPrincipalId.Trim())
+    }
+    else {
+        Write-Host "WARN: Could not resolve the automation account's system-assigned identity - the handover command below lacks -AutomationIdentityId. Find the object id under the automation account's Identity blade and add it." -ForegroundColor Yellow
+    }
+    if (-not [string]::IsNullOrWhiteSpace($uamiPrincipalId)) {
+        $handoverArgs += @("-UamiId", $uamiPrincipalId.Trim())
+    }
+    else {
+        Write-Host "WARN: Could not resolve the user-assigned managed identity '$uamiName' - the handover command below lacks -UamiId. Find the object id on the identity resource and add it." -ForegroundColor Yellow
+    }
+    $handoverCommand = "./AssignPermissionsToManagedIdentity.ps1 " + ($handoverArgs -join ' ')
+
+    Write-Host ""
+    Write-Host "  App roles were NOT assigned. Send Source/Scripts/AssignPermissionsToManagedIdentity.ps1 to a Global Administrator" -ForegroundColor Cyan
+    Write-Host "  (or Privileged Role Administrator + Cloud Application Administrator) and have them run:" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "    $handoverCommand" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Requires PowerShell 7+ and the Microsoft.Graph module (Install-Module Microsoft.Graph.Applications)." -ForegroundColor Cyan
+    Write-Host "  The logic apps get 401/403 at runtime until this has been run. Safe to re-run - existing roles are skipped." -ForegroundColor Cyan
+    Write-Host ""
+
+    RecordDeployStatus -Component "App roles: $automationAccountName (system-assigned MI)" -Status 'SKIPPED' -Detail "Run as Global Administrator: $handoverCommand"
+    RecordDeployStatus -Component "App roles: $uamiName (user-assigned MI)" -Status 'SKIPPED' -Detail "Covered by the same command - see the line above"
 }
 
 function AssignManagedIdentityPermissions {
@@ -2262,8 +2318,13 @@ if (-not $SkipBicepDeploy) {
         # these resources - no point continuing.
         throw "azureresources.bicep deployment failed - see the error output above. Fix the cause and re-run the script."
     }
-    AssignManagedIdentityPermissions
-    AssignUamiPermissions
+    if ($SkipAppRoles) {
+        EmitAppRoleHandover
+    }
+    else {
+        AssignManagedIdentityPermissions
+        AssignUamiPermissions
+    }
     DeployLocalRunbooks
     Write-Host "Finished deploying automation account and managed identity..." -ForegroundColor Green
 }
@@ -2272,7 +2333,12 @@ else {
     RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'SKIPPED'
     # The logic apps and API connections still need the app roles on the user-assigned
     # managed identity - keep them in sync even when the bicep deployment is skipped.
-    AssignUamiPermissions
+    if ($SkipAppRoles) {
+        EmitAppRoleHandover
+    }
+    else {
+        AssignUamiPermissions
+    }
 }
 
 if (-not $SkipDeployARMTemplates) {
