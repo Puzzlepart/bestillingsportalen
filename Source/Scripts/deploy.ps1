@@ -1106,14 +1106,18 @@ function ValidateSiteAlias {
 # summary. Provisioning sites in a language other than the root site's has caused
 # problems, so the language is stated up front instead of being discovered afterwards.
 #
-# Read via Get-PnPTenantSite because the pre-flight runs on the -admin connection:
-# SiteProperties carries Lcid, so no extra connection (and no extra browser prompt)
-# is needed. Never throws - a failure to read a display value must not abort a
-# deployment that has not changed anything yet.
+# Read from the root WEB (Web.Language), not from Get-PnPTenantSite: SiteProperties
+# has an Lcid member but does not reliably populate it - a real tenant reported 0.
+# The pre-flight runs on the -admin connection, so the root web is read over a
+# SEPARATE connection object (-ReturnConnection) that leaves the default connection
+# untouched; the token from the first sign-in is reused, so no extra browser prompt.
+# Never throws - a failure to read a display value must not abort a deployment that
+# has not changed anything yet.
 function GetRootSiteLanguage {
     try {
-        $rootSite = Get-PnPTenantSite -Url $global:tenantUrl -ErrorAction Stop
-        $lcid = [int]$rootSite.Lcid
+        $rootConnection = Connect-PnPOnline -Url $global:tenantUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
+        $rootWeb = Get-PnPWeb -Includes Language -Connection $rootConnection -ErrorAction Stop
+        $lcid = [int]$rootWeb.Language
         if ($lcid -le 0) {
             return "not reported by $global:tenantUrl"
         }
