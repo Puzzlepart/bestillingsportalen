@@ -57,7 +57,7 @@ Bruk oppgraderingsmodus når du vil:
 
 ### ❌ Oppdateres IKKE i oppgraderingsmodus
 
-1. **Listedata** – Alle eksisterende elementer beholdes:
+1. **Listedata** – Alle eksisterende elementer beholdes uendret:
    - Provisioning Request Settings
    - Provisioning Types (egne typer du har lagt til)
    - Site Templates
@@ -67,6 +67,8 @@ Bruk oppgraderingsmodus når du vil:
    - Locales
    - IP Labels
    - Eksisterende provisioning requests
+
+   **Merk:** PnP-malen seeder standardelementer via `<pnp:DataRows>` med `UpdateBehavior="Skip"`. Eksisterende elementer røres aldri, men **manglende standardelementer legges til** når malen anvendes — det er slik nye innstillinger i en release når oppgraderte miljøer. To konsekvenser: standardelementer som bevisst er slettet (f.eks. en fjernet områdetype) kommer tilbake ved oppgradering (sett heller `Allowed` til `false`), og standardelementer må ikke gis nytt navn — `Title` er nøkkelen som avgjør om elementet finnes (unntatt Time Zones, som bruker `TimeZoneId`), så et omdøpt element re-opprettes som duplikat.
 
 2. **Ressurser (bilder/ikoner):**
    - Bilder for Provisioning Types
@@ -214,8 +216,10 @@ Hvis du foretrekker å oppdatere Logic Apps manuelt (nyttig for å gjennomgå en
    ```powershell
    # Koble til med PnP-appen (interaktiv nettleserinnlogging)
    Connect-PnPOnline -Url "https://yourtenant.sharepoint.com/sites/bestillingsportalen" -ClientId <your-pnp-app-id> -Interactive
-   Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation
+   Invoke-PnPSiteTemplate -Path "../Templates/Bestillingsportalen.xml" -ClearNavigation -Parameters @{ SPOManagedPath = "sites" }
    ```
+
+   Malen seeder også standard listeelementer (eksisterende røres aldri, manglende legges til). `SPOManagedPath` styrer verdien på den tilsvarende innstillingen for *nye* elementer — sett den til `teams` hvis tenanten bruker den administrerte banen (utelates parameteren brukes `sites`).
 
    I praksis er **Alternativ A anbefalt** – skriptet henter liste-ID-er og øvrige parametre automatisk.
 
@@ -226,7 +230,7 @@ Skriptet vil:
 1. **Validere parametere** – Sjekke `parameters.json`-konfigurasjonen
 2. **Koble til tjenester** – Logge inn på Azure, Azure CLI og PnP PowerShell
 3. **Prompt om PnP-mal** – Hvis området finnes, spør om template skal anvendes (se «Den interaktive prompten» over)
-4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen UTEN å endre listedata
+4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen uten å endre eksisterende listeelementer (manglende standardelementer legges til)
 5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
 6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2), og runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres automatisk.
 7. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
@@ -243,7 +247,7 @@ Når oppgraderingen er fullført:
 
 2. **Sjekk listedata**
    - Åpne Provisioning Types-listen – verifiser at alle egendefinerte typer fortsatt finnes
-   - Sjekk Provisioning Request Settings – bekreft at innstillingene er beholdt
+   - Sjekk Provisioning Request Settings – bekreft at innstillingene er beholdt (nye standardinnstillinger fra releasen kan ha kommet til)
    - Gjennomgå pågående eller fullførte provisioning requests
 
 3. **Test arbeidsflyten**

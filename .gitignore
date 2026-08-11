@@ -5,6 +5,9 @@ Source/Scripts/parameters-*.json
 !Source/Scripts/parameters.template.json
 .DS_Store
 
+# Excel-låsefiler
+~$*.xlsx
+
 # SPFx build artifacts
 Source/SharePointFramework/**/node_modules/
 Source/SharePointFramework/**/lib/

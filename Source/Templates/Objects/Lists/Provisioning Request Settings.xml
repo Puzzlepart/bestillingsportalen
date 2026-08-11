@@ -62,4 +62,279 @@
       </CHOICES>
     </Field>
   </pnp:Fields>
+  <pnp:DataRows KeyColumn="Title" UpdateBehavior="Skip">
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">PostToTeams</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Kontrollerer om et godkjenningskort skal sendes til Teams ved innsending av en forespørsel.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">AdminGroupId</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">ID-en til en Microsoft 365-gruppe, Team eller sikkerhetsgruppe som inneholder administratorer for Bestillingsportalen.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">ApproverEmail</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">E-post/UPN til en godkjenner eller Microsoft 365-gruppe for å godkjenne forespørsler. Brukes hvis PostToTeams-innstillingen er satt til false.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">TeamsChannelID</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Kanal-ID for Teams-kanalen hvor godkjenningskortet skal postes.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">TeamsTeamID</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Team-ID for teamet hvor godkjenningskortet skal postes.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">AllowHubJoin</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">true</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Vis eller skjul Hub Join-seksjonen fra forespørselsskjemaet i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EmailAccentColor</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">#008575</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aksentfarge (HEX-format) for merkede e-poster brukt i forespørselsarbeidsflyter.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">SPOManagedPath</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">{parameter:SPOManagedPath}</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Administrert bane brukt i gjeldende tenant ('sites' eller 'teams').</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">TenantURL</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">{hosturl}</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Rot-URL for tenanten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">LogoPath</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">https://github.com/Puzzlepart/prosjektportalen365/blob/main/assets/pp365_logo.png</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Sti til firmalogo på et offentlig tilgjengelig sted for bruk i e-poster til eksterne gjester og interne forespørselsarbeidsflyt-e-poster.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">CompanyName</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">Puzzlepart</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Firmanavn som skal vises i invitasjons-e-poster til eksterne gjester.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">SiteClassifications</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Nettstedsklassifikasjoner konfigurert for tenanten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">UseNamingConventions</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver eller deaktiver funksjonaliteten for navnekonvensjoner.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">NamingConvention</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Navnekonvensjonen som skal brukes.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultTimeZone</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">4</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard tidssone-ID for forespørsler.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultLCID</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">1044</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard lokal-ID for forespørsler.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableSensitivityLabels</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for sensitivitetsetiketter.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultSensitivityLabel</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard sensitivitetsetikett som vises. Dette må settes til en gyldig etikett-ID fra IP-etikettlisten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableSensitivityLabelsLibrary</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for sensitivitetsetiketter for bibliotek.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultSensitivityLabelLibrary</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard sensitivitetsetikett som vises på bibliotek. Dette må settes til en gyldig etikett-ID fra IP-etikettlisten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">RequireSensitivityLabel</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Krev at brukeren velger en sensitivitetsetikett i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableAllowAccessRequests</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiverer muligheten til å tillate tilgangsforespørsler for SharePoint-området som støtter et opprettet område. Som standard er dette alternativet deaktivert for områder satt til 'Privat'.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultExternalSharingSetting</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standardinnstilling for ekstern deling for alle opprettede SharePoint-områder.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">HideExternalSharing</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Skjul den eksterne delingsskjermen fra brukeren i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableExternalSharingByDefault</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver ekstern deling som standard (Sett radioboksvalget til Ja).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">RequireSiteTemplate</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Krev at brukeren velger en SharePoint-områdemal i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">RequireTeamsTemplate</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Krev at brukeren velger en Teams-mal i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultSiteTemplateItemId</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Listeelement-ID for områdemalen som vil bli valgt som standard i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultTeamsTemplateItemId</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Listeelement-ID for Teams-malen som vil bli valgt som standard.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultStorageQuota</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">0</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard lagringskvote (i MB) som skal settes på SharePoint-området som støtter det opprettede området. Hvis dette settes til 0, vil standard tenantkonfigurasjon bli brukt.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultStorageQuotaWarning</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">0</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard varslingsnivå for lagringskvote (i MB) som skal settes på SharePoint-området som støtter det opprettede området. Hvis dette settes til 0, vil standard tenantkonfigurasjon bli brukt.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableHubSitePermissionsSync</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiverer muligheten til å synkronisere tillatelser for hub-områder forespurt gjennom Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DisableDocumentSync</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Deaktiverer synkroniseringsknappen i dokumentbiblioteket delte dokumenter for et opprettet område.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableRetentionLabels</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for oppbevaringsetiketter.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultRetentionLabel</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard oppbevaringsetikett som vises. Dette må settes til et gyldig etikett-navn fra oppbevaringsetikettlisten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">RequireRetentionLabel</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Krev at brukeren velger en oppbevaringsetikett i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">FeaturesToActivate</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Kommaseparert liste over funksjoner (ID-er) for å aktivere på SharePoint-området, f.eks. Dokumentsett. Nettstedsamlingfunksjoner bør ha prefikset Site: og nettfunksjoner bør ha prefikset Web: f.eks. Site:3bae86a2-776d-499d-9db8-fa4cdc7884f8,Web:4aec7207-0d02-4f4f-aa07-b370199cd0c7.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">CustomBlockedWords</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Liste over blokkerte ord for M365-grupper. Synkronisert automatisk fra Azure AD. Verdi lagret i BlockedWordsValue-kolonnen og er skjult fra skjemaer. Gjelder Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">TeamsWelcomeMessage</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">Velkommen til ditt nye team!
+&lt;br&gt;&lt;br&gt;
+Takk for at du bruker Bestillingsportalen.
+&lt;br&gt;&lt;br&gt;
+Teamet er nå klart for bruk og du kan begynne å legge til medlemmer, eiere, poste meldinger i kanaler osv.
+
+Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Teams - https://support.microsoft.com/en-us/teams.</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Velkomstmelding som postes i Teams generelle kanal når et Teams-team er opprettet. Godtar HTML-formatering.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableApprovalReminderEmails</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">true</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver påminnelses-e-poster for utestående forespørselsgodkjenninger. Dette påvirker ikke godkjenningskort i Teams-kanalen.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DisableApprovalNotifications</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Deaktiver Power Automate-godkjenningsvarsler for godkjenningsflyten.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">ApprovalReminderInterval</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">5</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Intervall for påminnelses-e-post om godkjenning i dager.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">HideSiteTemplate</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Skjul områdemal-skjermen fra brukeren i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">HideDataClassification</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Skjul skjermen for dataklassifisering fra brukeren i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableAutoApproval</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiverer forespørsler til å bli automatisk godkjent. Power App vil godkjenne forespørsler ved innsending og godkjenningsflyten vil ikke kjøre.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableBusinessUnits</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for forretningsenheter.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableBusinessUnitsApproval</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver godkjenningsfunksjonaliteten for forretningsenheter. PostToTeams må være satt til false for at dette skal fungere.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnablePublicSpaceApprovalOnly</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver godkjenninger kun for offentlige rom, private rom vil bli automatisk godkjent.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">AppSecAccentColor</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Sekundær aksentfarge (HEX-format) brukt i hele appen (f.eks. for knapper).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">AppPriAccentColor</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Primær aksentfarge (HEX-format) brukt i hele appen (f.eks. for venstre stolpe som viser trinnene).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">CustomerLogo</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Logo som skal vises i Power App. Bruk egenskapen "ShowCustomerLogo" for å vise eller skjule logoen.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">ShowCustomerLogo</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">true</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Skal logo vises i Power App</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">MinimumOwners</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">1</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Minimum antall eiere som må legges inn i bestillingen. Legg inn kun tallverdi som er høyere enn 0. Påvirker feltet i Power App.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableExpirationDate</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for utløpsdato.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableReadOnlyGroup</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for lesetilgangsgruppe.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">DefaultReadOnlyGroup</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Standard lesetilgangsgruppe. Dette må settes til en gyldig gruppe.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableInternalChannel</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for intern kanal.</pnp:DataValue>
+    </pnp:DataRow>
+  </pnp:DataRows>
 </pnp:ListInstance>

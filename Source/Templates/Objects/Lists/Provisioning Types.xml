@@ -104,4 +104,89 @@
         <Field DisplayName="Default Hub" Name="DefaultHub" Title="Default Hub" Type="Text" ID="{53778c0f-bb26-4b14-a6e6-14fc9765a962}" StaticName="DefaultHub" />
         <Field DisplayName="Teams Channel ID" Name="TeamsChannelID" Title="Teams Channel ID" Type="Text" ID="{580a28ae-d3ee-4f05-a69c-4765bce2f280}" StaticName="TeamsChannelID" />
     </pnp:Fields>
+    <pnp:DataRows KeyColumn="Title" UpdateBehavior="Skip">
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Prosjektområde</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">10</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Prosjekt er et type område for Prosjektportalen som er basert på prosjektveiviseren.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">true</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/prosjektomrade.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/SharePoint.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Project</pnp:DataValue>
+        <pnp:DataValue FieldName="JoinHub">true</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Private</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Gruppeområde</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">20</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Et SharePoint-gruppeområde lar deg og teamet ditt lagre dokumenter, publisere nyheter og mer.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">false</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">#STS3</pnp:DataValue>
+        <pnp:DataValue FieldName="WebTemplateId">1</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/teamsite.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/SharePoint.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Team Site</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Private</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Microsoft 365-gruppe</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">30</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">En Microsoft 365-gruppe gir ytterligere funksjonalitet utover et gruppeområde, inkludert planner, delt kalender, innboks og mer. Du kan velge å inkludere Teams senere.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">true</pnp:DataValue>
+        <pnp:DataValue FieldName="WebTemplateId">64</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/group.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/SharePoint.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Office 365 Group</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Private</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Kommunikasjonsområde</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">40</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Et kommunikasjonsområde er et attraktivt område som lar deg vise frem et produkt eller fungere som en del av et intranett.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">false</pnp:DataValue>
+        <pnp:DataValue FieldName="WebTemplateId">68</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/commsite.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/SharePoint.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Communication Site</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Public</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">false</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Microsoft Teams Team</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">50</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Teams er en samarbeidsplattform for kommunikasjon som organiserer en gruppes chatter, videosamtaler, talesamtaler, dokumenter og filer.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">false</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/team.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/Teams.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Microsoft Teams Team</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Private</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Hubområde</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">60</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">SharePoint-hubområder hjelper deg med å møte organisasjonens behov ved å koble sammen og organisere områder basert på prosjekt, avdeling, divisjon, region osv.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">false</pnp:DataValue>
+        <pnp:DataValue FieldName="WebTemplateId">68</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/hubsite.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/SharePoint.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Hub Site</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Public</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">false</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Viva Engage Community</pnp:DataValue>
+        <pnp:DataValue FieldName="SortOrder">70</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Et Viva Engage-fellesskap er et område for kunnskapsdeling, bedriftskommunikasjon, lederengasjement, samtaler, filer, arrangementer og oppdateringer.</pnp:DataValue>
+        <pnp:DataValue FieldName="Allowed">false</pnp:DataValue>
+        <pnp:DataValue FieldName="Image">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesImages/vivaengagecommunity.png</pnp:DataValue>
+        <pnp:DataValue FieldName="Icon">{hosturl}{site}/SiteAssets/Provisioning Request/ProvTypesIcons/VivaEngage.png</pnp:DataValue>
+        <pnp:DataValue FieldName="InternalTitle">Viva Engage Community</pnp:DataValue>
+        <pnp:DataValue FieldName="DefaultVisibility">Public</pnp:DataValue>
+        <pnp:DataValue FieldName="ExternalSharing">false</pnp:DataValue>
+      </pnp:DataRow>
+    </pnp:DataRows>
 </pnp:ListInstance>

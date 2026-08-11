@@ -51,9 +51,4 @@ Oppdater verdien på innstillingen **`EnablePublicSpaceApprovalOnly`** til `true
 
 Dette er designet for organisasjoner der `Private`-områder anses å ha lavere risiko enn `Public`-områder.
 
-**Merk: Dette alternativet er kanskje ikke tilgjengelig i den installerte versjonen av Bestillingsportalen. For å oppgradere til nyeste versjon må du følge stegene nedenfor for å legge til funksjonaliteten slik at godkjenningsflyten fungerer.**
-
-1. Finn og gå til `Provisioning Request Settings`-listen.
-2. Åpne regnearket [SharePoint List Items](./Source/Settings/SharePoint%20List%20items.xlsx).
-3. I arkfanen `Provisioning Request Settings`, finn innstillingen **`EnablePublicSpaceApprovalOnly`** og opprett elementet i innstillings-listen ved å kopiere inn Title, Value og Description.
-4. Aktiver eller deaktiver funksjonaliteten ved å sette `Value`-kolonnen til `true` eller `false`.
+**Merk: Dette alternativet er kanskje ikke tilgjengelig i den installerte versjonen av Bestillingsportalen.** Kjør en [oppgradering](Upgrade.md) (eller re-appliser PnP-malen) — manglende standardinnstillinger, inkludert **`EnablePublicSpaceApprovalOnly`**, opprettes da automatisk med standardverdi uten at eksisterende innstillinger endres. Aktiver eller deaktiver deretter funksjonaliteten ved å sette `Value` på elementet til `true` eller `false` i `Provisioning Request Settings`-listen.

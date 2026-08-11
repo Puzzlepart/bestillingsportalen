@@ -10,7 +10,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 
 - [ ] Windows 10/11 med PowerShell **7.4+**
 - [ ] Azure CLI installert, og `az login` fungerer gjennom brannmur/proxy
-- [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, ImportExcel, WriteAscii
+- [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, WriteAscii
 - [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxDeploy`)
 
 **Kontoen som kjører installasjonen:**
@@ -89,7 +89,6 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 - PnP.PowerShell (3.2 eller nyere — versjonen sjekkes av installasjonsskriptet)
 - Az
-- ImportExcel
 - WriteAscii
 
 ## Steg 1: Konfigurere PowerShell
@@ -265,7 +264,7 @@ Godkjenninger av bestillinger bruker én Power Automate-flyt som kjører når st
 
 Følg stegene for å konfigurere Bestillingsportalen-innstillingene avhengig av hvilken godkjenningsmetode du vil bruke.
 
-Innstillingene for Bestillingsportalen finnes i `Provisioning Request Settings`-listen som nøkkel/verdi-par (Title/Value). Begge kolonnene er `Single line of text`.
+Innstillingene for Bestillingsportalen finnes i `Provisioning Request Settings`-listen som nøkkel/verdi-par (Title/Value). Standardverdiene seedes av PnP-malen ved installasjon (`<pnp:DataRows>` i `Source/Templates/Objects/Lists/Provisioning Request Settings.xml`) — eksisterende elementer røres aldri ved re-apply, og manglende standardelementer legges til.
 
 ### Power Automate Approvals
 

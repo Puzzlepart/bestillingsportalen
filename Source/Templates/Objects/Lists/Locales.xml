@@ -13,4 +13,898 @@
   <pnp:Fields>
     <Field CommaSeparator="FALSE" Decimals="0" DisplayName="LCID" Format="Dropdown" Name="LCID" Percentage="FALSE" Title="LCID" Type="Number" ID="{b4e858c6-e961-408e-bc35-34a5ce313cd2}" StaticName="LCID" />
   </pnp:Fields>
+  <pnp:DataRows KeyColumn="Title" UpdateBehavior="Skip">
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Afrikaans - South Africa</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1078</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Albanian - Albania</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1052</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Amharic - Ethiopia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1118</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Saudi Arabia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1025</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Algeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5121</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Bahrain</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">15361</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Egypt</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3073</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Iraq</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2049</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Jordan</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">11265</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Kuwait</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">13313</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Lebanon</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">12289</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Libya</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4097</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Morocco</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">6145</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Oman</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">8193</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Qatar</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">16385</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Syria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">10241</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Tunisia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">7169</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - U.A.E.</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">14337</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Arabic - Yemen</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">9217</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Armenian - Armenia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1067</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Assamese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1101</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Azeri (Cyrillic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2092</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Azeri (Latin)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1068</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Basque</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1069</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Belarusian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1059</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Bengali (India)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1093</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Bengali (Bangladesh)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2117</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Bosnian (Bosnia/Herzegovina)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5146</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Bulgarian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1026</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Burmese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1109</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Catalan</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1027</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Cherokee - United States</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1116</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Chinese - People's Republic of China</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2052</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Chinese - Singapore</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4100</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Chinese - Taiwan</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1028</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Chinese - Hong Kong SAR</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3076</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Chinese - Macao SAR</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5124</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Croatian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1050</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Croatian (Bosnia/Herzegovina)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4122</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Czech</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1029</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Danish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1030</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Divehi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1125</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Dutch - Netherlands</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1043</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Dutch - Belgium</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2067</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Edo</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1126</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - United States</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1033</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - United Kingdom</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2057</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Australia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3081</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Belize</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">10249</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Canada</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4105</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Caribbean</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">9225</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Hong Kong SAR</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">15369</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - India</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">16393</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Indonesia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">14345</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Ireland</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">6153</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Jamaica</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">8201</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Malaysia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">17417</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - New Zealand</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5129</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Philippines</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">13321</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Singapore</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">18441</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - South Africa</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">7177</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Trinidad</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">11273</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">English - Zimbabwe</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">12297</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Estonian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1061</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Faroese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1080</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Farsi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1065</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Filipino</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1124</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Finnish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1035</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - France</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1036</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Belgium</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2060</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Cameroon</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">11276</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Canada</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3084</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Democratic Rep. of Congo</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">9228</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Cote d'Ivoire</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">12300</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Haiti</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">15372</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Luxembourg</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5132</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Mali</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">13324</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Monaco</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">6156</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Morocco</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">14348</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - North Africa</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">58380</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Reunion</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">8204</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Senegal</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">10252</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - Switzerland</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4108</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">French - West Indies</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">7180</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Frisian - Netherlands</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1122</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Fulfulde - Nigeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1127</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">FYRO Macedonian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1071</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Gaelic (Ireland)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2108</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Gaelic (Scotland)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1084</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Galician</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1110</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Georgian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1079</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">German - Germany</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1031</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">German - Austria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3079</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">German - Liechtenstein</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5127</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">German - Luxembourg</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4103</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">German - Switzerland</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2055</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Greek</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1032</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Guarani - Paraguay</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1140</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Gujarati</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1095</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Hausa - Nigeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1128</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Hawaiian - United States</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1141</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Hebrew</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1037</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Hindi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1081</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Hungarian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1038</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Ibibio - Nigeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1129</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Icelandic</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1039</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Igbo - Nigeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1136</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Indonesian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1057</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Inuktitut</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1117</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Italian - Italy</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1040</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Italian - Switzerland</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2064</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Japanese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1041</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kannada</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1099</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kanuri - Nigeria</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1137</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kashmiri</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2144</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kashmiri (Arabic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1120</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kazakh</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1087</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Khmer</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1107</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Konkani</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1111</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Korean</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1042</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Kyrgyz (Cyrillic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1088</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Lao</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1108</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Latin</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1142</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Latvian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1062</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Lithuanian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1063</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Malay - Malaysia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1086</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Malay - Brunei Darussalam</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2110</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Malayalam</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1100</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Maltese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1082</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Manipuri</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1112</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Maori - New Zealand</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1153</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Marathi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1102</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Mongolian (Cyrillic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1104</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Mongolian (Mongolian)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2128</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Nepali</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1121</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Nepali - India</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2145</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Norwegian (Bokmål)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1044</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Norwegian (Nynorsk)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2068</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Oriya</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1096</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Oromo</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1138</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Papiamentu</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1145</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Pashto</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1123</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Polish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1045</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Portuguese - Brazil</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1046</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Portuguese - Portugal</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2070</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Punjabi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1094</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Punjabi (Pakistan)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2118</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Quecha - Bolivia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1131</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Quecha - Ecuador</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2155</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Quecha - Peru</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3179</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Rhaeto-Romanic</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1047</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Romanian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1048</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Romanian - Moldava</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2072</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Russian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1049</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Russian - Moldava</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2073</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sami (Lappish)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1083</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sanskrit</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1103</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sepedi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1132</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Serbian (Cyrillic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3098</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Serbian (Latin)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2074</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sindhi - India</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1113</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sindhi - Pakistan</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2137</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sinhalese - Sri Lanka</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1115</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Slovak</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1051</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Slovenian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1060</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Somali</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1143</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sorbian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1070</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Spain (Modern Sort)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">3082</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Spain (Traditional Sort)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1034</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Argentina</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">11274</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Bolivia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">16394</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Chile</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">13322</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Colombia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">9226</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Costa Rica</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">5130</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Dominican Republic</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">7178</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Ecuador</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">12298</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - El Salvador</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">17418</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Guatemala</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">4106</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Honduras</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">18442</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Latin America</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">58378</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Mexico</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2058</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Nicaragua</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">19466</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Panama</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">6154</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Paraguay</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">15370</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Peru</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">10250</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Puerto Rico</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">20490</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - United States</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">21514</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Uruguay</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">14346</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Spanish - Venezuela</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">8202</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Sutu</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1072</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Swahili</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1089</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Swedish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1053</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Swedish - Finland</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2077</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Syriac</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1114</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tajik</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1064</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tamazight (Arabic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1119</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tamazight (Latin)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2143</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tamil</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1097</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tatar</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1092</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Telugu</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1098</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Thai</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1054</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tibetan - Bhutan</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2129</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tibetan - People's Republic of China</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1105</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tigrigna - Eritrea</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2163</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tigrigna - Ethiopia</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1139</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tsonga</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1073</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Tswana</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1074</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Turkish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1055</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Turkmen</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1090</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Uighur - China</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1152</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Ukrainian</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1058</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Urdu</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1056</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Urdu - India</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2080</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Uzbek (Cyrillic)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">2115</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Uzbek (Latin)</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1091</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Venda</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1075</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Vietnamese</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1066</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Welsh</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1106</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Xhosa</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1076</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Yi</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1144</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Yiddish</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1085</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Yoruba</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1130</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">Zulu</pnp:DataValue>
+      <pnp:DataValue FieldName="LCID">1077</pnp:DataValue>
+    </pnp:DataRow>
+  </pnp:DataRows>
 </pnp:ListInstance>

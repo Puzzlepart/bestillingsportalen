@@ -147,23 +147,14 @@ $packageRootPath = "..\"
 $imagesDir = "Assets\ProvTypesImages"
 $iconsDir = "Assets\ProvTypesIcons"
 $templatePath = "Templates\Bestillingsportalen.xml"
-$settingsPath = "Settings\SharePoint List items.xlsx"
 
 # Required PS modules (value = minimum version; $null = any version).
 # PnP.PowerShell 3.2+ is required for the interactive/persisted login used by ConnectPnP.
 $preReqModules = [ordered]@{
     'PnP.PowerShell' = [version]'3.2.0'
     'Az'             = $null
-    'ImportExcel'    = $null
     'WriteAscii'     = $null
 }
-
-#  Worksheets
-$provRequestSettingsWorksheetName = "Provisioning Request Settings"
-$provTypesWorksheetName = "Provisioning Types"
-$teamsTemplatesWorksheetName = "Teams Templates"
-$timeZonesWorksheetName = "Time Zones"
-$localesWorksheetName = "Locales"
 
 #  lists
 $requestsListName = "Provisioning Requests"
@@ -173,8 +164,6 @@ $provTypesListName = "Provisioning Types"
 $siteTemplatesListName = "Site Templates"
 $hubSitesListName = "Hub Sites"
 $teamsTemplatesListName = "Teams Templates"
-$timeZonesListName = "Time Zones"
-$localesListName = "Locales"
 $ipLabelsListName = "IP Labels"
 $guestRequestsListName = "Guest Requests"
 
@@ -571,29 +560,35 @@ function ConfigureSharePointSite {
 
             Write-Host "Applying provisioning template..." -ForegroundColor Yellow
 
+            # Default list items are seeded by the <pnp:DataRows> blocks in the template
+            # (KeyColumn + UpdateBehavior="Skip"): existing items are never modified,
+            # missing default items are added. SPOManagedPath is the only template parameter.
+            $templateParameters = @{ SPOManagedPath = $parameters.managedPath.Value }
+
             if ($global:upgrade) {
                 # Preserve existing navigation in upgrade mode - apply schema/settings only
-                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath)
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -Parameters $templateParameters
             }
             else {
-                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation
+                Invoke-PnPSiteTemplate -Path (Join-Path $packageRootPath $templatePath) -ClearNavigation -Parameters $templateParameters
             }
 
             Write-Host "Applied template" -ForegroundColor Green
         }
-        
-        # Skip the destructive list population when upgrading OR when the user chose to
-        # keep the existing site content (the population below deletes and re-seeds the
-        # Settings/Provisioning Types/Teams Templates/Time Zones lists from the package
-        # defaults, wiping any customisations). List ids are still collected - they are
-        # needed for the Logic App deployments.
+
+        # In upgrade mode (or when the user chose to keep the existing site content) the
+        # remaining site configuration below (field renames, folder recreation, form
+        # visibility tweaks) was already done at install time and is skipped. List item
+        # seeding happens inside the template apply above and only adds missing default
+        # rows - existing items are never touched. List ids are still collected - they
+        # are needed for the Logic App deployments.
         if ($global:upgrade -or $global:skipApplyTemplate) {
             if ($global:upgrade) {
-                Write-Host "Running in Upgrade Mode - skipping list item population" -ForegroundColor Yellow
+                Write-Host "Running in Upgrade Mode - skipping site configuration (list items: existing preserved, missing defaults added by the template)" -ForegroundColor Yellow
                 Write-Host "For more information, see Upgrade.md" -ForegroundColor Cyan
             }
             else {
-                Write-Host "Keeping existing site content - skipping list item population (only collecting list ids)" -ForegroundColor Yellow
+                Write-Host "Keeping existing site content - skipping site configuration (only collecting list ids)" -ForegroundColor Yellow
             }
 
             # Still need to get list IDs for logic app deployment
@@ -708,41 +703,12 @@ function ConfigureSharePointSite {
 
         $global:hubSitesListId = $hubSitesList.Id
 
-        # Delete existing settings items
-        $settingsItems = Get-PnPListItem -List $siteRequestsSettingsList
-
-        foreach ($settingItem in $settingsItems) {
-            Remove-PnPListItem -List $siteRequestsSettingsList -Identity $settingItem -Force
-        }
-
-        $siteRequestSettings = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $provRequestSettingsWorksheetName
-        foreach ($setting in $siteRequestSettings) {
-            if ($setting.Title -eq "TenantURL") {
-                $setting.Value = $global:tenantUrl
-            }
-            if ($setting.Title -eq "SPOManagedPath") {
-                $setting.Value = $parameters.managedPath.Value
-            }
-            # Sensitivity labels are enabled by flipping EnableSensitivityLabels in the
-            # 'Provisioning Request Settings' list after install - there is no install-time
-            # parameter for it. Nothing is conditionally deployed: the SyncLabels logic app,
-            # the IP Labels list and InformationProtectionPolicy.Read.All are always in
-            # place, so the list item is the only switch. See Sensitivity-labels.md.
-            $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-            $newItem = $siteRequestsSettingsList.AddItem($listItemCreationInformation)
-            $newitem["Title"] = $setting.Title
-            $newitem["Description"] = $setting.Description
-            # Hide site classifications option if no site classifications were found in the tenant
-            if ($null -eq $global:siteClassifications -and $setting.Title -eq "HideSiteClassifications") {
-                $newItem["Value"] = "true"
-            }
-            else {
-                $newitem["Value"] = $setting.Value
-            }
-            $newitem.Update()
-            $context.ExecuteQuery()
-
-        }
+        # Default settings items are seeded by the <pnp:DataRows> block in the template.
+        # Sensitivity labels are enabled by flipping EnableSensitivityLabels in the
+        # 'Provisioning Request Settings' list after install - there is no install-time
+        # parameter for it. Nothing is conditionally deployed: the SyncLabels logic app,
+        # the IP Labels list and InformationProtectionPolicy.Read.All are always in
+        # place, so the list item is the only switch. See Sensitivity-labels.md.
 
         # Hide blocked words field in settings list
         $field = $siteRequestsSettingsList.Fields.GetByInternalNameOrTitle("BlockedWordsValue")
@@ -753,39 +719,12 @@ function ConfigureSharePointSite {
         $field.SetShowInDisplayForm($false)
         $context.ExecuteQuery()
 
-        Write-Host "Added settings to Provisioning Requests Settings list" -ForegroundColor Green
+        Write-Host "Configured Provisioning Request Settings list" -ForegroundColor Green
 
-        # Adding provisioning types to Provisioning Types list
-        $provTypesList = Get-PnPList $provTypesListName 
+        # Configure the Provisioning Types list (items are seeded by the template)
+        $provTypesList = Get-PnPList $provTypesListName
         $context.Load($provTypesList)
         $context.ExecuteQuery()
-
-        # Delete existing provisioning types 
-        $provTypeItems = Get-PnPListItem -List $provTypesList
-
-        foreach ($provTypeItem in $provTypeItems) {
-            Remove-PnPListItem -List $provTypesList -Identity $provTypeItem -Force
-        }
-
-        $provTypes = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $provTypesWorksheetName
-        foreach ($provType in $provTypes) {
-            $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-            $newItem = $provTypesList.AddItem($listItemCreationInformation)
-            $newitem["SortOrder"] = $provType.SortOrder
-            $newitem["Title"] = $provType.Title
-            $newitem["Description"] = $provType.Description
-            $newitem["Allowed"] = $provType.Allowed
-            $newitem["TemplateId"] = $provType.TemplateID
-            $newitem["Image"] = "$requestsSiteUrl/$imageFolderUpload/$($provType.Image)"
-            $newItem["Icon"] = "$requestsSiteUrl/$iconFolderUpload/$($provType.Icon)"
-            $newitem["WebTemplateId"] = $provType.WebTemplateID
-            $newitem["LearnVideoURL"] = $provType.LearnVideo
-            $newItem["InternalTitle"] = $provType.InternalTitle
-            $newItem["JoinHub"] = $provType.JoinHub
-            $newitem["DefaultVisibility"] = $provType.DefaultVisibility
-            $newitem.Update()
-            $context.ExecuteQuery()
-        }
 
         #Hide internal title field in provisioning types list
         $field = $provTypesList.Fields.GetByInternalNameOrTitle("InternalTitle")
@@ -796,89 +735,14 @@ function ConfigureSharePointSite {
         $field.SetShowInDisplayForm($false)
         $context.ExecuteQuery()
 
-        Write-Host "Added provisioning types to Provisioning Types list" -ForegroundColor Green
+        Write-Host "Configured Provisioning Types list" -ForegroundColor Green
 
-        # Adding templates to Teams Templates list
+        # Get id of the Teams Templates list (items are seeded by the template)
         $teamsTemplatesList = Get-PnPList $teamsTemplatesListName
         $context.Load($teamsTemplatesList)
         $context.ExecuteQuery()
 
         $global:teamsTemplatesListId = $teamsTemplatesList.Id
-
-        # Delete existing teams templates items
-        $teamsTemplatesItems = Get-PnPListItem -List $teamsTemplatesList
-
-        foreach ($teamsTemplateItem in $teamsTemplatesItems) {
-            Remove-PnpListItem -List $teamsTemplatesList -Identity $teamsTemplateItem -Force
-        }
-
-        $teamsTemplates = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $teamsTemplatesWorksheetName
-        foreach ($template in $teamsTemplates) {
-            If (!$parameters.IsEdu.Value -and ($template.BaseTemplateId -eq "educationStaff" -or $template.BaseTemplateId -eq "educationProfessionalLearningCommunity")) {
-                # Tenant is not an EDU tenant  - do nothing
-            }
-            else {
-                $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-                $newItem = $teamsTemplatesList.AddItem($listItemCreationInformation)
-                $newItem["Title"] = $template.Title
-                $newItem["TemplateId"] = $template.TemplateId
-                $newItem["TeamId"] = $template.TeamId
-                $newItem["Description"] = $template.Description
-                $newItem["AdminCenterTemplate"] = $template.AdminCenterTemplate
-                $newitem.Update()
-                $context.ExecuteQuery()
-            }
-        }
-
-        Write-Host "Added templates to Teams Templates list" -ForegroundColor Green
-
-        # Adding time zones to the Time Zones list
-        $timeZonesList = Get-PnPList $timeZonesListName
-        $context.Load($timeZonesList)
-        $context.ExecuteQuery()
-
-        # Delete existing time zone items
-        $timeZoneItems = Get-PnPListItem -List $timeZonesList
-
-        foreach ($timeZoneItem in $timeZoneItems) {
-            Remove-PnpListItem -List $timeZonesList -Identity $timeZoneItem -Force
-        }
-
-        $timeZones = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $timeZonesWorksheetName
-        foreach ($timeZone in $timeZones) {
-            $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-            $newItem = $timeZonesList.AddItem($listItemCreationInformation)
-            $newItem["Title"] = $timeZone.Title
-            $newItem["TimeZoneId"] = $timeZone.TimeZoneId
-            $newitem.Update()
-            $context.ExecuteQuery()
-        }
-        
-        Write-Host "Added time zones to Time Zones list" -ForegroundColor Green
-
-        # Adding locales to the Locales list
-        $localesList = Get-PnPList $localesListName
-        $context.Load($localesList)
-        $context.ExecuteQuery()
- 
-        # Delete existing locale items
-        $localeItems = Get-PnPListItem -List $localesList
- 
-        foreach ($localeItem in $localeItems) {
-            Remove-PnpListItem -List $localesList -Identity $localeItem -Force
-        }
- 
-        $locales = Import-Excel "$packageRootPath$settingsPath" -WorksheetName $localesWorksheetName
-        foreach ($locale in $locales) {
-            $listItemCreationInformation = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
-            $newItem = $localesList.AddItem($listItemCreationInformation)
-            $newItem["Title"] = $locale.Title
-            $newItem["LCID"] = $locale.LCID
-            $newitem.Update()
-            $context.ExecuteQuery()
-        }
-         
-        Write-Host "Added locales to Locales list" -ForegroundColor Green
 
         # Hide site template store field - site templates list
         $field = Get-PnPField -Identity "Store" -List "Site Templates"

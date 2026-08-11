@@ -62,5 +62,278 @@
             </CHOICES>
         </Field>
     </pnp:Fields>
+    <pnp:DataRows KeyColumn="Title" UpdateBehavior="Skip">
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Company-wide</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">SmallBusinessOrgWide</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Designed for internal communication and collaboration that are relevant for the entire company. 
+
+  You can use the General channel for company-wide announcements, industry news or executive posts. 
+
+  The Human Resources channel is a great place to consolidate all HR-related activities like job posts, new employee onboarding, training and development. The Fun Stuff channel provides a social platform for all random and fun posts.</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Executives</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">SmallBusinessExecutive</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Template for an executive team.</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Departmental</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">SmallBusinessFinance</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Template for departmental teams.</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Education - Staff Team</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">educationStaff</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Apps:
+
+  OneNote Staff Notebook (pinned to the General tab)</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Education - PLC Team</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">educationProfessionalLearningCommunity</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Apps:
+
+  OneNote PLC Notebook (pinned to the General tab)</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Organize a store</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">retailStore</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  Shift handoff
+  Learning
+
+  Team properties
+
+  Team visibility set to Public
+
+  Member permissions
+
+  Prevent members from creating, updating, or removing channels
+  Prevent members from adding or removing apps
+  Prevent members from creating, updating, or removing connectors</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Retail - Manager collaboration</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">retailManagerCollaboration</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  Shift handoff
+  Learning
+
+  Team properties:
+
+  Team visibility set to Private
+
+  Member permissions:
+
+  Prevent members from creating, updating, or removing channels
+  Prevent members from adding or removing apps
+  Prevent members from creating, updating, or removing connectors</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Healthcare - Ward</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">healthcareWard</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  Announcements*
+  Huddles*
+  Rounds
+  Staffing*
+  Training*
+
+  *Auto-favorited channels</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Healthcare - Hospital</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">healthcareHospital</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  Announcements*
+  Compliance*
+  Custodial
+  Human Resources
+  Pharmacy
+
+  *Auto-favorited channel</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Adopt Office 365</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.AdoptOffice365</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Champions corner
+  Team forms
+
+  Apps:
+
+  Wiki
+  Calendar</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Manage an event</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.ManageAnEvent</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Budget
+  Content
+  Logistics
+  Planning
+  Marketing and PR
+
+  Apps:
+
+  Wiki
+  Website
+  YouTube
+  Planner
+  OneNote</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Manage a Project</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.ManageAProject</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Resources
+  Planning
+
+  Apps:
+
+  Wiki
+  OneNote</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Onboard employees</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.OnboardEmployees</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Employee chat
+  Training
+
+  Apps:
+
+  Wiki
+  Communities</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Organize help desk</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.OrganizeHelpDesk</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  FAQ
+
+  Apps:
+
+  Wiki
+  OneNote</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Collaborate on global crisis or event</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.CollaborateOnAGlobalCrisisOrEvent</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  World news
+  Business continuity
+  Remote working
+  Internal comms
+  External comms
+  Customer complaints
+  Kudos
+  Executive update
+
+  Apps:
+
+  Praise
+  Wiki
+  Website</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Collaborate within a bank branch</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.CollaborateWithinABankBranch</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Huddles
+  Customer meetings
+  Coaching
+  Skills development
+  Loan processing
+  Customer complaints
+  Kudos
+  Fun stuff
+  Compliance</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Coordinate incident response</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.CoordinateIncidentResponse</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Logistics
+  Planning
+  Recovery
+  Urgent
+
+  Apps:
+
+  Wiki
+  Excel
+  OneNote
+  SharePoint
+  Planner</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+      <pnp:DataRow>
+        <pnp:DataValue FieldName="Title">Quality and safety</pnp:DataValue>
+        <pnp:DataValue FieldName="TemplateId">com.microsoft.teams.template.QualitySafety</pnp:DataValue>
+        <pnp:DataValue FieldName="Description">Channels:
+
+  General
+  Announcements
+  Line 1
+  Line 2
+  Line 3
+  Safety
+  Training
+  Maintenance
+  Fun stuff
+
+  Apps:
+
+  Wiki</pnp:DataValue>
+        <pnp:DataValue FieldName="AdminCenterTemplate">true</pnp:DataValue>
+      </pnp:DataRow>
+    </pnp:DataRows>
 </pnp:ListInstance>
     
