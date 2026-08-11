@@ -77,6 +77,8 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 ./GenerateParameters.ps1 -Tenant contoso.onmicrosoft.com -ServiceAccountUPN svc-bp@contoso.com -Force
 ```
 
+> **Jobber du mot flere kunder?** Bruk én fil per miljø i stedet for å kopiere den riktige over `parameters.json` før hver kjøring: `./GenerateParameters.ps1 -OutputPath .\parameters-contoso.json`, og kjør deretter `./deploy.ps1 -ParametersPath .\parameters-contoso.json`. `parameters-*.json` er git-ignorert, og deploy-skriptets PRE-FLIGHT SUMMARY viser hvilken fil verdiene kom fra.
+
 Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
 
 Alternativt kan du fylle ut manuelt: du finner en `parameters.json`-fil i Scripts-mappen. Oppdater alle parametre med korrekte verdier for tenanten din.
@@ -131,11 +133,11 @@ Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure C
 
 1. Åpne et PowerShell 7-vindu som administrator.
 2. Gå til `Scripts`-mappen.
-3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```.
+3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```. Ligger parametrene i en annen fil enn `parameters.json`, angi den med `-ParametersPath`: ```.\deploy.ps1 -ParametersPath .\parameters-contoso.json```. Skriptet må uansett kjøres fra `Scripts`-mappen, og stopper umiddelbart med forslag til hvilke parameterfiler som finnes hvis stien er feil.
 
 PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første tilkobling i kjøringen; logg inn med kontoen du kjører skriptet med. Tokenet gjenbrukes for resten av kjøringen (innloggingen persisteres bevisst *ikke* på tvers av økter, så det ikke blir liggende tokens for kundetenants på maskinen).
 
-Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, SharePoint-område, Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret.
+Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — validerer skriptet at **tjenestekontoen (`serviceAccountUPN`) finnes i tenanten** (kontoen opprettes ikke av skriptet og brukes bl.a. som eier av SharePoint-området). Mangler den, stopper skriptet med tydelig beskjed uten at noe er endret; mangler kontoen lisenser, får du en advarsel. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken parameterfil verdiene kom fra, hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, og hva som vil bli satt opp (ressursgruppe, SharePoint-område, Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret.
 
 For gjentatte eller uovervåkede kjøringer: `-SkipConfirmation` hopper over denne prompten og gjenbruker cachede sesjoner, og `-Force` gjør i tillegg at «re-anvend PnP-template?»-prompten svares **nei**. `-Force` auto-godkjenner bevisst **ikke** de destruktive promptene (tømme slettet site/gruppe fra papirkurv, slette en aktiv gruppe) — de avbryter i stedet. Se [Oppgraderingsveiledningen](/Upgrade.md#uovervåket-kjøring-med--force).
 

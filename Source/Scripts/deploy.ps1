@@ -20,7 +20,16 @@
 
     The script requires input during execution, requires sign-in to a number of services and therefore should be monitored.
 
-    Parameters should be filled out in the parameters.json file before executing the script.
+    Parameters should be filled out in the parameters file before executing the script
+    (default .\parameters.json - see -ParametersPath).
+
+.PARAMETER ParametersPath
+    Path to the parameters file to deploy from. Default: .\parameters.json.
+
+    Use this to keep one file per customer environment (parameters-<customer>.json,
+    all ignored by git) instead of copying the right one over parameters.json before
+    every run. The path is resolved before anything else happens, so a typo fails
+    immediately rather than after three sign-ins.
 
 .PARAMETER SkipConfirmation
     Skip the pre-flight summary/confirmation prompt, and reuse a cached Az/Azure CLI
@@ -42,6 +51,10 @@
 .EXAMPLE
     deploy.ps1 -Upgrade -Force
     Unattended upgrade of an existing environment: no prompts, no template re-apply.
+
+.EXAMPLE
+    deploy.ps1 -ParametersPath .\parameters-gjesdal.json
+    Deploy using a specific customer's parameter file.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -49,6 +62,7 @@
 param
 (
     [Parameter(Mandatory = $false)]
+    [string]$ParametersPath = ".\parameters.json", # Parameter file to deploy from - one per customer environment
     [switch]$SkipVerifyModules,
     [switch]$SkipSharepointSite,
     [switch]$SkipBicepDeploy,
@@ -85,6 +99,24 @@ if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion -lt [vers
     Write-Host "This script requires PowerShell 7.4 or newer (current: $($PSVersionTable.PSVersion)). Install the latest PowerShell from https://aka.ms/powershell and re-run in a new session." -ForegroundColor Red
     exit 1
 }
+
+# Resolve the parameter file up front. The file is not read until much later (after
+# the module checks and all three sign-ins), so validating it here turns a typo into
+# an immediate error instead of one discovered after three MFA prompts. Resolved to a
+# full path because the working directory is assumed to be Scripts\ elsewhere.
+$resolvedParametersPath = Resolve-Path -LiteralPath $ParametersPath -ErrorAction SilentlyContinue
+if ($null -eq $resolvedParametersPath) {
+    Write-Host "Parameter file '$ParametersPath' was not found." -ForegroundColor Red
+    Write-Host "Run this script from the Scripts folder, and generate the file with ./GenerateParameters.ps1 if it does not exist yet." -ForegroundColor Yellow
+    $candidates = @(Get-ChildItem -Path $PSScriptRoot -Filter 'parameters*.json' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'parameters.template.json' } | Select-Object -ExpandProperty Name)
+    if ($candidates.Count -gt 0) {
+        Write-Host "Parameter files found next to the script: $($candidates -join ', ')" -ForegroundColor Yellow
+    }
+    exit 1
+}
+$ParametersPath = $resolvedParametersPath.Path
+$parametersFileName = Split-Path -Leaf $ParametersPath
 
 # Check for presence of Azure CLI (cross-platform)
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
@@ -143,7 +175,7 @@ $iconFolderUpload = "$siteAssetsListURL/$provRequestsFolderName/$provTypesIconFo
 
 $automationAccountName = "bestillingsportalen-auto"
 $runtimeEnvironmentName = "bestillingsportalen-ps74" # Keep in sync with runbooks.bicep
-$uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in parameters.json if present
+$uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in the parameter file if present
 
 # Solution version reported via the deployment pingback. Bump on release (keep in sync with CHANGELOG.md).
 $deployVersion = "1.11.0"
@@ -966,7 +998,7 @@ function ValidateServiceAccount {
     $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
     if ($null -eq $saUser) {
         RecordDeployStatus -Component "Service account" -Status 'FAILED' -Detail "'$upn' was not found in the tenant"
-        throw "Service account '$upn' was not found in the tenant. Create the account (a standard user licensed for SharePoint, Exchange Online and Teams) before running the deployment, or correct serviceAccountUPN in parameters.json. Nothing has been changed in the environment."
+        throw "Service account '$upn' was not found in the tenant. Create the account (a standard user licensed for SharePoint, Exchange Online and Teams) before running the deployment, or correct serviceAccountUPN in $parametersFileName. Nothing has been changed in the environment."
     }
     $script:serviceAccountDisplayName = $saUser.displayName
 
@@ -1022,6 +1054,7 @@ function ConfirmDeployment {
     Write-Host ("  Mode:                 {0}" -f $(if ($global:upgrade) { "UPGRADE of existing environment" } else { "FULL DEPLOYMENT" })) -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Connected to:" -ForegroundColor Yellow
+    Write-Host "    Parameter file:     $parametersFileName"
     Write-Host "    Entra ID tenant:    $($parameters.fullTenantName.Value) ($($parameters.tenantId.Value))"
     Write-Host "    Azure subscription: $($azContext.Subscription.Name) ($($azContext.Subscription.Id))"
     Write-Host "    Signed in as (Az):  $($azContext.Account.Id)"
@@ -1658,20 +1691,20 @@ if (-not $SkipVerifyModules) {
 Write-Host "Loading PnP.PowerShell (must load before the Az module to avoid assembly conflicts)..." -ForegroundColor Yellow
 Import-Module PnP.PowerShell -ErrorAction Stop
 
-# Load Parameters from json file
-$parametersListContent = Get-Content '.\parameters.json' -ErrorAction Stop
+# Load Parameters from json file (path validated at the top of the script)
+$parametersListContent = Get-Content -LiteralPath $ParametersPath -ErrorAction Stop
 
 # Validate all the parameters.
-Write-Host "Validating all the parameters from parameters.json" -ForegroundColor Yellow
+Write-Host "Validating all the parameters from $parametersFileName" -ForegroundColor Yellow
 $parameters = $parametersListContent | ConvertFrom-Json
 if (-not(ValidateParameters)) {
-    Write-Host "Invalid parameters found. Please update the parameters in the parameters.json with valid values and re-run the script." -ForegroundColor Red
+    Write-Host "Invalid parameters found. Please update the parameters in $parametersFileName with valid values and re-run the script." -ForegroundColor Red
     EXIT
 }
 
 Write-Host "Parameters are valid" -ForegroundColor Green
 
-# Allow overriding the user-assigned managed identity name from parameters.json
+# Allow overriding the user-assigned managed identity name from the parameter file
 if ($parameters.PSObject.Properties.Name -contains 'uamiName' -and (IsValidParam($parameters.uamiName))) {
     $uamiName = $parameters.uamiName.Value
 }

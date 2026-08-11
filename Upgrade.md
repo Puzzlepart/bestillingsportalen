@@ -131,7 +131,7 @@ Før du starter oppgraderingen:
    - Rettighet til å tildele app-roller til managed identities – oppgraderingen kjører `AssignManagedIdentityPermissions` og `AssignUamiPermissions`, som krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator
 
 4. **Ha parameterne klare**
-   - Bruk samme `parameters.json` som ved første installasjon
+   - Bruk samme parameterfil som ved første installasjon (`-ParametersPath` hvis den heter noe annet enn `parameters.json`)
    - Verifiser at alle verdiene fortsatt er gyldige
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)

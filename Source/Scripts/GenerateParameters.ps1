@@ -27,6 +27,8 @@
 
 .PARAMETER OutputPath
     Where to write the generated file. Default: .\parameters.json (next to deploy.ps1).
+    Use one file per customer (e.g. .\parameters-contoso.json - parameters-*.json is
+    git-ignored) and pass it to deploy.ps1 with -ParametersPath.
 
 .PARAMETER ServiceAccountUPN
     UPN of the service account used for the delegated API connections. Prompted for when omitted.
@@ -291,4 +293,12 @@ if ($null -eq $pnpSp) {
     Write-Host "    App Registration' in the Deployment guide) and update pnpAppId in $OutputPath before running deploy.ps1." -ForegroundColor Cyan
 }
 
-Write-Host "  1. Run ./deploy.ps1 - the pre-flight summary shows the target environment before anything is created." -ForegroundColor Cyan
+# Point at the generated file explicitly when it is not the default deploy.ps1 reads,
+# so a per-customer file does not have to be copied over parameters.json first.
+$deployCommand = if ((Split-Path -Leaf $OutputPath) -eq 'parameters.json') {
+    "./deploy.ps1"
+}
+else {
+    "./deploy.ps1 -ParametersPath $OutputPath"
+}
+Write-Host "  1. Run $deployCommand - the pre-flight summary shows the target environment (and which parameter file it came from) before anything is created." -ForegroundColor Cyan
