@@ -2,7 +2,7 @@
 
 Bestillingsportalen bruker **Microsoft Graph API** og **SharePoint REST API** for å provisjonere grupper, områder, team og Viva Engage-fellesskap.
 
-Provisjoneringen utføres via en **user-assigned managed identity** som er koblet til alle Logic Apps og har de nødvendige app-rollene mot Microsoft Graph og SharePoint. Managed identity har ingen secret eller sertifikat som kan utløpe eller lekke – Entra ID utsteder tokens direkte til Azure-ressursen. Se [Migrering til managed identity](Managed-identity-migration.md) for bakgrunn.
+Provisjoneringen utføres via en **user-assigned managed identity** som er koblet til alle Logic Apps og har de nødvendige app-rollene mot Microsoft Graph og SharePoint. Managed identity har ingen secret eller sertifikat som kan utløpe eller lekke – Entra ID utsteder tokens direkte til Azure-ressursen.
 
 **Det finnes ingen unntak lenger.** Løsningen har ingen client secret, ingen Key Vault og ingen Entra ID-app-registrering i drift. Alt kjører på managed identity.
 

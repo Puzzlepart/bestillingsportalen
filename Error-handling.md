@@ -149,7 +149,7 @@ Når en forespørsel får status "Space Creation Failed":
 
 #### "Failed to check if space exists"
 - Problem med tilkobling til SharePoint
-- Manglende app-roller på user-assigned managed identity (se [Managed-identity-migration.md](Managed-identity-migration.md))
+- Manglende app-roller på user-assigned managed identity (se [Datatilgang og sikkerhet](Data-access-security.md) for hele rollelista, og `AssignPermissionsToManagedIdentity.ps1` for reparasjon)
 
 #### "Failed during space type validation or provisioning"
 - Ugyldig områdetype

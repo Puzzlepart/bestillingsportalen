@@ -1874,10 +1874,10 @@ if ($global:upgrade) {
     # The logic apps reference the user-assigned managed identity, which is created by
     # azureresources.bicep (skipped in upgrade mode). Installations deployed before the
     # managed identity migration must run a full deploy first - fail early with a clear
-    # message instead of a cryptic ARM error. See Managed-identity-migration.md.
+    # message instead of a cryptic ARM error. See Upgrade.md.
     $uamiExists = az identity show --resource-group $parameters.resourceGroupName.Value --name $uamiName --query principalId --output tsv 2>$null
     if ([string]::IsNullOrEmpty($uamiExists)) {
-        throw "User-assigned managed identity '$uamiName' was not found in resource group '$($parameters.resourceGroupName.Value)'. Run a full deployment (without -Upgrade) once to migrate to managed identity before using upgrade mode. See Managed-identity-migration.md."
+        throw "User-assigned managed identity '$uamiName' was not found in resource group '$($parameters.resourceGroupName.Value)'. Run a full deployment (without -Upgrade) once to migrate to managed identity before using upgrade mode. See Upgrade.md."
     }
     # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
     AssignUamiPermissions

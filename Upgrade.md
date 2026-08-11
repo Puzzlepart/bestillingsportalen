@@ -26,7 +26,7 @@ Bruk oppgraderingsmodus når du vil:
 - Førstegangs installasjon (bruk standard installasjonsprosess)
 - Større breaking changes som krever datamigrering
 - Komplette miljørebygginger
-- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Se [Managed-identity-migration.md](Managed-identity-migration.md). Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes.
+- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen (1.11.0) må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes. Re-autoriser deretter de fire delegerte API-tilkoblingene med tjenestekontoen (`Authorize-ApiConnections.ps1`) — en redeploy av tilkoblingsressursene kan nullstille autoriseringen — og rydd bort restene fra den gamle modellen, se [Manuell opprydding](#manuell-opprydding-etter-oppgradering-key-vault-og-entra-id-appen) nedenfor.
 
 ## Hva som blir oppdatert
 

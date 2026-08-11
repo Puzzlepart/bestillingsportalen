@@ -35,6 +35,7 @@ Før du bidrar:
 - **DO** følg samme prosjektstruktur som eksisterende prosjekt.
 - **DO** fremhev hvordan gjeldende oppførsel er feil når du fikser bugs.
 - **DO** hold diskusjoner fokuserte. Når et nytt eller relatert tema dukker opp, er det ofte bedre å opprette et nytt issue enn å sidespore samtalen.
+- **DO NOT** eksporter en Logic App fra designeren i Azure Portal tilbake til ARM-malene i `Source/ARMTemplates/LogicApps/`. Designeren gjør `[variables('uamiId')]` om til en hardkodet ressurs-ID, som binder malen til én ressursgruppe/subscription. Rediger malene manuelt og behold ARM-uttrykkene.
 - **DO NOT** send inn PR-er for kodestilendringer.
 - **DO NOT** overrask oss med store PR-er. Opprett heller et issue og start en diskusjon slik at vi kan bli enige om en retning før du investerer mye tid.
 - **DO NOT** commit kode du ikke har skrevet selv.

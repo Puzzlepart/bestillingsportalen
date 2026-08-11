@@ -4,7 +4,7 @@ Dette dokumentet gir en samlet teknisk beskrivelse av Bestillingsportalen: hvilk
 
 Dokumentet er ment som et supplement til [Installasjonsveiledningen](./Deployment-guide.md) og [Datatilgang og sikkerhet](./Data-access-security.md), og kan brukes som underlag for sikkerhetsvurdering og godkjenning hos kunde før installasjon.
 
-> **Merk:** Beskrivelsen gjelder gjeldende versjon av løsningen, der Logic Apps autentiserer med **user-assigned managed identity**. Eldre installasjoner som bruker client secret/sertifikat må oppgraderes – se [Migrering til managed identity](./Managed-identity-migration.md).
+> **Merk:** Beskrivelsen gjelder gjeldende versjon av løsningen, der Logic Apps autentiserer med **user-assigned managed identity**. Eldre installasjoner som bruker client secret/sertifikat må oppgraderes – se [Oppgraderingsveiledningen](./Upgrade.md).
 
 ## 1. Overordnet arkitektur
 
@@ -204,7 +204,6 @@ Det eneste som finnes er tjenestekontoens ordinære passord, som følger organis
 ## 6. Referanser
 
 - [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon
-- [Migrering til managed identity](./Managed-identity-migration.md) – bakgrunn, tillatelser og oppgradering av eksisterende installasjoner
 - [Datatilgang og sikkerhet](./Data-access-security.md) – detaljert tilgangsbeskrivelse
 - [Datalagre](./Data-stores.md) – alle SharePoint-lister og felter
 - [Godkjenningsflyt](./Approval-flow.md) – godkjenningsprosessen
