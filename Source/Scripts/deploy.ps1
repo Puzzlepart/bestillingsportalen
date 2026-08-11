@@ -1075,8 +1075,6 @@ function WriteDeploymentReport {
 # before anything is created.
 # ---------------------------------------------------------------------------
 function ValidateArmTemplates {
-    Write-Host "Validating ARM templates..." -ForegroundColor Yellow
-
     $templateDir = Join-Path $packageRootPath "ARMTemplates/LogicApps"
     $invalid = @()
 
@@ -1091,7 +1089,6 @@ function ValidateArmTemplates {
             $invalid += "$($template.Name): $($_.Exception.Message)"
             continue
         }
-        Write-Host "  OK: $($template.Name)" -ForegroundColor Gray
     }
 
     # The .bicep templates are compiled locally too. Two failure modes end in the same
@@ -1110,7 +1107,6 @@ function ValidateArmTemplates {
             $invalid += "$bicepFile failed to compile (or the Bicep CLI could not be installed - check proxy/firewall and run 'az bicep install' manually)"
             continue
         }
-        Write-Host "  OK: $bicepFile" -ForegroundColor Gray
     }
 
     if ($invalid.Count -gt 0) {
@@ -1133,8 +1129,6 @@ function ValidateArmTemplates {
 # ---------------------------------------------------------------------------
 function ValidateServiceAccount {
     $upn = $parameters.serviceAccountUPN.Value
-    Write-Host "Validating service account $upn..." -ForegroundColor Yellow
-
     $saUserJson = az ad user show --id $upn 2>$null
     $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
     if ($null -eq $saUser) {
@@ -1152,7 +1146,6 @@ function ValidateServiceAccount {
         $licenseDetails = az rest --method get --url "https://graph.microsoft.com/v1.0/users/$upn/licenseDetails" 2>$null | ConvertFrom-Json
         $servicePlans = @($licenseDetails.value.servicePlans.servicePlanName)
         if ($servicePlans.Count -eq 0) {
-            Write-Host "WARN: The service account has no licenses assigned. It needs SharePoint, Exchange Online and Teams licenses for the delegated API connections and notifications, and seeded Power Automate for the approval flow." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
             RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign an E1/E3/E5 license (SPO, Exchange Online, Teams and seeded Power Automate)."
             return
@@ -1168,7 +1161,6 @@ function ValidateServiceAccount {
         if ($flowPlans.Count -eq 0) {
             $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
             if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
-            Write-Host "WARN: The service account has no Power Automate plan known to work (found: $foundFlowPlans). Frontline (F1/F3) plans have failed flow activation (FlowNotOriginalAuthor) in testing - seeded Power Automate from E1/E3/E5 or a standalone Flow plan is the safe choice. The deployment continues; if activating the approval flow (guide step 5) fails, swap the license on this account and retry." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no usable Power Automate plan for the approval flow"
             RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no usable Power Automate plan (found: $foundFlowPlans)" -Fix "Swap to an E1/E3/E5 license before activating the approval flow (guide step 5) - F plans have failed activation with FlowNotOriginalAuthor."
             return
@@ -1176,7 +1168,6 @@ function ValidateServiceAccount {
     }
     catch {}
 
-    Write-Host "Service account verified: $($saUser.displayName) ($upn)" -ForegroundColor Green
     RecordDeployStatus -Component "Service account" -Status 'OK'
     RecordPreflightCheck -Name "Service account" -Status OK -Detail "$($saUser.displayName) ($upn), licensed incl. Power Automate"
 }
@@ -1289,13 +1280,11 @@ function ValidateAzureRbac {
     catch {
         # A failed CHECK must not block a deployment that might work - only a
         # confirmed missing permission should.
-        Write-Host "Could not verify RBAC permissions ($(($_.Exception.Message -split "`r?`n")[0])) - continuing; the bicep deployment will surface it if the permission is missing." -ForegroundColor Yellow
         RecordPreflightCheck -Name "RBAC: role assignment rights" -Status UNKNOWN -Detail "Could not read the permissions endpoint - the bicep deployment will surface it if the permission is missing"
         return
     }
 
     if ($hasWrite) {
-        Write-Host "RBAC verified: the deploying account can create role assignments on $scopeLabel." -ForegroundColor Green
         RecordPreflightCheck -Name "RBAC: role assignment rights" -Status OK -Detail "roleAssignments/write on $scopeLabel"
         return
     }
@@ -1326,15 +1315,10 @@ function ValidateResourceProviders {
     if (-not $SkipDeployARMTemplates) { $required += @('Microsoft.Logic', 'Microsoft.Web') }
     if ($required.Count -eq 0) { return }
 
-    Write-Host "Checking resource provider registrations in the subscription..." -ForegroundColor Yellow
     $unregistered = @()
     foreach ($namespace in $required) {
         $state = az provider show --namespace $namespace --subscription $parameters.subscriptionId.Value --query registrationState --output tsv 2>$null
-        if ($state -eq 'Registered') {
-            Write-Host "  $namespace : Registered" -ForegroundColor Gray
-        }
-        else {
-            Write-Host "  $namespace : $(if ($state) { $state } else { 'unknown' })" -ForegroundColor Yellow
+        if ($state -ne 'Registered') {
             $unregistered += $namespace
         }
     }
@@ -1355,7 +1339,6 @@ function ValidateResourceProviders {
     }
 
     $script:providersToRegister = $unregistered
-    Write-Host "The providers above will be registered automatically right after the confirmation prompt (registration runs in the background and is awaited before the Azure deployment)." -ForegroundColor Cyan
     RecordPreflightCheck -Name "Resource providers" -Status OK -Detail "$($unregistered -join ', ') not registered, but the account can register them - done automatically after confirmation"
 }
 
@@ -1519,7 +1502,6 @@ function ValidateSiteAlias {
     }
 
     if ($null -eq $collidesWith) {
-        Write-Host "Site alias '$requestsSiteAlias' is free (no user or service account holds it)." -ForegroundColor Green
         RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "No user or service account holds it"
         return
     }
@@ -2414,6 +2396,8 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 # Every check RECORDS its result instead of stopping on first failure, so one run
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
+# The checks themselves are quiet on success; the checklist below is the output.
+Write-Host "Running pre-deployment checks (templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
