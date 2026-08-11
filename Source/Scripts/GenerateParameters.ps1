@@ -12,11 +12,20 @@
         subscriptionId  - from the Azure CLI context (interactive picker when multiple)
         fullTenantName  - the tenant's initial *.onmicrosoft.com domain (via Microsoft Graph)
         spoTenantName   - derived from the initial domain prefix
+        managedPath     - the tenant's "Create group sites under" setting, read with
+                          Get-PnPTenant (opt-in: needs PnP.PowerShell and one sign-in
+                          as SharePoint administrator - see the note below)
 
     Everything else gets a sensible default from parameters.template.json. The service
     account UPN is prompted for (or passed with -ServiceAccountUPN).
 
-    The script only reads from Azure - it changes nothing in the environment.
+    The script only reads - it changes nothing in the environment.
+
+    Everything except managedPath is read through the Azure CLI. The Azure CLI cannot
+    obtain a SharePoint token without a separate SPO-scoped sign-in, so reading the
+    managed path goes through PnP.PowerShell instead and is offered as a prompt rather
+    than done unconditionally. Decline it (or run with -Force) and the template default
+    is kept - the value is a suggestion, not a blocker.
 
 .PARAMETER Tenant
     The target (customer) tenant to generate parameters for - initial domain
@@ -37,7 +46,8 @@
     Azure region for the resources. Default: norwayeast.
 
 .PARAMETER Force
-    Overwrite an existing parameters.json without asking.
+    Overwrite an existing parameters.json without asking. Also skips the managed path
+    lookup, since that needs an interactive sign-in and would hang an unattended run.
 
 .EXAMPLE
     ./GenerateParameters.ps1
@@ -192,7 +202,7 @@ if ([string]::IsNullOrEmpty($fullTenantName)) {
 Write-Host "NOTE: verify that '$spoTenantName' matches your actual SharePoint URL (https://$spoTenantName.sharepoint.com) - tenants that have been renamed can differ from the initial domain." -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
-# 4. Values that cannot be derived - prompt unless provided as parameters
+# 3. Values that cannot be derived - prompt unless provided as parameters
 # ---------------------------------------------------------------------------
 if ([string]::IsNullOrEmpty($ServiceAccountUPN)) {
     $ServiceAccountUPN = Read-Host "Service account UPN (standard licensed user - used to authorise the delegated API connections)"
@@ -217,7 +227,7 @@ while (-not [string]::IsNullOrWhiteSpace($ServiceAccountUPN)) {
     $ServiceAccountUPN = $retry
 }
 # ---------------------------------------------------------------------------
-# 5. Build parameters.json from the template (keeps descriptions and any new
+# 4. Build parameters.json from the template (keeps descriptions and any new
 #    parameters in sync) and fill in the derived/prompted values
 # ---------------------------------------------------------------------------
 $parameters = Get-Content $templatePath -Raw | ConvertFrom-Json
@@ -238,7 +248,7 @@ foreach ($name in $values.Keys) {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Check the PnP app registration in the target tenant, so the next-steps
+# 5. Check the PnP app registration in the target tenant, so the next-steps
 #    output can say exactly what is - and is not - needed.
 #
 #    This is the only app registration the solution needs: everything at runtime
@@ -256,6 +266,102 @@ if ($null -ne $pnpSp) {
 }
 else {
     Write-Host "The PnP app ($($parameters.pnpAppId.Value)) is NOT present in this tenant. Register one with Register-PnPEntraIDAppForInteractiveLogin (see 'PnP PowerShell App Registration' in the Deployment guide) and update pnpAppId in the generated file." -ForegroundColor Yellow
+}
+
+# ---------------------------------------------------------------------------
+# 6. Default managed path for group sites, from the SharePoint admin settings
+#
+# "Create group sites under" (SharePoint admin center > Settings > Site creation)
+# decides whether group-connected sites land under /sites/ or /teams/. deploy.ps1
+# composes site URLs from managedPath AND writes it to the settings list, so a
+# tenant configured for /teams/ silently gets wrong URLs if the template default
+# is kept.
+#
+# This is the one value the Azure CLI cannot deliver: 'az account get-access-token
+# --resource https://<tenant>-admin.sharepoint.com' fails with InteractionRequired
+# unless you sign in again with an SPO scope. So it goes through PnP.PowerShell and
+# costs one interactive sign-in as SharePoint administrator - offered as a prompt,
+# and skipped without complaint whenever it cannot be done. Importing PnP here is
+# safe: this script uses the az CLI, not the Az PowerShell module, so the assembly
+# conflict deploy.ps1 works around does not apply.
+# ---------------------------------------------------------------------------
+$adminUrl = "https://$spoTenantName-admin.sharepoint.com"
+$templateManagedPath = $parameters.managedPath.Value
+$verifyHint = "Verify it against SharePoint admin center > Settings > Site creation > 'Create group sites under'."
+
+Write-Host ""
+if ($Force) {
+    Write-Host "Skipping the managed path lookup (-Force cannot do an interactive sign-in) - keeping managedPath = '$templateManagedPath'. $verifyHint" -ForegroundColor Yellow
+}
+elseif ($null -eq $pnpSp) {
+    Write-Host "Skipping the managed path lookup - the PnP app is not registered in this tenant, so there is nothing to sign in with. Keeping managedPath = '$templateManagedPath'. $verifyHint" -ForegroundColor Yellow
+}
+elseif ($null -eq (Get-Module -ListAvailable -Name PnP.PowerShell)) {
+    Write-Host "Skipping the managed path lookup - PnP.PowerShell is not installed. Keeping managedPath = '$templateManagedPath'. $verifyHint" -ForegroundColor Yellow
+}
+else {
+    $answer = Read-Host "Read the tenant's default managed path from $adminUrl? Opens a browser sign-in - use an account that is SharePoint administrator ( y = yes (default) / n = skip )"
+    if ([string]::IsNullOrWhiteSpace($answer)) { $answer = 'y' }
+
+    if ($answer -ne 'y') {
+        Write-Host "Skipped - keeping managedPath = '$templateManagedPath'. $verifyHint" -ForegroundColor Yellow
+    }
+    else {
+        $detected = $null
+        try {
+            Import-Module PnP.PowerShell -ErrorAction Stop
+            Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -Interactive -ErrorAction Stop
+            $tenantSettings = Get-PnPTenant -ErrorAction Stop
+
+            # The property is DISCOVERED, not assumed. Neither Set-SPOTenant nor
+            # Set-PnPTenant documents a managed-path setting, so which property carries
+            # it (and whether this module version projects it at all) is not something
+            # to hardcode. Enumerate the names, match on ManagedPath, and read the value
+            # defensively - an unloaded CSOM property throws on access.
+            foreach ($property in $tenantSettings.PSObject.Properties) {
+                if ($property.Name -notlike '*ManagedPath*') { continue }
+                try {
+                    $value = "$($property.Value)".Trim('/')
+                    if (-not [string]::IsNullOrWhiteSpace($value)) {
+                        $detected = $value
+                        Write-Host "Read '$($property.Name)' from the tenant: /$detected/" -ForegroundColor Green
+                        break
+                    }
+                }
+                catch {}
+            }
+
+            if ($null -eq $detected) {
+                $names = @($tenantSettings.PSObject.Properties.Name | Where-Object { $_ -like '*ManagedPath*' -or $_ -like '*SiteCreation*' })
+                $seen = if ($names.Count -gt 0) { "candidate properties present but empty/unreadable: $($names -join ', ')" } else { "no managed-path property is exposed by this PnP.PowerShell version" }
+                throw "$seen"
+            }
+        }
+        catch {
+            $reason = ($_.Exception.Message -split "`r?`n")[0]
+            Write-Host "Could not read the managed path from the tenant ($reason)." -ForegroundColor Yellow
+            Write-Host $verifyHint -ForegroundColor Yellow
+            # Falling back to a question rather than to a silent default: a wrong
+            # managedPath produces wrong site URLs, and the operator can read the
+            # answer straight off the admin center page named above.
+            $manual = Read-Host "Managed path for group sites ( enter to keep '$templateManagedPath' )"
+            if (-not [string]::IsNullOrWhiteSpace($manual)) {
+                $detected = $manual.Trim().Trim('/')
+            }
+        }
+        finally {
+            # Leave no connection behind for whatever runs next in this session.
+            try { Disconnect-PnPOnline -ErrorAction SilentlyContinue } catch {}
+        }
+
+        if ([string]::IsNullOrWhiteSpace($detected) -or $detected -eq $templateManagedPath) {
+            Write-Host "managedPath left as '$templateManagedPath'." -ForegroundColor Green
+        }
+        else {
+            $parameters.managedPath.Value = $detected
+            Write-Host "managedPath set to '$detected' (default was '$templateManagedPath')." -ForegroundColor Green
+        }
+    }
 }
 
 if ((Test-Path $OutputPath) -and -not $Force) {

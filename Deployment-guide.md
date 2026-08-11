@@ -77,6 +77,8 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 ./GenerateParameters.ps1 -Tenant contoso.onmicrosoft.com -ServiceAccountUPN svc-bp@contoso.com -Force
 ```
 
+> **Managed path leses fra tenanten.** Mot slutten spør skriptet om det skal hente `Opprett gruppeområder under` fra SharePoint Admin Center (`Innstillinger` → `Områdeoppretting`). Dette er det ene som ikke kan leses med Azure CLI — SharePoint krever eget token — så steget bruker PnP.PowerShell og åpner én nettleser-pålogging som SharePoint-administrator. Svarer du `n`, mangler PnP.PowerShell, eller kjører du med `-Force`, beholdes standardverdien `sites`. Kan verdien ikke leses ut av tenanten, spør skriptet deg om den i stedet, med henvisning til innstillingen — **kontroller den**, for `sites` mot en `/teams/`-tenant gir feil område-URL-er.
+
 > **Jobber du mot flere kunder?** Bruk én fil per miljø i stedet for å kopiere den riktige over `parameters.json` før hver kjøring: `./GenerateParameters.ps1 -OutputPath .\parameters-contoso.json`, og kjør deretter `./deploy.ps1 -ParametersPath .\parameters-contoso.json`. `parameters-*.json` er git-ignorert, og deploy-skriptets PRE-FLIGHT SUMMARY viser hvilken fil verdiene kom fra.
 
 Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
@@ -97,7 +99,7 @@ Beskrivelse av hver parameter:
 
 - `requestsSiteDesc` – Beskrivelse av området som opprettes.
 
-- `managedPath` – Managed path konfigurert i tenanten, f.eks. `sites` eller `teams` (uten skråstrek).
+- `managedPath` – Managed path konfigurert i tenanten, f.eks. `sites` eller `teams` (uten skråstrek). Dette er innstillingen **`Opprett gruppeområder under`** i SharePoint Admin Center → `Innstillinger` → `Områdeoppretting`. Verdien må stemme med tenanten: `deploy.ps1` bygger område-URL-er fra den og skriver den til innstillingslisten, så en tenant satt opp med `/teams/` får feil URL-er hvis den står som `sites`. `GenerateParameters.ps1` tilbyr å lese den fra tenanten (se under).
 
 - `subscriptionId` – Azure-abonnement som løsningen installeres i (MÅ være tilknyttet Entra ID-katalogen til Microsoft 365-tenanten du installerer i).
 
