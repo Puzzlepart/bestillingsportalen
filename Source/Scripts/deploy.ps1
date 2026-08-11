@@ -31,6 +31,13 @@
     every run. The path is resolved before anything else happens, so a typo fails
     immediately rather than after three sign-ins.
 
+.PARAMETER Preflight
+    Run ONLY the pre-deployment checks and print the checklist, then exit without
+    deploying anything - a quick way to see what is missing before booking time for
+    the real run. Exit code 0 when nothing is missing, 1 otherwise. The checks need
+    the same sign-ins as a deployment (Az, Azure CLI, PnP), but nothing is created
+    or changed.
+
 .PARAMETER SkipAppRoles
     Skip assigning Graph/SharePoint app roles to the managed identities - the one
     step that requires Global Administrator (or Privileged Role Administrator +
@@ -78,6 +85,7 @@ param
     [switch]$SkipCreateResourceGroup,
     [switch]$SkipDeployARMTemplates,
     [switch]$SkipDeployAPIConnections,
+    [switch]$Preflight, # Run only the pre-deployment checks, print the checklist, exit - see the help
     [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
@@ -1107,10 +1115,12 @@ function ValidateArmTemplates {
 
     if ($invalid.Count -gt 0) {
         RecordDeployStatus -Component "ARM template validation" -Status 'FAILED' -Detail ($invalid -join ' | ')
-        throw "One or more ARM templates are not valid - az would reject them at deploy time without a usable error message. Fix the files listed above and re-run. For JSON, trailing commas are the usual cause: PowerShell's ConvertFrom-Json accepts them, az does not."
+        RecordPreflightCheck -Name "ARM/bicep templates" -Status MISSING -Detail ($invalid -join ' | ') -Fix "Fix the files listed above and re-run. For JSON, trailing commas are the usual cause: PowerShell's ConvertFrom-Json accepts them, az does not."
+        return
     }
 
     RecordDeployStatus -Component "ARM template validation" -Status 'OK'
+    RecordPreflightCheck -Name "ARM/bicep templates" -Status OK -Detail "All Logic App templates parse, both bicep templates compile"
 }
 
 # ---------------------------------------------------------------------------
@@ -1129,7 +1139,8 @@ function ValidateServiceAccount {
     $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
     if ($null -eq $saUser) {
         RecordDeployStatus -Component "Service account" -Status 'FAILED' -Detail "'$upn' was not found in the tenant"
-        throw "Service account '$upn' was not found in the tenant. Create the account (a standard user licensed for SharePoint, Exchange Online and Teams) before running the deployment, or correct serviceAccountUPN in $parametersFileName. Nothing has been changed in the environment."
+        RecordPreflightCheck -Name "Service account" -Status MISSING -Detail "'$upn' was not found in the tenant" -Fix "Create the account (a standard user licensed for SharePoint, Exchange Online and Teams), or correct serviceAccountUPN in $parametersFileName."
+        return
     }
     $script:serviceAccountDisplayName = $saUser.displayName
     $script:serviceAccountMailNickname = $saUser.mailNickname
@@ -1143,6 +1154,7 @@ function ValidateServiceAccount {
         if ($servicePlans.Count -eq 0) {
             Write-Host "WARN: The service account has no licenses assigned. It needs SharePoint, Exchange Online and Teams licenses for the delegated API connections and notifications, and seeded Power Automate for the approval flow." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign an E1/E3/E5 license (SPO, Exchange Online, Teams and seeded Power Automate)."
             return
         }
         # The account must be able to own and activate the solution flow (guide step 5).
@@ -1158,6 +1170,7 @@ function ValidateServiceAccount {
             if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
             Write-Host "WARN: The service account has no Power Automate plan known to work (found: $foundFlowPlans). Frontline (F1/F3) plans have failed flow activation (FlowNotOriginalAuthor) in testing - seeded Power Automate from E1/E3/E5 or a standalone Flow plan is the safe choice. The deployment continues; if activating the approval flow (guide step 5) fails, swap the license on this account and retry." -ForegroundColor Yellow
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no usable Power Automate plan for the approval flow"
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no usable Power Automate plan (found: $foundFlowPlans)" -Fix "Swap to an E1/E3/E5 license before activating the approval flow (guide step 5) - F plans have failed activation with FlowNotOriginalAuthor."
             return
         }
     }
@@ -1165,6 +1178,55 @@ function ValidateServiceAccount {
 
     Write-Host "Service account verified: $($saUser.displayName) ($upn)" -ForegroundColor Green
     RecordDeployStatus -Component "Service account" -Status 'OK'
+    RecordPreflightCheck -Name "Service account" -Status OK -Detail "$($saUser.displayName) ($upn), licensed incl. Power Automate"
+}
+
+# ---------------------------------------------------------------------------
+# Pre-deployment checklist
+# Every pre-flight check records its result here instead of throwing on first
+# failure, so ONE run shows everything that is missing - not one wall per run.
+# ShowPreflightChecklist renders the list; a MISSING item stops the deployment
+# (after all checks have run), a WARNING does not. -Preflight renders the list
+# and exits without deploying.
+# ---------------------------------------------------------------------------
+$script:preflightChecks = @()
+
+function RecordPreflightCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][ValidateSet('OK', 'MISSING', 'WARNING', 'SKIPPED', 'UNKNOWN')][string]$Status,
+        [string]$Detail = '',
+        [string]$Fix = ''
+    )
+    $script:preflightChecks += [pscustomobject]@{ Name = $Name; Status = $Status; Detail = $Detail; Fix = $Fix }
+}
+
+# Renders the checklist and returns the number of MISSING items.
+function ShowPreflightChecklist {
+    Write-Host ""
+    Write-Host "#################### PRE-DEPLOYMENT CHECKLIST ####################" -ForegroundColor Magenta
+    foreach ($check in $script:preflightChecks) {
+        $color = switch ($check.Status) {
+            'OK' { 'Green' }
+            'MISSING' { 'Red' }
+            'WARNING' { 'Yellow' }
+            'SKIPPED' { 'DarkGray' }
+            'UNKNOWN' { 'Yellow' }
+        }
+        $line = "  [{0,-7}] {1}" -f $check.Status, $check.Name
+        if ($check.Detail) { $line += " - $($check.Detail)" }
+        Write-Host $line -ForegroundColor $color
+        if ($check.Fix) {
+            Write-Host "            Fix: $($check.Fix)" -ForegroundColor Cyan
+        }
+    }
+    $missing = @($script:preflightChecks | Where-Object { $_.Status -eq 'MISSING' })
+    $warnings = @($script:preflightChecks | Where-Object { $_.Status -in @('WARNING', 'UNKNOWN') })
+    Write-Host ""
+    Write-Host ("  {0} missing, {1} warning(s), {2} ok" -f $missing.Count, $warnings.Count, @($script:preflightChecks | Where-Object Status -eq 'OK').Count) -ForegroundColor $(if ($missing.Count -gt 0) { 'Red' } elseif ($warnings.Count -gt 0) { 'Yellow' } else { 'Green' })
+    Write-Host "##################################################################" -ForegroundColor Magenta
+    Write-Host ""
+    return $missing.Count
 }
 
 # Wildcard matching as ARM does it: '*' and prefix wildcards in actions. Used by the
@@ -1228,16 +1290,17 @@ function ValidateAzureRbac {
         # A failed CHECK must not block a deployment that might work - only a
         # confirmed missing permission should.
         Write-Host "Could not verify RBAC permissions ($(($_.Exception.Message -split "`r?`n")[0])) - continuing; the bicep deployment will surface it if the permission is missing." -ForegroundColor Yellow
+        RecordPreflightCheck -Name "RBAC: role assignment rights" -Status UNKNOWN -Detail "Could not read the permissions endpoint - the bicep deployment will surface it if the permission is missing"
         return
     }
 
     if ($hasWrite) {
         Write-Host "RBAC verified: the deploying account can create role assignments on $scopeLabel." -ForegroundColor Green
+        RecordPreflightCheck -Name "RBAC: role assignment rights" -Status OK -Detail "roleAssignments/write on $scopeLabel"
         return
     }
 
-    RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'FAILED' -Detail "The deploying account lacks Microsoft.Authorization/roleAssignments/write on $scopeLabel"
-    throw "The deploying account does not have 'Microsoft.Authorization/roleAssignments/write' on $scopeLabel. azureresources.bicep creates two role assignments (Automation Job/Runbook Operator for the managed identity), and ARM rejects the whole deployment at submit without this permission - with an error the Azure CLI does not even display. Grant the account Owner or User Access Administrator on the subscription (see the prerequisites) or on the resource group, then re-run. Nothing has been changed in the environment."
+    RecordPreflightCheck -Name "RBAC: role assignment rights" -Status MISSING -Detail "The deploying account lacks Microsoft.Authorization/roleAssignments/write on $scopeLabel - azureresources.bicep creates two role assignments, and ARM rejects the whole deployment at submit without it" -Fix "Grant the account Owner or User Access Administrator on the subscription or the resource group."
 }
 
 # ---------------------------------------------------------------------------
@@ -1275,21 +1338,99 @@ function ValidateResourceProviders {
             $unregistered += $namespace
         }
     }
-    if ($unregistered.Count -eq 0) { return }
+    if ($unregistered.Count -eq 0) {
+        RecordPreflightCheck -Name "Resource providers" -Status OK -Detail "$($required -join ', ') all registered"
+        return
+    }
 
     # Registering needs <namespace>/register/action at subscription scope. When the
-    # permissions endpoint CONFIRMS the account lacks it, stop now with the admin
-    # commands - not after minutes of site provisioning. An unreadable endpoint does
-    # not block: the registration attempt after confirmation will give the verdict.
+    # permissions endpoint CONFIRMS the account lacks it, report MISSING with the
+    # admin commands. An unreadable endpoint does not block: the registration
+    # attempt after confirmation will give the verdict.
     $canRegister = TestAzureAction -Scope "/subscriptions/$($parameters.subscriptionId.Value)" -Action "$($unregistered[0])/register/action"
     if ($canRegister -eq $false) {
-        $adminCommands = @($unregistered | ForEach-Object { "az provider register --namespace $_" }) -join "`n  "
-        RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'FAILED' -Detail "Resource providers not registered: $($unregistered -join ', ') - and the deploying account cannot register them (needs subscription-scope rights)"
-        throw "The following resource providers are not registered in subscription $($parameters.subscriptionId.Value): $($unregistered -join ', '). Registering them is a SUBSCRIPTION-level action which this account cannot perform (no rights at subscription scope - a role on the resource group does not help). Have a subscription Contributor/Owner run:`n  $adminCommands`nRegistration takes a few minutes; verify with 'az provider show --namespace <ns> --query registrationState', then re-run this script. Nothing has been changed in the environment."
+        $adminCommands = @($unregistered | ForEach-Object { "az provider register --namespace $_" }) -join ' ; '
+        RecordPreflightCheck -Name "Resource providers" -Status MISSING -Detail "Not registered: $($unregistered -join ', ') - and the deploying account cannot register them (registration is a subscription-level action; a role on the resource group does not help)" -Fix "Have a subscription Contributor/Owner run: $adminCommands (takes a few minutes; verify with 'az provider show --namespace <ns> --query registrationState')."
+        return
     }
 
     $script:providersToRegister = $unregistered
     Write-Host "The providers above will be registered automatically right after the confirmation prompt (registration runs in the background and is awaited before the Azure deployment)." -ForegroundColor Cyan
+    RecordPreflightCheck -Name "Resource providers" -Status OK -Detail "$($unregistered -join ', ') not registered, but the account can register them - done automatically after confirmation"
+}
+
+# Node.js is only needed for the SPFx build, which is the LAST deploy step - a
+# missing Node would otherwise surface after everything else succeeded.
+function CheckNodeJs {
+    if ($SkipSPFxDeploy) {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxDeploy"
+        return
+    }
+    $nodeVersionRaw = if (Get-Command node -ErrorAction SilentlyContinue) { (node --version) 2>$null } else { $null }
+    if ([string]::IsNullOrWhiteSpace($nodeVersionRaw)) {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH" -Fix "Install Node.js 22.14+ (https://nodejs.org), or run with -SkipSPFxDeploy."
+        return
+    }
+    try {
+        $nodeVersion = [version]($nodeVersionRaw.TrimStart('v'))
+        if ($nodeVersion -lt [version]'22.14.0') {
+            RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "$nodeVersionRaw installed, 22.14+ required" -Fix "Update Node.js (https://nodejs.org), or run with -SkipSPFxDeploy."
+            return
+        }
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status OK -Detail "$nodeVersionRaw"
+    }
+    catch {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status UNKNOWN -Detail "Could not parse 'node --version' output '$nodeVersionRaw'"
+    }
+}
+
+# The tenant app catalog must exist before Add-PnPApp can publish the SPFx packages.
+# Read on the -admin connection the main flow has already established.
+function CheckAppCatalog {
+    if ($SkipSPFxDeploy) {
+        RecordPreflightCheck -Name "Tenant app catalog" -Status SKIPPED -Detail "-SkipSPFxDeploy"
+        return
+    }
+    try {
+        $appCatalogUrl = Get-PnPTenantAppCatalogUrl -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($appCatalogUrl)) {
+            RecordPreflightCheck -Name "Tenant app catalog" -Status MISSING -Detail "No tenant app catalog exists - publishing the SPFx packages will fail" -Fix "Create it in the SharePoint admin center (https://learn.microsoft.com/sharepoint/use-app-catalog), or run with -SkipSPFxDeploy."
+        }
+        else {
+            RecordPreflightCheck -Name "Tenant app catalog" -Status OK -Detail "$appCatalogUrl"
+        }
+    }
+    catch {
+        RecordPreflightCheck -Name "Tenant app catalog" -Status UNKNOWN -Detail "Could not read the app catalog url ($(($_.Exception.Message -split "`r?`n")[0]))"
+    }
+}
+
+# App role assignment needs Global Administrator (or Privileged Role Administrator +
+# Cloud Application Administrator). Detection is best-effort via the account's ACTIVE
+# directory roles - a PIM-eligible role that is not activated will not show, so a
+# negative result is a WARNING pointing at -SkipAppRoles, never a MISSING.
+function CheckAppRoleRights {
+    if ($SkipAppRoles) {
+        RecordPreflightCheck -Name "App role assignment rights" -Status SKIPPED -Detail "-SkipAppRoles: a handover command for a Global Administrator is printed instead"
+        return
+    }
+    try {
+        $rolesJson = az rest --method get --url "https://graph.microsoft.com/v1.0/me/transitiveMemberOf/microsoft.graph.directoryRole?`$select=displayName,roleTemplateId" 2>$null
+        if (-not $rolesJson) { throw "the directory role lookup returned nothing" }
+        $roleTemplates = @((($rolesJson | ConvertFrom-Json).value).roleTemplateId)
+
+        $isGlobalAdmin = $roleTemplates -contains '62e90394-69f5-4237-9190-012177145e10'
+        $isPraPlusCaa = ($roleTemplates -contains 'e8611ab8-c189-46e8-94e1-60213ab1f814') -and ($roleTemplates -contains '158c047a-c907-4556-b7ef-446551a6b5f7')
+        if ($isGlobalAdmin -or $isPraPlusCaa) {
+            RecordPreflightCheck -Name "App role assignment rights" -Status OK -Detail $(if ($isGlobalAdmin) { "Global Administrator" } else { "Privileged Role Administrator + Cloud Application Administrator" })
+        }
+        else {
+            RecordPreflightCheck -Name "App role assignment rights" -Status WARNING -Detail "No active Global Administrator role detected (PIM-eligible roles do not show until activated)" -Fix "Activate the role, or run with -SkipAppRoles and hand the printed command to a Global Administrator."
+        }
+    }
+    catch {
+        RecordPreflightCheck -Name "App role assignment rights" -Status UNKNOWN -Detail "Could not read the account's directory roles - the app role step will surface it"
+    }
 }
 
 # Kicks off the registrations queued by ValidateResourceProviders. Deliberately
@@ -1347,6 +1488,12 @@ function ValidateSiteAlias {
     $upn = $parameters.serviceAccountUPN.Value
     $collidesWith = $null
 
+    # Computed from the UPN, not from ValidateServiceAccount's lookup - the alias
+    # check must work even when the service account check failed.
+    if ([string]::IsNullOrWhiteSpace($script:serviceAccountUpnLocalPart)) {
+        $script:serviceAccountUpnLocalPart = ($upn -split '@')[0]
+    }
+
     if ($requestsSiteAlias -ieq $script:serviceAccountUpnLocalPart) {
         $collidesWith = "the service account's UPN ($upn)"
     }
@@ -1373,12 +1520,12 @@ function ValidateSiteAlias {
 
     if ($null -eq $collidesWith) {
         Write-Host "Site alias '$requestsSiteAlias' is free (no user or service account holds it)." -ForegroundColor Green
+        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "No user or service account holds it"
         return
     }
 
     $suggestion = "$requestsSiteAlias-site"
-    RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail "Site alias '$requestsSiteAlias' collides with $collidesWith"
-    throw "The site alias '$requestsSiteAlias' collides with $collidesWith. The alias becomes the Microsoft 365 group's mail nickname, so it cannot be one that is already taken - SharePoint would not fail, it would silently create the group as '$($requestsSiteAlias)1', and every URL this script computed would point at a site that does not exist. Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion') and re-run. Nothing has been changed in the environment."
+    RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status MISSING -Detail "Collides with $collidesWith - SharePoint would silently create the group as '$($requestsSiteAlias)1' and every computed URL would be wrong" -Fix "Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion')."
 }
 
 # Reads the language (LCID) of the tenant's root site collection for the pre-flight
@@ -2264,11 +2411,35 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 # All sign-ins are done and nothing has been changed yet - validate the templates and
 # the service account, then show the pre-flight summary and ask for confirmation before
 # the first mutating step.
+# Every check RECORDS its result instead of stopping on first failure, so one run
+# shows everything that is missing at once - permissions and prerequisites tend to
+# need ordering from customer admins, and finding them one re-run at a time is slow.
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
 ValidateAzureRbac
 ValidateResourceProviders
+CheckAppRoleRights
+CheckAppCatalog
+CheckNodeJs
+
+$missingCount = ShowPreflightChecklist
+
+if ($Preflight) {
+    Write-Host "Pre-flight only (-Preflight): nothing has been deployed or changed." -ForegroundColor Cyan
+    if ($missingCount -gt 0) {
+        Write-Host "Fix the $missingCount missing item(s) above and re-run - or run the full deployment when ready." -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "All checks passed - ready to deploy." -ForegroundColor Green
+    exit 0
+}
+
+if ($missingCount -gt 0) {
+    Write-Host "$missingCount missing item(s) - fix them (see the checklist above) and re-run. Nothing has been changed in the environment." -ForegroundColor Red
+    exit 1
+}
+
 ConfirmDeployment
 RegisterResourceProviders
 
