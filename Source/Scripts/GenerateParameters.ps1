@@ -275,7 +275,8 @@ else {
 # decides whether group-connected sites land under /sites/ or /teams/. deploy.ps1
 # composes site URLs from managedPath AND writes it to the settings list, so a
 # tenant configured for /teams/ silently gets wrong URLs if the template default
-# is kept.
+# is kept. The value is read from NewTeamSiteManagedPath on
+# Get-PnPTenantInternalSetting - see the comment at the lookup below.
 #
 # This is the one value the Azure CLI cannot deliver: 'az account get-access-token
 # --resource https://<tenant>-admin.sharepoint.com' fails with InteractionRequired
@@ -311,20 +312,28 @@ else {
         try {
             Import-Module PnP.PowerShell -ErrorAction Stop
             Connect-PnPOnline -Url $adminUrl -ClientId $parameters.pnpAppId.Value -Interactive -ErrorAction Stop
-            $tenantSettings = Get-PnPTenant -ErrorAction Stop
 
-            # The property is DISCOVERED, not assumed. Neither Set-SPOTenant nor
-            # Set-PnPTenant documents a managed-path setting, so which property carries
-            # it (and whether this module version projects it at all) is not something
-            # to hardcode. Enumerate the names, match on ManagedPath, and read the value
-            # defensively - an unloaded CSOM property throws on access.
-            foreach ($property in $tenantSettings.PSObject.Properties) {
-                if ($property.Name -notlike '*ManagedPath*') { continue }
+            # Get-PnPTenantInternalSetting, not Get-PnPTenant: the managed-path settings
+            # live on the internal settings object. Neither Set-SPOTenant nor
+            # Set-PnPTenant documents them at all, which is why the source matters here.
+            #
+            # NewTeamSiteManagedPath is the one that applies: this solution's site is a
+            # group-connected team site (New-PnPSite -Type TeamSite), and that property
+            # is what the admin center's "Create group sites under" writes.
+            # NewSiteManagedPath covers non-group sites and is only a fallback.
+            $tenantSettings = Get-PnPTenantInternalSetting -ErrorAction Stop
+
+            $candidates = @('NewTeamSiteManagedPath', 'NewSiteManagedPath')
+            # Any other *ManagedPath* property, in case a future module renames these.
+            $candidates += @($tenantSettings.PSObject.Properties.Name |
+                Where-Object { $_ -like '*ManagedPath*' -and $_ -notin $candidates -and $_ -notlike '*Available*' })
+
+            foreach ($name in $candidates) {
                 try {
-                    $value = "$($property.Value)".Trim('/')
+                    $value = "$($tenantSettings.$name)".Trim().Trim('/')
                     if (-not [string]::IsNullOrWhiteSpace($value)) {
                         $detected = $value
-                        Write-Host "Read '$($property.Name)' from the tenant: /$detected/" -ForegroundColor Green
+                        Write-Host "Read '$name' from the tenant: /$detected/" -ForegroundColor Green
                         break
                     }
                 }
@@ -332,10 +341,21 @@ else {
             }
 
             if ($null -eq $detected) {
-                $names = @($tenantSettings.PSObject.Properties.Name | Where-Object { $_ -like '*ManagedPath*' -or $_ -like '*SiteCreation*' })
-                $seen = if ($names.Count -gt 0) { "candidate properties present but empty/unreadable: $($names -join ', ')" } else { "no managed-path property is exposed by this PnP.PowerShell version" }
-                throw "$seen"
+                throw "none of the managed-path properties on the tenant settings held a value (tried: $($candidates -join ', '))"
             }
+
+            # Sanity-check against the paths the tenant will actually accept, so a
+            # renamed or unexpected property cannot hand us an unusable value.
+            try {
+                $available = @($tenantSettings.AvailableManagedPathsForSiteCreation | ForEach-Object { "$_".Trim().Trim('/') })
+                if ($available.Count -gt 0) {
+                    Write-Host "Managed paths available for site creation in this tenant: $(($available | ForEach-Object { "/$_/" }) -join ', ')" -ForegroundColor Cyan
+                    if ($detected -notin $available) {
+                        Write-Host "WARN: '/$detected/' is not among them - check the value before deploying." -ForegroundColor Yellow
+                    }
+                }
+            }
+            catch {}
         }
         catch {
             $reason = ($_.Exception.Message -split "`r?`n")[0]
