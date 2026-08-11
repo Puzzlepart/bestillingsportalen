@@ -1157,6 +1157,68 @@ function ValidateServiceAccount {
     RecordDeployStatus -Component "Service account" -Status 'OK'
 }
 
+# Fails the deployment early when the deploying account cannot create RBAC role
+# assignments. azureresources.bicep contains two Microsoft.Authorization/roleAssignments
+# (Automation Job/Runbook Operator for the UAMI), and ARM authorizes those at SUBMIT:
+# without roleAssignments/write the whole deployment is rejected synchronously, no
+# deployment record is created, and azure-cli (verified on 2.77.0) swallows the 400
+# body and prints only 'The content for this response was already consumed'. This
+# check turns that dead end into a clear message before anything runs.
+#
+# Checked against the RG when it exists (rights may be granted there), else the
+# subscription. The permissions endpoint returns the caller's effective actions.
+function ValidateAzureRbac {
+    if ($SkipBicepDeploy) { return }
+
+    $subId = $parameters.subscriptionId.Value
+    $rgName = $parameters.resourceGroupName.Value
+    $scope = "/subscriptions/$subId"
+    $scopeLabel = "subscription $subId"
+    try {
+        az group show --name $rgName --subscription $subId --output none 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $scope = "/subscriptions/$subId/resourceGroups/$rgName"
+            $scopeLabel = "resource group $rgName"
+        }
+
+        $permsJson = az rest --method get --url "https://management.azure.com$scope/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" 2>$null
+        if (-not $permsJson) { throw "the permissions endpoint returned nothing" }
+        $perms = @(($permsJson | ConvertFrom-Json).value)
+
+        # Wildcard matching as ARM does it: '*' and prefix wildcards in actions.
+        function TestActionMatch([string[]]$patterns, [string]$action) {
+            foreach ($pattern in $patterns) {
+                $regex = '^' + [regex]::Escape($pattern).Replace('\*', '.*') + '$'
+                if ($action -imatch $regex) { return $true }
+            }
+            return $false
+        }
+
+        $requiredAction = 'Microsoft.Authorization/roleAssignments/write'
+        $hasWrite = $false
+        foreach ($entry in $perms) {
+            if ((TestActionMatch @($entry.actions) $requiredAction) -and -not (TestActionMatch @($entry.notActions) $requiredAction)) {
+                $hasWrite = $true
+                break
+            }
+        }
+    }
+    catch {
+        # A failed CHECK must not block a deployment that might work - only a
+        # confirmed missing permission should.
+        Write-Host "Could not verify RBAC permissions ($(($_.Exception.Message -split "`r?`n")[0])) - continuing; the bicep deployment will surface it if the permission is missing." -ForegroundColor Yellow
+        return
+    }
+
+    if ($hasWrite) {
+        Write-Host "RBAC verified: the deploying account can create role assignments on $scopeLabel." -ForegroundColor Green
+        return
+    }
+
+    RecordDeployStatus -Component "Azure resources (bicep: Automation, UAMI)" -Status 'FAILED' -Detail "The deploying account lacks Microsoft.Authorization/roleAssignments/write on $scopeLabel"
+    throw "The deploying account does not have 'Microsoft.Authorization/roleAssignments/write' on $scopeLabel. azureresources.bicep creates two role assignments (Automation Job/Runbook Operator for the managed identity), and ARM rejects the whole deployment at submit without this permission - with an error the Azure CLI does not even display. Grant the account Owner or User Access Administrator on the subscription (see the prerequisites) or on the resource group, then re-run. Nothing has been changed in the environment."
+}
+
 # Fails the deployment when the site alias would collide with the service account.
 #
 # The alias becomes the Microsoft 365 group's mailNickname, so it shares a namespace
@@ -2046,6 +2108,7 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
+ValidateAzureRbac
 ConfirmDeployment
 
 if (-not $SkipSharepointSite) {
