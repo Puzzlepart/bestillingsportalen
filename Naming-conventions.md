@@ -2,6 +2,8 @@
 
 Bestillingsportalen inkluderer muligheten til å definere navnekonvensjoner/policyer for områder, grupper, Teams og Viva Engage-fellesskap som opprettes.
 
+> Dette dokumentet handler om navn på det **brukerne bestiller**. Navnekonvensjonen for løsningens egne Azure-ressurser (`bestillingsportalen-uami`, `-auto`, ressursgruppa osv.) er dokumentert i [Teknisk løsningsbeskrivelse kap. 2.3](./Teknisk-losningsbeskrivelse.md#23-azure-egen-ressursgruppe).
+
 Når en bruker bestiller via Bestillingsportalen webdel eller Teams app, anvendes navnekonvensjonen, og en forhåndsvisning av hvordan navnet blir seende ut i kombinasjon med tittelen brukeren har angitt vises (se `Space display name` nedenfor).
 
 ![Naming conventions example screenshot](./Images/NamingConventionsExample.png)
