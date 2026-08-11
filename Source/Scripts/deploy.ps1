@@ -2629,11 +2629,10 @@ SendDeployPingback
 WriteDeploymentReport
 
 Write-Host ""
-Write-Host "Remaining manual steps (details in Deployment-guide.md):" -ForegroundColor Cyan
-Write-Host "  1. Authorise the delegated API connections with the service account - run ./Authorize-ApiConnections.ps1 for a guided flow, or use the Azure Portal ('Autorisere API-tilkoblinger' under step 3 in the guide)." -ForegroundColor Cyan
-Write-Host "  2. NEW environment only: import the Power Automate flows as the service account from Source/Flows/Bestillingsportalen-Flows_unmanaged.zip (step 5 in the guide)." -ForegroundColor Cyan
-Write-Host "  3. Configure the approval process, then activate and share the flows as the service account (steps 4-6 in the guide)." -ForegroundColor Cyan
-Write-Host "  4. Run the supporting Logic Apps once and set up the admin group (steps 7-9 in the guide)." -ForegroundColor Cyan
+# The manual steps are deliberately NOT enumerated here - a second copy of the
+# guide's step list drifts out of sync with it. The guide is the single source.
+Write-Host "The scripted part is done. Continue with the manual steps in Deployment-guide.md," -ForegroundColor Cyan
+Write-Host "starting from 'Autorisere API-tilkoblinger' (step 3) - a guided flow for that first step: ./Authorize-ApiConnections.ps1" -ForegroundColor Cyan
 Write-Host ""
 
 if ((GetFailedDeployComponents).Count -gt 0) {
