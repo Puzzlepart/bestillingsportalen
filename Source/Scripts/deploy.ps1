@@ -1034,6 +1034,39 @@ function ValidateServiceAccount {
     RecordDeployStatus -Component "Service account" -Status 'OK'
 }
 
+# Reads the language (LCID) of the tenant's root site collection for the pre-flight
+# summary. Provisioning sites in a language other than the root site's has caused
+# problems, so the language is stated up front instead of being discovered afterwards.
+#
+# Read via Get-PnPTenantSite because the pre-flight runs on the -admin connection:
+# SiteProperties carries Lcid, so no extra connection (and no extra browser prompt)
+# is needed. Never throws - a failure to read a display value must not abort a
+# deployment that has not changed anything yet.
+function GetRootSiteLanguage {
+    try {
+        $rootSite = Get-PnPTenantSite -Url $global:tenantUrl -ErrorAction Stop
+        $lcid = [int]$rootSite.Lcid
+        if ($lcid -le 0) {
+            return "not reported by $global:tenantUrl"
+        }
+        try {
+            # Resolve the name from the LCID rather than keeping a lookup table. The
+            # solution's own Locales list is not available yet - it lives on the site
+            # this run is about to create.
+            return "$lcid - $([System.Globalization.CultureInfo]::GetCultureInfo($lcid).DisplayName)"
+        }
+        catch {
+            return "$lcid"
+        }
+    }
+    catch {
+        # First line only - a CSOM/throttling error can run for paragraphs and would
+        # wreck the summary layout.
+        $reason = ($_.Exception.Message -split "`r?`n")[0]
+        return "could not be read ($reason)"
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Pre-flight summary and confirmation
 # Runs after all sign-ins so it reflects the ACTUAL connected identity,
@@ -1062,6 +1095,7 @@ function ConfirmDeployment {
         Write-Host "    Signed in as (CLI): $deployUser"
     }
     Write-Host "    SharePoint tenant:  $global:tenantUrl"
+    Write-Host "    Root site language: $(GetRootSiteLanguage)"
     Write-Host ("    Service account:    {0}{1}" -f $parameters.serviceAccountUPN.Value, $(if ($script:serviceAccountDisplayName) { " ($script:serviceAccountDisplayName) - verified" }))
     Write-Host ""
     Write-Host "  Will set up / update:" -ForegroundColor Yellow
