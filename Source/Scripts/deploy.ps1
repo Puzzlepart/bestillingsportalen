@@ -958,14 +958,52 @@ function RecordDeployStatus {
 # non-zero exit codes, so without this a failed deployment scrolls past unnoticed
 # and the script reports success.
 function RecordAzResult {
-    param([Parameter(Mandatory = $true)][string]$Component)
-    if ($LASTEXITCODE -ne 0) {
-        RecordDeployStatus -Component $Component -Status 'FAILED' -Detail "az exited with code $LASTEXITCODE - see the error output above"
+    param(
+        [Parameter(Mandatory = $true)][string]$Component,
+        # Name of the ARM deployment behind the az call (defaults to the template
+        # file's base name when az deployment group create is run without --name).
+        # When set, a failure fetches the REAL error from the deployment record:
+        # the CLI's own output is sometimes useless - notably 'The content for this
+        # response was already consumed', a known CLI bug where the error response
+        # body is read once internally and lost before it can be shown.
+        [string]$DeploymentName
+    )
+    # Captured FIRST and restored at the end: the az calls below overwrite
+    # $LASTEXITCODE, and callers check it AFTER this function to decide whether to
+    # abort - without the restore, a failed deployment would look successful.
+    $azExitCode = $LASTEXITCODE
+
+    if ($azExitCode -ne 0) {
+        $detail = "az exited with code $azExitCode - see the error output above"
+        if ($DeploymentName) {
+            try {
+                $armErrorJson = az deployment group show --resource-group $parameters.resourceGroupName.Value --name $DeploymentName --query 'properties.error' --output json 2>$null
+                if ($armErrorJson -and $armErrorJson -ne 'null') {
+                    Write-Host "ARM error for deployment '$DeploymentName' (fetched from the deployment record - the CLI output above may have swallowed it):" -ForegroundColor Red
+                    Write-Host $armErrorJson -ForegroundColor Red
+                    $detail = "ARM error: $(("$armErrorJson" -replace '\s+', ' ').Trim())"
+                }
+                # The per-resource operations usually carry the most specific message
+                # (policy denials, quota, provider registration).
+                $opErrorsJson = az deployment operation group list --resource-group $parameters.resourceGroupName.Value --name $DeploymentName --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, code:properties.statusMessage.error.code, message:properties.statusMessage.error.message}" --output json 2>$null
+                $opErrors = if ($opErrorsJson) { @($opErrorsJson | ConvertFrom-Json) } else { @() }
+                foreach ($op in $opErrors) {
+                    Write-Host ("  Failed resource: {0} [{1}] {2}" -f $op.resource, $op.code, $op.message) -ForegroundColor Red
+                }
+                if ($opErrors.Count -gt 0) {
+                    $detail = "$detail | " + (@($opErrors | ForEach-Object { "$($_.resource): [$($_.code)] $($_.message)" }) -join ' | ')
+                }
+            }
+            catch {}
+        }
+        RecordDeployStatus -Component $Component -Status 'FAILED' -Detail $detail
         Write-Host "$Component FAILED - continuing with the remaining components. See the summary at the end." -ForegroundColor Red
     }
     else {
         RecordDeployStatus -Component $Component -Status 'OK'
     }
+
+    $global:LASTEXITCODE = $azExitCode
 }
 
 function GetFailedDeployComponents {
@@ -1438,7 +1476,7 @@ function DeployARMTemplates {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
 
             az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" --output none
-            RecordAzResult "API connections"
+            RecordAzResult "API connections" -DeploymentName "apiconnections"
 
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
         }
@@ -1452,47 +1490,47 @@ function DeployARMTemplates {
         Write-Host "ProcessGuests" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessGuests"
+        RecordAzResult "Logic App: ProcessGuests" -DeploymentName "processguests"
 
         Write-Host "CheckSiteExists" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: CheckSiteExists"
+        RecordAzResult "Logic App: CheckSiteExists" -DeploymentName "checksiteexists"
         
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: ProcessProvisionRequest"
+        RecordAzResult "Logic App: ProcessProvisionRequest" -DeploymentName "processprovisionrequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessGuestRequest"
+        RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
 
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: SyncGroupSettings"
+        RecordAzResult "Logic App: SyncGroupSettings" -DeploymentName "syncgroupsettings"
 
         Write-Host "GetSiteTemplates" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: GetSiteTemplates"
+        RecordAzResult "Logic App: GetSiteTemplates" -DeploymentName "getsitetemplates"
         
         Write-Host "GetHubSites" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: GetHubSites"
+        RecordAzResult "Logic App: GetHubSites" -DeploymentName "gethubsites"
         
         Write-Host "SyncLabels" -ForegroundColor Yellow
         
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: SyncLabels"
+        RecordAzResult "Logic App: SyncLabels" -DeploymentName "synclabels"
 
         Write-Host "GetTeamsTemplates" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: GetTeamsTemplates"
+        RecordAzResult "Logic App: GetTeamsTemplates" -DeploymentName "getteamstemplates"
         
         Write-Host "Finished deploying logic apps" -ForegroundColor Green
     }
@@ -1562,7 +1600,7 @@ function VerifyRunbookRuntimeEnvironment {
 function DeployLocalRunbooks {
     Write-Host "Deploying runbooks + PowerShell 7.4 runtime environment (runbooks.bicep)..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)" --output none
-    RecordAzResult "Runbooks + runtime environment (runbooks.bicep)"
+    RecordAzResult "Runbooks + runtime environment (runbooks.bicep)" -DeploymentName "runbooks"
 
     # Upload the runbook content directly from the repo and publish. The bicep
     # template only creates empty runbook shells (publishContentLink would require a
@@ -1636,12 +1674,12 @@ function DeployUpgradeLogicApp {
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: ProcessProvisionRequest"
+        RecordAzResult "Logic App: ProcessProvisionRequest" -DeploymentName "processprovisionrequest"
 
         Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessGuestRequest"
+        RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
@@ -2136,7 +2174,7 @@ Write-Host "Deploying Azure resources" -ForegroundColor Yellow
 if (-not $SkipBicepDeploy) {
     Write-Host "Deploying automation account and managed identity..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/azureresources.bicep" --parameters "tenantId=$($parameters.tenantId.Value)" "logoUrl=$($parameters.siteLogoPath.Value)" "uamiName=$uamiName" --output none
-    RecordAzResult "Azure resources (bicep: Automation, UAMI)"
+    RecordAzResult "Azure resources (bicep: Automation, UAMI)" -DeploymentName "azureresources"
     if ($LASTEXITCODE -ne 0) {
         # Everything after this point (permissions, runbooks, logic apps) depends on
         # these resources - no point continuing.
