@@ -1076,9 +1076,28 @@ function ValidateArmTemplates {
         Write-Host "  OK: $($template.Name)" -ForegroundColor Gray
     }
 
+    # The .bicep templates are compiled locally too. Two failure modes end in the same
+    # place otherwise: az downloads the Bicep CLI on first use (blocked in some
+    # proxy/firewall-restricted environments), and a compile error rejects the
+    # deployment at submit - in both cases ARM never records a deployment
+    # (DeploymentNotFound afterwards), and older az versions swallow the message
+    # entirely ('The content for this response was already consumed'). Catch it here,
+    # in pre-flight, not after half an hour of site provisioning. Compile errors from
+    # az land on stderr and are visible right above the throw.
+    foreach ($bicepFile in @('azureresources.bicep', 'runbooks.bicep')) {
+        $bicepPath = Join-Path (Join-Path $packageRootPath 'ARMTemplates') $bicepFile
+        az bicep build --file $bicepPath --stdout | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  INVALID: $bicepFile - see the compiler output above" -ForegroundColor Red
+            $invalid += "$bicepFile failed to compile (or the Bicep CLI could not be installed - check proxy/firewall and run 'az bicep install' manually)"
+            continue
+        }
+        Write-Host "  OK: $bicepFile" -ForegroundColor Gray
+    }
+
     if ($invalid.Count -gt 0) {
         RecordDeployStatus -Component "ARM template validation" -Status 'FAILED' -Detail ($invalid -join ' | ')
-        throw "One or more ARM templates are not valid JSON - az would reject them without telling you where. Fix the files listed above and re-run. Note that trailing commas are the usual cause: PowerShell's ConvertFrom-Json accepts them, az does not."
+        throw "One or more ARM templates are not valid - az would reject them at deploy time without a usable error message. Fix the files listed above and re-run. For JSON, trailing commas are the usual cause: PowerShell's ConvertFrom-Json accepts them, az does not."
     }
 
     RecordDeployStatus -Component "ARM template validation" -Status 'OK'
