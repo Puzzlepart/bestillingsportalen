@@ -1834,7 +1834,10 @@ function VerifyRunbookRuntimeEnvironment {
         RecordDeployStatus -Component "Runbook runtime environment" -Status 'FAILED' -Detail "Not on '$runtimeEnvironmentName': $($wrong -join ', '). PnP.PowerShell 3.x needs PowerShell 7.4, so these runbooks will fail with 'Connect-PnPOnline is not recognized'. Re-link them under Automation account > Runtime environments, or delete the runbook and re-run deploy."
     }
     else {
-        RecordDeployStatus -Component "Runbook runtime environment" -Status 'OK' -Detail "On '$runtimeEnvironmentName' (PowerShell 7.4). The portal's default Runbooks blade shows these as 'PowerShell 5.1' - a known display limitation, not a problem."
+        # The 'shows as PowerShell 5.1 in the portal' caveat is deliberately NOT
+        # repeated here - it is documented in the deployment guide, and on an OK line
+        # it read as a problem when there is none.
+        RecordDeployStatus -Component "Runbook runtime environment" -Status 'OK' -Detail "On '$runtimeEnvironmentName' (PowerShell 7.4)"
     }
 
     # CustomerSpecific is customer-owned and deliberately never overwritten, so deploy
