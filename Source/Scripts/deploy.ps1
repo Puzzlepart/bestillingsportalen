@@ -1335,6 +1335,22 @@ function ValidateSiteAlias {
     $upn = $parameters.serviceAccountUPN.Value
     $collidesWith = $null
 
+    # A collision only matters when a NEW site is to be created - the alias becomes
+    # the new group's mailNickname at creation time and never again. When the site
+    # already exists on the computed URL, skip the check entirely. This is not just
+    # an optimization: after a site URL rename (SharePoint admin center changes the
+    # URL but NOT the group's mailNickname), requestsSiteAlias must be set to the new
+    # URL segment, which may well be the service account's name - the very collision
+    # this check exists for on fresh installs.
+    try {
+        $existingSite = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
+        if ($null -ne $existingSite) {
+            RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl - the alias is only relevant when creating a new site"
+            return
+        }
+    }
+    catch {}
+
     # Computed from the UPN, not from ValidateServiceAccount's lookup - the alias
     # check must work even when the service account check failed.
     if ([string]::IsNullOrWhiteSpace($script:serviceAccountUpnLocalPart)) {
