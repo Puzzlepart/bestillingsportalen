@@ -446,3 +446,61 @@ Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområ
 2. Sett URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`) slik at bestillingene skrives til riktige lister.
 
 Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 6) før de kan bestille.
+
+## Merknad: Aktivere Teams-appen for Bestillingsportalen (krever Prosjektportalen)
+
+Bestillingsportalen finnes også som Teams-app, slik at brukerne kan bestille samarbeidsområder direkte fra Teams. Teams-app-manifestet følger med SPFx-pakken **Prosjektportalen 365 - Portfolio Web Parts** (`pp-portfolio-web-parts`) — akkurat som webdelen i merknaden over krever dette derfor at [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) er installert i tenanten, slik at pakken ligger i tenant app-katalogen.
+
+1. **Synkroniser pakken til Teams.** Som Teams og SharePoint-administrator: gå til tenant app-katalogen og åpne `Apps for SharePoint`-biblioteket. Merk pakken **Prosjektportalen 365 - Portfolio Web Parts** (`pp-portfolio-web-parts`) og klikk **`Sync to Teams`** i `FILES`-båndet.
+
+   ![Sync to Teams fra tenant app-katalogen](/Images/teamsapp-step1.png)
+
+2. **Kontroller appen i Teams admin center.** Som Teams-administrator: gå til [Teams admin center](https://admin.teams.microsoft.com/policies/manage-apps) → `Teams apps` → `Manage apps` og søk etter **Bestillingsportalen**. Kontroller at `App status` står som `Unblocked` og at `Available to` dekker brukerne som skal ha appen (f.eks. `Everyone`). Hvordan du styrer tilgjengeligheten og eventuelt pinner appen automatisk for brukerne er beskrevet i underseksjonene nedenfor.
+
+   ![Bestillingsportalen i Teams admin center](/Images/teamsapp-step2.png)
+
+3. **Finn appen i Teams-klienten.** Gå til `Apper` → **`Bygget for organisasjonen din`** og finn **Bestillingsportalen**. Det kan ta litt tid (opptil noen timer) fra synkroniseringen til appen dukker opp her.
+
+   ![Bestillingsportalen under Bygget for organisasjonen din i Teams](/Images/teamsapp-step3.png)
+
+4. **Legg til appen.** Klikk på appen og velg **`Legg til`**.
+
+   ![Legg til Bestillingsportalen i Teams](/Images/teamsapp-step4.png)
+
+Bestillingsportalen åpnes nå som en egen app i Teams, med samme grensesnitt som webdelen — brukerne kan bestille områder direkte herfra:
+
+![Bestillingsportalen åpnet som app i Teams](/Images/teamsapp-startpage.png)
+
+Teams-appen bruker samme oppsett som webdelen: bestillinger sendt fra Teams skrives til de samme listene og behandles av den samme godkjenningsflyten (Steg 4–6 gjelder altså uendret). Husk at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 6) også når de bestiller fra Teams.
+
+### Tilgjengeliggjøre appen for flere brukere
+
+Hvem som ser og kan legge til appen styres per app via **app centric management** ([Microsoft Learn: App centric management](https://learn.microsoft.com/en-us/microsoftteams/app-centric-management)) — dette har erstattet de gamle app permission policies i de fleste tenanter (alle tenanter migreres automatisk fra april 2025):
+
+1. Gå til [Teams admin center](https://admin.teams.microsoft.com/policies/manage-apps) → `Teams apps` → `Manage apps` og åpne **Bestillingsportalen**.
+2. Velg fanen **`Users and groups`** → **`Availability`** → **`Edit availability`**.
+3. Velg under `Available to`:
+   - **`Everyone`** — alle brukere i organisasjonen (anbefalt hvis alle skal kunne bestille).
+   - **`Specific users or groups`** — kun valgte brukere/grupper (sikkerhetsgrupper, Microsoft 365-grupper, dynamiske grupper og distribusjonslister støttes; maks 99 om gangen).
+   - **`No one`** — appen skjules for alle (tilsvarer gammel «blocked»).
+4. Klikk `Apply`.
+
+> Endringer i tilgjengelighet kan ta **opptil 24 timer** å slå gjennom for alle brukere. Bruker tenanten fortsatt gamle [app permission policies](https://learn.microsoft.com/en-us/microsoftteams/teams-app-permission-policies) (synlig under `Teams apps` → `Permission policies`), styres tilgangen der i stedet, med samme prinsipp: appen må være `Allowed` i policyen som er tildelt brukerne.
+
+Merk at app-tilgjengelighet kun styrer hvem som ser appen i Teams — tilgang til selve bestillingsdataene styres fortsatt av SharePoint-tilgangene i Steg 6.
+
+### Pinne appen automatisk for brukerne (valgfritt)
+
+Vil du at Bestillingsportalen skal ligge ferdig i app-linjen i Teams (venstre side på desktop, nederst på mobil) uten at brukerne selv må legge den til, bruk en **app setup policy** ([Microsoft Learn: App setup policies](https://learn.microsoft.com/en-us/microsoftteams/teams-app-setup-policies)):
+
+1. Gå til [Teams admin center](https://admin.teams.microsoft.com/policies/app-setup) → `Teams apps` → `Setup policies`.
+2. Skal appen pinnes for **alle**: rediger **`Global (Org-wide default)`**. Skal den pinnes for **utvalgte brukere**: klikk `Add` og opprett en egen policy (en tilpasset policy overstyrer den globale for brukerne den tildeles).
+3. Under **`Pinned apps`**, klikk **`Add apps`**, søk etter **Bestillingsportalen** og velg `Add`.
+4. Dra appen til ønsket plassering i rekkefølgen under `App bar`, og klikk `Save`.
+5. Opprettet du en egen policy: tildel den til brukere eller grupper — se [Assign policies to users and groups](https://learn.microsoft.com/en-us/microsoftteams/assign-policies-users-and-groups).
+
+Nyttig å vite:
+
+- **`User pinning`**-innstillingen i policyen avgjør om brukerne selv kan pinne/flytte apper. Er den på, vises brukernes egne pins under admin-pinnede apper; er den av, mister brukerne sine egne pins og ser kun de admin-pinnede.
+- Pinning respekterer tilgjengeligheten over: appen pinnes bare for brukere den faktisk er tilgjengelig for.
+- Policyendringer kan ta **noen timer** å slå gjennom i klientene.
