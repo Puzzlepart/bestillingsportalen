@@ -4573,7 +4573,7 @@
                                     "actions": {
                                         "Check_if_space_is_a_team_-_post_welcome_message": {
                                             "actions": {
-                                                "Add_service_account_to_group_-_post_welcome_message": {
+                                                "Get_group_owners_-_post_welcome_message": {
                                                     "runAfter": {},
                                                     "type": "Http",
                                                     "inputs": {
@@ -4582,17 +4582,71 @@
                                                             "identity": "[variables('uamiId')]",
                                                             "type": "ManagedServiceIdentity"
                                                         },
-                                                        "body": {
-                                                            "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{body('Get_service_account_user_profile')?['id']}"
-                                                        },
-                                                        "method": "POST",
-                                                        "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/$ref"
+                                                        "method": "GET",
+                                                        "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners?$select=id&$top=999"
                                                     },
-                                                    "description": "Add service account to the group (team) so we can post the welcome message. We will remove the service account after."
+                                                    "description": "The service account may ALREADY own the group - notably when the service account itself submitted the request (it is then among the owners from creation). Adding an existing owner is a Graph 400 ('One or more added object references already exist'), and blindly removing afterwards would strip a legitimate ownership - so the temporary add/remove below only happens when the account is NOT an owner here."
+                                                },
+                                                "Check_if_service_account_is_not_already_owner": {
+                                                    "actions": {
+                                                        "Add_service_account_to_group_-_post_welcome_message": {
+                                                            "runAfter": {},
+                                                            "type": "Http",
+                                                            "inputs": {
+                                                                "authentication": {
+                                                                    "audience": "https://graph.microsoft.com",
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
+                                                                },
+                                                                "body": {
+                                                                    "@@odata.id": "https://graph.microsoft.com/v1.0/users/@{body('Get_service_account_user_profile')?['id']}"
+                                                                },
+                                                                "method": "POST",
+                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/$ref"
+                                                            },
+                                                            "description": "Add service account to the group (team) so we can post the welcome message. Removed again after the message is posted."
+                                                        },
+                                                        "Wait_for_owner_to_be_added_-_post_welcome_message": {
+                                                            "runAfter": {
+                                                                "Add_service_account_to_group_-_post_welcome_message": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "Wait",
+                                                            "inputs": {
+                                                                "interval": {
+                                                                    "count": 2,
+                                                                    "unit": "Minute"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Get_group_owners_-_post_welcome_message": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "expression": {
+                                                        "and": [
+                                                            {
+                                                                "not": {
+                                                                    "contains": [
+                                                                        "@string(body('Get_group_owners_-_post_welcome_message'))",
+                                                                        "@body('Get_service_account_user_profile')?['id']"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    "else": {
+                                                        "actions": {}
+                                                    },
+                                                    "type": "If",
+                                                    "description": "Skips both the add and the 2-minute settle wait when the service account already owns the group."
                                                 },
                                                 "Post_welcome_message_to_general_channel": {
                                                     "runAfter": {
-                                                        "Wait_for_owner_to_be_added_-_post_welcome_message": [
+                                                        "Check_if_service_account_is_not_already_owner": [
                                                             "Succeeded"
                                                         ]
                                                     },
@@ -4613,8 +4667,23 @@
                                                         "path": "/v3/beta/teams/@{encodeURIComponent(variables('GroupID'))}/channels/@{encodeURIComponent(variables('ChannelID'))}/messages"
                                                     }
                                                 },
-                                                "Remove_service_account_from_group_-_post_welcome_message": {
-                                                    "description": "Runs on Failed/TimedOut as well as Succeeded - otherwise a failed welcome message leaves the service account as a permanent owner of the group.",
+                                                "Check_if_temporary_ownership_should_be_removed": {
+                                                    "description": "Runs on Failed/TimedOut as well as Succeeded - otherwise a failed welcome message leaves the service account as a permanent owner. But ONLY when the ownership was added by this flow: when the service account already owned the group (it submitted the request itself), removing here would strip a legitimate ownership.",
+                                                    "actions": {
+                                                        "Remove_service_account_from_group_-_post_welcome_message": {
+                                                            "runAfter": {},
+                                                            "type": "Http",
+                                                            "inputs": {
+                                                                "authentication": {
+                                                                    "audience": "https://graph.microsoft.com",
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
+                                                                },
+                                                                "method": "DELETE",
+                                                                "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/@{body('Get_service_account_user_profile')?['id']}/$ref"
+                                                            }
+                                                        }
+                                                    },
                                                     "runAfter": {
                                                         "Post_welcome_message_to_general_channel": [
                                                             "Succeeded",
@@ -4622,30 +4691,22 @@
                                                             "TimedOut"
                                                         ]
                                                     },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com",
-                                                            "identity": "[variables('uamiId')]",
-                                                            "type": "ManagedServiceIdentity"
-                                                        },
-                                                        "method": "DELETE",
-                                                        "uri": "@{variables('GraphURL')}/groups/@{variables('GroupID')}/owners/@{body('Get_service_account_user_profile')?['id']}/$ref"
-                                                    }
-                                                },
-                                                "Wait_for_owner_to_be_added_-_post_welcome_message": {
-                                                    "runAfter": {
-                                                        "Add_service_account_to_group_-_post_welcome_message": [
-                                                            "Succeeded"
+                                                    "expression": {
+                                                        "and": [
+                                                            {
+                                                                "not": {
+                                                                    "contains": [
+                                                                        "@string(body('Get_group_owners_-_post_welcome_message'))",
+                                                                        "@body('Get_service_account_user_profile')?['id']"
+                                                                    ]
+                                                                }
+                                                            }
                                                         ]
                                                     },
-                                                    "type": "Wait",
-                                                    "inputs": {
-                                                        "interval": {
-                                                            "count": 2,
-                                                            "unit": "Minute"
-                                                        }
-                                                    }
+                                                    "else": {
+                                                        "actions": {}
+                                                    },
+                                                    "type": "If"
                                                 }
                                             },
                                             "runAfter": {},
