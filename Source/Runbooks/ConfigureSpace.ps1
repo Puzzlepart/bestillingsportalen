@@ -78,12 +78,37 @@ $script:currentStepSkipReason = $null
 # Connect helpers. Each step connects to the context it needs rather than relying on
 # whatever the previous step happened to leave behind - tenant-admin cmdlets such as
 # Set-PnPTenantSite used to be called while the connection pointed at the site itself.
+#
+# Connections are warmed up with retry: PnP acquires the token LAZILY on the first
+# request after Connect-PnPOnline, and the Automation sandbox's identity endpoint has
+# been seen returning an empty/unparsable response under quick successive token
+# requests (every step reconnects) - PnP then fails the STEP with '[Managed Identity]
+# The error response was either empty or could not be parsed'. Forcing the token
+# acquisition here, inside a retry loop, keeps that transient out of the step results.
+function Connect-WithRetry {
+    param([Parameter(Mandatory = $true)][string] $Url)
+
+    $maxAttempts = 4
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            Connect-PnPOnline -Url $Url -ManagedIdentity
+            $null = Get-PnPWeb # forces the token acquisition now, inside the retry
+            return
+        }
+        catch {
+            if ($attempt -eq $maxAttempts) { throw }
+            Write-Output "Connection warm-up for $Url failed (attempt $attempt/$maxAttempts): $($_.Exception.Message) - retrying in $(10 * $attempt)s"
+            Start-Sleep -Seconds (10 * $attempt)
+        }
+    }
+}
+
 function Connect-Admin {
-    Connect-PnPOnline -Url $adminUrl -ManagedIdentity
+    Connect-WithRetry -Url $adminUrl
 }
 
 function Connect-Site {
-    Connect-PnPOnline -Url $siteUrl -ManagedIdentity
+    Connect-WithRetry -Url $siteUrl
 }
 
 # Function to handle errors and update the provisioning request status
@@ -379,6 +404,17 @@ function SetSiteClassification {
 }
 
 function JoinOrRegisterHubSite {
+    # JoinHub comes from the provisioning type, the hub site id from the user's
+    # selection in the web part. When the type says join but no hub was selected
+    # (typically because the Hub Sites list is empty - GetHubSites never run, or no
+    # hub has Enabled = true), the id arrives empty. That is a configuration gap, not
+    # a provisioning failure - skip loudly instead of failing the whole request with
+    # "Hub site with id '' was not found".
+    if ($joinHubEnabled -and $spaceTypeInternal -ne "Hub Site" -and [string]::IsNullOrWhiteSpace($hubSiteId)) {
+        Skip-Step "JoinHub is enabled for this provisioning type, but the request carries no hub site id. Run the GetHubSites logic app and set Enabled = true on a hub in the Hub Sites list (guide steps 7-8), or remove JoinHub from the provisioning type."
+        return
+    }
+
     # Both branches are tenant-admin operations.
     Connect-Admin
 
