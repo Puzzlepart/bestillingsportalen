@@ -43,6 +43,8 @@ For å tilpasse en type, rediger listeelementet og oppdater verdien på én av f
 - **Teamify** – Om området skal Teams-aktiveres automatisk som standard.
 - **Join Hub** – Om området som standard skal tilknyttes en hub.
 - **Default Hub** – Standard hub-område denne områdetypen tilknyttes (overstyrer global standard).
+
+  > **Sett alltid Default Hub når Join Hub er på.** Hub-ID-en når bestillingen kun når brukeren velger en hub i webdelen eller typen har en Default Hub — `Join Hub = true` uten Default Hub har i praksis gitt bestillinger med tom hub-ID, og da blir området stående uten hub-tilknytning (`ConfigureSpace` hopper over steget med melding om nettopp dette). Forutsetter at huben ligger i `Hub Sites`-listen med `Enabled = true` (kjør `GetHubSites` først).
 - **Teams Channel ID** – Standard Teams-kanal-ID knyttet til denne områdetypen (brukes for intern kanal-funksjonalitet).
 
 **Legg ikke til nye elementer i denne listen – de vil ikke fungere.**

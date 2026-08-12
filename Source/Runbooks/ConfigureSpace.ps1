@@ -404,14 +404,14 @@ function SetSiteClassification {
 }
 
 function JoinOrRegisterHubSite {
-    # JoinHub comes from the provisioning type, the hub site id from the user's
-    # selection in the web part. When the type says join but no hub was selected
-    # (typically because the Hub Sites list is empty - GetHubSites never run, or no
-    # hub has Enabled = true), the id arrives empty. That is a configuration gap, not
-    # a provisioning failure - skip loudly instead of failing the whole request with
-    # "Hub site with id '' was not found".
+    # JoinHub comes from the provisioning type; the hub site id only reaches the
+    # request when the user picks a hub in the web part OR the provisioning type has
+    # a Default Hub configured. A type with Join Hub = true but no Default Hub has
+    # been seen producing requests with an EMPTY hub id in practice. That is a
+    # configuration gap, not a provisioning failure - skip loudly instead of failing
+    # the whole request with "Hub site with id '' was not found".
     if ($joinHubEnabled -and $spaceTypeInternal -ne "Hub Site" -and [string]::IsNullOrWhiteSpace($hubSiteId)) {
-        Skip-Step "JoinHub is enabled for this provisioning type, but the request carries no hub site id. Run the GetHubSites logic app and set Enabled = true on a hub in the Hub Sites list (guide steps 7-8), or remove JoinHub from the provisioning type."
+        Skip-Step "JoinHub is enabled for this provisioning type, but the request carries no hub site id. Set a Default Hub on the provisioning type (Provisioning Types list) - and make sure the hub exists in the Hub Sites list with Enabled = true (run the GetHubSites logic app first, guide steps 7-8)."
         return
     }
 
