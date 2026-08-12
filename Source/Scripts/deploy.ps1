@@ -1125,7 +1125,15 @@ function TestAzureAction([string]$Scope, [string]$Action) {
 # Checked against the RG when it exists (rights may be granted there), else the
 # subscription. The permissions endpoint returns the caller's effective actions.
 function ValidateAzureRbac {
-    if ($SkipBicepDeploy) { return }
+    # Only azureresources.bicep needs roleAssignments/write (ARM authorizes its two
+    # RBAC role assignments at submit). Upgrade mode never deploys that template, and
+    # -SkipBicepDeploy skips it explicitly - blocking those runs on a permission they
+    # will not use would force Owner onto accounts that only need Contributor for
+    # runbook and logic app updates.
+    if ($SkipBicepDeploy -or $Upgrade) {
+        RecordPreflightCheck -Name "RBAC: role assignment rights" -Status SKIPPED -Detail $(if ($Upgrade) { "Upgrade mode does not deploy azureresources.bicep - no role assignments are created" } else { "-SkipBicepDeploy" })
+        return
+    }
 
     $subId = $parameters.subscriptionId.Value
     $rgName = $parameters.resourceGroupName.Value
