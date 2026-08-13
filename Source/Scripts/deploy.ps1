@@ -1021,22 +1021,22 @@ function ValidateServiceAccount {
         $servicePlans = @($licenseDetails.value.servicePlans.servicePlanName)
         if ($servicePlans.Count -eq 0) {
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
-            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign an E1/E3/E5 license (SPO, Exchange Online, Teams and seeded Power Automate)."
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign a license that includes SPO, Exchange Online, Teams and seeded Power Automate (E- and F-plans both qualify)."
             return
         }
         # The account must be able to own and activate the solution flow (guide step 5).
-        # Microsoft's licensing FAQ lists F-plans as including seeded Power Automate,
-        # but frontline plans (FLOW_O365_S1) have failed flow activation with
-        # FlowNotOriginalAuthor in practice, and unprovisioned viral trials
-        # (FLOW_P2_VIRAL without _REAL) are not usable - seeded Power Automate from
-        # E1/E3/E5 (FLOW_O365_P1/P2/P3) or a standalone/per-user Flow plan is the
-        # safe choice, hence the warning below.
-        $flowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' -and $_ -notin @('FLOW_O365_S1', 'FLOW_P2_VIRAL') })
+        # Seeded Power Automate from any Office 365 plan qualifies - INCLUDING frontline
+        # F-plans (FLOW_O365_S1), which are verified working in a real customer tenant
+        # (import + activation, August 2026). An earlier FlowNotOriginalAuthor failure
+        # on an F-plan happened in a dev tenant and appears to have been environment-
+        # specific. The only plan still treated as unusable is an unprovisioned viral
+        # trial (FLOW_P2_VIRAL without _REAL).
+        $flowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' -and $_ -ne 'FLOW_P2_VIRAL' })
         if ($flowPlans.Count -eq 0) {
             $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
             if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
-            RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no usable Power Automate plan for the approval flow"
-            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no usable Power Automate plan (found: $foundFlowPlans)" -Fix "Swap to an E1/E3/E5 license before activating the approval flow (guide step 5) - F plans have failed activation with FlowNotOriginalAuthor."
+            RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no seeded Power Automate plan for the approval flow"
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no seeded Power Automate plan (found: $foundFlowPlans)" -Fix "Assign a license with seeded Power Automate (any E- or F-plan) before importing the approval flow (guide step 5). Unprovisioned viral trials do not count."
             return
         }
     }
