@@ -207,7 +207,7 @@ Kommandoen er idempotent — eksisterende roller hoppes over, så den kan trygt 
 **Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
 
 - Eksisterende SharePoint-område gjenkjennes (du får spørsmål der det er relevant).
-- På spørsmålet om PnP-malen: svar **`n`** for å beholde alt eksisterende listeinnhold urørt (skriptet henter da bare liste-ID-ene). Svar **`y`** kun hvis du vil nullstille konfigurasjonslistene (Settings, Provisioning Types, Teams Templates m.fl.) til pakkens standardverdier — bestillingsdata (Provisioning Requests / Guest Requests) røres aldri.
+- På spørsmålet om PnP-malen: **`y` nullstiller ingenting** — malens DataRows bruker `UpdateBehavior="Skip"`, så eksisterende listeelementer røres aldri; `y` oppdaterer skjema/views og legger til manglende standardrader. Svar **`n`** for å hoppe over malen helt (skriptet henter da bare liste-ID-ene). Skal du kun oppdatere Logic Apps/runbooks, hopper `-SkipSharepointSite` over hele områdesteget inkludert denne prompten.
 - App-roller sjekkes per rolle og tildeles kun det som mangler; Logic Apps og API-tilkoblinger oppdateres til malens definisjon.
 - Sjekk at de delegerte API-tilkoblingene fortsatt står som `Connected` etterpå — en re-deploy kan i noen tilfeller kreve re-autorisering.
 

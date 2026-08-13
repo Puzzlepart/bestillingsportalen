@@ -191,9 +191,9 @@ Ved gjentatte kjøringer (typisk under utvikling og testing) blir promptene fort
 |--|--|
 | Gjenbruker cachede Az/Azure CLI-sesjoner | Uten å spørre (samme som `-SkipConfirmation`) |
 | Hopper over pre-flight-bekreftelsen | Samme som `-SkipConfirmation` |
-| Svarer **nei** på «re-anvend PnP-template?» | Konfigurasjonslistene beholder innholdet sitt |
+| Svarer **nei** på «apply PnP-template?» | Områdets skjema/views endres ikke |
 
-Template-svaret er bevisst `nei`: å re-anvende malen nullstiller `Settings`, `Provisioning Types`, `Teams Templates` m.fl. til pakkens standardverdier, og det skal aldri skje stille i en uovervåket kjøring. Trenger du en skjemaendring anvendt, kjør interaktivt og svar `y`.
+Template-svaret er bevisst `nei`: en uovervåket kjøring skal ikke endre områdets skjema som bieffekt. Merk at `y` uansett aldri nullstiller listeinnhold — malens DataRows bruker `UpdateBehavior="Skip"`, så eksisterende elementer røres ikke og kun manglende standardrader legges til. Trenger du en skjemaendring anvendt, kjør interaktivt og svar `y`.
 
 > **`-Force` betyr «ikke stopp og spør meg», ikke «svar ja på alt».** De tre destruktive promptene — tømme en slettet site fra papirkurven, tømme en slettet Microsoft 365-gruppe, eller permanent slette en **aktiv** gruppe med tilhørende site — blir *ikke* auto-godkjent. De avbryter med en melding i stedet, siden de er irreversible og kan slette et reelt område. Treffer du en av dem, kjør uten `-Force` og ta stilling.
 

@@ -96,8 +96,9 @@ param
 # -Force means "do not stop to ask me anything", not "answer yes to everything".
 #
 # It reuses cached sign-in sessions, skips the pre-flight confirmation, and answers the
-# "site already exists - re-apply the PnP provisioning template?" prompt with NO, so an
-# unattended run never resets configuration lists to package defaults.
+# "site already exists - apply the PnP provisioning template?" prompt with NO, so an
+# unattended run never changes the site's schema as a side effect. (Applying the
+# template never resets list content - the DataRows use UpdateBehavior="Skip".)
 #
 # It deliberately does NOT auto-approve the three destructive prompts in
 # CreateRequestsSharePointSite (purging a soft-deleted site, purging a soft-deleted
@@ -502,23 +503,32 @@ function CreateRequestsSharePointSite {
             }
         }
         else {
-            # -Force answers this with NO on purpose. Re-applying the template resets the
-            # configuration lists (Settings, Provisioning Types, Teams Templates) to
-            # package defaults, which would silently discard customer configuration -
-            # never the right default for an unattended run. Use -Upgrade, or run
-            # interactively, when you actually want a schema change applied.
+            # -Force answers this with NO on purpose: an unattended run should never
+            # change the site's schema as a side effect. Use -Upgrade, or answer
+            # interactively, when a template update is actually intended.
+            #
+            # Note the template's DataRows all use UpdateBehavior="Skip" - applying it
+            # NEVER resets existing list items. It updates schema/views and adds
+            # missing default rows. The prompt used to threaten a config-list reset,
+            # which stopped being true with the DataRows migration.
             if ($Force) {
                 $global:skipApplyTemplate = $true
-                Write-Host "Site already exists. -Force: NOT re-applying the PnP template, so configuration lists keep their current content. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                Write-Host "Site already exists. -Force: NOT re-applying the PnP template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
             else {
-                Write-Host "Site already exists. Do you wish to re-apply the PnP provisioning template?" -ForegroundColor Yellow
-                Write-Host "  y = re-apply template AND reset the configuration lists (Settings, Provisioning Types, Teams Templates etc.) to package defaults. Request data (Provisioning Requests / Guest Requests) is never touched." -ForegroundColor Cyan
-                Write-Host "  n = leave the site and ALL list content untouched (only reads the list ids), then continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+                Write-Host "Site already exists. Apply the PnP provisioning template to it?" -ForegroundColor Yellow
+                if ($global:upgrade) {
+                    Write-Host "  y = apply the latest template (schema, views, new lists). Existing list items and navigation are preserved; missing default rows are added." -ForegroundColor Cyan
+                    Write-Host "  n = skip the template entirely (only reads the list ids), then continue with the rest of the upgrade. Tip: -SkipSharepointSite skips this whole step including the prompt." -ForegroundColor Cyan
+                }
+                else {
+                    Write-Host "  y = re-apply the template and re-run the site configuration. Existing list items are preserved (missing default rows are added); request data is never touched." -ForegroundColor Cyan
+                    Write-Host "  n = leave the site untouched (only reads the list ids), then continue with Logic Apps / SPFx / other deploy steps" -ForegroundColor Cyan
+                }
                 $overwrite = Read-Host " ( y / n )"
                 if ($overwrite -ne "y") {
                     $global:skipApplyTemplate = $true
-                    Write-Host "Template apply and list population will be skipped. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                    Write-Host "Skipping the template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
                 }
             }
         }
