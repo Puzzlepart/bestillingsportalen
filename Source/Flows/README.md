@@ -8,7 +8,7 @@ Denne mappen inneholder **`Bestillingsportalen-Flows_unmanaged.zip`** — Power 
 
 Upstream-flyten `Check Space Availability` er **bevisst utelatt**: den har PowerApps-trigger og kalles kun fra upstream sin canvas-app, som Bestillingsportalen ikke bruker (SPFx-webdelen gjør tilgjengelighetssjekken via `CheckSiteExists`-Logic Appen). Å importere den gir bare en død flyt som ikke lar seg aktivere (`shared_logicflows`-tilkoblingsfeil).
 
-**Import og oppsett er beskrevet i [installasjonsveiledningens Steg 5](../../Deployment-guide.md)** — dette dokumentet handler om hvor pakken kommer fra og hvordan den vedlikeholdes.
+**Import og oppsett er beskrevet i [konfigurasjonsveiledningens Steg 2](../../Configuration-guide.md)** — dette dokumentet handler om hvor pakken kommer fra og hvordan den vedlikeholdes.
 
 ## Hvor pakken kommer fra
 

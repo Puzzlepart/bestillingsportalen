@@ -9,7 +9,7 @@ Godkjenning av bestillinger kan skje på to måter:
 
 Flyten kjører når statusen på en bestilling i **`Provisioning Requests`**-listen endres til **`Submitted`** (brukeren sender inn bestillingen i Bestillingsportalen webdel eller Teams app).
 
-Når du installerer løsningen, sørg for å følge «Steg 4: Konfigurere godkjenningsprosess»-steget i [Installasjonsveiledningen](/Deployment-guide.md) for å sette opp godkjenning. Hvis du vil endre godkjenningsmetoden – f.eks. bytte fra Approvals til Teams adaptive cards – følger du samme steg i veiledningen.
+Når du installerer løsningen, sørg for å følge «Steg 1: Konfigurere godkjenningsprosess» i [Konfigurasjonsveiledningen](/Configuration-guide.md) for å sette opp godkjenning. Hvis du vil endre godkjenningsmetoden – f.eks. bytte fra Approvals til Teams adaptive cards – følger du samme steg i veiledningen.
 
 ## Påminnelser om godkjenning
 

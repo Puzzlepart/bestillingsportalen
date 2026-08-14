@@ -91,7 +91,7 @@ Dette avviker fra [Microsofts CAF-abbreviasjonsliste](https://learn.microsoft.co
 
 ### 2.4 Power Automate
 
-Én flyt leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se Steg 5 i [Installasjonsveiledningen](./Deployment-guide.md)) og kjører i tjenestekontoens kontekst:
+Én flyt leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se Steg 2 i [Konfigurasjonsveiledningen](./Configuration-guide.md)) og kjører i tjenestekontoens kontekst:
 
 - **Provisioning Request Approval** – godkjenningsprosessen. Trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`. Støtter godkjenning via Power Automate Approvals eller adaptive cards i en Teams-kanal. Er avslått som standard og må aktiveres etter installasjon. Se [Godkjenningsflyt](./Approval-flow.md).
 
@@ -209,7 +209,8 @@ Det eneste som finnes er tjenestekontoens ordinære passord, som følger organis
 
 ## 6. Referanser
 
-- [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon
+- [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon (den skriptede delen)
+- [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenningsoppsett, flyt-import, deling og verifisering
 - [Datatilgang og sikkerhet](./Data-access-security.md) – detaljert tilgangsbeskrivelse
 - [Datalagre](./Data-stores.md) – alle SharePoint-lister og felter
 - [Godkjenningsflyt](./Approval-flow.md) – godkjenningsprosessen

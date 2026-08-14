@@ -1024,7 +1024,8 @@ function ValidateServiceAccount {
             RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign a license that includes SPO, Exchange Online, Teams and seeded Power Automate (E- and F-plans both qualify)."
             return
         }
-        # The account must be able to own and activate the solution flow (guide step 5).
+        # The account must be able to own and activate the solution flow
+        # (Configuration-guide.md step 2).
         # Seeded Power Automate from any Office 365 plan qualifies - INCLUDING frontline
         # F-plans (FLOW_O365_S1), which are verified working in a real customer tenant
         # (import + activation, August 2026). An earlier FlowNotOriginalAuthor failure
@@ -1036,7 +1037,7 @@ function ValidateServiceAccount {
             $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
             if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no seeded Power Automate plan for the approval flow"
-            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no seeded Power Automate plan (found: $foundFlowPlans)" -Fix "Assign a license with seeded Power Automate (any E- or F-plan) before importing the approval flow (guide step 5). Unprovisioned viral trials do not count."
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no seeded Power Automate plan (found: $foundFlowPlans)" -Fix "Assign a license with seeded Power Automate (any E- or F-plan) before importing the approval flow (Configuration-guide.md step 2). Unprovisioned viral trials do not count."
             return
         }
     }
@@ -2532,8 +2533,9 @@ WriteDeploymentReport
 Write-Host ""
 # The manual steps are deliberately NOT enumerated here - a second copy of the
 # guide's step list drifts out of sync with it. The guide is the single source.
-Write-Host "The scripted part is done. Continue with the manual steps in Deployment-guide.md," -ForegroundColor Cyan
-Write-Host "starting from 'Autorisere API-tilkoblinger' (step 3) - a guided flow for that first step: ./Authorize-ApiConnections.ps1" -ForegroundColor Cyan
+Write-Host "The scripted part is done. Next: authorise the API connections as the service account" -ForegroundColor Cyan
+Write-Host "('Autorisere API-tilkoblinger' in Deployment-guide.md - guided flow: ./Authorize-ApiConnections.ps1)," -ForegroundColor Cyan
+Write-Host "then follow Configuration-guide.md for approval setup, flow import, sharing and a verification order." -ForegroundColor Cyan
 Write-Host ""
 
 if ((GetFailedDeployComponents).Count -gt 0) {

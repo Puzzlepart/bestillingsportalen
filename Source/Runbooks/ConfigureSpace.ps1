@@ -411,7 +411,7 @@ function JoinOrRegisterHubSite {
     # configuration gap, not a provisioning failure - skip loudly instead of failing
     # the whole request with "Hub site with id '' was not found".
     if ($joinHubEnabled -and $spaceTypeInternal -ne "Hub Site" -and [string]::IsNullOrWhiteSpace($hubSiteId)) {
-        Skip-Step "JoinHub is enabled for this provisioning type, but the request carries no hub site id. Set a Default Hub on the provisioning type (Provisioning Types list) - and make sure the hub exists in the Hub Sites list with Enabled = true (run the GetHubSites logic app first, guide steps 7-8)."
+        Skip-Step "JoinHub is enabled for this provisioning type, but the request carries no hub site id. Set a Default Hub on the provisioning type (Provisioning Types list) - and make sure the hub exists in the Hub Sites list with Enabled = true (run the GetHubSites logic app first, Configuration-guide.md steps 4-5)."
         return
     }
 
