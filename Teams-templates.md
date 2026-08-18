@@ -24,7 +24,7 @@ Kloning av Teams bruker v1.0-endepunktene.
 
 `Teams Templates`-listen (som finnes i SharePoint-området bak Bestillingsportalen) definerer settet med maler brukere kan velge blant når de bestiller et Team fra en mal.
 
-Listen skal inneholde Microsofts «out of the box»-maler når løsningen først installeres. Listen populeres av en Logic App – dette er forklart i [Installasjonsveiledningen](./Deployment-guide.md).
+Listen skal inneholde Microsofts «out of the box»-maler når løsningen først installeres. Listen populeres av en Logic App – dette er forklart i [Konfigurasjonsveiledningen, Steg 4](./Configuration-guide.md).
 
 Du kan slette listeelementer for maler du ikke trenger. Logic App-en vil imidlertid legge dem til igjen ved neste kjøring, så du kan ønske å deaktivere Logic App-en når malene du trenger er i listen.
 
@@ -46,7 +46,7 @@ Se stegene nedenfor for hvordan du definerer dine egne maler.
 
 ## Admin Center-maler
 
-Som beskrevet i [Installasjonsveiledningen](./Deployment-guide.md) henter en Logic App kalt `GetTeamsTemplates` maler definert i Admin Center. Denne bruker Graph API – nærmere bestemt beta-endepunktet: https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta&tabs=http.
+Som beskrevet i [Konfigurasjonsveiledningen, Steg 4](./Configuration-guide.md) henter en Logic App kalt `GetTeamsTemplates` maler definert i Admin Center. Denne bruker Graph API – nærmere bestemt beta-endepunktet: https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta&tabs=http.
 
 Dette API-et er foreløpig kun tilgjengelig på beta-endepunktet og er ennå ikke gjort tilgjengelig på v1.0. Sjekk [Graph API-referansen](https://learn.microsoft.com/en-us/graph/api/teamwork-list-teamtemplates?view=graph-rest-beta) for siste status.
 

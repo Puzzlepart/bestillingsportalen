@@ -440,6 +440,7 @@ Etter en vellykket oppgradering:
 **Relatert dokumentasjon:**
 
 - [README.md](README.md) – Hoveddokumentasjon
-- [Deployment-guide.md](Deployment-guide.md) – Full installasjonsprosess
+- [Deployment-guide.md](Deployment-guide.md) – Full installasjonsprosess (den skriptede delen)
+- [Configuration-guide.md](Configuration-guide.md) – Konfigurasjon og verifisering etter installasjon
 - [CHANGELOG.md](CHANGELOG.md) – Versjonshistorikk
 - [Error-handling.md](Error-handling.md) – Feilsøkingsveiledning

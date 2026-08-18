@@ -5,7 +5,7 @@
     },
     "spoTenantName": {
         "Value": "",
-        "Description": "Name of the SharePoint tenant to deploy to (excluding onmicrosoft.com) e.g. contoso"
+        "Description": "Name of the SharePoint tenant to deploy to (excluding .sharepoint.com) e.g. contoso"
     },
     "fullTenantName": {
         "Value": "",
