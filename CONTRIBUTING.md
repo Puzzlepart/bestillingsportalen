@@ -30,6 +30,17 @@ Før du bidrar:
     git checkout -b my-contribution
     ```
 
+## Dokumentasjon som PDF
+
+Skal dokumentasjonen sendes til en kunde – typisk som underlag for en sikkerhetsgjennomgang – bygger `Source/Scripts/build-docs-pdf.mjs` én samlet PDF med tittelside, innholdsfortegnelse, rendrede mermaid-diagrammer og kryssreferansene skrevet om til interne anker:
+
+```sh
+npm install --no-save markdown-it markdown-it-anchor playwright-core mermaid
+node Source/Scripts/build-docs-pdf.mjs
+```
+
+PDF-en havner i `docs-pdf/`. Legger du til et nytt markdown-dokument, føy det inn i `ORDER`-arrayen øverst i skriptet – ellers hoppes det over, og skriptet sier hvilke filer det gjelder.
+
 ## DO's og DON'Ts
 
 - **DO** følg samme prosjektstruktur som eksisterende prosjekt.

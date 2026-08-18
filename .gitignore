@@ -21,3 +21,9 @@ Source/SharePointFramework/**/*.sppkg
 Source/SharePointFramework/**/*.scss.ts
 
 Source/SharePointFramework/ProvisionWebParts/jest-output/
+
+# Dokumentasjons-PDF (Source/Scripts/build-docs-pdf.mjs) og verktøyets pakker
+/docs-pdf/
+/node_modules/
+/package.json
+/package-lock.json
