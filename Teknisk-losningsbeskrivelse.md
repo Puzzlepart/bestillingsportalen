@@ -33,7 +33,7 @@ Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve ten
 graph TD
     A(InviteGuests SPFx-webdel) --> | Read M365 group status + SP groups | A2(Gjeldende SP-site)
     A --> | Write item per guest with M365GroupRole, SPGroupAction, SPGroupName, SPPermissionLevel | B[("Guest Requests SharePoint-liste")]
-    B --> | When an item is created (1 min poll) | C(ProcessGuestRequest Logic App)
+    B --> |"When an item is created (1 min poll)"| C(ProcessGuestRequest Logic App)
     C --> | Workflow action | D(ProcessGuests Logic App)
     D --> E(Microsoft Graph /invitations API) --> F(Guest user in Entra ID)
     D --> | Status, GuestId, InviteRedeemUrl | B
