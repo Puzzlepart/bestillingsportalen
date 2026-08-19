@@ -158,7 +158,9 @@ Legg til `-SkipAppRoles` hvis du ikke har GA, og `-SkipSPFxDeploy` hvis Node.js/
 - Svar **`y`** på «Site already exists» — `Guest Requests`-lista og de nye feltene kommer med malen. Eksisterende listeelementer beholdes.
 - Får du i stedet spørsmålet om å **permanent slette Microsoft 365-gruppa**, svar `n` og les fallgruve-tabellen: området ble ikke funnet, og det er nesten alltid kontoen i PnP-innloggingen.
 
-**Steg 4 — les DEPLOYMENT SUMMARY.** Sjekk spesielt linja `Runbook runtime environment`. Står den `FAILED`, kjører runbookene fortsatt klassisk PowerShell 7.2 og vil feile med `Connect-PnPOnline is not recognized`. En runbooks type kan ikke endres in-place fra `PowerShell72` til runtime environment: **slett runbooken i Automation-kontoen og kjør deployen på nytt** — innholdet kommer fra repoet, så ingenting går tapt.
+**Steg 4 — les DEPLOYMENT SUMMARY.** Sjekk spesielt linja `Runbook runtime environment`. Overgangen fra `PowerShell72` til runtime environment på eksisterende `ConfigureSpace` og `GetSiteTemplates` skjer in-place — verifisert 19.08.2026 mot et pre-MI-miljø: alle fire runbooks endte på `bestillingsportalen-ps74` uten manuelle grep. Står linja likevel `FAILED`, kjører de fortsatt 7.2 og vil feile med `Connect-PnPOnline is not recognized`: **slett runbooken i Automation-kontoen og kjør deployen på nytt** — innholdet kommer fra repoet, så ingenting går tapt.
+
+Merk også at **alle app-rollene på UAMI-en tildeles her for første gang** (ti roller, fra `Sites.FullControl.All` til `User.ReadWrite.All`). Det er dette steget som krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator — og som må gjennom `-SkipAppRoles`-handover når du ikke har rollen selv.
 
 **Steg 5 — autoriser API-tilkoblingene som tjenestekontoen.**
 
@@ -174,6 +176,8 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 - **`provisionassist-*`:** tilkoblingene er nye ressurser med nye navn og står **uautoriserte**. Da må alle fire gjennom samtykkeflyten med tjenestekontoen, og løsningen står stille til det er gjort. Legg tid til dette i vinduet.
 
 **Steg 6 — app-roller**, hvis du kjørte med `-SkipAppRoles`. Ingenting virker før dette er gjort.
+
+> **`bestillingsportalen-automation` må gjenopprettes — og `deploy.ps1` gjør det for deg.** Dette er den eneste tilkoblingen som skiftet autentiseringsmodell i 2.0: fra Entra ID-appens credentials til den user-assigned managed identityen. På en **nyinstallasjon** opprettes den for managed identity og melder `Ready`. På en **oppgradering** finnes den allerede, med app-registreringens sertifikat-credentials, og ARM bytter bare `parameterValueType` til `Alternative` — den gamle credentialen blir liggende, klarer ikke å fornye seg (`AADSTS700027` når Key Vault-sertifikatet er rotert) og etterlater tilkoblingen i `Error`. Designeren kaller den da «Invalid connection», og runtime sender runbook-kallet **uten Authorization-header i det hele tatt**: `ConfigureSpace` starter aldri, og bestillingen feiler med «Authentication failed. The 'Authorization' header is missing.» Verifisert 19.08.2026 mot puzzlepart (oppgradert: `Error`) og tarjeieo (nyinstallert: `Ready`). Fra og med denne versjonen sletter og gjenoppretter `deploy.ps1` tilkoblingen når statusen ikke er `Ready`/`Connected` — det koster ingenting, siden en managed identity-tilkobling ikke holder credentials og ikke trenger samtykke. Feiler slettingen (typisk manglende rettigheter), sier DEPLOYMENT SUMMARY det, og du må slette den i portalen og kjøre på nytt.
 
 **Steg 7 — verifiser i denne rekkefølgen:**
 

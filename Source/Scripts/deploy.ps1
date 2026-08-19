@@ -1578,6 +1578,37 @@ function CheckSpoAdminAccess {
     RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, but the tenant admin API returned: $script:spoAdminAccessError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
 }
 
+# Tenants that enforce "MFA for Azure" refuse management-plane WRITES from a session that
+# authenticated with a password alone - reads work fine, so nothing shows until the first
+# deployment. That lands at azureresources.bicep, after the whole SharePoint part has run:
+# AADSTS50076 from the CLI, or RequestDisallowedByAzure from ARM. Re-running is safe (every
+# step is idempotent), but it is a wasted half-run, so read the claim up front.
+#
+# WARNING and not MISSING on purpose: enforcement depends on the tenant's policy, and a
+# password-only session was seen completing a full deployment earlier the same day. Blocking
+# would stop runs that work.
+function CheckAzureWriteMfa {
+    try {
+        $armToken = az account get-access-token --resource https://management.azure.com --query accessToken --output tsv 2>$null
+        if ([string]::IsNullOrWhiteSpace($armToken)) { throw "no ARM token from the Azure CLI" }
+
+        # Only the amr claim is read out of the token, and the token itself is never logged.
+        $payload = ($armToken -split '\.')[1]
+        switch ($payload.Length % 4) { 2 { $payload += '==' } 3 { $payload += '=' } }
+        $claims = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload.Replace('-', '+').Replace('_', '/'))) | ConvertFrom-Json
+        $methods = @($claims.amr)
+
+        if ($methods -contains 'mfa') {
+            RecordPreflightCheck -Name "MFA on the Azure session" -Status OK -Detail "amr: $($methods -join ', ')"
+            return
+        }
+        RecordPreflightCheck -Name "MFA on the Azure session" -Status WARNING -Detail "The Azure CLI session authenticated without MFA (amr: $($methods -join ', ')) - a tenant that enforces MFA for Azure will refuse the deployments" -Fix "If a deployment fails with AADSTS50076 or RequestDisallowedByAzure: az logout, then az login --tenant $($parameters.tenantId.Value) --scope https://management.core.windows.net//.default - and re-run. Note that az logout clears the cached CLI sessions for every tenant on the machine."
+    }
+    catch {
+        RecordPreflightCheck -Name "MFA on the Azure session" -Status UNKNOWN -Detail "Could not read the Azure CLI token to check for an MFA claim - a deployment failing with AADSTS50076 means it was missing"
+    }
+}
+
 function GetPnPSignedInUser {
     try {
         # No Get-PnPCurrentUser in PnP.PowerShell 3.x - read Web.CurrentUser over CSOM.
@@ -1969,14 +2000,63 @@ function AssignUamiPermissions {
 
 
 # Deploy ARM templates
+# The azureautomation connection is the only one that changed authentication model in
+# 2.0: from the Entra ID app's credentials to the user-assigned managed identity. On a
+# FRESH install it is created for managed identity and reports 'Ready'. On an upgrade from
+# before 2.0 it already exists, holding the app registration's certificate credentials, and
+# ARM only switches parameterValueType to 'Alternative' - the old stored credential stays,
+# fails to refresh (AADSTS700027 once the Key Vault certificate has rotated), and leaves
+# the connection in 'Error'. The designer then calls it "Invalid connection", and the
+# runtime sends the runbook call with NO Authorization header: ConfigureSpace never starts
+# and the request dies with "Authentication failed. The 'Authorization' header is missing."
+#
+# Recreating is the only way out, and it costs nothing - a managed identity connection
+# holds no credentials and needs no consent, unlike the four delegated ones.
+function RepairAutomationConnection {
+    # Mirrors the resource name in apiconnections.json.
+    $connectionName = "bestillingsportalen-automation"
+    $connectionArgs = @('-g', $parameters.resourceGroupName.Value, '-n', $connectionName, '--resource-type', 'Microsoft.Web/connections')
+
+    $status = az resource show @connectionArgs --query "properties.statuses[0].status" --output tsv 2>$null
+    if ([string]::IsNullOrWhiteSpace($status)) {
+        # No connection yet: the deployment below creates it.
+        return
+    }
+    if ($status -in @('Ready', 'Connected')) {
+        return
+    }
+
+    Write-Host "The $connectionName connection is '$status' - recreating it (a managed identity connection holds no credentials, so nothing is lost)..." -ForegroundColor Yellow
+    az resource delete @connectionArgs --output none
+    if ($LASTEXITCODE -ne 0) {
+        RecordDeployStatus -Component "API connection: $connectionName" -Status 'FAILED' -Detail "Status '$status' and it could not be deleted for recreation - the runbook calls will fail with a missing Authorization header until it is recreated"
+        Write-Host "WARN: could not delete $connectionName. Delete it manually in the portal and re-run - provisioning fails at the ConfigureSpace step until then." -ForegroundColor Yellow
+        return
+    }
+    $script:automationConnectionRecreated = $true
+}
+
 function DeployARMTemplates {
-    try { 
+    try {
         # Deploy ARM templates
         if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
 
+            # Before the template runs, so the deployment below recreates what this removes.
+            RepairAutomationConnection
+
             az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" --output none
             RecordAzResult "API connections" -DeploymentName "apiconnections"
+
+            if ($script:automationConnectionRecreated) {
+                $newStatus = az resource show -g $parameters.resourceGroupName.Value -n "bestillingsportalen-automation" --resource-type "Microsoft.Web/connections" --query "properties.statuses[0].status" --output tsv 2>$null
+                if ($newStatus -in @('Ready', 'Connected')) {
+                    RecordDeployStatus -Component "API connection: bestillingsportalen-automation" -Status 'OK' -Detail "Recreated for managed identity - now '$newStatus'"
+                }
+                else {
+                    RecordDeployStatus -Component "API connection: bestillingsportalen-automation" -Status 'FAILED' -Detail "Recreated, but the status is '$newStatus' - the runbook calls will fail with a missing Authorization header"
+                }
+            }
 
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
         }
@@ -2654,9 +2734,10 @@ catch {
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (version, SharePoint admin access, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
 CheckSpoAdminAccess
+CheckAzureWriteMfa
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
