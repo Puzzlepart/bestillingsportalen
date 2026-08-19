@@ -41,12 +41,49 @@ node Source/Scripts/build-docs-pdf.mjs
 
 PDF-en havner i `docs-pdf/`. Legger du til et nytt markdown-dokument, føy det inn i `ORDER`-arrayen øverst i skriptet – ellers hoppes det over, og skriptet sier hvilke filer det gjelder.
 
+## Versjonering
+
+Løsningen følger [SemVer](https://semver.org/lang/no/): `MAJOR.MINOR.PATCH`. Kriteriene
+er konkrete for denne løsningen:
+
+| Ledd | Når det økes | Eksempel |
+| --- | --- | --- |
+| **MAJOR** | Oppgraderingen er ikke en ren `-Upgrade`: krever full deploy, manuelle oppryddingssteg, re-autorisering av API-tilkoblinger, eller rotasjon av hemmeligheter | 2.0.0: migreringen til managed identity |
+| **MINOR** | Ny funksjonalitet som `-Upgrade` håndterer selv — nye lister, Logic Apps, runbooks, webdeler eller innstillinger | Ny `Guest Requests`-liste med `ProcessGuestRequest` |
+| **PATCH** | Rettelser innenfor eksisterende komponenter, uten nye ressurser eller skjemaendringer | Feilmeldinger, innhold i `StatusReason`, nye pre-flight-sjekker |
+
+### `VERSION` er eneste kilde
+
+Versjonsnummeret står i **`VERSION`** i repo-rot, som én linje (`2.0.0`). `deploy.ps1`
+leser den derfra — nummeret skal ikke hardkodes noe annet sted. Er fila borte eller
+feilformatert, stopper ikke installasjonen: versjonen faller til `unknown`, og
+pre-flight-sjekklista sier hvorfor.
+
+### Release-rutine
+
+Repoet har ingen CI, så rekkefølgen er manuell:
+
+1. Oppdater `VERSION` med det nye nummeret.
+2. Sett releasedato på den øverste seksjonen i [CHANGELOG.md](CHANGELOG.md) (erstatt `TBA`).
+3. Commit endringene: `Release 2.0.0`.
+4. Lag en annotert tag:
+
+    ```sh
+    git tag -a v2.0.0 -m "Bestillingsportalen 2.0.0"
+    ```
+
+5. Push begge: `git push && git push --tags`.
+
+Ved installasjon stempler `deploy.ps1` versjonen inn i miljøet på to steder — se
+[Upgrade.md](Upgrade.md#hvilken-versjon-kjører-miljøet).
+
 ## DO's og DON'Ts
 
 - **DO** følg samme prosjektstruktur som eksisterende prosjekt.
 - **DO** fremhev hvordan gjeldende oppførsel er feil når du fikser bugs.
 - **DO** hold diskusjoner fokuserte. Når et nytt eller relatert tema dukker opp, er det ofte bedre å opprette et nytt issue enn å sidespore samtalen.
 - **DO NOT** eksporter en Logic App fra designeren i Azure Portal tilbake til ARM-malene i `Source/ARMTemplates/LogicApps/`. Designeren gjør `[variables('uamiId')]` om til en hardkodet ressurs-ID, som binder malen til én ressursgruppe/subscription. Rediger malene manuelt og behold ARM-uttrykkene.
+- **DO NOT** hardkod versjonsnummeret i `deploy.ps1` eller andre filer — `VERSION` i repo-rot er eneste kilde.
 - **DO NOT** send inn PR-er for kodestilendringer.
 - **DO NOT** overrask oss med store PR-er. Opprett heller et issue og start en diskusjon slik at vi kan bli enige om en retning før du investerer mye tid.
 - **DO NOT** commit kode du ikke har skrevet selv.

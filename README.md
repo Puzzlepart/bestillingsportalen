@@ -39,6 +39,8 @@ For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](De
 
 Hvis du har en eksisterende Bestillingsportalen-installasjon og vil oppgradere til nyeste versjon, se [Oppgraderingsveiledningen](Upgrade.md) for detaljerte instruksjoner om hvordan du oppgraderer uten å miste data.
 
+Kjører miljøet en versjon fra **før 2.0** – med Key Vault, client secret og sertifikat – gjelder [Oppgradere fra versjoner før 2.0](Upgrade-from-pre-2.0.md) i stedet. Slike miljøer må gjennom én full installasjon før `-Upgrade` kan brukes.
+
 ## Feil og problemer
 
 Rapporter eventuelle problemer ved å opprette et [issue](https://github.com/Puzzlepart/bestillingsportalen/issues/new).

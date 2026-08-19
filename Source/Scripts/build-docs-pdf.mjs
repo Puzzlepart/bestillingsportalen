@@ -40,6 +40,7 @@ const ORDER = [
   'Deployment-guide.md',
   'Configuration-guide.md',
   'Upgrade.md',
+  'Upgrade-from-pre-2.0.md',
   'Data-stores.md',
   'Naming-conventions.md',
   'Business-units.md',

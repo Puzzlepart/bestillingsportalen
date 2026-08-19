@@ -26,7 +26,7 @@ Bruk oppgraderingsmodus når du vil:
 - Førstegangs installasjon (bruk standard installasjonsprosess)
 - Større breaking changes som krever datamigrering
 - Komplette miljørebygginger
-- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen (1.11.0) må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes. Re-autoriser deretter de fire delegerte API-tilkoblingene med tjenestekontoen (`Authorize-ApiConnections.ps1`) — en redeploy av tilkoblingsressursene kan nullstille autoriseringen — og rydd bort restene fra den gamle modellen, se [Manuell opprydding](#manuell-opprydding-etter-oppgradering-key-vault-og-entra-id-appen) nedenfor.
+- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen (2.0.0) må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes. Re-autoriser deretter de fire delegerte API-tilkoblingene med tjenestekontoen (`Authorize-ApiConnections.ps1`) — en redeploy av tilkoblingsressursene kan nullstille autoriseringen — og rydd bort restene fra den gamle modellen, se [Manuell opprydding](#manuell-opprydding-etter-oppgradering-key-vault-og-entra-id-appen) nedenfor. **Skal du oppgradere et slikt miljø, følg [Oppgradere fra versjoner før 2.0](Upgrade-from-pre-2.0.md)** — den dekker kartlegging, tilganger, parametermigrering, kjøreplan og opprydding for dette tilfellet spesielt.
 
 ## Hva som blir oppdatert
 
@@ -112,6 +112,27 @@ Do you wish to re-apply the PnP provisioning template?
 - **Svar `y`** når oppgraderingen inneholder skjema-endringer (nye lister, nye felter) — f.eks. ved å rulle ut `Guest Requests`-listen første gang. PnP-template applyes idempotent, og eksisterende listeelementer beholdes.
 - **Svar `n`** når du kun vil oppdatere Logic Apps / SPFx uten å røre lister og felter — f.eks. ved hotfixes som kun endrer arbeidsflyt eller webdel-kode.
 
+## Hvilken versjon kjører miljøet?
+
+`deploy.ps1` stempler versjonen inn i miljøet ved hver kjøring, så du ikke trenger å
+gjette hva et miljø står på. Den kan leses av på to steder:
+
+- **SharePoint:** listen «Provisioning Request Settings» på Bestillingsportalen-området
+  har radene `InstalledVersion` og `InstalledDate`. Disse settes automatisk — ikke
+  rediger dem manuelt.
+- **Azure:** ressursgruppa har taggene `BestillingsportalenVersion` og
+  `BestillingsportalenDeployed`.
+
+Installatøren ser i tillegg versjonen i konsollen under kjøringen: pre-flight-sjekklista
+har en `Solution version`-linje som også viser hva miljøet står på fra før, PRE-FLIGHT
+SUMMARY viser `Version: <ny> (installed: <gammel>)` før du bekrefter, og DEPLOYMENT
+SUMMARY bekrefter overgangen med en `Version stamp`-linje.
+
+Er begge stedene tomme, er miljøet installert før versjonsstemplingen ble innført
+(2.0.0). Merk at `InstalledVersion` **ikke** oppdateres hvis en kjøring hadde
+komponenter som feilet — den gamle verdien beholdes med vilje, slik at en halvferdig
+oppgradering ikke framstår som fullført.
+
 ## Forutsetninger
 
 Før du starter oppgraderingen:
@@ -135,7 +156,7 @@ Før du starter oppgraderingen:
 4. **Ha parameterne klare**
    - Bruk samme parameterfil som ved første installasjon (`-ParametersPath` hvis den heter noe annet enn `parameters.json`)
    - Verifiser at alle verdiene fortsatt er gyldige
-   - **La `requestsSiteAlias` stå tom** hvis du regenererer parameterfila. Den er ny, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName` — da peker oppgraderingen på en annen URL enn området du har i drift. Tom verdi gir gammel oppførsel.
+   - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 2.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`, som Teams-appen har hardkodet), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
@@ -420,7 +441,7 @@ Hvis du møter problemer under oppgraderingen:
 3. Sjekk [CHANGELOG.md](CHANGELOG.md) for kjente problemer
 4. Konsulter [README.md](README.md) for generell veiledning
 5. Opprett et issue i repositoriet med:
-   - Versjon du oppgraderer fra/til
+   - Versjon du oppgraderer fra/til (se [Hvilken versjon kjører miljøet?](#hvilken-versjon-kjører-miljøet))
    - Feilmeldinger
    - Steg for å reprodusere
    - Skjermbilder hvis aktuelt
@@ -430,7 +451,7 @@ Hvis du møter problemer under oppgraderingen:
 Etter en vellykket oppgradering:
 
 1. **Gjennomgå ny funksjonalitet** – Sjekk changelog for hva som er nytt
-2. **Oppdater dokumentasjonen din** – Noter det nye versjonsnummeret
+2. **Oppdater dokumentasjonen din** – Noter det nye versjonsnummeret (`InstalledVersion` i innstillingslista bekrefter hva som faktisk ble installert)
 3. **Lær opp brukere** – Hvis det er endringer i UI eller arbeidsflyt
 4. **Planlegg neste oppgradering** – Hold deg oppdatert på fremtidige releases
 5. **Bidra tilbake** – Del tilbakemeldinger og forbedringer
@@ -440,6 +461,7 @@ Etter en vellykket oppgradering:
 **Relatert dokumentasjon:**
 
 - [README.md](README.md) – Hoveddokumentasjon
+- [Upgrade-from-pre-2.0.md](Upgrade-from-pre-2.0.md) – Oppgradering av miljøer fra før managed identity-migreringen
 - [Deployment-guide.md](Deployment-guide.md) – Full installasjonsprosess (den skriptede delen)
 - [Configuration-guide.md](Configuration-guide.md) – Konfigurasjon og verifisering etter installasjon
 - [CHANGELOG.md](CHANGELOG.md) – Versjonshistorikk

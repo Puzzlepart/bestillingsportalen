@@ -16,8 +16,8 @@
         "Description": "Name of the SharePoint site to store the requests, can include spaces (URL/Alias auomatically generated). If the site exists, it will prompt to overwrite and will apply the provisioning template."
     },
     "requestsSiteAlias": {
-        "Value": "BP",
-        "Description": "Alias for the site: decides the URL (/<managedPath>/<alias>) and the Microsoft 365 group mail (<alias>@<maildomain>). MUST NOT collide with an existing user or group - notably a service account called bestillingsportalen@..., which makes SharePoint silently create the group as 'bestillingsportalen1' instead. deploy.ps1 validates this before creating anything. Leave blank to derive it from requestsSiteName (pre-1.11 behaviour - keep it blank when upgrading an existing installation, or the deployment targets a new site)."
+        "Value": "bestillingsportalen",
+        "Description": "Alias for the site: decides the URL (/<managedPath>/<alias>) and the Microsoft 365 group mail (<alias>@<maildomain>). KEEP THE DEFAULT: the Teams app has the site URL hardcoded to /<managedPath>/bestillingsportalen, so the site must live there. The alias shares a namespace with every user and group in the tenant, so a service account called bestillingsportalen@... occupies it - deploy.ps1 stops in pre-flight if it does. Then create the site with a free alias (e.g. 'BP'), rename the site URL to /<managedPath>/bestillingsportalen in the SharePoint admin center, and set this parameter to 'bestillingsportalen' for later runs. Leave blank to derive it from requestsSiteName (pre-2.0 behaviour)."
     },
     "requestsSiteDesc": {
         "Value": "Område for bestillingsportalen",

@@ -185,8 +185,31 @@ $automationAccountName = "bestillingsportalen-auto"
 $runtimeEnvironmentName = "bestillingsportalen-ps74" # Keep in sync with runbooks.bicep
 $uamiName = "bestillingsportalen-uami" # Overridden by the uamiName parameter in the parameter file if present
 
-# Solution version reported via the deployment pingback. Bump on release (keep in sync with CHANGELOG.md).
-$deployVersion = "1.11.0"
+# Solution version. VERSION in the repo root is the single source of truth - bump it
+# there, never here (the release routine is in CONTRIBUTING.md). A missing or malformed
+# file must never block a customer install, so this falls back to "unknown" and records
+# the reason for CheckVersionFile to surface in the pre-deployment checklist.
+$versionFilePath = Join-Path $PSScriptRoot "..\..\VERSION"
+$deployVersion = "unknown"
+$script:versionFileIssue = $null
+$script:previousInstalledVersion = $null
+if (-not (Test-Path $versionFilePath)) {
+    $script:versionFileIssue = "VERSION was not found at $versionFilePath"
+}
+else {
+    $rawVersion = "$(Get-Content $versionFilePath -Raw -ErrorAction SilentlyContinue)".Trim()
+    if ($rawVersion -match '^\d+\.\d+\.\d+$') {
+        $deployVersion = $rawVersion
+    }
+    else {
+        $script:versionFileIssue = "VERSION contains '$rawVersion', which is not a MAJOR.MINOR.PATCH version"
+    }
+}
+
+# Settings list rows that carry the version stamp. Written by StampInstalledVersion,
+# deliberately NOT seeded by the PnP template - see the comment on that function.
+$installedVersionSettingName = "InstalledVersion"
+$installedDateSettingName = "InstalledDate"
 
 # Global variables
 $global:context = $null
@@ -1405,8 +1428,13 @@ function ValidateSiteAlias {
         return
     }
 
-    $suggestion = "$requestsSiteAlias-site"
-    RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status MISSING -Detail "Collides with $collidesWith - SharePoint would silently create the group as '$($requestsSiteAlias)1' and every computed URL would be wrong" -Fix "Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion')."
+    # The Teams app has the site URL hardcoded to /<managedPath>/bestillingsportalen, so
+    # the fix is not just 'pick another alias' - the site has to end up on that URL. The
+    # alias only becomes the group mailNickname at creation time, so creating on a free
+    # alias and renaming the URL afterwards keeps both constraints satisfied.
+    $suggestion = "BP"
+    if ($requestsSiteAlias -ieq $suggestion) { $suggestion = "$requestsSiteAlias-site" }
+    RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status MISSING -Detail "Collides with $collidesWith - SharePoint would silently create the group as '$($requestsSiteAlias)1' and every computed URL would be wrong" -Fix "Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion') and re-run. The Teams app expects the site on /$($parameters.managedPath.Value)/bestillingsportalen, so afterwards: rename the site URL in the SharePoint admin center (the group mailNickname keeps the free alias), then set requestsSiteAlias to 'bestillingsportalen' for later runs. See Deployment-guide.md."
 }
 
 # Reads the language (LCID) of the tenant's root site collection for the pre-flight
@@ -1446,6 +1474,54 @@ function GetRootSiteLanguage {
     }
 }
 
+# CAML for a single settings row by Title. Get-PnPListItem -Query takes a full View,
+# not just the Where clause.
+function SettingQuery {
+    param([Parameter(Mandatory = $true)][string]$Title)
+
+    return "<View><Query><Where><Eq><FieldRef Name='Title'/><Value Type='Text'>$Title</Value></Eq></Where></Query><RowLimit>1</RowLimit></View>"
+}
+
+# Reads the version a previous run stamped into the settings list, so the checklist and
+# the pre-flight summary can show what this run upgrades FROM. Same approach as
+# GetRootSiteLanguage: a SEPARATE connection (-ReturnConnection) leaves the -admin
+# connection the pre-flight runs on untouched, and the cached token means no extra
+# browser prompt. Never throws - on a new installation the site does not exist yet,
+# which is a normal outcome and returns $null.
+function GetInstalledVersion {
+    try {
+        # Same existence check ValidateSiteAlias uses, on the -admin connection the
+        # pre-flight already holds: on a new installation there is nothing to read, and
+        # connecting to a site that does not exist is slow and noisy for no reason.
+        if ($null -eq (Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue)) { return $null }
+
+        $siteConnection = Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
+        $item = @(Get-PnPListItem -List $requestSettingsListName -Query (SettingQuery $installedVersionSettingName) -Connection $siteConnection -ErrorAction Stop)
+        if ($item.Count -eq 0) { return $null }
+        $value = "$($item[0].FieldValues['Value'])".Trim()
+        if ([string]::IsNullOrEmpty($value)) { return $null }
+        return $value
+    }
+    catch {
+        return $null
+    }
+}
+
+# A bad or missing VERSION file does not stop anything - it only means the installation
+# gets stamped "unknown", which is worth seeing before the run rather than discovering
+# months later in a support case. Doubles as the place the installed version is read,
+# so -Preflight also reports what a full run would upgrade from.
+function CheckVersionFile {
+    $script:previousInstalledVersion = GetInstalledVersion
+    $installed = if ($script:previousInstalledVersion) { "installed: $script:previousInstalledVersion" } else { "no version stamped in the environment yet" }
+
+    if ($script:versionFileIssue) {
+        RecordPreflightCheck -Name "Solution version" -Status WARNING -Detail "$script:versionFileIssue - the installation would be stamped 'unknown' ($installed)" -Fix "Restore VERSION in the repo root as a single MAJOR.MINOR.PATCH line (e.g. 2.0.0), or pull the repository again."
+        return
+    }
+    RecordPreflightCheck -Name "Solution version" -Status OK -Detail "$deployVersion ($installed)"
+}
+
 # ---------------------------------------------------------------------------
 # Pre-flight summary and confirmation
 # Runs after all sign-ins so it reflects the ACTUAL connected identity,
@@ -1463,6 +1539,7 @@ function ConfirmDeployment {
     Write-Host ""
     Write-Host "#################### PRE-FLIGHT SUMMARY ####################" -ForegroundColor Magenta
     Write-Host ""
+    Write-Host ("  Version:              {0}{1}" -f $deployVersion, $(if ($script:previousInstalledVersion) { " (installed: $script:previousInstalledVersion)" })) -ForegroundColor Cyan
     Write-Host ("  Mode:                 {0}" -f $(if ($global:upgrade) { "UPGRADE of existing environment" } else { "FULL DEPLOYMENT" })) -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Connected to:" -ForegroundColor Yellow
@@ -1852,7 +1929,7 @@ function VerifyRunbookRuntimeEnvironment {
     }
 
     # CustomerSpecific is customer-owned and deliberately never overwritten, so deploy
-    # cannot fix it. Environments upgraded from before 1.11.0 may still have it on the
+    # cannot fix it. Environments upgraded from before 2.0.0 may still have it on the
     # classic runtime - report it, but do not fail the deployment over it.
     $customerRuntime = Get-RunbookRuntime 'CustomerSpecific'
     if ($customerRuntime -eq $runtimeEnvironmentName) {
@@ -2119,6 +2196,90 @@ function SendDeployPingback {
     catch {}
 }
 
+# Create-or-update a single row in the settings list, keyed on Title, so re-running the
+# deployment updates the value instead of piling up duplicate rows.
+function SetSettingValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$Title,
+        [Parameter(Mandatory = $true)][string]$Value,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+
+    $existing = @(Get-PnPListItem -List $requestSettingsListName -Query (SettingQuery $Title) -ErrorAction Stop)
+    if ($existing.Count -eq 0) {
+        Add-PnPListItem -List $requestSettingsListName -Values @{ Title = $Title; Value = $Value; Description = $Description } -ErrorAction Stop | Out-Null
+    }
+    else {
+        Set-PnPListItem -List $requestSettingsListName -Identity $existing[0].Id -Values @{ Value = $Value; Description = $Description } -ErrorAction Stop | Out-Null
+    }
+}
+
+# Stamps the deployed version into the environment so whoever supports this installation
+# later can read it off: two rows in the settings list (visible to admins in SharePoint)
+# and two tags on the resource group (visible in the Azure portal). Called from BOTH the
+# upgrade branch and the full deployment, right before the pingback.
+#
+# The rows are written HERE and deliberately not seeded by the PnP template: the
+# <pnp:DataRows> block uses UpdateBehavior="Skip", so a template-seeded version would
+# freeze at whatever the first install wrote and never move on -Upgrade.
+#
+# Nothing is stamped when a component FAILED - a half-finished run must not claim to be
+# a complete release. A failure to stamp is a WARNING, never fatal: the stamp is a
+# reading aid, not a functional dependency.
+function StampInstalledVersion {
+    if ((GetFailedDeployComponents).Count -gt 0) {
+        RecordDeployStatus -Component "Version stamp" -Status 'WARNING' -Detail "Not stamped - other components failed, so the environment keeps its previous version instead of being marked as $deployVersion"
+        return
+    }
+
+    $stampTime = (Get-Date -Format o)
+    $problems = @()
+
+    try {
+        # DeploySPFxPackages leaves the default PnP connection on the -admin site and runs
+        # immediately before this in both branches - reconnect to the requests site. The
+        # token is cached in-session, so this does not prompt again.
+        ConnectPnP $requestsSiteUrl
+        SetSettingValue -Title $installedVersionSettingName -Value $deployVersion -Description "Versjonen av Bestillingsportalen som sist ble installert. Settes automatisk av deploy.ps1 - ikke rediger manuelt."
+        SetSettingValue -Title $installedDateSettingName -Value $stampTime -Description "Tidspunktet for siste installasjon eller oppgradering. Settes automatisk av deploy.ps1 - ikke rediger manuelt."
+    }
+    catch {
+        $problems += "settings list: $(($_.Exception.Message -split "`r?`n")[0])"
+    }
+
+    try {
+        # Merge, NOT Set-AzResourceGroup -Tag: that cmdlet replaces the whole tag set and
+        # would wipe the customer's own governance tags (cost centre, owner, environment).
+        $rgName = $parameters.resourceGroupName.Value
+        $rgId = az group show --name $rgName --subscription $parameters.subscriptionId.Value --query id --output tsv 2>$null
+        if ([string]::IsNullOrEmpty($rgId)) {
+            $problems += "resource group tags: could not resolve the id of '$rgName'"
+        }
+        else {
+            az tag update --resource-id $rgId --operation Merge --tags "BestillingsportalenVersion=$deployVersion" "BestillingsportalenDeployed=$stampTime" --output none 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                $problems += "resource group tags: az tag update exited with code $LASTEXITCODE"
+            }
+        }
+    }
+    catch {
+        $problems += "resource group tags: $(($_.Exception.Message -split "`r?`n")[0])"
+    }
+
+    $versionDetail = if ($script:previousInstalledVersion -and $script:previousInstalledVersion -ne $deployVersion) {
+        "$deployVersion (was $script:previousInstalledVersion)"
+    }
+    else {
+        $deployVersion
+    }
+
+    if ($problems.Count -gt 0) {
+        RecordDeployStatus -Component "Version stamp" -Status 'WARNING' -Detail "$versionDetail - partially stamped: $($problems -join ' | ')"
+        return
+    }
+    RecordDeployStatus -Component "Version stamp" -Status 'OK' -Detail "$versionDetail - settings list + resource group tags"
+}
+
 $ErrorActionPreference = "stop"
 
 # Print the (partial) deployment summary even when the script stops on a
@@ -2213,6 +2374,11 @@ $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 # service account called bestillingsportalen@<domain> - and SharePoint resolves that
 # collision by silently creating the group as 'bestillingsportalen1'.
 #
+# The default stays 'bestillingsportalen' regardless, because the Teams app has the site
+# URL hardcoded to /<managedPath>/bestillingsportalen. When the alias is taken,
+# ValidateSiteAlias stops the run and points at the workaround (create on a free alias,
+# rename the site URL, then set the parameter to 'bestillingsportalen').
+#
 # Falls back to the old title-derived alias when the parameter is absent or blank, so
 # existing parameters.json files keep pointing at the site they already installed.
 if ($parameters.PSObject.Properties.Name -contains 'requestsSiteAlias' -and (IsValidParam($parameters.requestsSiteAlias))) {
@@ -2299,7 +2465,8 @@ Write-Host "Connected to SPO" -ForegroundColor Green
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+CheckVersionFile
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
@@ -2400,14 +2567,14 @@ if ($global:upgrade) {
     # Get the location from parameters for the logic app deployment
     $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
 
-    # Ensure new runbooks (e.g. AddGuestToSite in 1.11.0) exist BEFORE the Logic Apps
+    # Ensure new runbooks (e.g. AddGuestToSite in 2.0.0) exist BEFORE the Logic Apps
     # that invoke them are deployed.
     DeployLocalRunbooks
 
     # Idempotent — grants Sites.FullControl.All + Group.ReadWrite.All to the
     # automation account's system-assigned managed identity if not already
     # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
-    # Pre-1.11.0 deploys may have skipped this in upgrade mode.
+    # Pre-2.0.0 deploys may have skipped this in upgrade mode.
     AssignManagedIdentityPermissions
 
     # The logic apps reference the user-assigned managed identity, which is created by
@@ -2432,6 +2599,8 @@ if ($global:upgrade) {
         Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
         RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
     }
+
+    StampInstalledVersion
 
     SendDeployPingback
 
@@ -2525,6 +2694,8 @@ else {
     Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
     RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
 }
+
+StampInstalledVersion
 
 SendDeployPingback
 
