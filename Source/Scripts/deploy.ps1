@@ -313,22 +313,51 @@ function ValidateParameters {
     return $isValid
 }
 
-# Verifies installation of required PowerShell modules - throws error if a module is not installed
+# Verifies that the required PowerShell modules are usable in THIS session - throws if one
+# is missing or too old.
+#
+# There are three ways a module can be usable, and they see different things:
+#   Get-Module               - loaded in this session. A copy side-loaded from outside
+#                              PSModulePath (Import-Module by path, which is how you test a
+#                              new PnP release) shows up ONLY here.
+#   Get-Module -ListAvailable- on PSModulePath, so Import-Module will find it.
+#   Get-InstalledModule      - registered by PowerShellGet. The narrowest of the three: it
+#                              misses anything unzipped by hand, which used to make this
+#                              function report "not installed" about a module that was
+#                              loaded and working.
+# A loaded module wins outright, even over a newer one on disk: PowerShell will not load a
+# second version into the same session, so the loaded one is what the run will actually use.
 function VerifyModules {
     foreach ($module in $preReqModules.Keys) {
-        $instModule = Get-InstalledModule -Name $module -ErrorAction:SilentlyContinue
-        if ($null -eq $instModule) {
-            throw("{0} module not installed. Install it with: Install-Module {0} -Scope CurrentUser" -f $module)
+        $source = $null
+        $found = Get-Module -Name $module -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -ne $found) {
+            $source = "loaded in this session from $($found.ModuleBase)"
+        }
+        else {
+            $candidates = @()
+            $candidates += Get-Module -Name $module -ListAvailable -ErrorAction SilentlyContinue
+            $candidates += Get-InstalledModule -Name $module -ErrorAction SilentlyContinue
+            $found = @($candidates | Where-Object { $null -ne $_ }) |
+                Sort-Object { [version](("$($_.Version)" -split '-')[0]) } -Descending |
+                Select-Object -First 1
+            if ($null -ne $found) { $source = "available on PSModulePath" }
+        }
+
+        if ($null -eq $found) {
+            throw("{0} module not found. Install it with: Install-Module {0} -Scope CurrentUser - or, if you keep a copy outside PSModulePath, import it before running this script: Import-Module <path>\{0}.psd1" -f $module)
         }
 
         $minVersion = $preReqModules[$module]
         if ($null -ne $minVersion) {
             # Strip any prerelease suffix (e.g. 3.2.0-nightly) before comparing
-            $installedVersion = [version](("$($instModule.Version)" -split '-')[0])
-            if ($installedVersion -lt $minVersion) {
-                throw("{0} version {1} is installed, but version {2} or newer is required. Update it with: Update-Module {0}" -f $module, $instModule.Version, $minVersion)
+            $foundVersion = [version](("$($found.Version)" -split '-')[0])
+            if ($foundVersion -lt $minVersion) {
+                throw("{0} version {1} is {2}, but version {3} or newer is required. Update it with: Update-Module {0}" -f $module, $found.Version, $source, $minVersion)
             }
         }
+
+        Write-Host "  $module $($found.Version) - $source" -ForegroundColor DarkGray
     }
 }
 
@@ -1369,9 +1398,16 @@ function CheckAppRoleRights {
         return
     }
     try {
-        $rolesJson = az rest --method get --url "https://graph.microsoft.com/v1.0/me/transitiveMemberOf/microsoft.graph.directoryRole?`$select=displayName,roleTemplateId" 2>$null
+        # memberOf, NOT transitiveMemberOf. The transitive variant pages over the account's
+        # entire membership set and applies the directoryRole cast per page, so an account
+        # with many group memberships gets page after page of "value": [] with an
+        # @odata.nextLink - reading only the first page then "proves" the account holds no
+        # roles at all. Seen on a permanent Global Administrator: 20 pages, all empty.
+        # memberOf returns every role in one response.
+        $rolesJson = az rest --method get --url "https://graph.microsoft.com/v1.0/me/memberOf/microsoft.graph.directoryRole?`$select=displayName,roleTemplateId" 2>$null
         if (-not $rolesJson) { throw "the directory role lookup returned nothing" }
-        $roleTemplates = @((($rolesJson | ConvertFrom-Json).value).roleTemplateId)
+        $roles = @(($rolesJson | ConvertFrom-Json).value)
+        $roleTemplates = @($roles.roleTemplateId)
 
         $isGlobalAdmin = $roleTemplates -contains '62e90394-69f5-4237-9190-012177145e10'
         $isPraPlusCaa = ($roleTemplates -contains 'e8611ab8-c189-46e8-94e1-60213ab1f814') -and ($roleTemplates -contains '158c047a-c907-4556-b7ef-446551a6b5f7')
@@ -1379,7 +1415,11 @@ function CheckAppRoleRights {
             RecordPreflightCheck -Name "App role assignment rights" -Status OK -Detail $(if ($isGlobalAdmin) { "Global Administrator" } else { "Privileged Role Administrator + Cloud Application Administrator" })
         }
         else {
-            RecordPreflightCheck -Name "App role assignment rights" -Status WARNING -Detail "No active Global Administrator role detected (PIM-eligible roles do not show until activated)" -Fix "Activate the role, or run with -SkipAppRoles and hand the printed command to a Global Administrator."
+            # Name what the account DOES hold - "no GA detected" alone leaves you guessing
+            # whether the role is missing, not activated, or held via a group (which this
+            # non-transitive lookup does not see).
+            $held = if ($roles.Count -gt 0) { "holds: $(($roles.displayName | Sort-Object) -join ', ')" } else { "no directory roles returned for the account" }
+            RecordPreflightCheck -Name "App role assignment rights" -Status WARNING -Detail "Could not confirm Global Administrator (or Privileged Role Administrator + Cloud Application Administrator) - $held. PIM-eligible roles do not count until activated, and a role held through a group is not visible here" -Fix "Activate the role, or run with -SkipAppRoles and hand the printed command to a Global Administrator. If you know the account has it, just run - the app role step fails loudly if it does not."
         }
     }
     catch {
@@ -1451,7 +1491,13 @@ function ValidateSiteAlias {
     # this check exists for on fresh installs.
     $siteState = GetSiteExistenceState $requestsSiteUrl
     if ($siteState -eq 'Exists') {
-        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl - the alias is only relevant when creating a new site"
+        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl"
+        return
+    }
+    if ($siteState -eq 'Unknown' -and $null -ne $script:spoAdminAccessError) {
+        # Same root cause as the admin-access check, which is already blocking - one red
+        # line for it, not two.
+        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status SKIPPED -Detail "Cannot tell whether the site exists while the tenant admin API is unavailable - see 'SharePoint admin access'"
         return
     }
     if ($siteState -eq 'Unknown') {
@@ -1521,6 +1567,17 @@ function ValidateSiteAlias {
 # untouched; the token from the first sign-in is reused, so no extra browser prompt.
 # Never throws - a failure to read a display value must not abort a deployment that
 # has not changed anything yet.
+# Reports the result of the tenant-admin probe taken right after the PnP sign-in. Every
+# SharePoint step downstream assumes this works, so it is the first thing on the checklist
+# and it blocks: with it broken, half the remaining checks report nonsense.
+function CheckSpoAdminAccess {
+    if ($null -eq $script:spoAdminAccessError) {
+        RecordPreflightCheck -Name "SharePoint admin access" -Status OK -Detail "$script:pnpIdentity"
+        return
+    }
+    RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, but the tenant admin API returned: $script:spoAdminAccessError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
+}
+
 function GetPnPSignedInUser {
     try {
         # No Get-PnPCurrentUser in PnP.PowerShell 3.x - read Web.CurrentUser over CSOM.
@@ -2415,8 +2472,16 @@ if (-not $SkipVerifyModules) {
 # load context and tolerates this. If the error still occurs, start a FRESH
 # PowerShell session (a session where Az has already been loaded cannot be
 # repaired by import order).
-Write-Host "Loading PnP.PowerShell (must load before the Az module to avoid assembly conflicts)..." -ForegroundColor Yellow
-Import-Module PnP.PowerShell -ErrorAction Stop
+# Already loaded is already correct - and it is the only thing that works when the module
+# lives outside PSModulePath (a version side-loaded by path, which is how a new PnP release
+# gets tested). Import-Module by NAME would fail there, on a session that has the module
+# loaded and working.
+# Nothing to report when it is already loaded - VerifyModules just printed the version and
+# where it came from.
+if ($null -eq (Get-Module -Name PnP.PowerShell)) {
+    Write-Host "Loading PnP.PowerShell (must load before the Az module to avoid assembly conflicts)..." -ForegroundColor Yellow
+    Import-Module PnP.PowerShell -ErrorAction Stop
+}
 
 # Load Parameters from json file (path validated at the top of the script)
 $parametersListContent = Get-Content -LiteralPath $ParametersPath -ErrorAction Stop
@@ -2565,10 +2630,22 @@ catch {}
 $adminSiteUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Launching PnP sign-in (a browser window will open - sign in with the account running this script)..." -ForegroundColor Yellow
 ConnectPnP $adminSiteUrl
-# Name the URL and the account: the browser sign-in can complete silently from PnP's
-# on-disk token cache, so "connected" on its own says nothing about WHICH tenant and
-# WHICH identity the rest of the run will act as.
-Write-Host "Connected to SPO: $adminSiteUrl as $(GetPnPSignedInUser)" -ForegroundColor Green
+
+# Verify the connection rather than announce it. Connect-PnPOnline does not throw when it
+# completes silently from PnP's on-disk token cache as an account with no rights in this
+# tenant - the failure surfaces on the first tenant-admin read instead, far enough down
+# that it reads as a permissions bug rather than a sign-in that picked the wrong account.
+# Probing the tenant admin API here, with the identity named, turns that into one line.
+$script:pnpIdentity = GetPnPSignedInUser
+$script:spoAdminAccessError = $null
+try {
+    Get-PnPTenantSite -Url $global:tenantUrl -ErrorAction Stop | Out-Null
+    Write-Host "Connected to SPO: $adminSiteUrl as $script:pnpIdentity" -ForegroundColor Green
+}
+catch {
+    $script:spoAdminAccessError = ($_.Exception.Message -split "`r?`n")[0]
+    Write-Host "Signed in to $adminSiteUrl as $script:pnpIdentity, but the tenant admin API did not answer - NOT usable yet, see the checklist below." -ForegroundColor Yellow
+}
 
 # All sign-ins are done and nothing has been changed yet - validate the templates and
 # the service account, then show the pre-flight summary and ask for confirmation before
@@ -2577,8 +2654,9 @@ Write-Host "Connected to SPO: $adminSiteUrl as $(GetPnPSignedInUser)" -Foregroun
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (version, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, SharePoint admin access, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
+CheckSpoAdminAccess
 ValidateArmTemplates
 ValidateServiceAccount
 ValidateSiteAlias
