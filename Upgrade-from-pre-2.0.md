@@ -44,7 +44,8 @@ Ja, fra 2.0 — men det var det ikke før, og det er derfor det er verdt å si e
 
 - **Listedata røres ikke.** Standardelementene seedes nå av PnP-malens `<pnp:DataRows>` med `UpdateBehavior="Skip"`. Den gamle destruktive Excel-reseedingen (som slettet og gjenopprettet Settings, Provisioning Types, Teams Templates, Time Zones og Locales i fresh-modus) er borte. Bestillingsdata har aldri vært berørt.
 - **Navigasjon** nullstilles derimot i full modus (`-ClearNavigation` brukes ikke bare i upgrade-modus). Har området egendefinerte nav-lenker, ta et skjermbilde først.
-- **Bilder og ikoner** i `SiteAssets` lastes opp på nytt fra pakken i full modus (`UploadAssets`) — egne bilder med samme filnavn overskrives.
+- **Bilder og ikoner beholdes.** Områdekonfigurasjonen slettet tidligere hele `SiteAssets/Provisioning Request` og opprettet den på nytt når den fant den — som på en re-deploy kastet alt kunden hadde lastet opp for egne områdetyper, og etterlot `Image`/`Icon`-URL-er som pekte på slettede filer. Fra 2.0.0 opprettes mappene bare hvis de mangler. `UploadAssets` skriver pakkens egne filer over sine egne navn; kundens filer røres ikke.
+- **Du kan ikke svare `n` på den første kjøringen.** Etter `n` hopper skriptet over malen, men leser fortsatt liste-ID-ene — inkludert `Guest Requests`, som ikke finnes i et pre-2.0-miljø. Kjøringen feiler da på listeoppslaget. Første pass mot et pre-2.0-miljø må derfor svare `y`, som er greit: det er nettopp skjemaoppdateringen du er ute etter. `n` er først et alternativ ved senere kjøringer.
 - **Runbook-innhold overskrives fra repoet.** Dette er den største risikoen — se punkt 4 under.
 
 ## 1. Kartlegg miljøet før du gjør noe
@@ -137,6 +138,12 @@ Alt kjøres fra `Source/Scripts` i PowerShell 7.4+, i et **nytt** PowerShell-vin
 
 Fiks alt som står `MISSING`. `WARNING` på app-rolle-rettigheter er forventet uten aktiv GA — da planlegger du `-SkipAppRoles`.
 
+Kontroller samtidig de tre identitetene i PRE-FLIGHT SUMMARY — `Signed in as (Az)`, `(CLI)` og `(PnP)` er tre uavhengige innlogginger, og jobber du mot flere kundetenanter er det ikke gitt at de peker samme vei. `(PnP)` er den som avgjør om området kan leses og malen anvendes. Er den feil, slett PnP-cachen og kjør pre-flight på nytt:
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache" -Force
+```
+
 **Steg 2 — varsle brukerne.** Regn 30–60 minutter for skriptet, pluss autorisering av tilkoblinger. Bestillinger som sendes inn i vinduet kan feile mens Logic App-ene byttes ut — be brukerne vente.
 
 **Steg 3 — full deploy.**
@@ -149,6 +156,7 @@ Legg til `-SkipAppRoles` hvis du ikke har GA, og `-SkipSPFxDeploy` hvis Node.js/
 
 - **Ikke bruk `-Force`** her: den svarer *nei* på template-prompten, og skjemaet må oppdateres.
 - Svar **`y`** på «Site already exists» — `Guest Requests`-lista og de nye feltene kommer med malen. Eksisterende listeelementer beholdes.
+- Får du i stedet spørsmålet om å **permanent slette Microsoft 365-gruppa**, svar `n` og les fallgruve-tabellen: området ble ikke funnet, og det er nesten alltid kontoen i PnP-innloggingen.
 
 **Steg 4 — les DEPLOYMENT SUMMARY.** Sjekk spesielt linja `Runbook runtime environment`. Står den `FAILED`, kjører runbookene fortsatt klassisk PowerShell 7.2 og vil feile med `Connect-PnPOnline is not recognized`. En runbooks type kan ikke endres in-place fra `PowerShell72` til runtime environment: **slett runbooken i Automation-kontoen og kjør deployen på nytt** — innholdet kommer fra repoet, så ingenting går tapt.
 
@@ -159,6 +167,11 @@ Legg til `-SkipAppRoles` hvis du ikke har GA, og `-SkipSPFxDeploy` hvis Node.js/
 ```
 
 Tilkoblinger som allerede står `Connected` hoppes over. Logg inn **som tjenestekontoen** i nettleservinduene, ikke som deg selv. «Created from a different organization»-advarselen er forventet.
+
+Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
+
+- **`bestillingsportalen-*`:** tilkoblingene oppdateres in-place, og autoriseringen ser ut til å overleve. Verifisert 19.08.2026 i testtenant: alle fire sto `Connected` etter en full deploy, uten et eneste nytt samtykke. Kjør skriptet likevel — det er en lesesjekk når alt er i orden.
+- **`provisionassist-*`:** tilkoblingene er nye ressurser med nye navn og står **uautoriserte**. Da må alle fire gjennom samtykkeflyten med tjenestekontoen, og løsningen står stille til det er gjort. Legg tid til dette i vinduet.
 
 **Steg 6 — app-roller**, hvis du kjørte med `-SkipAppRoles`. Ingenting virker før dette er gjort.
 
@@ -193,12 +206,14 @@ Tilkoblinger som allerede står `Connected` hoppes over. Logg inn **som tjeneste
 
 | Symptom | Årsak | Løsning |
 |--|--|--|
+| Skriptet tilbyr å **permanent slette Microsoft 365-gruppa og området** i stedet for å spørre om malen | Områdeoppslaget (`Get-PnPTenantSite`) svarte ikke, og et ubesvart oppslag ble lest som «ingen site her» | **Svar `n`/avbryt.** Kontoen du logget inn med i PnP-nettleserprompten må være SharePoint-administrator i **denne** tenanten — nettleseren gjenbruker gjerne en cachet konto fra en annen tenant. Sjekk `Signed in as (PnP)` i PRE-FLIGHT SUMMARY. Fra og med denne versjonen stopper pre-flight på dette, og gruppe-sletting tilbys aldri når gruppa eier nettopp målområdet |
+| `Root site language: could not be read (… Unauthorized)` i summary, eller `MISSING` på `SharePoint tenant site lookup` | PnP-kontoen mangler tenant-admin-tilgang i denne tenanten — og **det hjelper ikke å logge inn på nytt**: PnP.PowerShell lagrer MSAL-cachen på disk, så `-Interactive` fullfører stille som den cachede kontoen uten å spørre om noe. `Connect-PnPOnline -ForceAuthentication` hjelper heller ikke | Slett cachefila og kjør på nytt: `Remove-Item "$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache" -Force`. Sjekk `Signed in as (PnP)` i summary etterpå |
 | `Runbook runtime environment: FAILED` i summary | Runbook-typen kan ikke endres fra `PowerShell72` til runtime environment in-place | Slett runbooken, kjør deployen på nytt |
 | Deployen oppretter en ny Automation-konto | Miljøet bruker `provisionassist-*`-navn; kontonavnet er hardkodet | Forventet. Verifiser den nye, rydd bort den gamle |
 | ARM-feil om `location` på en Logic App | `region` i parameterfila matcher ikke eksisterende ressurser | Rett `region` til faktisk region |
 | Deployen peker på feil/nytt område | `requestsSiteAlias` feil utfylt | Tom verdi = utledet fra `requestsSiteName`; ellers faktisk URL-segment |
 | Slettede standardelementer er tilbake, eller finnes i to varianter | `DataRows` legger til manglende standardrader, med `Title` som nøkkel | Sett `Allowed`/`Enabled = false` framfor å slette; ikke gi standardelementer nytt navn |
-| Tilkoblinger står `Unauthorized`/`Error` etter deploy | Redeploy av tilkoblingsressursene kan nullstille autoriseringen | `Authorize-ApiConnections.ps1`, ev. portalen: Edit API connection → Authorize |
+| Tilkoblinger står `Unauthorized`/`Error` etter deploy | Nye tilkoblinger (navneskifte fra `provisionassist-*`), eller en tilkobling som har mistet samtykket. En in-place redeploy av tilkoblinger med samme navn beholder normalt autoriseringen | `Authorize-ApiConnections.ps1`, ev. portalen: Edit API connection → Authorize |
 | `Method 'get_Services' in type '...LoggingBuilder' does not have an implementation` | Az lastet før PnP.PowerShell i økten | Nytt PowerShell-vindu, kjør på nytt |
 | `MissingSubscriptionRegistration` | `Microsoft.ManagedIdentity` (ny i 2.0) ikke registrert | `az provider register --namespace Microsoft.ManagedIdentity` som abonnementsadministrator |
 | Egendefinert navigasjon borte etter deploy | Full modus bruker `-ClearNavigation` | Legg lenkene tilbake; senere `-Upgrade`-kjøringer bevarer navigasjonen |
@@ -226,7 +241,8 @@ Tilkoblinger som allerede står `Connected` hoppes over. Logg inn **som tjeneste
 - [ ] `ConfigureSpace` og `GetSiteTemplates` eksportert og diffet mot `Source/Runbooks/`
 - [ ] Kundetilpasninger i runbookene flyttet til `CustomerSpecific`
 - [ ] Logic App-definisjoner eksportert hvis noen er redigert i portalen
-- [ ] Listedata, bilder/ikoner og navigasjon dokumentert
+- [ ] Listedata og navigasjon dokumentert
+- [ ] Bekreftet at `Signed in as (PnP)` blir riktig konto — SharePoint-administrator i kundens tenant
 - [ ] Bevisst slettede eller omdøpte standardelementer notert
 - [ ] Kopi av godkjenningsflyten eksportert
 - [ ] Ny parameterfil bygget fra `parameters.template.json`, gamle nøkler fjernet
@@ -253,7 +269,8 @@ Tilkoblinger som allerede står `Connected` hoppes over. Logg inn **som tjeneste
 - [ ] Området lastes, lister og egne provisioning types intakte, `Guest Requests` opprettet
 - [ ] Testbestilling gjennomført ende-til-ende, inkl. `ConfigureSpace`-jobben
 - [ ] `InstalledVersion` viser ny versjon
-- [ ] Navigasjon og bilder gjenopprettet hvis nødvendig
+- [ ] Navigasjon gjenopprettet hvis nødvendig
+- [ ] `Image`/`Icon` på egne områdetyper kontrollert (bildene skal være urørt)
 
 **Etter vinduet**
 

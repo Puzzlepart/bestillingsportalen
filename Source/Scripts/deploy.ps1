@@ -332,12 +332,51 @@ function VerifyModules {
     }
 }
 
+# Answers "does the target site exist?" without ever guessing.
+#
+# Get-PnPTenantSite fails BOTH for a site that does not exist and for a connection that
+# may not read tenant site properties - a different account picked in the interactive
+# browser sign-in, no SharePoint Administrator role in this tenant, or throttling. Read
+# with -ErrorAction SilentlyContinue, the two are indistinguishable: both yield $null.
+# That is how a run against an EXISTING installation enters the creation path and, two
+# prompts later, offers to permanently delete the customer's Microsoft 365 group AND its
+# site. So classify the failure instead: only a genuine not-found means "the URL is free".
+#
+# Returns 'Exists', 'NotFound' or 'Unknown' - the reason for 'Unknown' is left in
+# $script:siteLookupError.
+function GetSiteExistenceState([string]$Url) {
+    $script:siteLookupError = $null
+    try {
+        $existing = Get-PnPTenantSite -Url $Url -ErrorAction Stop
+        if ($null -ne $existing) { return 'Exists' }
+        return 'NotFound'
+    }
+    catch {
+        $message = "$($_.Exception.Message)"
+        # SPO reports a missing site as "File Not Found" / "Cannot get site ..." - safe to
+        # read as "the URL is free", as are the other unambiguous not-found phrasings.
+        # Anything else (401/403, access denied, throttling) means the lookup did not answer
+        # the question, and must not be read as an answer. Erring towards 'Unknown' only
+        # stops the run; erring towards 'NotFound' is what put a customer site one keypress
+        # from deletion.
+        if ($message -match '(?i)file not found|cannot get site|could not be found|does not exist|404') {
+            return 'NotFound'
+        }
+        $script:siteLookupError = ($message -split "`r?`n")[0]
+        return 'Unknown'
+    }
+}
+
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
         Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
 
-        $site = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
+        $siteState = GetSiteExistenceState $requestsSiteUrl
+        if ($siteState -eq 'Unknown') {
+            throw "Could not determine whether $requestsSiteUrl already exists - the tenant site lookup failed with: $script:siteLookupError. Nothing has been changed. This is almost always the account: the PnP sign-in must be a SharePoint Administrator in THIS tenant (see 'Signed in as (PnP)' in the pre-flight summary). PnP.PowerShell caches the account on disk, so -Interactive may have signed you in silently as an account from another tenant - see the pre-flight checklist for the command that clears it. The run stops here on purpose: an unanswered lookup would be treated as 'no site here' and send the deployment into creating a new one."
+        }
+        $site = if ($siteState -eq 'Exists') { $true } else { $null }
 
         if (!$site) {
             $purgePerformed = $false
@@ -395,6 +434,22 @@ function CreateRequestsSharePointSite {
                 $groupSiteUrl = 'unknown'
                 $groupSiteJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$($activeGroup.id)/sites/root?`$select=webUrl" 2>$null
                 if ($groupSiteJson) { $groupSiteUrl = ($groupSiteJson | ConvertFrom-Json).webUrl }
+
+                # Second line of defence, over Graph rather than the SPO admin API: if the
+                # group owns EXACTLY the site this run targets, it is not debris from a
+                # failed attempt - it is the installation we are upgrading, and the site
+                # lookup above was wrong about it. Never offer to delete that.
+                if ("$groupSiteUrl".TrimEnd('/') -ieq "$requestsSiteUrl".TrimEnd('/')) {
+                    throw "The Microsoft 365 group '$($activeGroup.displayName)' already owns exactly the site this run targets ($requestsSiteUrl) - that is the existing installation, not left-over debris, so nothing will be deleted. The tenant site lookup did not see the site, which points at the account used for the PnP browser sign-in: it must be a SharePoint Administrator in THIS tenant. Sign in with the right account and re-run - the deployment then offers to apply the template to the existing site instead."
+                }
+
+                # And refuse to offer the deletion at all when we could not establish WHICH
+                # site the group owns: 'unknown' means the Graph lookup failed, not that the
+                # group is harmless. Offering to delete a group whose site we cannot identify
+                # is the same gamble in a different disguise.
+                if ($groupSiteUrl -eq 'unknown') {
+                    throw "An ACTIVE Microsoft 365 group with alias '$requestsSiteAlias' ('$($activeGroup.displayName)', created $($activeGroup.createdDateTime)) holds the alias, but its site could not be read over Graph - so there is no way to tell from here whether it is debris from a failed attempt or an installation in use. Nothing will be deleted. Check the group and its site manually (M365 admin -> Groups), then either delete it yourself or set requestsSiteAlias in $parametersFileName to a free alias, and re-run."
+                }
 
                 Write-Host "An ACTIVE Microsoft 365 group with alias '$requestsSiteAlias' already exists: '$($activeGroup.displayName)', created $($activeGroup.createdDateTime), site: $groupSiteUrl." -ForegroundColor Yellow
                 Write-Host "This is typically left behind by a previous partially failed site-creation attempt (the site ended up on a different URL). Check that the group/site contains nothing of value before deleting." -ForegroundColor Yellow
@@ -564,7 +619,18 @@ function CreateRequestsSharePointSite {
         # access, and is additive - it does not remove existing admins.
         if (-not [string]::IsNullOrEmpty($deployUser)) {
             Write-Host "Granting the installing user ($deployUser) site collection admin on the site..." -ForegroundColor Yellow
-            Set-PnPTenantSite -Identity $requestsSiteUrl -Owners $deployUser
+            # Convenience, not a requirement - and it can legitimately fail: $deployUser
+            # comes from the Azure CLI session, which for a consultant is often a GUEST in
+            # the customer tenant (the Az, CLI and PnP sign-ins are three separate
+            # identities and need not be the same account). A failure here must not take
+            # the whole site step - and with it the deployment - down with it.
+            try {
+                Set-PnPTenantSite -Identity $requestsSiteUrl -Owners $deployUser -ErrorAction Stop
+            }
+            catch {
+                Write-Host "WARN: Could not grant $deployUser site collection admin ($(($_.Exception.Message -split "`r?`n")[0]))." -ForegroundColor Yellow
+                Write-Host "      Continuing. If a later step fails with access denied, grant the account running this script site collection admin on $requestsSiteUrl via the SharePoint admin center and re-run." -ForegroundColor Yellow
+            }
         }
         else {
             Write-Host "WARN: Could not determine the installing user (az ad signed-in-user failed) - if the next step fails with access denied, grant yourself site collection admin on $requestsSiteUrl via the SharePoint admin center and re-run." -ForegroundColor Yellow
@@ -698,21 +764,20 @@ function ConfigureSharePointSite {
         $titleField.UpdateAndPushChanges($true)
         $context.ExecuteQuery()
 
-        <# Create folders in Site Assets
-         Try to get the folder first to see if it already exists - delete Site Request folder if it exists #>
-        $siteRequestsFolder = Get-PnPFolder -Url "/$($parameters.managedPath.Value)/$requestsSiteAlias/SiteAssets/$provRequestsFolderName" -ErrorAction SilentlyContinue
+        # Site Assets folders: create what is missing, touch nothing that exists.
+        #
+        # This used to DELETE the whole 'Provisioning Request' folder and recreate it
+        # whenever it was already there. On a re-deploy or an upgrade that threw away every
+        # image and icon the customer had uploaded for their own provisioning types, and
+        # left the Image/Icon URLs on those list items pointing at deleted files. Nothing
+        # needed the reset: UploadAssets writes the package's own files by name and
+        # overwrites them either way. Resolve-PnPFolder returns the folder and creates it
+        # only if it does not exist, which is the whole requirement.
+        Resolve-PnPFolder -SiteRelativePath "$siteAssetsListURL/$provRequestsFolderName" | Out-Null
+        Resolve-PnPFolder -SiteRelativePath $imageFolderUpload | Out-Null
+        Resolve-PnPFolder -SiteRelativePath $iconFolderUpload | Out-Null
 
-        if ($null -ne $siteRequestsFolder) {
-            Remove-PnPFolder -Name $provRequestsFolderName -Folder "SiteAssets" -Force
-        }
-
-        $folder = Add-PnPFolder -Name $provRequestsFolderName -Folder "$requestsSiteUrl/$siteAssetsListURL"
-        
-        $folder = Add-PnPFolder -Name $provTypesImageFolderName -Folder "$requestsSiteUrl/$siteAssetsListURL/$provRequestsFolderName"
-
-        $folder = Add-PnPFolder -Name $provTypesIconFolderName -Folder "$requestsSiteUrl/$siteAssetsListURL/$provRequestsFolderName"
-
-        Write-Host "Created folders in Site Assets" -ForegroundColor Green
+        Write-Host "Site Assets folders in place (existing uploads preserved)" -ForegroundColor Green
 
         # Adding settings in Site request Settings list
         $siteRequestsSettingsList = Get-PnPList $requestSettingsListName
@@ -1384,14 +1449,22 @@ function ValidateSiteAlias {
     # URL but NOT the group's mailNickname), requestsSiteAlias must be set to the new
     # URL segment, which may well be the service account's name - the very collision
     # this check exists for on fresh installs.
-    try {
-        $existingSite = Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue
-        if ($null -ne $existingSite) {
-            RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl - the alias is only relevant when creating a new site"
-            return
-        }
+    $siteState = GetSiteExistenceState $requestsSiteUrl
+    if ($siteState -eq 'Exists') {
+        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl - the alias is only relevant when creating a new site"
+        return
     }
-    catch {}
+    if ($siteState -eq 'Unknown') {
+        # Blocking on purpose. An unanswered lookup is not "no site here": on an existing
+        # installation it sends the run into the creation path, which ends at a prompt
+        # offering to delete the customer's group and its site.
+        # The connected identity goes in the detail, not a pointer to the PRE-FLIGHT
+        # SUMMARY: that is printed by ConfirmDeployment, which both -Preflight and a
+        # failing checklist exit before reaching. Naming the account is the whole point
+        # of the message, so it has to be here.
+        RecordPreflightCheck -Name "SharePoint tenant site lookup" -Status MISSING -Detail "Could not read $requestsSiteUrl to see whether it already exists (signed in to SharePoint as: $(GetPnPSignedInUser)): $script:siteLookupError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
+        return
+    }
 
     # Computed from the UPN, not from ValidateServiceAccount's lookup - the alias
     # check must work even when the service account check failed.
@@ -1448,6 +1521,27 @@ function ValidateSiteAlias {
 # untouched; the token from the first sign-in is reused, so no extra browser prompt.
 # Never throws - a failure to read a display value must not abort a deployment that
 # has not changed anything yet.
+function GetPnPSignedInUser {
+    try {
+        # No Get-PnPCurrentUser in PnP.PowerShell 3.x - read Web.CurrentUser over CSOM.
+        $pnpContext = Get-PnPContext
+        $currentUser = $pnpContext.Web.CurrentUser
+        $pnpContext.Load($currentUser)
+        $pnpContext.ExecuteQuery()
+
+        $identity = $currentUser.Email
+        if ([string]::IsNullOrWhiteSpace($identity)) {
+            # LoginName is claims-encoded (i:0#.f|membership|user@tenant.com) - the UPN is
+            # the last segment.
+            $identity = ("$($currentUser.LoginName)" -split '\|')[-1]
+        }
+        return $identity
+    }
+    catch {
+        return "could not be read ($(($_.Exception.Message -split "`r?`n")[0]))"
+    }
+}
+
 function GetRootSiteLanguage {
     try {
         $rootConnection = Connect-PnPOnline -Url $global:tenantUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
@@ -1551,6 +1645,10 @@ function ConfirmDeployment {
         Write-Host "    Signed in as (CLI): $deployUser"
     }
     Write-Host "    SharePoint tenant:  $global:tenantUrl"
+    # The PnP identity is the one that decides whether the site can be read and the
+    # template applied, and it is picked in a browser prompt - which happily reuses a
+    # cached account from another tenant. Worth seeing next to the Az/CLI identities.
+    Write-Host "    Signed in as (PnP): $(GetPnPSignedInUser)"
     Write-Host "    Root site language: $(GetRootSiteLanguage)"
     Write-Host ("    Service account:    {0}{1}" -f $parameters.serviceAccountUPN.Value, $(if ($script:serviceAccountDisplayName) { " ($script:serviceAccountDisplayName) - verified" }))
     Write-Host ""
@@ -2039,9 +2137,15 @@ function DeployUpgradeLogicApp {
 # Connects PnP PowerShell to the given URL with interactive browser sign-in
 # (delegated, as the account running the script). The deployment is attended by
 # design - the script prompts throughout - so certificate/app-only auth is not
-# supported. The token is cached in-session, so only the FIRST connection in a
-# run shows a browser prompt; it is deliberately NOT persisted across sessions
-# (-PersistLogin) to avoid leaving customer-tenant tokens on disk.
+# supported. Only the FIRST connection in a run shows a browser prompt; the rest
+# reuse the token.
+#
+# Note that PnP.PowerShell persists its MSAL token cache to disk regardless of
+# -PersistLogin: %LOCALAPPDATA%\.m365pnppowershell\pnp.msal.cache. A warm cache makes
+# -Interactive complete SILENTLY as whichever account is in it, so signing in "as the
+# right account" is not something the script can ask for. Deleting that file is what
+# actually forces a fresh account choice - Connect-PnPOnline -ForceAuthentication did
+# not, when tested. The pre-flight site lookup surfaces the command when it matters.
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
@@ -2165,7 +2269,7 @@ function ValidateAzureLocation {
 # Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
 # Reads script-scoped $deployVersion / $deployStartTime / $deployInvocationLine / $requestsSiteUrl / $deployUser / $global:appId.
 function SendDeployPingback {
-    Write-Host "[INFO] Sending deployment pingback" -ForegroundColor Yellow
+    Write-Host "Sending deployment pingback..." -ForegroundColor Yellow
 
     $deployEndTime = (Get-Date -Format o)
 
@@ -2443,20 +2547,28 @@ if (-not $cliSignedIn) {
 }
 Write-Host "Connected to Azure" -ForegroundColor Green
 
-# Capture the signed-in user for the deployment pingback (best-effort; works in both deploy and upgrade mode)
+# Change the subscription
+az account set --subscription $parameters.subscriptionId.Value
+
+# Capture the signed-in user (used for the deployment pingback and for granting the
+# installing user site collection admin). Deliberately AFTER 'az account set': read
+# before it, this returns whatever account the CLI happened to have selected - for anyone
+# with cached sessions in several tenants, that is regularly a user from a different
+# tenant than the one being deployed to. Best-effort; works in both deploy and upgrade mode.
 try {
     $deployUser = az ad signed-in-user show --query userPrincipalName -o tsv 2>$null
 }
 catch {}
 
-# Change the subscription
-az account set --subscription $parameters.subscriptionId.Value
-
 # Connect to PnP - the token is cached for the rest of this run, so only this
 # first connection shows a browser prompt.
+$adminSiteUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
 Write-Host "Launching PnP sign-in (a browser window will open - sign in with the account running this script)..." -ForegroundColor Yellow
-ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
-Write-Host "Connected to SPO" -ForegroundColor Green
+ConnectPnP $adminSiteUrl
+# Name the URL and the account: the browser sign-in can complete silently from PnP's
+# on-disk token cache, so "connected" on its own says nothing about WHICH tenant and
+# WHICH identity the rest of the run will act as.
+Write-Host "Connected to SPO: $adminSiteUrl as $(GetPnPSignedInUser)" -ForegroundColor Green
 
 # All sign-ins are done and nothing has been changed yet - validate the templates and
 # the service account, then show the pre-flight summary and ask for confirmation before
@@ -2502,8 +2614,10 @@ if (-not $SkipSharepointSite) {
     ConnectPnP $requestsSiteUrl
     ConfigureSharePointSite
 
-    # Skip uploading assets in upgrade mode
-    if (-not $global:upgrade) {
+    # Skip uploading assets in upgrade mode - and when the operator answered NO to the
+    # template prompt, which promises to "leave the site untouched". Uploading the
+    # package's images and icons over the site's own is not untouched.
+    if (-not $global:upgrade -and -not $global:skipApplyTemplate) {
         UploadAssets
     }
     RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'OK'
@@ -2628,10 +2742,22 @@ if (-not $SkipCreateResourceGroup) {
     # Create resource group
     # Handle spaces in resource group name
     $parameters.resourceGroupName.Value = $parameters.resourceGroupName.Value.Replace(" ", "")
-    Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
-    New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location | Out-Null
-    Write-Host "Created resource group" -ForegroundColor Green
-    RecordDeployStatus -Component "Resource group" -Status 'OK'
+    # Only create it when it is actually missing. New-AzResourceGroup on an existing group
+    # asks "Provided resource group already exists. Are you sure you want to update it?" -
+    # an interactive confirmation that -Force does not suppress, so an unattended run would
+    # sit there waiting. Re-running against an existing environment is the normal case, and
+    # it has nothing to create.
+    $existingResourceGroup = Get-AzResourceGroup -Name $parameters.resourceGroupName.Value -ErrorAction SilentlyContinue
+    if ($null -ne $existingResourceGroup) {
+        Write-Host "Resource group $($parameters.resourceGroupName.Value) already exists in $($existingResourceGroup.Location) - leaving it as it is." -ForegroundColor Green
+        RecordDeployStatus -Component "Resource group" -Status 'OK' -Detail "Already existed ($($existingResourceGroup.Location))"
+    }
+    else {
+        Write-Host "Creating resource group $($parameters.resourceGroupName.Value)..." -ForegroundColor Yellow
+        New-AzResourceGroup -Name $parameters.resourceGroupName.Value -Location $global:location | Out-Null
+        Write-Host "Created resource group" -ForegroundColor Green
+        RecordDeployStatus -Component "Resource group" -Status 'OK'
+    }
 }
 else {
     Write-Host "Skipping resource group creation" -ForegroundColor Yellow
