@@ -40,7 +40,7 @@ graph TD
     C --> | After successful invite, with guest + group params | G(AddGuestToSite runbook)
     G --> | Managed Identity | H(PnP PowerShell)
     H --> | Add-PnPMicrosoft365GroupMember | I2(M365-gruppen på siten)
-    H --> | Add-PnPUserToGroup / New-PnPGroup | J2(SP-brukergruppe på siten)
+    H --> | Add-PnPGroupMember / New-PnPGroup | J2(SP-brukergruppe på siten)
     A --> | DataGrid view filtered by SiteUrl | B
 ```
 

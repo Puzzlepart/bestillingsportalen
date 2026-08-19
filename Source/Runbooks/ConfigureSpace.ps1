@@ -298,7 +298,9 @@ function AddVisitors {
     $group = Get-PnPGroup -AssociatedVisitorGroup
     ForEach ($visitor in $visitors -split ",") {
         Write-Output("Adding '$visitor' to Visitors")
-        Add-PnPUserToGroup -LoginName $visitor -Identity $group
+        # Add-PnPUserToGroup is a PnP.PowerShell 1.x name that does not exist in 3.x -
+        # this line threw "not recognized" every time a request had visitors.
+        Add-PnPGroupMember -LoginName $visitor -Group $group
     }
 
     Write-Output "Finished updating SP visitors group"
@@ -504,7 +506,9 @@ function SetRetentionLabel {
     $list = Get-DefaultDocumentLibrary
     Write-Output "Setting retention label $retentionLabel on '$($list.Title)' library"
 
-    Set-PnPLabel -List $list -Label $retentionLabel
+    # Set-PnPLabel is a PnP.PowerShell 1.x name that does not exist in 3.x. Same
+    # parameters on the current cmdlet, so this is a rename and nothing else.
+    Set-PnPRetentionLabel -List $list -Label $retentionLabel
 
     Write-Output "Finished setting retention label"
 }
