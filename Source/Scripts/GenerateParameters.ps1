@@ -43,7 +43,10 @@
     UPN of the service account used for the delegated API connections. Prompted for when omitted.
 
 .PARAMETER Region
-    Azure region for the resources. Default: norwayeast.
+    Azure region for the resources. Default: norwayeast - but when an existing
+    installation is found in the subscription, its region is used instead (a Logic App
+    cannot be moved, so redeploying into another region fails). Pass this explicitly to
+    keep your own value; the script then says so and leaves the mismatch to you.
 
 .PARAMETER Force
     Overwrite an existing parameters.json without asking. Also skips the managed path
@@ -202,6 +205,59 @@ if ([string]::IsNullOrEmpty($fullTenantName)) {
 Write-Host "NOTE: verify that '$spoTenantName' matches your actual SharePoint URL (https://$spoTenantName.sharepoint.com) - tenants that have been renamed can differ from the initial domain." -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
+# 2b. An existing installation's resource group and region
+#
+# resourceGroupName and region were template defaults only, so generating a parameter
+# file for an environment that is ALREADY installed produced 'rg-bestillingsportalen' in
+# 'norwayeast' no matter what the customer actually used. Deploying with that does not
+# fail - it builds a complete second installation next to the first one, in a new
+# resource group, and orphans everything that was there.
+#
+# The marker is the ProcessProvisionRequest logic app: that name is identical in every
+# version of this solution, including the pre-rebranding provisionassist-* generation,
+# whereas the resource group name and region are free-text choices nothing can guess.
+# Read-only, and quiet when there is nothing to find (a fresh install).
+# ---------------------------------------------------------------------------
+$templateForRg = (Get-Content $templatePath -Raw | ConvertFrom-Json)
+$resourceGroupName = $templateForRg.resourceGroupName.Value
+
+Write-Host ""
+Write-Host "Looking for an existing Bestillingsportalen installation in the subscription..." -ForegroundColor Yellow
+$existingInstalls = @()
+try {
+    $existingJson = az resource list --subscription $account.id --resource-type "Microsoft.Logic/workflows" --name "ProcessProvisionRequest" --query "[].{rg:resourceGroup, location:location}" --output json 2>$null
+    if ($existingJson) { $existingInstalls = @($existingJson | ConvertFrom-Json) }
+}
+catch {}
+
+if ($existingInstalls.Count -eq 1) {
+    $found = $existingInstalls[0]
+    Write-Host "Found one: resource group '$($found.rg)' in $($found.location)." -ForegroundColor Green
+    $resourceGroupName = $found.rg
+
+    # An explicit -Region wins - the caller said what they wanted. Otherwise adopt the
+    # region the resources are actually in: a Logic App cannot be moved, so redeploying
+    # the same names into a different region just fails.
+    if ($PSBoundParameters.ContainsKey('Region') -and $Region -ne $found.location) {
+        Write-Host "Keeping region '$Region' as given on the command line, but the existing resources are in '$($found.location)' - a redeploy into a different region fails. Verify before deploying." -ForegroundColor Yellow
+    }
+    else {
+        $Region = $found.location
+    }
+    Write-Host "Using resourceGroupName = '$resourceGroupName' and region = '$Region' from the existing installation." -ForegroundColor Green
+}
+elseif ($existingInstalls.Count -gt 1) {
+    Write-Host "Found $($existingInstalls.Count) installations in this subscription - cannot tell which one to target:" -ForegroundColor Yellow
+    foreach ($install in $existingInstalls) {
+        Write-Host "  - resource group '$($install.rg)' in $($install.location)" -ForegroundColor Yellow
+    }
+    Write-Host "Keeping resourceGroupName = '$resourceGroupName' and region = '$Region' - set them yourself in $OutputPath before deploying." -ForegroundColor Yellow
+}
+else {
+    Write-Host "None found - treating this as a new installation (resourceGroupName = '$resourceGroupName', region = '$Region')." -ForegroundColor Green
+}
+
+# ---------------------------------------------------------------------------
 # 3. Values that cannot be derived - prompt unless provided as parameters
 # ---------------------------------------------------------------------------
 if ([string]::IsNullOrEmpty($ServiceAccountUPN)) {
@@ -238,6 +294,7 @@ $values = @{
     fullTenantName    = $fullTenantName
     spoTenantName     = $spoTenantName
     region            = $Region
+    resourceGroupName = $resourceGroupName
     serviceAccountUPN = $ServiceAccountUPN
 }
 

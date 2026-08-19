@@ -67,7 +67,7 @@ az resource list -g <rg> -o table
 | `bestillingsportalen-*` | Rene in-place-oppdateringer. Ingenting dupliseres. |
 | `provisionassist-*` | Ny Automation-konto og nye API-tilkoblinger opprettes ved siden av de gamle. Logic App-navnene er identiske i begge generasjoner og oppdateres uansett in-place. Funksjonelt greit — men du må autorisere alle tilkoblingene på nytt, og rydde bort den gamle Automation-kontoen og de gamle tilkoblingene etterpå. |
 
-**2. Regionen.** `region` i parameterfila må matche regionen de eksisterende ressursene faktisk står i. En Logic App kan ikke flyttes: en redeploy med annen `location` feiler.
+**2. Ressursgruppa og regionen.** Begge må matche det som faktisk står der. En Logic App kan ikke flyttes, så en redeploy med annen `location` feiler — og et feil ressursgruppenavn feiler ikke i det hele tatt: det bygger en komplett andre installasjon i en ny ressursgruppe og etterlater den gamle. `GenerateParameters.ps1` finner begge selv ved å lete opp `ProcessProvisionRequest`-Logic Appen i abonnementet, og fyller `resourceGroupName` og `region` fra den. Finner den flere installasjoner, sier den det og lar deg velge.
 
 **3. Områdets faktiske URL.** `requestsSiteAlias` er ny i 2.0 og bestemmer URL-en kjøringen peker på. Standardverdien er `bestillingsportalen`, fordi Teams-appen har URL-en `/<managedPath>/bestillingsportalen` hardkodet — noe et pre-2.0-miljø i drift normalt allerede oppfyller. Sjekk likevel:
 
