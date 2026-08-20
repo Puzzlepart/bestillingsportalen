@@ -1602,7 +1602,7 @@ function CheckAzureWriteMfa {
             RecordPreflightCheck -Name "MFA on the Azure session" -Status OK -Detail "amr: $($methods -join ', ')"
             return
         }
-        RecordPreflightCheck -Name "MFA on the Azure session" -Status WARNING -Detail "The Azure CLI session authenticated without MFA (amr: $($methods -join ', ')) - a tenant that enforces MFA for Azure will refuse the deployments" -Fix "If a deployment fails with AADSTS50076 or RequestDisallowedByAzure: az logout, then az login --tenant $($parameters.tenantId.Value) --scope https://management.core.windows.net//.default - and re-run. Note that az logout clears the cached CLI sessions for every tenant on the machine."
+        RecordPreflightCheck -Name "MFA on the Azure session" -Status WARNING -Detail "The Azure CLI session authenticated without MFA (amr: $($methods -join ', ')) - a tenant that enforces MFA for Azure will refuse the deployments" -Fix "If a deployment fails with AADSTS50076 or RequestDisallowedByAzure, the CLI prints an 'az login' command with a --claims-challenge argument: run 'az logout' and then THAT command, verbatim. The challenge carries the Conditional Access authentication context the tenant demands (acrs), and -Scope alone does not satisfy it - a plain re-login just hands back the same password-only token. Note that az logout clears the cached CLI sessions for every tenant on the machine."
     }
     catch {
         RecordPreflightCheck -Name "MFA on the Azure session" -Status UNKNOWN -Detail "Could not read the Azure CLI token to check for an MFA claim - a deployment failing with AADSTS50076 means it was missing"
