@@ -2012,6 +2012,14 @@ function AssignUamiPermissions {
 #
 # Recreating is the only way out, and it costs nothing - a managed identity connection
 # holds no credentials and needs no consent, unlike the four delegated ones.
+#
+# Runs AFTER the connections template, never before: a connection carrying a dead
+# credential sits at whatever status it last recorded - typically 'Connected' from the
+# original install, because nothing has tried to refresh it since. It is the template's own
+# update that triggers the refresh, and only then does the status turn 'Error'. Checking
+# first therefore finds nothing to repair on the very run that breaks it, and the fix
+# lands one deployment too late (seen exactly that way: an upgrade left the environment
+# broken, and only a second run repaired it).
 function RepairAutomationConnection {
     # Mirrors the resource name in apiconnections.json.
     $connectionName = "bestillingsportalen-automation"
@@ -2019,7 +2027,7 @@ function RepairAutomationConnection {
 
     $status = az resource show @connectionArgs --query "properties.statuses[0].status" --output tsv 2>$null
     if ([string]::IsNullOrWhiteSpace($status)) {
-        # No connection yet: the deployment below creates it.
+        RecordDeployStatus -Component "API connection: $connectionName" -Status 'FAILED' -Detail "The connection does not exist after the deployment - the runbook calls have nothing to go through"
         return
     }
     if ($status -in @('Ready', 'Connected')) {
@@ -2033,7 +2041,17 @@ function RepairAutomationConnection {
         Write-Host "WARN: could not delete $connectionName. Delete it manually in the portal and re-run - provisioning fails at the ConfigureSpace step until then." -ForegroundColor Yellow
         return
     }
-    $script:automationConnectionRecreated = $true
+
+    # Recreate it through the same template, so the definition stays in one place.
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" --output none
+
+    $newStatus = az resource show @connectionArgs --query "properties.statuses[0].status" --output tsv 2>$null
+    if ($newStatus -in @('Ready', 'Connected')) {
+        RecordDeployStatus -Component "API connection: $connectionName" -Status 'OK' -Detail "Was '$status', recreated for managed identity - now '$newStatus'"
+    }
+    else {
+        RecordDeployStatus -Component "API connection: $connectionName" -Status 'FAILED' -Detail "Recreated, but the status is '$newStatus' - the runbook calls will fail with a missing Authorization header"
+    }
 }
 
 function DeployARMTemplates {
@@ -2042,21 +2060,12 @@ function DeployARMTemplates {
         if (-not $SkipDeployAPIConnections) {
             Write-Host "Deploying api connections..." -ForegroundColor Yellow
 
-            # Before the template runs, so the deployment below recreates what this removes.
-            RepairAutomationConnection
-
             az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/apiconnections.json' --parameters "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" --output none
             RecordAzResult "API connections" -DeploymentName "apiconnections"
 
-            if ($script:automationConnectionRecreated) {
-                $newStatus = az resource show -g $parameters.resourceGroupName.Value -n "bestillingsportalen-automation" --resource-type "Microsoft.Web/connections" --query "properties.statuses[0].status" --output tsv 2>$null
-                if ($newStatus -in @('Ready', 'Connected')) {
-                    RecordDeployStatus -Component "API connection: bestillingsportalen-automation" -Status 'OK' -Detail "Recreated for managed identity - now '$newStatus'"
-                }
-                else {
-                    RecordDeployStatus -Component "API connection: bestillingsportalen-automation" -Status 'FAILED' -Detail "Recreated, but the status is '$newStatus' - the runbook calls will fail with a missing Authorization header"
-                }
-            }
+            # After the deployment: the update above is what surfaces a dead credential on
+            # an upgraded environment. See the comment on the function.
+            RepairAutomationConnection
 
             Write-Host "Finished deploying api connections..." -ForegroundColor Green
         }
