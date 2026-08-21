@@ -155,7 +155,7 @@ define([], function () {
     SPGroupSectionDescriptionWithGuestRole: 'Gjesten får allerede tilgang via Microsoft 365-gruppen (som er medlem av områdets medlemsgruppe). Bruk dette bare for å legge gjesten til i en annen SharePoint-gruppe i tillegg.',
     SPGroupSectionDescriptionNoRole: 'Uten rollen Gjest får brukeren kun tilgang til området gjennom en SharePoint-gruppe her — eller ved at innhold deles direkte med brukeren senere.',
     SPGroupActionNoneLabel: 'Ikke legg til i SharePoint-gruppe',
-    SPGroupActionNoneWithGuestRoleLabel: 'Bare legg til i standard SharePoint-gruppe',
+    SPGroupActionNoneWithGuestRoleLabel: 'Bare legg til i standard SharePoint medlems-gruppe',
     SPGroupActionExistingLabel: 'Legg til i eksisterende gruppe',
     SPGroupActionNewLabel: 'Opprett ny gruppe',
     SPGroupExistingPickerLabel: 'Velg gruppe',

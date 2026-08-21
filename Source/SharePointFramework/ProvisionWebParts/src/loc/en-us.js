@@ -155,7 +155,7 @@ define([], function () {
     SPGroupSectionDescriptionWithGuestRole: 'The guest already gets access via the Microsoft 365 group (which is a member of the site members group). Use this only to add the guest to another SharePoint group as well.',
     SPGroupSectionDescriptionNoRole: 'Without the Guest role, the user only gets access to the site through a SharePoint group here — or by sharing content directly with the user later.',
     SPGroupActionNoneLabel: 'Do not add to a SharePoint group',
-    SPGroupActionNoneWithGuestRoleLabel: 'Only add to the standard SharePoint group',
+    SPGroupActionNoneWithGuestRoleLabel: 'Only add to the standard SharePoint members group',
     SPGroupActionExistingLabel: 'Add to an existing group',
     SPGroupActionNewLabel: 'Create a new group',
     SPGroupExistingPickerLabel: 'Choose group',
