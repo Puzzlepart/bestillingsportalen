@@ -50,8 +50,28 @@ switch ($m365GroupRole) {
     }
     'Member' {
         if ($isGroupConnected) {
-            Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestEmail
-            Write-Output "[STEP 1/2] Added '$guestEmail' as guest member of M365 group $($site.GroupId)"
+            # Graph addresses users by object id or UPN — and a guest's UPN is
+            # 'name_domain#EXT#@tenant', never their e-mail address, so passing
+            # the e-mail 404s for every guest. The ensured user's claims login
+            # name ends with the real UPN; resolve the object id from that.
+            $guestUpn = $guestLoginName.Split('|')[-1]
+            $encodedUpn = [System.Uri]::EscapeDataString($guestUpn)
+            $aadUser = Invoke-PnPGraphMethod -Url "v1.0/users/$($encodedUpn)?`$select=id"
+            try {
+                Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $aadUser.id
+                Write-Output "[STEP 1/2] Added '$guestUpn' as guest member of M365 group $($site.GroupId)"
+            }
+            catch {
+                # Re-inviting an existing member returns Graph 400
+                # 'One or more added object references already exist' — that is
+                # the desired end state, not a failure.
+                if ("$_" -match 'already exist') {
+                    Write-Output "[STEP 1/2] '$guestUpn' is already a member of M365 group $($site.GroupId) — skipped"
+                }
+                else {
+                    throw
+                }
+            }
         }
         else {
             $group = Get-PnPGroup -AssociatedMemberGroup
