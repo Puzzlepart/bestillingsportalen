@@ -2,6 +2,17 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Ikke utgitt
+
+### Sikkerhet
+
+- **Gjeste-webdelen kan ikke lenger gi eksterne rollen Medlem eller Eier**: Hele invitasjonskjeden er bygget for eksterne brukere (`ProcessGuests` poster alltid til Graph `/invitations`), men webdelen tilbød likevel rollene Medlem og Eier — Entra støtter ikke gjester som gruppe-eiere (runbooken feilet), og Medlem ga gjesten Teams, Planner og gruppepostkasse i strid med hensikten. Rollen er nå låst til **Gjest** (tidligere «Besøkende» — lesetilgang via sitens Besøkende-gruppe) eller **Ingen rolle**, i alle lag: radioknappene og property pane-dropdownen viser kun de to valgene, lagrede `Member`/`Owner`-verdier fra eldre versjoner klemmes til Gjest ved retry og i webdel-konfigurasjonen, og `AddGuestToSite`-runbooken avviser `Member`/`Owner` med tydelig feilmelding som siste skanse. Utvidet tilgang gis i stedet via SP-gruppevalget, som før. `AccessPreviewPanel` er forenklet tilsvarende (warning-varianten for Eier/Medlem er død kode og fjernet), og statuslisten viser fortsatt historiske Medlem/Eier-rader korrekt.
+
+### Feilrettinger
+
+- **Per-gjest-modus i invite-draweren starter nå med de konfigurerte standardene**: Nye gjesterader arvet ikke `defaultM365GroupRole`, `defaultSpGroupName`/Besøkende-fallbacken (`autoSelectVisitorGroup`) eller `defaultSpPermissionLevel` — de falt stille tilbake til hardkodede verdier ved innsending. Radene seedes nå fra samme standarder som delt modus.
+- **Manglende gruppenavn i per-gjest-modus ga stille blokkert innsending**: Valideringsmeldingen «Gruppenavn er påkrevd» ble kun vist i delt modus; i per-gjest-modus ble innsendingen blokkert uten synlig tilbakemelding. Meldingen vises nå på den aktive gjestens SP-gruppeseksjon også.
+
 ## 2.0.0 - 2026-08-19
 
 ### Sikkerhet

@@ -13,7 +13,11 @@ import { Checkmark16Regular, Copy16Regular } from '@fluentui/react-icons'
 import * as strings from 'ProvisionWebPartsStrings'
 import { useInviteGuestsContext } from '../context'
 import { StatusBadge } from './StatusBadge'
-import type { M365GroupRole, SPGroupAction, SPPermissionLevel } from '../../../models/IGuestRequest'
+import type {
+  M365GroupRoleStored,
+  SPGroupAction,
+  SPPermissionLevel
+} from '../../../models/IGuestRequest'
 import type { InviteStatusRow } from './types'
 
 const formatDate = (iso: string): string => {
@@ -22,7 +26,9 @@ const formatDate = (iso: string): string => {
   return d.toLocaleString()
 }
 
-const m365RoleLabel = (role: M365GroupRole | undefined): string => {
+// Takes the STORED type: rows created before the guest-role lock can still
+// hold 'Member'/'Owner', and the grid must keep rendering them truthfully.
+const m365RoleLabel = (role: M365GroupRoleStored | undefined): string => {
   switch (role) {
     case 'Visitor':
       return strings.M365GroupRoleVisitorLabel

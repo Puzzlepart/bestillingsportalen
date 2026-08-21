@@ -13,18 +13,8 @@ interface IM365GroupRoleSectionProps {
   locked?: boolean
 }
 
-const roleLabel = (role: M365GroupRole): string => {
-  switch (role) {
-    case 'None':
-      return strings.M365GroupRoleNoneLabel
-    case 'Visitor':
-      return strings.M365GroupRoleVisitorLabel
-    case 'Member':
-      return strings.M365GroupRoleMemberLabel
-    case 'Owner':
-      return strings.M365GroupRoleOwnerLabel
-  }
-}
+const roleLabel = (role: M365GroupRole): string =>
+  role === 'Visitor' ? strings.M365GroupRoleVisitorLabel : strings.M365GroupRoleNoneLabel
 
 const formatLockedLabel = (template: string, value: string): string =>
   template.replace('{0}', value)
@@ -52,8 +42,6 @@ export const M365GroupRoleSection: React.FC<IM365GroupRoleSectionProps> = ({
           disabled={disabled}>
           <Radio value='None' label={strings.M365GroupRoleNoneLabel} />
           <Radio value='Visitor' label={strings.M365GroupRoleVisitorLabel} />
-          <Radio value='Member' label={strings.M365GroupRoleMemberLabel} />
-          <Radio value='Owner' label={strings.M365GroupRoleOwnerLabel} />
         </RadioGroup>
       )}
       <p className={styles.description}>{strings.M365GroupRoleSectionDescription}</p>

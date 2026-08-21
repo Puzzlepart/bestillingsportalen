@@ -1,10 +1,5 @@
 import * as React from 'react'
-import {
-  MessageBar,
-  MessageBarBody,
-  MessageBarIntent,
-  MessageBarTitle
-} from '@fluentui/react-components'
+import { MessageBar, MessageBarBody, MessageBarTitle } from '@fluentui/react-components'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import type {
@@ -36,36 +31,15 @@ const computeItems = (props: IAccessPreviewProps): string[] => {
   const { role, spGroupAction, spGroupName, spPermissionLevel, isGroupConnected } = props
   const items: string[] = []
 
-  switch (role) {
-    case 'Owner':
-      if (isGroupConnected) {
-        items.push(strings.AccessFullAdminGroupConnected)
-        items.push(strings.AccessTeamsMember)
-        items.push(strings.AccessOneNotePlannerCalendar)
-        items.push(strings.AccessCanInviteOthers)
-      } else {
-        items.push(strings.AccessFullAdminSiteOnly)
-        items.push(strings.AccessNotGroupConnectedNote)
-      }
-      break
-    case 'Member':
-      items.push(strings.AccessSiteEdit)
-      if (isGroupConnected) {
-        items.push(strings.AccessTeamsMember)
-        items.push(strings.AccessOneNotePlannerCalendar)
-      } else {
-        items.push(strings.AccessNotGroupConnectedNote)
-      }
-      break
-    case 'Visitor':
-      items.push(strings.AccessSiteRead)
-      if (isGroupConnected) {
-        items.push(strings.AccessNoM365)
-      }
-      break
-    case 'None':
+  // The requestable role is locked to Visitor/None (guests can never be
+  // Member/Owner), so the preview only ever describes limited access.
+  if (role === 'Visitor') {
+    items.push(strings.AccessSiteRead)
+    if (isGroupConnected) {
       items.push(strings.AccessNoM365)
-      break
+    }
+  } else {
+    items.push(strings.AccessNoM365)
   }
 
   if ((spGroupAction === 'AddToExisting' || spGroupAction === 'Preset') && spGroupName) {
@@ -78,20 +52,11 @@ const computeItems = (props: IAccessPreviewProps): string[] => {
   return items
 }
 
-const computeIntent = (props: IAccessPreviewProps): MessageBarIntent => {
-  const { role, isGroupConnected } = props
-  if (role === 'Owner') return 'warning'
-  if (role === 'Member' && isGroupConnected) return 'warning'
-  return 'info'
-}
-
 export const AccessPreviewPanel: React.FC<IAccessPreviewProps> = (props) => {
   const items = computeItems(props)
-  const intent = computeIntent(props)
-  const showWarningFooter = intent === 'warning'
 
   return (
-    <MessageBar intent={intent} className={styles.bar}>
+    <MessageBar intent='info' className={styles.bar}>
       <MessageBarBody>
         <MessageBarTitle>{strings.AccessPreviewTitle}</MessageBarTitle>
         <ul className={styles.list}>
@@ -99,7 +64,6 @@ export const AccessPreviewPanel: React.FC<IAccessPreviewProps> = (props) => {
             <li key={idx}>{item}</li>
           ))}
         </ul>
-        {showWarningFooter && <p className={styles.footer}>{strings.AccessPreviewWarningFooter}</p>}
       </MessageBarBody>
     </MessageBar>
   )

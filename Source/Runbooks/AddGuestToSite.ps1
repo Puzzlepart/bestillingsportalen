@@ -37,9 +37,12 @@ $site = Get-PnPSite -Includes GroupId
 $isGroupConnected = $site.GroupId -ne [Guid]::Empty
 Write-Output "[INIT] Site context: isGroupConnected=$isGroupConnected, GroupId='$($site.GroupId)'"
 
-# Hybrid: on M365-group-connected sites the SP Owner/Member groups are auto-managed
-# (synced from the M365 group), so we use Graph cmdlets. Visitors is always SP-only.
-# On non-group sites all three roles map to SP associated groups.
+# The flow only ever invites EXTERNAL users (ProcessGuests posts to Graph
+# /invitations), and a guest can never be Member/Owner of the site: Entra does
+# not allow guests as M365 group owners, and Member would cascade Teams/Planner/
+# mailbox access onto an external user. The requestable role is therefore locked
+# to Visitor (read access via the associated Visitors group) or None — anything
+# else is rejected here as defense in depth, even if a list item says otherwise.
 Write-Output "[STEP 1/2] Applying site role '$m365GroupRole'..."
 switch ($m365GroupRole) {
     'None' {
@@ -50,27 +53,8 @@ switch ($m365GroupRole) {
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
         Write-Output "[STEP 1/2] Added '$guestLoginName' as Visitor to '$($group.Title)'"
     }
-    'Member' {
-        if ($isGroupConnected) {
-            Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestEmail
-            Write-Output "[STEP 1/2] Added '$guestEmail' as Member to M365 group $($site.GroupId)"
-        }
-        else {
-            $group = Get-PnPGroup -AssociatedMemberGroup
-            Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-            Write-Output "[STEP 1/2] Added '$guestLoginName' as Member to '$($group.Title)'"
-        }
-    }
-    'Owner' {
-        if ($isGroupConnected) {
-            Add-PnPMicrosoft365GroupOwner -Identity $site.GroupId -Users $guestEmail
-            Write-Output "[STEP 1/2] Added '$guestEmail' as Owner to M365 group $($site.GroupId)"
-        }
-        else {
-            $group = Get-PnPGroup -AssociatedOwnerGroup
-            Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-            Write-Output "[STEP 1/2] Added '$guestLoginName' as Owner to '$($group.Title)'"
-        }
+    { $_ -in 'Member', 'Owner' } {
+        throw "m365GroupRole '$m365GroupRole' is not allowed for external guests — only 'Visitor' or 'None'. Grant additional access via a SharePoint group (spGroupAction) instead."
     }
     default {
         throw "Unknown m365GroupRole '$m365GroupRole'"

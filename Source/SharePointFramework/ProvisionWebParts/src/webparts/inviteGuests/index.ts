@@ -32,7 +32,10 @@ export interface IInviteGuestsWebPartProps {
   inviteAccessLevel: 'Owner' | 'Member' | 'Anyone'
   perGuestProfileMode: 'Disabled' | 'Optional' | 'Enforced'
   perGuestRoleMode: 'Disabled' | 'Optional' | 'Enforced'
-  defaultM365GroupRole: 'None' | 'Visitor' | 'Member' | 'Owner'
+  // Locked to guest-safe roles — externals can never be Member/Owner (see
+  // models/IGuestRequest.ts). Stored values from older versions may still hold
+  // 'Member'/'Owner'; render() clamps those to 'Visitor'.
+  defaultM365GroupRole: 'None' | 'Visitor'
   defaultSpGroupAction: 'None' | 'AddToExisting' | 'CreateNew'
   defaultSpGroupName: string
   presetSpGroupName: string
@@ -101,7 +104,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       inviteAccessLevel: this.properties.inviteAccessLevel || 'Owner',
       perGuestProfileMode: this.properties.perGuestProfileMode || 'Optional',
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
-      defaultM365GroupRole: this.properties.defaultM365GroupRole || 'Visitor',
+      // Clamp pre-lock persisted values (Member/Owner) to Visitor.
+      defaultM365GroupRole: this.properties.defaultM365GroupRole === 'None' ? 'None' : 'Visitor',
       defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
       defaultSpGroupName: this.properties.defaultSpGroupName || '',
       presetSpGroupName: this.properties.presetSpGroupName || '',
@@ -227,9 +231,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   label: strings.DefaultM365GroupRoleFieldLabel,
                   options: [
                     { key: 'None', text: strings.M365GroupRoleNoneLabel },
-                    { key: 'Visitor', text: strings.M365GroupRoleVisitorLabel },
-                    { key: 'Member', text: strings.M365GroupRoleMemberLabel },
-                    { key: 'Owner', text: strings.M365GroupRoleOwnerLabel }
+                    { key: 'Visitor', text: strings.M365GroupRoleVisitorLabel }
                   ]
                 }),
                 PropertyPaneDropdown('defaultSpGroupAction', {

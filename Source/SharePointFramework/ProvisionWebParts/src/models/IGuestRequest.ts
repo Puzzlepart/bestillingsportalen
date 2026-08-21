@@ -1,6 +1,17 @@
 export type GuestRequestStatus = 'Pending' | 'Invited' | 'Failed'
 
-export type M365GroupRole = 'None' | 'Visitor' | 'Member' | 'Owner'
+// The web part only ever invites EXTERNAL users: ProcessGuests posts to Graph
+// /invitations and looks up existing users with `userType eq 'Guest'`. Entra
+// does not support guests as owners of a Microsoft 365 group, and 'Member'
+// would cascade Teams/Planner/mailbox access onto a guest. The requestable role
+// is therefore locked to the site's Visitors group ('Visitor', labelled "Gjest"
+// in the UI) or no role at all.
+export type M365GroupRole = 'None' | 'Visitor'
+
+// What the M365GroupRole CHOICE field may hold. Items written before the role
+// lock can still carry 'Member'/'Owner', so reads stay wide (the status grid
+// renders them) while writes are narrowed to M365GroupRole.
+export type M365GroupRoleStored = M365GroupRole | 'Member' | 'Owner'
 
 export type SPGroupAction = 'None' | 'AddToExisting' | 'CreateNew'
 
@@ -24,7 +35,7 @@ export interface IGuestRequest {
   FirstName?: string
   LastName?: string
   Company?: string
-  M365GroupRole?: M365GroupRole
+  M365GroupRole?: M365GroupRoleStored
   SPGroupAction?: SPGroupAction
   SPGroupName?: string
   SPPermissionLevel?: SPPermissionLevel

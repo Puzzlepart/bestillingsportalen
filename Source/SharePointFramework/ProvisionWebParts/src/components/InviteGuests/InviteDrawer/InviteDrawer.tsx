@@ -61,6 +61,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     sharedSpGroupName,
     sharedSpPermissionLevel,
     sharedSpGroupNameValidationMessage,
+    activeGuestSpGroupNameValidationMessage,
     setSharedSpGroupAction,
     setSharedSpGroupName,
     setSharedSpPermissionLevel,
@@ -186,6 +187,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   locked={lockSpGroupAction}
                   presetGroupName={presetSpGroupName}
                   actionOptions={spActionOptions}
+                  nameValidationMessage={activeGuestSpGroupNameValidationMessage}
                   onActionChange={(a) =>
                     updateGuest(activeGuest.email, {
                       spGroupAction: a,

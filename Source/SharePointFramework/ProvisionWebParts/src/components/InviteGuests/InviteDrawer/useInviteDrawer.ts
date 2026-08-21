@@ -46,6 +46,7 @@ interface IUseInviteDrawerResult {
   sharedSpGroupName: string | undefined
   sharedSpPermissionLevel: SPPermissionLevel | undefined
   sharedSpGroupNameValidationMessage: string | undefined
+  activeGuestSpGroupNameValidationMessage: string | undefined
   setSharedSpGroupAction: (action: SPGroupActionUI) => void
   setSharedSpGroupName: (name: string | undefined) => void
   setSharedSpPermissionLevel: (level: SPPermissionLevel) => void
@@ -105,6 +106,12 @@ export function useInviteDrawer({
   const [siteGroups, setSiteGroups] = React.useState<ISiteGroup[]>([])
   const [loadingContext, setLoadingContext] = React.useState(false)
   const [isGroupConnected, setIsGroupConnected] = React.useState(false)
+  // Visitors-group fallback resolved from site context (see the load effect).
+  // Kept in state so per-guest rows added later seed with the same group name
+  // as the shared settings.
+  const [fallbackSpGroupName, setFallbackSpGroupName] = React.useState<string | undefined>(
+    undefined
+  )
 
   const [userPerGuestProfile, setUserPerGuestProfile] = React.useState(false)
   const [userPerGuestRole, setUserPerGuestRole] = React.useState(false)
@@ -171,6 +178,7 @@ export function useInviteDrawer({
       setUserPerGuestProfile(false)
       setUserPerGuestRole(false)
       setShared(initialShared)
+      setFallbackSpGroupName(undefined)
       setSubmitAttempted(false)
       return
     }
@@ -205,6 +213,7 @@ export function useInviteDrawer({
           ctx.autoSelectVisitorGroup &&
           siteContext.associatedVisitorGroupTitle
         ) {
+          setFallbackSpGroupName(siteContext.associatedVisitorGroupTitle)
           setShared((prev) => ({
             ...prev,
             spGroupName: siteContext.associatedVisitorGroupTitle
@@ -238,6 +247,10 @@ export function useInviteDrawer({
       const email = rawEmail.trim().toLowerCase()
       if (!isValidEmail(email)) return
       if (guestsRef.current.some((g) => g.email === email)) return
+      // Seed each guest from the same defaults as the shared settings, so
+      // per-guest mode starts where the admin configured it instead of falling
+      // back to hardcoded values on submit.
+      const action = initialShared.spGroupAction
       const next: IGuestInput = {
         email,
         firstName: '',
@@ -245,10 +258,15 @@ export function useInviteDrawer({
         company: '',
         exists: false,
         loading: true,
-        // Seed per-guest action with the first visible option so the stored
-        // value matches the radio shown (and the default isn't a hidden action).
-        spGroupAction: firstVisibleAction,
-        spGroupName: firstVisibleAction === 'Preset' ? ctx.presetSpGroupName : undefined
+        m365GroupRole: ctx.defaultM365GroupRole,
+        spGroupAction: action,
+        spGroupName:
+          action === 'Preset'
+            ? ctx.presetSpGroupName
+            : action === 'AddToExisting'
+              ? (initialShared.spGroupName ?? fallbackSpGroupName)
+              : undefined,
+        spPermissionLevel: action === 'CreateNew' ? ctx.defaultSpPermissionLevel : undefined
       }
       setGuests((prev) => [...prev, next])
       setActiveGuestEmail((current) => current ?? email)
@@ -270,7 +288,14 @@ export function useInviteDrawer({
         )
       })()
     },
-    [ctx.graphService, ctx.presetSpGroupName, firstVisibleAction]
+    [
+      ctx.graphService,
+      ctx.presetSpGroupName,
+      ctx.defaultM365GroupRole,
+      ctx.defaultSpPermissionLevel,
+      initialShared,
+      fallbackSpGroupName
+    ]
   )
 
   const removeGuest = React.useCallback((email: string) => {
@@ -325,6 +350,18 @@ export function useInviteDrawer({
     return undefined
   }, [submitAttempted, perGuestRole, shared.spGroupAction, shared.spGroupName])
 
+  // Per-guest counterpart of the shared validation message: without it,
+  // submit is silently blocked in per-guest mode with no visible feedback.
+  const activeGuestSpGroupNameValidationMessage = React.useMemo(() => {
+    if (!submitAttempted) return undefined
+    if (!perGuestRole || !activeGuest) return undefined
+    const action = activeGuest.spGroupAction ?? 'None'
+    if (action === 'None') return undefined
+    if (!activeGuest.spGroupName || !activeGuest.spGroupName.trim())
+      return strings.SPGroupNewNameRequired
+    return undefined
+  }, [submitAttempted, perGuestRole, activeGuest])
+
   const isSettingsValid = React.useMemo(() => {
     if (perGuestRole) {
       return guests.every((g) => {
@@ -351,7 +388,7 @@ export function useInviteDrawer({
         a === 'Preset' ? 'AddToExisting' : (a ?? 'None')
       const role = perGuestRole
         ? {
-            m365GroupRole: g.m365GroupRole ?? 'Visitor',
+            m365GroupRole: g.m365GroupRole ?? ctx.defaultM365GroupRole,
             spGroupAction: normalizeAction(g.spGroupAction),
             spGroupName: g.spGroupAction && g.spGroupAction !== 'None' ? g.spGroupName : undefined,
             spPermissionLevel:
@@ -400,6 +437,7 @@ export function useInviteDrawer({
     sharedSpGroupName: shared.spGroupName,
     sharedSpPermissionLevel: shared.spPermissionLevel,
     sharedSpGroupNameValidationMessage,
+    activeGuestSpGroupNameValidationMessage,
     setSharedSpGroupAction,
     setSharedSpGroupName,
     setSharedSpPermissionLevel,
