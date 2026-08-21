@@ -81,7 +81,7 @@ define([], function () {
     GuestRequestListTitleFieldLabel: 'Guest request list title',
     GuestRequestListTitleFieldDescription: 'The SharePoint list where invitation requests are stored. Default: Guest Requests',
     GuestRequestSiteUrlFieldLabel: 'Bestillingsportalen site URL',
-    GuestRequestSiteUrlFieldDescription: 'URL of the site where the Guest Requests list lives (typically Bestillingsportalen). Leave blank to use the current site.',
+    GuestRequestSiteUrlFieldDescription: 'URL of the site where the Guest Requests list lives. Leave blank to use /sites/bestillingsportalen on the current tenant (the deployment default alias).',
     HiddenSpGroupsFieldLabel: 'Hide SharePoint groups',
     HiddenSpGroupsFieldDescription: 'Comma- or newline-separated list of groups to hide from the group picker. Matches on group name (partial) or permission level (exact). Example: Owners, Full Control.',
     AllowedSpGroupsFieldLabel: 'Show only SharePoint groups',

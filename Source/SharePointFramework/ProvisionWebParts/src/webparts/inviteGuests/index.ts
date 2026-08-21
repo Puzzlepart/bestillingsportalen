@@ -69,9 +69,20 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   private _siteService!: SiteService
   private _graphService!: GraphService
 
+  /**
+   * Default location of the Guest Requests list when guestRequestSiteUrl is
+   * blank. /sites/bestillingsportalen is the solution-wide convention (the
+   * requestsSiteAlias deploy default; the Teams app hardcodes the same URL).
+   * Falling back to the CURRENT site only ever worked when the web part sat on
+   * the portal itself — everywhere else it pointed at a site without the list.
+   */
+  private get _defaultGuestRequestSiteUrl(): string {
+    return new URL('/sites/bestillingsportalen', this.context.pageContext.web.absoluteUrl).href
+  }
+
   protected async onInit(): Promise<void> {
     const targetSiteUrl =
-      (this.properties.guestRequestSiteUrl || '').trim() || this.context.pageContext.web.absoluteUrl
+      (this.properties.guestRequestSiteUrl || '').trim() || this._defaultGuestRequestSiteUrl
     const adminSp: SPFI = spfi(targetSiteUrl).using(SPFx(this.context))
     this._service = new GuestRequestService(
       adminSp,
@@ -415,7 +426,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                 }),
                 PropertyPaneTextField('guestRequestSiteUrl', {
                   label: strings.GuestRequestSiteUrlFieldLabel,
-                  description: strings.GuestRequestSiteUrlFieldDescription
+                  description: strings.GuestRequestSiteUrlFieldDescription,
+                  placeholder: this._defaultGuestRequestSiteUrl
                 }),
                 PropertyPaneTextField('guestRequestListTitle', {
                   label: strings.GuestRequestListTitleFieldLabel,

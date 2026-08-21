@@ -81,7 +81,7 @@ define([], function () {
     GuestRequestListTitleFieldLabel: 'Listetittel for gjesteforespørsler',
     GuestRequestListTitleFieldDescription: 'SharePoint-listen hvor invitasjonsforespørsler lagres. Standard: Guest Requests',
     GuestRequestSiteUrlFieldLabel: 'URL til Bestillingsportalen-området',
-    GuestRequestSiteUrlFieldDescription: 'URL til området hvor Guest Requests-listen ligger (typisk Bestillingsportalen). Tomt = gjeldende område.',
+    GuestRequestSiteUrlFieldDescription: 'URL til området hvor Guest Requests-listen ligger. Tomt = /sites/bestillingsportalen på gjeldende tenant (standard-aliaset fra installasjonen).',
     HiddenSpGroupsFieldLabel: 'Skjul SharePoint-grupper',
     HiddenSpGroupsFieldDescription: 'Komma- eller linjeseparert liste over grupper som skal skjules fra gruppevelgeren. Matcher på gruppenavn (delvis treff) eller tilgangsnivå (eksakt). Eksempel: Eiere, Full kontroll.',
     AllowedSpGroupsFieldLabel: 'Vis kun SharePoint-grupper',
