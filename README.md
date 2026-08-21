@@ -19,6 +19,14 @@ Bestillingsportalen tilbyr følgende:
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation.
 - Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (SPFx 1.22, Fluent UI v9) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
 
+### Gjesteinvitasjon
+
+Webdelen låser rollen til **Gjest** — gjestemedlemskap i Microsoft 365-gruppen, standardmodellen for eksterne i Microsoft 365 — eller **Ingen rolle**. Hjelpetekster og tilgangsforhåndsvisningen tilpasser seg valget, og velges verken rolle eller SharePoint-gruppe varsles avsenderen om at invitasjonen alene ikke gir tilgang til området:
+
+| Rollen Gjest (standard) | Ingen rolle |
+|--|--|
+| ![Invitasjons-drawer med rollen Gjest valgt og standard SharePoint-medlemsgruppe](/Images/Gjesteinvitasjonswebdel.png) | ![Invitasjons-drawer med Ingen rolle valgt og advarsel om at invitasjonen alene ikke gir tilgang](/Images/Gjesteinvitasjonswebdel-2.png) |
+
 ## Arkitektur
 
 Løsningen bruker Microsoft Graph og SharePoint REST API-ene for provisjonering. Azure Runbooks brukes sammen med PnP PowerShell for oppgaver som ikke kan utføres via Graph API.
