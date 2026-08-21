@@ -10,6 +10,7 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ### Feilrettinger
 
+- **Tom `guestRequestSiteUrl` peker nå på `/sites/bestillingsportalen`**: Fallbacken var gjeldende område — som bare fungerte når webdelen sto på portalen selv. Tomt felt betyr nå standard-aliaset fra installasjonen på gjeldende tenant, og feltet viser den utledede URL-en som placeholder. Miljøer med annet alias setter URL-en eksplisitt, som før.
 - **Per-gjest-modus i invite-draweren starter nå med de konfigurerte standardene**: Nye gjesterader arvet ikke `defaultM365GroupRole`, `defaultSpGroupName`/Besøkende-fallbacken (`autoSelectVisitorGroup`) eller `defaultSpPermissionLevel` — de falt stille tilbake til hardkodede verdier ved innsending. Radene seedes nå fra samme standarder som delt modus.
 - **Manglende gruppenavn i per-gjest-modus ga stille blokkert innsending**: Valideringsmeldingen «Gruppenavn er påkrevd» ble kun vist i delt modus; i per-gjest-modus ble innsendingen blokkert uten synlig tilbakemelding. Meldingen vises nå på den aktive gjestens SP-gruppeseksjon også.
 
