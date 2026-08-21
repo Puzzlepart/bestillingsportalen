@@ -51,6 +51,21 @@ declare interface IProvisionWebPartsStrings {
   ShowM365GroupRoleSectionFieldLabel: string
   ShowSPGroupSectionFieldLabel: string
   TitleFieldLabel: string
+  TitleFieldDescription: string
+  DescriptionFieldDescription: string
+  DisplayModeFieldDescription: string
+  InviteModeFieldDescription: string
+  InviteAccessLevelFieldDescription: string
+  ShowSpActionsDescription: string
+  ShowAccessPreviewFieldDescription: string
+  ShowM365GroupRoleSectionFieldDescription: string
+  ShowSPGroupSectionFieldDescription: string
+  ShowStatusSummaryFieldDescription: string
+  ShowCopyRedeemUrlFieldDescription: string
+  ShowRetryButtonFieldDescription: string
+  StatusColumnsDescription: string
+  PerGuestProfileModeFieldDescription: string
+  PerGuestRoleModeFieldDescription: string
   DescriptionFieldLabel: string
   WebPartTitleInfoLabelTitle: string
   DisplayModeFieldLabel: string

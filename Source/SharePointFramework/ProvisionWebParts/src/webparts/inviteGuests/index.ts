@@ -5,6 +5,7 @@ import {
   type IPropertyPaneConfiguration,
   PropertyPaneChoiceGroup,
   PropertyPaneDropdown,
+  PropertyPaneLabel,
   PropertyPaneTextField,
   PropertyPaneToggle
 } from '@microsoft/sp-property-pane'
@@ -165,7 +166,12 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
-    const defaultSpGroupAction = this.properties.defaultSpGroupAction || 'AddToExisting'
+    const defaultSpGroupAction = this.properties.defaultSpGroupAction || 'None'
+
+    // Dropdowns, toggles and choice groups have no native `description` like
+    // text fields do, so each gets a plain label rendered right below it.
+    const paneDescription = (key: string, text: string): ReturnType<typeof PropertyPaneLabel> =>
+      PropertyPaneLabel(key, { text })
 
     // Build the ordered item list for PropertyFieldOrder: preserve the admin's
     // stored order, append any missing known keys, and (re)apply localized text
@@ -203,9 +209,13 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
             {
               groupName: strings.GeneralGroupName,
               groupFields: [
-                PropertyPaneTextField('title', { label: strings.TitleFieldLabel }),
+                PropertyPaneTextField('title', {
+                  label: strings.TitleFieldLabel,
+                  description: strings.TitleFieldDescription
+                }),
                 PropertyPaneTextField('description', {
                   label: strings.DescriptionFieldLabel,
+                  description: strings.DescriptionFieldDescription,
                   multiline: true
                 })
               ]
@@ -220,6 +230,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'dialog', text: strings.DisplayModeDialogLabel }
                   ]
                 }),
+                paneDescription('displayModeDescription', strings.DisplayModeFieldDescription),
                 PropertyPaneChoiceGroup('inviteMode', {
                   label: strings.InviteModeFieldLabel,
                   options: [
@@ -227,6 +238,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Multi', text: strings.InviteModeMultiLabel }
                   ]
                 }),
+                paneDescription('inviteModeDescription', strings.InviteModeFieldDescription),
                 PropertyPaneChoiceGroup('inviteAccessLevel', {
                   label: strings.InviteAccessLevelFieldLabel,
                   options: [
@@ -234,7 +246,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Member', text: strings.InviteAccessLevelMemberLabel },
                     { key: 'Anyone', text: strings.InviteAccessLevelAnyoneLabel }
                   ]
-                })
+                }),
+                paneDescription(
+                  'inviteAccessLevelDescription',
+                  strings.InviteAccessLevelFieldDescription
+                )
               ]
             },
             {
@@ -248,6 +264,10 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Member', text: strings.M365GroupRoleMemberLabel }
                   ]
                 }),
+                paneDescription(
+                  'defaultM365GroupRoleDescription',
+                  strings.DefaultM365GroupRoleFieldDescription
+                ),
                 PropertyPaneDropdown('defaultSpGroupAction', {
                   label: strings.DefaultSpGroupActionFieldLabel,
                   options: [
@@ -256,6 +276,10 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'CreateNew', text: strings.SPGroupActionNewLabel }
                   ]
                 }),
+                paneDescription(
+                  'defaultSpGroupActionDescription',
+                  strings.DefaultSpGroupActionFieldDescription
+                ),
                 PropertyPaneTextField('defaultSpGroupName', {
                   label: strings.DefaultSpGroupNameFieldLabel,
                   description: strings.DefaultSpGroupNameFieldDescription,
@@ -275,22 +299,38 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   ],
                   disabled: defaultSpGroupAction !== 'CreateNew'
                 }),
+                paneDescription(
+                  'defaultSpPermissionLevelDescription',
+                  strings.DefaultSpPermissionLevelFieldDescription
+                ),
                 PropertyPaneToggle('autoSelectVisitorGroup', {
                   label: strings.AutoSelectVisitorGroupFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff,
                   disabled: defaultSpGroupAction !== 'AddToExisting'
                 }),
+                paneDescription(
+                  'autoSelectVisitorGroupDescription',
+                  strings.AutoSelectVisitorGroupFieldDescription
+                ),
                 PropertyPaneToggle('lockM365GroupRole', {
                   label: strings.LockM365GroupRoleFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'lockM365GroupRoleDescription',
+                  strings.LockM365GroupRoleFieldDescription
+                ),
                 PropertyPaneToggle('lockSpGroupAction', {
                   label: strings.LockSpGroupActionFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
-                })
+                }),
+                paneDescription(
+                  'lockSpGroupActionDescription',
+                  strings.LockSpGroupActionFieldDescription
+                )
               ]
             },
             {
@@ -317,6 +357,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription('showSpActionsDescription', strings.ShowSpActionsDescription),
                 PropertyFieldOrder('spGroupActionOrder', {
                   key: 'spGroupActionOrder',
                   label: strings.SpGroupActionOrderFieldLabel,
@@ -326,7 +367,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onPropertyChange: this.onPropertyPaneFieldChanged,
                   removeArrows: false,
                   disableDragAndDrop: false
-                })
+                }),
+                paneDescription(
+                  'spGroupActionOrderDescription',
+                  strings.SpGroupActionOrderFieldDescription
+                )
               ]
             },
             {
@@ -338,16 +383,28 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'showAccessPreviewDescription',
+                  strings.ShowAccessPreviewFieldDescription
+                ),
                 PropertyPaneToggle('showM365GroupRoleSection', {
                   label: strings.ShowM365GroupRoleSectionFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'showM365GroupRoleSectionDescription',
+                  strings.ShowM365GroupRoleSectionFieldDescription
+                ),
                 PropertyPaneToggle('showSPGroupSection', {
                   label: strings.ShowSPGroupSectionFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
-                })
+                }),
+                paneDescription(
+                  'showSPGroupSectionDescription',
+                  strings.ShowSPGroupSectionFieldDescription
+                )
               ]
             },
             {
@@ -359,16 +416,28 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'showStatusSummaryDescription',
+                  strings.ShowStatusSummaryFieldDescription
+                ),
                 PropertyPaneToggle('showCopyRedeemUrl', {
                   label: strings.ShowCopyRedeemUrlFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'showCopyRedeemUrlDescription',
+                  strings.ShowCopyRedeemUrlFieldDescription
+                ),
                 PropertyPaneToggle('showRetryButton', {
                   label: strings.ShowRetryButtonFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
                 }),
+                paneDescription(
+                  'showRetryButtonDescription',
+                  strings.ShowRetryButtonFieldDescription
+                ),
                 PropertyPaneToggle('showColumnM365Role', {
                   label: strings.ShowColumnM365RoleFieldLabel,
                   onText: strings.BooleanOn,
@@ -388,7 +457,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   label: strings.ShowColumnSPPermissionLevelFieldLabel,
                   onText: strings.BooleanOn,
                   offText: strings.BooleanOff
-                })
+                }),
+                paneDescription('statusColumnsDescription', strings.StatusColumnsDescription)
               ]
             },
             {
@@ -403,6 +473,10 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
                   ]
                 }),
+                paneDescription(
+                  'perGuestProfileModeDescription',
+                  strings.PerGuestProfileModeFieldDescription
+                ),
                 PropertyPaneChoiceGroup('perGuestRoleMode', {
                   label: strings.PerGuestRoleModeFieldLabel,
                   options: [
@@ -410,7 +484,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                     { key: 'Optional', text: strings.FeatureModeOptionalLabel },
                     { key: 'Enforced', text: strings.FeatureModeEnforcedLabel }
                   ]
-                })
+                }),
+                paneDescription(
+                  'perGuestRoleModeDescription',
+                  strings.PerGuestRoleModeFieldDescription
+                )
               ]
             },
             {
