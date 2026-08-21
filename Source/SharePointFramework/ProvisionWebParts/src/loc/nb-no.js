@@ -149,7 +149,7 @@ define([], function () {
     M365GroupRoleVisitorLabel: 'Besøkende',
     M365GroupRoleMemberLabel: 'Gjest',
     M365GroupRoleOwnerLabel: 'Eier',
-    M365GroupRoleSectionDescription: 'Gjest legger brukeren til som gjestemedlem i Microsoft 365-gruppen — standardmodellen for eksterne i Microsoft 365. Gjesten får da tilgang til området og gruppens ressurser (Teams, Planner, OneNote). Gjester kan ikke være eiere. Velg Ingen rolle og en SharePoint-gruppe under for mer begrenset tilgang.',
+    M365GroupRoleSectionDescription: 'Gjest legger brukeren til som gjestemedlem i Microsoft 365-gruppen — standardmodellen for eksterne i Microsoft 365. Gjesten får da tilgang til området og gruppens ressurser (Teams, Planner, SharePoint). Velg Ingen rolle og en SharePoint-gruppe under for mer begrenset tilgang.',
 
     SPGroupSectionTitle: 'SharePoint-brukergruppe (valgfritt)',
     SPGroupSectionDescriptionWithGuestRole: 'Gjesten får allerede tilgang via Microsoft 365-gruppen (som er medlem av områdets medlemsgruppe). Bruk dette bare for å legge gjesten til i en annen SharePoint-gruppe i tillegg.',

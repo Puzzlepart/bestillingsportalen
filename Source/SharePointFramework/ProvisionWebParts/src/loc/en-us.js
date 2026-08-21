@@ -149,7 +149,7 @@ define([], function () {
     M365GroupRoleVisitorLabel: 'Visitor',
     M365GroupRoleMemberLabel: 'Guest',
     M365GroupRoleOwnerLabel: 'Owner',
-    M365GroupRoleSectionDescription: 'Guest adds the user as a guest member of the Microsoft 365 group — the standard model for externals in Microsoft 365. The guest then gets access to the site and the group resources (Teams, Planner, OneNote). Guests cannot be owners. Choose No role and a SharePoint group below for more limited access.',
+    M365GroupRoleSectionDescription: 'Guest adds the user as a guest member of the Microsoft 365 group — the standard model for externals in Microsoft 365. The guest then gets access to the site and the group resources (Teams, Planner, SharePoint). Choose No role and a SharePoint group below for more limited access.',
 
     SPGroupSectionTitle: 'SharePoint user group (optional)',
     SPGroupSectionDescriptionWithGuestRole: 'The guest already gets access via the Microsoft 365 group (which is a member of the site members group). Use this only to add the guest to another SharePoint group as well.',
