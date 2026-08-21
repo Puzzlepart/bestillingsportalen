@@ -264,7 +264,7 @@ InviteGuests.defaultProps = {
   perGuestProfileMode: 'Optional',
   perGuestRoleMode: 'Optional',
   defaultM365GroupRole: 'Member',
-  defaultSpGroupAction: 'AddToExisting',
+  defaultSpGroupAction: 'None',
   defaultSpGroupName: '',
   presetSpGroupName: '',
   showSpActionNone: true,

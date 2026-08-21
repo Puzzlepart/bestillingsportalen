@@ -14,6 +14,13 @@
   font-weight: 600;
 }
 
+.description {
+  margin: 0;
+  font-size: 12px;
+  color: var(--colorNeutralForeground2, #424242);
+  line-height: 1.4;
+}
+
 .optionFields {
   display: flex;
   flex-direction: column;

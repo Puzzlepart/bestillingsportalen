@@ -118,7 +118,9 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
       // Clamp pre-lock persisted values (Visitor/Owner) to the guest role.
       defaultM365GroupRole: this.properties.defaultM365GroupRole === 'None' ? 'None' : 'Member',
-      defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
+      // Default 'None': with the guest role the M365 group already grants
+      // access, so the SP group is a deliberate add-on rather than a preset.
+      defaultSpGroupAction: this.properties.defaultSpGroupAction || 'None',
       defaultSpGroupName: this.properties.defaultSpGroupName || '',
       presetSpGroupName: this.properties.presetSpGroupName || '',
       showSpActionNone: this.properties.showSpActionNone !== false,

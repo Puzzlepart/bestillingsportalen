@@ -17,6 +17,10 @@ import type { ISiteGroup } from '../../../../services'
 import styles from './SPGroupSection.module.scss'
 
 interface ISPGroupSectionProps {
+  /** Context-dependent helper text: with the guest role the section is a pure
+   * add-on (the M365 group already grants access); without it, an SP group is
+   * the only way the invite grants site access. */
+  description?: string
   action: SPGroupActionUI
   groupName?: string
   permissionLevel?: SPPermissionLevel
@@ -56,6 +60,7 @@ const formatLockedLabel = (template: string, value: string): string =>
   template.replace('{0}', value)
 
 export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
+  description,
   action,
   groupName,
   permissionLevel,
@@ -156,6 +161,7 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
   return (
     <section className={styles.section}>
       <h4 className={styles.title}>{strings.SPGroupSectionTitle}</h4>
+      {description && <p className={styles.description}>{description}</p>}
       {locked ? (
         <>
           <span className={styles.lockedValue}>

@@ -73,6 +73,13 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
   } = useInviteDrawer({ open, onOpenChange })
 
   const guestEmails = React.useMemo(() => guests.map((g) => g.email), [guests])
+  // With the guest role the M365 group already grants access (guest → group →
+  // the site's member group), so the SP section is a pure add-on; without it,
+  // an SP group is the only way the invite grants access to this site.
+  const spSectionDescription = (role: 'None' | 'Member'): string =>
+    role === 'Member'
+      ? strings.SPGroupSectionDescriptionWithGuestRole
+      : strings.SPGroupSectionDescriptionNoRole
   const showTabList =
     inviteMode === 'Multi' && guests.length >= 2 && (perGuestProfile || perGuestRole)
   const showToggleRow = perGuestProfileMode === 'Optional' || perGuestRoleMode === 'Optional'
@@ -179,6 +186,9 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showSPGroupSection && (
                 <SPGroupSection
+                  description={spSectionDescription(
+                    activeGuest.m365GroupRole ?? defaultM365GroupRole
+                  )}
                   action={activeGuest.spGroupAction ?? spActionOptions[0]}
                   groupName={activeGuest.spGroupName}
                   permissionLevel={activeGuest.spPermissionLevel}
@@ -225,6 +235,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showSPGroupSection && (
                 <SPGroupSection
+                  description={spSectionDescription(sharedM365GroupRole)}
                   action={sharedSpGroupAction}
                   groupName={sharedSpGroupName}
                   permissionLevel={sharedSpPermissionLevel}

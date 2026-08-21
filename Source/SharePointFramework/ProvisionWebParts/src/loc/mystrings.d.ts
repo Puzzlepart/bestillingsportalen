@@ -105,6 +105,7 @@ declare interface IProvisionWebPartsStrings {
   NoValuePlaceholder: string
   AccessPreviewTitle: string
   AccessNoM365: string
+  AccessNoSiteAccessWarning: string
   AccessSiteEdit: string
   AccessTeamsMember: string
   AccessOneNotePlannerCalendar: string
@@ -150,6 +151,8 @@ declare interface IProvisionWebPartsStrings {
   M365GroupRoleSectionDescription: string
 
   SPGroupSectionTitle: string
+  SPGroupSectionDescriptionWithGuestRole: string
+  SPGroupSectionDescriptionNoRole: string
   SPGroupActionNoneLabel: string
   SPGroupActionExistingLabel: string
   SPGroupActionNewLabel: string
