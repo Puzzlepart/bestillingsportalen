@@ -80,6 +80,11 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     role === 'Member'
       ? strings.SPGroupSectionDescriptionWithGuestRole
       : strings.SPGroupSectionDescriptionNoRole
+  // The 'None' action still lands the guest in the standard member group when
+  // the role is Gjest (via the M365 group), so its label says "only the
+  // standard group" there and "do not add" only when no role is chosen.
+  const spNoneLabel = (role: 'None' | 'Member'): string =>
+    role === 'Member' ? strings.SPGroupActionNoneWithGuestRoleLabel : strings.SPGroupActionNoneLabel
   const showTabList =
     inviteMode === 'Multi' && guests.length >= 2 && (perGuestProfile || perGuestRole)
   const showToggleRow = perGuestProfileMode === 'Optional' || perGuestRoleMode === 'Optional'
@@ -189,6 +194,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   description={spSectionDescription(
                     activeGuest.m365GroupRole ?? defaultM365GroupRole
                   )}
+                  noneLabel={spNoneLabel(activeGuest.m365GroupRole ?? defaultM365GroupRole)}
                   action={activeGuest.spGroupAction ?? spActionOptions[0]}
                   groupName={activeGuest.spGroupName}
                   permissionLevel={activeGuest.spPermissionLevel}
@@ -236,6 +242,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               {showSPGroupSection && (
                 <SPGroupSection
                   description={spSectionDescription(sharedM365GroupRole)}
+                  noneLabel={spNoneLabel(sharedM365GroupRole)}
                   action={sharedSpGroupAction}
                   groupName={sharedSpGroupName}
                   permissionLevel={sharedSpPermissionLevel}

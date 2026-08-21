@@ -154,6 +154,7 @@ declare interface IProvisionWebPartsStrings {
   SPGroupSectionDescriptionWithGuestRole: string
   SPGroupSectionDescriptionNoRole: string
   SPGroupActionNoneLabel: string
+  SPGroupActionNoneWithGuestRoleLabel: string
   SPGroupActionExistingLabel: string
   SPGroupActionNewLabel: string
   SPGroupExistingPickerLabel: string
