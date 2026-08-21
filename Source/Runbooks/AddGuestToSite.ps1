@@ -92,11 +92,33 @@ switch ($spGroupAction) {
         if ([string]::IsNullOrWhiteSpace($spPermissionLevel)) {
             throw 'spPermissionLevel is required when spGroupAction = CreateNew'
         }
+        # The web part stores English level names ('Edit' etc.), but role
+        # definition NAMES are localized per site language (a Norwegian site has
+        # 'Redigering', and 'Edit' does not exist). Resolve via the language-
+        # independent RoleTypeKind and pass the site's actual role name.
+        $roleTypeByLevel = @{
+            'Read'         = 'Reader'
+            'Contribute'   = 'Contributor'
+            'Edit'         = 'Editor'
+            'Full Control' = 'Administrator'
+        }
+        $roleDef = $null
+        $roleTypeKind = $roleTypeByLevel[$spPermissionLevel]
+        if ($roleTypeKind) {
+            $roleDef = Get-PnPRoleDefinition | Where-Object { "$($_.RoleTypeKind)" -eq $roleTypeKind } | Select-Object -First 1
+        }
+        if (-not $roleDef) {
+            # Custom levels have no RoleTypeKind — fall back to a literal name match.
+            $roleDef = Get-PnPRoleDefinition | Where-Object { $_.Name -eq $spPermissionLevel } | Select-Object -First 1
+        }
+        if (-not $roleDef) {
+            throw "No role definition found for permission level '$spPermissionLevel' on this site (checked RoleTypeKind '$roleTypeKind' and literal name)"
+        }
         $group = Get-PnPGroup -Identity $spGroupName -ErrorAction SilentlyContinue
         if (-not $group) {
             $group = New-PnPGroup -Title $spGroupName
-            Set-PnPGroupPermissions -Identity $group.Title -AddRole $spPermissionLevel
-            Write-Output "[STEP 2/2] Created group '$($group.Title)' with permission '$spPermissionLevel'"
+            Set-PnPGroupPermissions -Identity $group.Title -AddRole $roleDef.Name
+            Write-Output "[STEP 2/2] Created group '$($group.Title)' with permission '$($roleDef.Name)' (requested '$spPermissionLevel')"
         }
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
         Write-Output "[STEP 2/2] Added '$guestLoginName' to '$($group.Title)'"
