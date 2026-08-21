@@ -37,24 +37,35 @@ $site = Get-PnPSite -Includes GroupId
 $isGroupConnected = $site.GroupId -ne [Guid]::Empty
 Write-Output "[INIT] Site context: isGroupConnected=$isGroupConnected, GroupId='$($site.GroupId)'"
 
-# The flow only ever invites EXTERNAL users (ProcessGuests posts to Graph
-# /invitations), and a guest can never be Member/Owner of the site: Entra does
-# not allow guests as M365 group owners, and Member would cascade Teams/Planner/
-# mailbox access onto an external user. The requestable role is therefore locked
-# to Visitor (read access via the associated Visitors group) or None — anything
-# else is rejected here as defense in depth, even if a list item says otherwise.
+# Guests get access through the standard Microsoft 365 guest model: membership
+# in the M365 group ('Member', shown as "Gjest" in the web part), which grants
+# the team, site and group resources (Teams/Planner/OneNote). Guests can never
+# OWN a group, so 'Owner' is rejected as defense in depth even if a list item
+# says otherwise. 'Visitor' is honored for items created before the role lock
+# (read access via the associated Visitors group).
 Write-Output "[STEP 1/2] Applying site role '$m365GroupRole'..."
 switch ($m365GroupRole) {
     'None' {
         Write-Output '[STEP 1/2] Skipped — no site role requested'
+    }
+    'Member' {
+        if ($isGroupConnected) {
+            Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestEmail
+            Write-Output "[STEP 1/2] Added '$guestEmail' as guest member of M365 group $($site.GroupId)"
+        }
+        else {
+            $group = Get-PnPGroup -AssociatedMemberGroup
+            Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
+            Write-Output "[STEP 1/2] Added '$guestLoginName' as Member to '$($group.Title)'"
+        }
     }
     'Visitor' {
         $group = Get-PnPGroup -AssociatedVisitorGroup
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
         Write-Output "[STEP 1/2] Added '$guestLoginName' as Visitor to '$($group.Title)'"
     }
-    { $_ -in 'Member', 'Owner' } {
-        throw "m365GroupRole '$m365GroupRole' is not allowed for external guests — only 'Visitor' or 'None'. Grant additional access via a SharePoint group (spGroupAction) instead."
+    'Owner' {
+        throw "m365GroupRole 'Owner' is not allowed — external guests cannot own a Microsoft 365 group. Use 'Member' (guest membership) or a SharePoint group (spGroupAction) instead."
     }
     default {
         throw "Unknown m365GroupRole '$m365GroupRole'"

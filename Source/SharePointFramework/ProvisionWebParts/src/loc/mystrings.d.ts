@@ -104,8 +104,11 @@ declare interface IProvisionWebPartsStrings {
   GuestExistsMissingDetails: string
   NoValuePlaceholder: string
   AccessPreviewTitle: string
-  AccessSiteRead: string
   AccessNoM365: string
+  AccessSiteEdit: string
+  AccessTeamsMember: string
+  AccessOneNotePlannerCalendar: string
+  AccessNotGroupConnectedNote: string
   AccessSpGroupAddTemplate: string
   AccessSpGroupCreateTemplate: string
   CancelButton: string

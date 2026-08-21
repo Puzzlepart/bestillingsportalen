@@ -3,8 +3,8 @@ import type {
   IGuestInput,
   IGuestRequest,
   INewGuestRequest,
-  M365GroupRole,
-  M365GroupRoleStored
+  M365GroupRoleStored,
+  M365GroupRoleWritable
 } from '../models/IGuestRequest'
 
 const SELECT = [
@@ -32,12 +32,13 @@ const SELECT = [
 const EXPAND = ['RequestedBy']
 
 /**
- * Clamps a stored role down to what the web part is allowed to request. Items
- * written before the role lock can hold 'Member'/'Owner'; retrying one must not
- * re-submit a role the runbook now rejects, so those collapse to 'Visitor'.
+ * Clamps a stored role down to what may be re-submitted. 'Owner' (pre-lock
+ * items only) collapses to 'Member' — the guest role — since the runbook now
+ * rejects it; legacy 'Visitor' passes through so a retry keeps its original
+ * read-only intent.
  */
-const clampRole = (role: M365GroupRoleStored | undefined): M365GroupRole =>
-  role === 'Visitor' || role === 'Member' || role === 'Owner' ? 'Visitor' : 'None'
+const clampRole = (role: M365GroupRoleStored | undefined): M365GroupRoleWritable =>
+  role === 'Owner' ? 'Member' : (role ?? 'None')
 
 export class GuestRequestService {
   constructor(

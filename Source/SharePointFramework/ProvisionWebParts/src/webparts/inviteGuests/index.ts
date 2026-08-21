@@ -32,10 +32,11 @@ export interface IInviteGuestsWebPartProps {
   inviteAccessLevel: 'Owner' | 'Member' | 'Anyone'
   perGuestProfileMode: 'Disabled' | 'Optional' | 'Enforced'
   perGuestRoleMode: 'Disabled' | 'Optional' | 'Enforced'
-  // Locked to guest-safe roles — externals can never be Member/Owner (see
-  // models/IGuestRequest.ts). Stored values from older versions may still hold
-  // 'Member'/'Owner'; render() clamps those to 'Visitor'.
-  defaultM365GroupRole: 'None' | 'Visitor'
+  // Locked to guest-safe roles — 'Member' is the standard M365 guest model
+  // (labelled "Gjest"); guests can never be group owners (see
+  // models/IGuestRequest.ts). Stored 'Visitor'/'Owner' values from older
+  // versions are clamped in render().
+  defaultM365GroupRole: 'None' | 'Member'
   defaultSpGroupAction: 'None' | 'AddToExisting' | 'CreateNew'
   defaultSpGroupName: string
   presetSpGroupName: string
@@ -115,8 +116,8 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       inviteAccessLevel: this.properties.inviteAccessLevel || 'Owner',
       perGuestProfileMode: this.properties.perGuestProfileMode || 'Optional',
       perGuestRoleMode: this.properties.perGuestRoleMode || 'Optional',
-      // Clamp pre-lock persisted values (Member/Owner) to Visitor.
-      defaultM365GroupRole: this.properties.defaultM365GroupRole === 'None' ? 'None' : 'Visitor',
+      // Clamp pre-lock persisted values (Visitor/Owner) to the guest role.
+      defaultM365GroupRole: this.properties.defaultM365GroupRole === 'None' ? 'None' : 'Member',
       defaultSpGroupAction: this.properties.defaultSpGroupAction || 'AddToExisting',
       defaultSpGroupName: this.properties.defaultSpGroupName || '',
       presetSpGroupName: this.properties.presetSpGroupName || '',
@@ -242,7 +243,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                   label: strings.DefaultM365GroupRoleFieldLabel,
                   options: [
                     { key: 'None', text: strings.M365GroupRoleNoneLabel },
-                    { key: 'Visitor', text: strings.M365GroupRoleVisitorLabel }
+                    { key: 'Member', text: strings.M365GroupRoleMemberLabel }
                   ]
                 }),
                 PropertyPaneDropdown('defaultSpGroupAction', {

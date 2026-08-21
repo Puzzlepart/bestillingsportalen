@@ -27,7 +27,7 @@ graph TD
     P --> R(Azure Automation: AddGuestToSite) --> M
 ```
 
-Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve tenant-invitasjonen gi gjesten rollen **Gjest** (lesetilgang via sitens Besøkende-gruppe) og/eller medlemskap i en valgfri SharePoint-brukergruppe på selve siten. Eksterne gjester kan aldri bli Medlem eller Eier — webdelen tilbyr ikke valgene, og `AddGuestToSite`-runbooken avviser slike verdier:
+Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve tenant-invitasjonen gi gjesten rollen **Gjest** (gjestemedlemskap i M365-gruppen, standardmodellen for eksterne i Microsoft 365 — gir tilgang til team, område, Planner osv.) og/eller medlemskap i en valgfri SharePoint-brukergruppe på selve siten. Eksterne kan aldri bli eiere — webdelen tilbyr ikke valget, og `AddGuestToSite`-runbooken avviser verdien:
 
 ``` mermaid
 graph TD
@@ -39,7 +39,7 @@ graph TD
     D --> | Status, GuestId, InviteRedeemUrl | B
     C --> | After successful invite, with guest + group params | G(AddGuestToSite runbook)
     G --> | Managed Identity | H(PnP PowerShell)
-    H --> | Add-PnPGroupMember | I2(Besøkende-gruppen på siten)
+    H --> | Add-PnPMicrosoft365GroupMember | I2(M365-gruppen på siten)
     H --> | Add-PnPGroupMember / New-PnPGroup | J2(SP-brukergruppe på siten)
     A --> | DataGrid view filtered by SiteUrl | B
 ```
@@ -79,7 +79,7 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 | Ressurs | Beskrivelse |
 |--|--|
 | User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Automation-API-tilkoblingen. |
-| Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til Besøkende-gruppen og/eller SharePoint-brukergrupper) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. **Merk at portalens standard Runbooks-blad viser disse som «PowerShell 5.1»** – en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle opplevelsen, som ikke kjenner runtime environments over 7.2. Faktisk versjon ses under **Runtime environments**, og `deploy.ps1` verifiserer og rapporterer den ved hver kjøring. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — kundespesifikke tilpasninger legges der. |
+| Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til M365-gruppen og/eller SharePoint-brukergrupper) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. **Merk at portalens standard Runbooks-blad viser disse som «PowerShell 5.1»** – en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle opplevelsen, som ikke kjenner runtime environments over 7.2. Faktisk versjon ses under **Runtime environments**, og `deploy.ps1` verifiserer og rapporterer den ved hver kjøring. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — kundespesifikke tilpasninger legges der. |
 | Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
 | API-tilkoblinger (5 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
 

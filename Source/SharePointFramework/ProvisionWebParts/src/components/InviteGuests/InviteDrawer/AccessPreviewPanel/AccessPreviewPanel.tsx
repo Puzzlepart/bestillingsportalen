@@ -31,12 +31,16 @@ const computeItems = (props: IAccessPreviewProps): string[] => {
   const { role, spGroupAction, spGroupName, spPermissionLevel, isGroupConnected } = props
   const items: string[] = []
 
-  // The requestable role is locked to Visitor/None (guests can never be
-  // Member/Owner), so the preview only ever describes limited access.
-  if (role === 'Visitor') {
-    items.push(strings.AccessSiteRead)
+  // The guest role ('Member') is standard M365 guest membership: the group
+  // grants the team, site (edit) and group resources. Owner is never
+  // requestable for guests, so no warning variant is needed.
+  if (role === 'Member') {
+    items.push(strings.AccessSiteEdit)
     if (isGroupConnected) {
-      items.push(strings.AccessNoM365)
+      items.push(strings.AccessTeamsMember)
+      items.push(strings.AccessOneNotePlannerCalendar)
+    } else {
+      items.push(strings.AccessNotGroupConnectedNote)
     }
   } else {
     items.push(strings.AccessNoM365)

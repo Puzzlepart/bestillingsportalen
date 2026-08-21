@@ -32,6 +32,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     inviteMode,
     perGuestProfileMode,
     perGuestRoleMode,
+    defaultM365GroupRole,
     showAccessPreview,
     showM365GroupRoleSection,
     showSPGroupSection,
@@ -170,7 +171,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
             <>
               {showM365GroupRoleSection && (
                 <M365GroupRoleSection
-                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  role={activeGuest.m365GroupRole ?? defaultM365GroupRole}
                   onChange={(r) => updateGuest(activeGuest.email, { m365GroupRole: r })}
                   disabled={submitting}
                   locked={lockM365GroupRole}
@@ -202,7 +203,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showAccessPreview && (
                 <AccessPreviewPanel
-                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  role={activeGuest.m365GroupRole ?? defaultM365GroupRole}
                   spGroupAction={activeGuest.spGroupAction ?? 'None'}
                   spGroupName={activeGuest.spGroupName}
                   spPermissionLevel={activeGuest.spPermissionLevel}

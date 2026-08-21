@@ -48,11 +48,12 @@
     <Field Type="Note" DisplayName="Invite Redeem Url" NumLines="3" RichText="FALSE" ID="{8176e592-b06f-4bde-df52-7e8f90123456}" StaticName="InviteRedeemUrl" Name="InviteRedeemUrl" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="Note" DisplayName="Error Message" NumLines="6" RichText="FALSE" ID="{9287f6a3-c170-4cef-e063-8f9012345678}" StaticName="ErrorMessage" Name="ErrorMessage" RestrictedMode="TRUE" RichTextMode="Compatible" />
     <Field Type="User" DisplayName="Requested By" List="UserInfo" ShowField="ImnName" UserSelectionMode="PeopleOnly" UserSelectionScope="0" ID="{a3980b14-d281-4d01-f174-9012345678ab}" StaticName="RequestedBy" Name="RequestedBy" />
-    <!-- The web part only writes None/Visitor (external guests can never be Member/Owner,
-         and the AddGuestToSite runbook rejects those values). Member/Owner remain as choices
-         so items created before the role lock keep a valid value. -->
+    <!-- The web part only writes None/Member ('Member' = the standard M365 guest membership,
+         shown as "Gjest"; guests can never own a group, and the AddGuestToSite runbook rejects
+         'Owner'). Visitor/Owner remain as choices so items created before the role lock keep a
+         valid value; retried Visitor items are still honored by the runbook. -->
     <Field Type="Choice" DisplayName="M365 Group Role" Format="Dropdown" FillInChoice="FALSE" ID="{b4a91c25-e392-4e12-1285-a123456789bc}" StaticName="M365GroupRole" Name="M365GroupRole">
-      <Default>Visitor</Default>
+      <Default>Member</Default>
       <CHOICES>
         <CHOICE>None</CHOICE>
         <CHOICE>Visitor</CHOICE>

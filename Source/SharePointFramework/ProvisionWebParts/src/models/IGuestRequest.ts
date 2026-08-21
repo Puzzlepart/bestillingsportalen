@@ -1,17 +1,22 @@
 export type GuestRequestStatus = 'Pending' | 'Invited' | 'Failed'
 
 // The web part only ever invites EXTERNAL users: ProcessGuests posts to Graph
-// /invitations and looks up existing users with `userType eq 'Guest'`. Entra
-// does not support guests as owners of a Microsoft 365 group, and 'Member'
-// would cascade Teams/Planner/mailbox access onto a guest. The requestable role
-// is therefore locked to the site's Visitors group ('Visitor', labelled "Gjest"
-// in the UI) or no role at all.
-export type M365GroupRole = 'None' | 'Visitor'
+// /invitations and looks up existing users with `userType eq 'Guest'`. Guests
+// get access through the standard Microsoft 365 guest model: MEMBERSHIP in the
+// M365 group (stored as 'Member', labelled "Gjest" in the UI), which grants the
+// team, site, Planner etc. Guests can never OWN a group, so 'Owner' is not
+// requestable.
+export type M365GroupRole = 'None' | 'Member'
 
 // What the M365GroupRole CHOICE field may hold. Items written before the role
-// lock can still carry 'Member'/'Owner', so reads stay wide (the status grid
-// renders them) while writes are narrowed to M365GroupRole.
-export type M365GroupRoleStored = M365GroupRole | 'Member' | 'Owner'
+// lock can also carry 'Visitor' (read access via the associated Visitors
+// group — the runbook still honors it on retry) or 'Owner' (rejected), so
+// reads stay wide while the UI only produces M365GroupRole.
+export type M365GroupRoleStored = M365GroupRole | 'Visitor' | 'Owner'
+
+// What may be WRITTEN back to the list: everything except 'Owner' — retrying a
+// legacy 'Visitor' item must keep its read-only intent, not escalate it.
+export type M365GroupRoleWritable = Exclude<M365GroupRoleStored, 'Owner'>
 
 export type SPGroupAction = 'None' | 'AddToExisting' | 'CreateNew'
 
@@ -56,7 +61,7 @@ export interface INewGuestRequest {
   FirstName?: string
   LastName?: string
   Company?: string
-  M365GroupRole: M365GroupRole
+  M365GroupRole: M365GroupRoleWritable
   SPGroupAction: SPGroupAction
   SPGroupName?: string
   SPPermissionLevel?: SPPermissionLevel
