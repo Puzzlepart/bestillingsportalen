@@ -1,6 +1,6 @@
 # Konfigurasjonsveiledning
 
-Denne veiledningen tar over der [Installasjonsveiledningen](./Deployment-guide.md) slutter: `deploy.ps1` har kjørt, API-tilkoblingene er autorisert med tjenestekontoen, og app-rollene er tildelt. Stegene her krever ingen Azure-tilganger — de gjøres i SharePoint, Power Automate og Teams, og kan utføres av den som skal konfigurere og forvalte løsningen.
+Denne veiledningen tar over der [Installasjonsveiledningen](./Deployment-guide.md) slutter: `deploy.ps1` har kjørt, API-tilkoblingene er autorisert med tjenestekontoen, og app-rollene er tildelt. Stegene her krever ingen Azure-tilganger (utenom valgfri kikk på kjørehistorikk) — de gjøres i SharePoint og Teams, og kan utføres av den som skal konfigurere og forvalte løsningen.
 
 Innstillingene for Bestillingsportalen finnes i `Provisioning Request Settings`-listen på Bestillingsportalen-området, som nøkkel/verdi-par (Title/Value). Standardverdiene seedes av PnP-malen ved installasjon (`<pnp:DataRows>` i `Source/Templates/Objects/Lists/Provisioning Request Settings.xml`) — eksisterende elementer røres aldri ved re-apply, og manglende standardelementer legges til.
 
@@ -8,22 +8,22 @@ Innstillingene for Bestillingsportalen finnes i `Provisioning Request Settings`-
 
 Godkjenning av bestillinger i løsningen kan skje på to måter:
 
-- Power Automate Approval-handling (godkjennings-epost og Approvals-app i Teams).
+- Godkjennings-epost (epost med Approve/Reject-valg sendt til godkjenner(ne)).
 - Microsoft Teams Adaptive Card-godkjenning (adaptivt kort postet i en Teams-kanal).
 
-Godkjenninger av bestillinger bruker én Power Automate-flyt som kjører når status på en bestilling i **`Provisioning Requests`**-listen endres til **`Submitted`** (brukeren sender inn bestillingen i Bestillingsportalen webdel eller Teams app).
+Godkjenninger av bestillinger håndteres av Logic Appen **`ProcessApprovalRequest`** (deployet av `deploy.ps1`), som kjører når status på en bestilling i **`Provisioning Requests`**-listen endres til **`Submitted`** (brukeren sender inn bestillingen i Bestillingsportalen webdel eller Teams app). Se [Godkjenningsflyt](/Approval-flow.md) for hvordan prosessen fungerer.
 
 Følg stegene for å konfigurere Bestillingsportalen-innstillingene avhengig av hvilken godkjenningsmetode du vil bruke.
 
-### Power Automate Approvals
+### Godkjennings-epost
 
 1. Gå til SharePoint-området opprettet som del av installasjonen.
 2. Finn `Provisioning Request Settings`-listen og åpne den.
-3. Rediger listeelementet `ApproverEmail` og sett `Value`-feltet til e-post/UPN for en **enkelt bruker** ELLER en **Microsoft 365-gruppe**.
+3. Rediger listeelementet `ApproverEmail` og sett `Value`-feltet til e-post/UPN for en **enkelt bruker** ELLER en **Microsoft 365-gruppe**. Flere godkjennere kan angis separert med semikolon — første svar avgjør utfallet.
 4. Sørg for at verdien på listeelementet `PostToTeams` er satt til `false`.
 5. Lagre endringene.
 
-Godkjenninger er nå konfigurert til å bruke Power Automate Approvals-oppgaver.
+Godkjenninger er nå konfigurert til å bruke godkjennings-epost. Eposten sendes fra tjenestekontoen (via den autoriserte Outlook-API-tilkoblingen), og godkjenneren svarer med knappene direkte i eposten.
 
 ### Teams
 
@@ -51,69 +51,20 @@ Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span st
 11. Rediger listeelementet `TeamsTeamID` og sett `Value`-feltet til Group Id du trakk ut.
 12. Legg til tjenestekontoen som medlem i teamet – dette er påkrevd, ellers vil ikke kortene postes.
 
-Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til Power Automate Approvals.
+Godkjenninger bruker nå adaptive cards i Teams. Gå tilbake til denne seksjonen hvis du senere ønsker å bytte til godkjennings-epost.
 
-## Steg 2: Importere og aktivere flyten
+### Verifisere godkjennings-Logic Appen (valgfritt)
 
-Flyten `Provisioning Request Approval` er ikke en del av Azure-deployen — den lever i Power Automate i **tjenestekontoens** miljø. I miljøer som har hatt Bestillingsportalen tidligere finnes den gjerne allerede (hopp da til aktiveringen nedenfor); i en ny installasjon importeres den først.
+Godkjenningsprosessen kjører i Logic Appen `ProcessApprovalRequest`, som deployes og aktiveres av `deploy.ps1` — det er ingen import- eller aktiveringssteg. Vil du kontrollere den:
 
-### Importere flyten
+1. Gå til Azure Portal (portal.azure.com) og finn Logic Appen `ProcessApprovalRequest` i ressursgruppen fra installasjonen.
+2. Kontroller at status er `Enabled`, og at kjørehistorikken viser kjøringer etter at bestillinger er sendt inn. En kjøring står som `Running` mens den venter på svar fra godkjenner — det er normalt.
 
-Flyten distribueres som Power Platform-løsningspakken `Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` (se [Source/Flows/README.md](/Source/Flows/README.md) for bakgrunn og vedlikehold av pakken).
+> Oppgraderer du fra en versjon som brukte Power Automate-flyten `Provisioning Request Approval`, må flyten skrus av og slettes — se [Upgrade.md](/Upgrade.md).
 
-> **Før import: gi tjenestekontoen rollen System Customizer i standardmiljøet.** Solution-flyter er Dataverse-poster, og Environment Maker-rollen alle brukere har automatisk i standardmiljøet dekker kun flyter *utenfor* solutions ([rolletabellen](https://learn.microsoft.com/power-platform/admin/database-security#summary-of-resources-available-to-predefined-security-roles)) — import og eierskap av solution-flyter krever **System Customizer**. Tildelingen krever Power Platform Administrator eller Global Administrator: Power Platform admin center → `Environments` → standardmiljøet → `Settings` → `Users + permissions` → `Users` → tjenestekontoen → **System Customizer**. Uten rollen feiler import eller aktivering med tilgangsfeil/`FlowNotOriginalAuthor` (se feilsøkingsboksen under «Aktivere flyten»).
+## Steg 2: Dele SharePoint-området
 
-1. Gå til Power Automate-portalen (make.powerautomate.com) logget inn som **tjenestekontoen** (flyten skal eies av og kjøre som den), i standardmiljøet (løsningsimport krever Dataverse, som standardmiljøet har).
-2. Velg `Solutions` i venstremenyen → `Import solution` → last opp `Bestillingsportalen-Flows_unmanaged.zip`.
-
-   ![Import solution - velg fil](/Images/FlowImportSelectFile.png)
-
-3. På detaljsiden: verifiser at løsningen er **BestillingsportalenFlows**, og la avkrysningen under `Avanserte innstillinger` stå som den er. Flyten er pakket i Draft-tilstand og aktiveres uansett manuelt etter importen (siste seksjon i dette steget).
-
-   ![Import solution - detaljer](/Images/FlowImportDetails.png)
-
-4. Koble til/opprett de fem tilkoblingene (Teams, Approvals, Outlook, SharePoint, pluss en ekstra SharePoint-tilkobling som kreves for miljøvariablene) **som tjenestekontoen**. Grønn hake betyr klar.
-
-   ![Import solution - tilkoblinger](/Images/FlowImportConnections.png)
-
-5. Fyll inn de fire **environment variables**:
-   - `ProvisionAssistSPOSite` — URL-en til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`)
-   - `ProvisioningRequestsList`, `ProvisioningRequestSettingslist`, `BusinessUnitsList` — listenavnene (standardverdiene matcher listene PnP-malen oppretter)
-
-   ![Import solution - miljøvariabler](/Images/FlowImportEnvironmentVariables.png)
-
-   > Veiviseren kan vise advarselen *«Du har ikke tilgang til områdeverdien for den valgte tilkoblingen»* på site-URL-en. Dette er et kjent falskt positiv når siten er nyopprettet (den ligger ikke i connectorens fulgte/indekserte site-liste ennå) — at liste-dropdownene populeres beviser at tilkoblingen leser siten. Ignorer advarselen og fortsett.
-6. Etter import: åpne løsningen **«Bestillingsportalen Flows»** og verifiser at flyten `Provisioning Request Approval` finnes.
-
-### Aktivere flyten
-
-Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjenestekontoen:
-
-1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen og åpne løsningen **«Bestillingsportalen Flows»**.
-2. Klikk på **`Provisioning Request Approval`** → `Turn on` i toppmenyen.
-
-(Import-loggen kan vise `0x80048026` om språketiketter for språk 1033 — ren kosmetikk, ignorer.)
-
-> **Feilsøking — «Du har ikke tilgang» / gul advarsel om tillatelser i miljøet (fwlink 2098112) / `FlowNotOriginalAuthor` ved aktivering:** Sjekk først at tjenestekontoen faktisk fikk rollen **System Customizer** i standardmiljøet (se «Før import»-noten i starten av dette steget, og skjermbilde under). Prøv deretter `Turn on` igjen; hjelper det ikke, åpne flyten i editoren (`Edit`), lagre uendret (re-provisjonerer flyten under kontoen) og slå på.
->
-> ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
->
-> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — kan årsaken være **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter — en konto uten gyldig lisens får dessuten access mode «Administrative» i Dataverse og kan da heller ikke importere ([kjent årsak](https://learn.microsoft.com/troubleshoot/power-platform/dataverse/working-with-solutions/install-failure-priviledge-not-assigned)). Merk at seeded Power Automate fra F-lisenser normalt er tilstrekkelig (verifisert i kundetenant) — feilen er kun sett én gang, i et utviklingsmiljø. Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
-
-## Steg 3: Dele flyt og SharePoint-område
-
-Før Bestillingsportalen kan rulles ut, må SharePoint-området deles med alle brukerne som skal sende inn bestillinger, og flyten eventuelt med administratorer.
-
-### Flyt
-
-Del flyten `Provisioning Request Approval` (godkjenningsprosessen for bestillinger, se [Godkjenningsflyt](/Approval-flow.md)) med administratorer som ønsker å se flyt-kjøringer eller redigere flyten. Dette steget er valgfritt, men unngår at du må logge inn med tjenestekontoen når du ser på flyt-kjøringer.
-
-1. Gå til Power Automate-portalen (make.powerautomate.com) som tjenestekontoen.
-2. Finn flyten **`Provisioning Request Approval`** og klikk `Share` i toppmenyen.
-3. Legg til brukere eller grupper du vil dele flyten med, og velg `OK` i `Before you share`-dialogen.
-4. Brukerne har nå tilgang til flyten.
-
-### SharePoint-område
+Før Bestillingsportalen kan rulles ut, må SharePoint-området deles med alle brukerne som skal sende inn bestillinger.
 
 Stegene nedenfor deler SharePoint-området med sluttbrukere, slik at de får tilgang til å opprette/redigere bestillinger uten å endre backend-innstillinger i Bestillingsportalen.
 
@@ -125,7 +76,7 @@ Stegene nedenfor deler SharePoint-området med sluttbrukere, slik at de får til
 6. Klikk `Show Options` og velg `Visitors`-gruppen under `Permission level` (dette gir brukerne lesetilgang til området i første omgang).
 7. Gå til `Provisioning Requests`-listen og [følg disse stegene](https://support.office.com/en-gb/article/customize-permissions-for-a-sharepoint-list-or-library-02d770f3-59eb-4910-a608-5f84cc297782) for å bryte arv av tilganger. Gi `Visitors`-gruppen `Edit`-rettigheter (dette sikrer at brukerne kan opprette bestillinger).
 
-## Steg 4: Kjøre/konfigurere støttende Logic Apps
+## Steg 3: Kjøre/konfigurere støttende Logic Apps
 
 Det finnes noen støttende Logic Apps som bør kjøres manuelt etter første installasjon.
 
@@ -139,7 +90,7 @@ Detaljer om disse:
 - **SyncGroupSettings** – Henter gruppe-innstillinger (blokkerte ord og klassifiseringer) fra Entra ID og oppdaterer listeelementer i `Provisioning Request Settings`-listen.
 - **SyncLabels** – Henter alle sensitivitetsmerker fra Purview i tenanten og legger dem til i `IP Labels`-listen.
 
-> **MERK:** `ProcessGuestRequest` Logic App trigges automatisk når et nytt element legges til i `Guest Requests`-listen (1-min polling) og skal **ikke** kjøres manuelt. Den deployes som del av `deploy.ps1`.
+> **MERK:** Logic Appene `ProcessProvisionRequest`, `ProcessApprovalRequest` og `ProcessGuestRequest` trigges automatisk av endringer i listene (1-min polling) og skal **ikke** kjøres manuelt. De deployes som del av `deploy.ps1`.
 
 Slik kjører du dem «on demand»:
 
@@ -150,7 +101,7 @@ Slik kjører du dem «on demand»:
 5. Når Logic App-en har kjørt, skal statusen i kjørehistorikken være `Succeeded`.
 6. Gjenta stegene for hver Logic App.
 
-## Steg 5 (valgfritt): Aktivere Site Templates og Hub Sites
+## Steg 4 (valgfritt): Aktivere Site Templates og Hub Sites
 
 Før Hub Sites og Site Templates er synlige for sluttbrukere i Bestillingsportalen webdel eller Teams app, må de aktiveres.
 
@@ -162,7 +113,7 @@ Det finnes en Yes/No-kolonne kalt `Enabled` i `Hub Sites`- og `Site Templates`-l
 
 > **Bruker en provisioning-type `Join Hub`?** Sett også `Default Hub` på typen i `Provisioning Types`-listen — se merknaden om dette i [Provisioning Types](./Provisioning-types.md). Uten den kan bestillinger komme inn uten hub-ID, og området blir stående uten hub-tilknytning.
 
-## Steg 6: Sette opp administratorgruppe
+## Steg 5: Sette opp administratorgruppe
 
 Bestillingsportalen webdel eller Teams app bruker en innstilling i `Provisioning Request Settings`-listen for å avgjøre om «innstillinger»-skjermen skal vises for en bruker i webdel/Teams app. Innstillingene for løsningen kan konfigureres via denne skjermen som et alternativ til å bruke innstillingslisten i SharePoint-området. *Denne skjermen er eksperimentell og anses som under arbeid.* Innstillingene skal kun være synlige for administratorer av Bestillingsportalen. Før du følger stegene, opprett en av følgende (eller bruk en eksisterende) som inneholder administratorene for Bestillingsportalen:
 
@@ -179,21 +130,21 @@ Hent ID-en til ressursen du opprettet eller en eksisterende du gjenbruker, og f�
 
 Administratorgruppen er nå satt opp og konfigurert.
 
-## Steg 7 (valgfritt): Aktivere automatisk godkjenning (deaktivere godkjenningsprosess)
+## Steg 6 (valgfritt): Aktivere automatisk godkjenning (deaktivere godkjenningsprosess)
 
-Hvis du ikke ønsker å bruke den innebygde Power Automate-godkjenningsprosessen, kan du aktivere `Auto approval` via `Provisioning Request Settings`-listen.
+Hvis du ikke ønsker å bruke den innebygde godkjenningsprosessen, kan du aktivere `Auto approval` via `Provisioning Request Settings`-listen.
 
 For å aktivere, gå til innstillingslisten, rediger listeelementet `EnableAutoApproval` og sett `Value`-kolonnen til `true`.
 
-Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams app, settes statusen til `Approved`. Godkjenningsflyten kjører da ikke, og provisjoneringsprosessen starter umiddelbart.
+Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams app, settes statusen til `Approved`. Godkjennings-Logic Appen kjører da ikke, og provisjoneringsprosessen starter umiddelbart.
 
-## Steg 8: Verifiser med en testbestilling
+## Steg 7: Verifiser med en testbestilling
 
 Send en bestilling gjennom hele løpet før løsningen annonseres for brukerne — det er den eneste testen som dekker alle leddene samlet: tilganger, godkjenningsflyt, Logic Apps, runbook-konfigurasjon og varsling.
 
-1. **Test som en vanlig bruker** — ikke som tjenestekontoen og ikke som administratoren som installerte. Det verifiserer tilgangene fra Steg 3 og den normale eier-flyten i provisjoneringen.
+1. **Test som en vanlig bruker** — ikke som tjenestekontoen og ikke som administratoren som installerte. Det verifiserer tilgangene fra Steg 2 og den normale eier-flyten i provisjoneringen.
 2. Send inn en testbestilling via webdelen eller Teams-appen — gjerne av en type med Teams-avhuking og hub-tilknytning, så testes mest mulig.
-3. Godkjenn bestillingen (Approvals-oppgave eller Teams-kort, avhengig av Steg 1).
+3. Godkjenn bestillingen (godkjennings-epost eller Teams-kort, avhengig av Steg 1).
 4. Følg statusfeltet i `Provisioning Requests`-listen: `Submitted` → `Approved` → `Space Creation` → `Space Created`. Logic App-en kjører på 1-minutts polling og gruppeprovisjonering har innebygde ventetider, så regn med 10–15 minutter totalt.
 5. Verifiser resultatet: området/teamet finnes, riktige eiere og medlemmer, hub-tilknytning og regionale innstillinger (norsk språk/tidssone) er på plass, og bestilleren har fått e-post og adaptivt kort.
 6. Ved **`Space Creation Failed`**: les `StatusReason`-feltet på bestillingen — det navngir steget som feilet og feilmeldingen. For runbook-feil: åpne `ConfigureSpace`-jobben i Automation-kontoen og les stegtabellen nederst i loggen (`Succeeded`/`Skipped`/`Failed` per konfigurasjonssteg). Se [Feilhåndtering](./Error-handling.md).
@@ -211,7 +162,7 @@ Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområ
 1. Legg webdelen inn manuelt på en SharePoint-side der brukerne skal bestille.
 2. Sett URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`) slik at bestillingene skrives til riktige lister.
 
-Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 3) før de kan bestille.
+Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 2) før de kan bestille.
 
 ## Merknad: Aktivere Teams-appen for Bestillingsportalen (krever Prosjektportalen)
 
@@ -239,7 +190,7 @@ Bestillingsportalen åpnes nå som en egen app i Teams, med samme grensesnitt so
 
 ![Bestillingsportalen åpnet som app i Teams](/Images/teamsapp-startpage.png)
 
-Teams-appen bruker samme oppsett som webdelen: bestillinger sendt fra Teams skrives til de samme listene og behandles av den samme godkjenningsflyten (Steg 1–3 gjelder altså uendret). Husk at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 3) også når de bestiller fra Teams.
+Teams-appen bruker samme oppsett som webdelen: bestillinger sendt fra Teams skrives til de samme listene og behandles av den samme godkjenningsprosessen (Steg 1–2 gjelder altså uendret). Husk at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 2) også når de bestiller fra Teams.
 
 ### Tilgjengeliggjøre appen for flere brukere
 
@@ -255,7 +206,7 @@ Hvem som ser og kan legge til appen styres per app via **app centric management*
 
 > Endringer i tilgjengelighet kan ta **opptil 24 timer** å slå gjennom for alle brukere. Bruker tenanten fortsatt gamle [app permission policies](https://learn.microsoft.com/en-us/microsoftteams/teams-app-permission-policies) (synlig under `Teams apps` → `Permission policies`), styres tilgangen der i stedet, med samme prinsipp: appen må være `Allowed` i policyen som er tildelt brukerne.
 
-Merk at app-tilgjengelighet kun styrer hvem som ser appen i Teams — tilgang til selve bestillingsdataene styres fortsatt av SharePoint-tilgangene i Steg 3.
+Merk at app-tilgjengelighet kun styrer hvem som ser appen i Teams — tilgang til selve bestillingsdataene styres fortsatt av SharePoint-tilgangene i Steg 2.
 
 ### Pinne appen automatisk for brukerne (valgfritt)
 

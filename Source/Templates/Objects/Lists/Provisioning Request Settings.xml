@@ -258,7 +258,7 @@ Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Te
     <pnp:DataRow>
       <pnp:DataValue FieldName="Title">DisableApprovalNotifications</pnp:DataValue>
       <pnp:DataValue FieldName="Value">false</pnp:DataValue>
-      <pnp:DataValue FieldName="Description">Deaktiver Power Automate-godkjenningsvarsler for godkjenningsflyten.</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Utgått. Hadde kun effekt med den tidligere Power Automate-godkjenningsflyten, og har ingen funksjon i godkjennings-Logic Appen. Beholdes for bakoverkompatibilitet.</pnp:DataValue>
     </pnp:DataRow>
     <pnp:DataRow>
       <pnp:DataValue FieldName="Title">ApprovalReminderInterval</pnp:DataValue>

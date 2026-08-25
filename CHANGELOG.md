@@ -2,6 +2,28 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## 2.1.0 - Under utvikling
+
+### Ny funksjonalitet
+
+- **Godkjenningen kjører nå i Azure Logic Apps — Power Platform-avhengigheten er fjernet i sin helhet**: Power Automate-flyten `Provisioning Request Approval` er erstattet av den nye Consumption Logic Appen **`ProcessApprovalRequest`** (`Source/ARMTemplates/LogicApps/processapprovalrequest.json`), som deployes og aktiveres av `deploy.ps1` sammen med de øvrige Logic Appene — i både full- og upgrade-modus. Flyten var det eneste som bodde i Power-miljøet (ingen Dataverse-tabeller, ingen Power Apps, ingen premium-connectorer), og kontrakten mot resten av løsningen er uendret: Logic Appen trigges av `Status = Submitted` på `Provisioning Requests`-listen og skriver `Approved`/`Rejected`, som `ProcessProvisionRequest` plukker opp som før. Alle innstillingene i `Provisioning Request Settings` (`ApproverEmail`, `PostToTeams`, `TeamsTeamID`/`TeamsChannelID`, `EnableApprovalReminderEmails`, `ApprovalReminderInterval`, `EnableBusinessUnitsApproval`, `EnablePublicSpaceApprovalOnly`, `EnableAutoApproval`) og `Business Units`-listens `Approvers`-kolonne virker uendret. Logic Appen gjenbruker de eksisterende API-tilkoblingene (`bestillingsportalen-spo`, `-o365`, `-teams`) — ingen nye samtykker. E-poster og adaptive cards er portet uendret fra flyten.
+
+  **Approvals-connectoren finnes ikke i Logic Apps**, så Approvals-oppgavene er erstattet med Outlook-connectorens **«Send approval email»**: godkjenner(ne) får en e-post med Approve/Reject-knapper (actionable message), første svar avgjør, og hvem som svarte fanges opp (`UserEmailAddress`). Teams-veien (adaptivt kort i kanal med kommentar-felt) er portet 1:1 via samme webhook-mekanisme. Funksjonelle forskjeller mot Approvals: e-postveien har ikke kommentarfelt (Teams-kortet har det fortsatt), Approvals-appen i Teams brukes ikke lenger, reassignment finnes ikke, og innstillingen `DisableApprovalNotifications` er blitt en no-op (beholdes for kompatibilitet). Actionable messages rendres kun for mottakere i samme tenant; eksterne godkjennere får lenke-fallback uten identitetsfangst.
+
+  **Dette bortfaller dermed for nye installasjoner**: seeded Power Automate-lisens på tjenestekontoen (`FLOW_*`-preflight-sjekken i `deploy.ps1` er fjernet), System Customizer-rollen i standardmiljøet, Power Platform Administrator-rollen, og hele det manuelle import/aktiver/del-steget (gamle Steg 2–3 i konfigurasjonsveiledningen, historisk det mest feilutsatte i installasjonen). `Source/Flows/` (løsningspakken + README) og flyt-import-skjermbildene i `Images/` er fjernet fra repoet.
+
+  **Eksisterende installasjoner må migrere manuelt**: skru av flyten FØR oppgradering (begge motorene prosesserer `Status = Submitted` — samtidig drift gir doble godkjenningsforespørsler), sett bestillinger som står i `Pending Approval` tilbake til `Submitted` etter deployen, og slett flyten/løsningen `BestillingsportalenFlows` etter verifisert ende-til-ende-godkjenning. Se den nye migreringsseksjonen i [Upgrade.md](Upgrade.md); upgrade-modus skriver også ut en påminnelse.
+
+### Forbedringer
+
+- **Fire kjente svakheter i den gamle flyten er rettet i portingen**:
+  - *Godkjenningsoppgave på nytt hvert ~10.–13. minutt*: flyten ventet kun `PT10M` på svar før den satte status tilbake til `Submitted`, som re-trigget flyten og opprettet en ny Approvals-oppgave — i det uendelige til noen svarte. Logic Appen venter nå 60 dager (`P60D`, innenfor Consumption-planens 90-dagers kjøregrense) før samme tilbakestilling, som dermed fungerer som en kontrollert re-utsendelse i stedet for en løkke. Teams-kort-veien, som i flyten manglet timeout-håndtering helt, har fått samme håndtering.
+  - *Purre-e-poster som aldri ble sendt*: flytens `Do until`-løkke hadde én times totaltimeout mens den innerste ventingen var `ApprovalReminderInterval` **dager** — løkken utløp før første purring. Purringene sendes nå fra en parallell gren som faktisk venter intervallet, purrer alle godkjennerne, og avsluttes når svar foreligger.
+  - *`Approver`-kolonnen ble aldri fylt ut*: kolonnen har eksistert (og vært dokumentert) hele tiden uten at flyten skrev til den. Logic Appen skriver nå den som svarte (fra godkjennings-e-postens `UserEmailAddress` eller Teams-kortets `responder`) til kolonnen — best effort: kan ikke responder-identiteten løses opp på området, fullfører godkjenningen likevel, og godkjennerlisten står alltid i `Comments`.
+  - *Ingen responder-identitet på Teams-veien*: alle i kanalen kan svare på kortet (uendret connector-begrensning), men navnet på den som svarte logges nå i `Comments` sammen med svardato og kommentar — før ble kun kommentaren lagret.
+- **`deploy.ps1` deployer den nye Logic Appen i begge moduser**: ny deploy-blokk i full- og upgrade-modus, `Business Units`-listens ID resolves nå (ny ARM-parameter `businessUnitsListId`), plan-/fullføringsmeldingene er oppdatert (10 Logic Apps), og tjenestekonto-preflighten sjekker ikke lenger `FLOW_*`-planer.
+- **Dokumentasjonen er oppdatert gjennomgående**: [Approval-flow.md](Approval-flow.md) (ny motor, metodeforskjeller, purringer), [Configuration-guide.md](Configuration-guide.md) (Steg 2–3 fjernet og renummerert; «Power Automate Approvals» → «Godkjennings-epost»), [Deployment-guide.md](Deployment-guide.md) (Power-forutsetningene fjernet), [Teknisk-losningsbeskrivelse.md](Teknisk-losningsbeskrivelse.md) (§2.4 omskrevet, arkitekturdiagram oppdatert), [Upgrade.md](Upgrade.md) (migreringsrunbook) og [Upgrade-from-pre-2.0.md](Upgrade-from-pre-2.0.md).
+
 ## 2.0.0 - 2026-08-19
 
 ### Sikkerhet

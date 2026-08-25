@@ -16,25 +16,23 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 **Kontoen som kjører installasjonen:**
 
 - [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen
-- [ ] SharePoint Administrator (Teams- og Power Platform-administrator trengs også, for stegene i [Konfigurasjonsveiledningen](./Configuration-guide.md))
+- [ ] SharePoint Administrator (Teams-administrator trengs også, for stegene i [Konfigurasjonsveiledningen](./Configuration-guide.md))
 - [ ] Kan tildele app-roller til managed identities: Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator — **mangler du dette, bruk `-SkipAppRoles`** (se noten under detaljene)
 
 **Tenanten og abonnementet (bestilles hos kundens admin ved behov):**
 
 - [ ] Fakturerbart Azure-abonnement i **samme tenant** som Microsoft 365
 - [ ] **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic`, `Microsoft.Web` — registrering krever rettigheter på *abonnementsnivå*, se detaljene. ([Om resource providers – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types))
-- [ ] Power Automate (seeded licenses) aktivert og utrullet i organisasjonen
 - [ ] Tenant app-katalog opprettet i SharePoint Admin Center
-- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online, Teams og seeded Power Automate (E- og F-lisenser fungerer begge — se detaljene)
+- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online og Teams (E- og F-lisenser fungerer begge — se detaljene)
 - [ ] PnP app registration i tenanten (Prosjektportalen sin kan gjenbrukes — se «PnP PowerShell App Registration»)
 
 Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1 -Preflight`** (etter Steg 2), så kjøres alle sjekkene — tjenestekonto med lisens, område-alias, RBAC-rettigheter, resource providers, GA-rettigheter for app-roller, app-katalog og Node.js — og resultatet vises som en **PRE-DEPLOYMENT CHECKLIST** med `OK`/`MISSING`/`WARNING` per punkt og konkret løsning for hver mangel, uten at noe deployes. Alle sjekkene kjøres uansett i starten av en vanlig kjøring, og **alle** resultater vises samlet før noe opprettes — du får hele mangellisten i én kjøring, ikke én vegg per forsøk.
 
 ### Detaljer
 
-- Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har alt dette ([Microsofts lisens-FAQ](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/faqs#office-365-license-questions)), og en F3-lisensiert tjenestekonto er verifisert i praksis gjennom hele løpet inkludert flyt-import og -aktivering (kundetenant, august 2026). Uprovisjonerte prøvelisenser («viral» `FLOW_P2_VIRAL`) teller ikke. Skulle flyt-aktiveringen mot formodning feile med `FlowNotOriginalAuthor` (sett én gang i et utviklingsmiljø), se feilsøkingsboksen i [Konfigurasjonsveiledningen, Steg 2](./Configuration-guide.md) — bytte av lisens er siste utvei, ikke førstevalg.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams — inkludert godkjennings-epostene og Teams-kortene i godkjenningsprosessen) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online og Teams — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har alt dette.
 - Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
@@ -43,7 +41,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
-- Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint, Power Platform og Teams Administrator.
+- Brukerkonto med **Owner**-rettigheter til Azure-abonnementet, som også er SharePoint og Teams Administrator.
 - **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic` og `Microsoft.Web` ([hva resource providers er – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types)). I et ferskt abonnement er de typisk *ikke* registrert, og deployen feiler da med `MissingSubscriptionRegistration`. Pre-flight sjekker dette og registrerer dem automatisk hvis kontoen har rettigheter på **abonnementsnivå** — men registrering er en abonnementsoperasjon, så med Owner kun på ressursgruppen stopper skriptet med de nøyaktige `az provider register`-kommandoene en abonnementsadministrator må kjøre (engangsjobb, tar et par minutter; det aktiverer kun ressurstypene og oppretter ingenting). Sjekk status selv med `az provider show --namespace Microsoft.Automation --query registrationState`.
 - App Registration for PnP PowerShell (se nedenfor).
 
@@ -157,7 +155,7 @@ Beskrivelse av hver parameter:
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
-- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E- og F-lisenser fungerer begge, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
+- `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser (E- og F-lisenser fungerer begge, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
@@ -271,6 +269,6 @@ Når webdelen er publisert kan den legges til på en hvilken som helst SharePoin
 
 ## Videre: Konfigurasjonsveiledningen
 
-Den skriptede delen av installasjonen er nå ferdig. Resten — godkjenningsoppsett, import og aktivering av flyten, deling med brukerne, støtte-Logic Apps, aktivering av maler/huber, administratorgruppe og en verifiserende testbestilling — gjøres uten Azure-tilganger og er beskrevet i **[Konfigurasjonsveiledningen](./Configuration-guide.md)**.
+Den skriptede delen av installasjonen er nå ferdig. Resten — godkjenningsoppsett, deling med brukerne, støtte-Logic Apps, aktivering av maler/huber, administratorgruppe og en verifiserende testbestilling — gjøres uten Azure-tilganger og er beskrevet i **[Konfigurasjonsveiledningen](./Configuration-guide.md)**.
 
 > **Tidsforsinkelse på app-rollene:** rollene tildeles under deployen (eller av en Global Administrator ved `-SkipAppRoles`), men managed identity-tokens utstedes med rollene som gjaldt på utstedelsestidspunktet og caches i opptil **~24 timer** i Azure-infrastrukturen. De første timene etter en fersk installasjon kan Logic Apps og runbooks derfor få sporadiske 401/403 eller Graph-feil av typen `Roles on the request ''` — også blandet, der noen kall lykkes og andre feiler i samme kjøring — selv om alt er riktig konfigurert. Dette leger seg selv og krever ingen handling. Verifiseringssteget i konfigurasjonsveiledningen tar høyde for det.

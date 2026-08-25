@@ -8,14 +8,14 @@ Dokumentet er ment som et supplement til [Installasjonsveiledningen](./Deploymen
 
 ## 1. Overordnet arkitektur
 
-Bestillingsportalen er en Azure-basert løsning for styrt selvbetjening av samarbeidsområder i Microsoft 365 (Teams, Microsoft 365-grupper, SharePoint-områder og Viva Engage-fellesskap). Brukere bestiller områder via en SPFx-basert webdel/Teams-app. Bestillingene lagres i en SharePoint-liste, godkjennes via Power Automate, og provisjoneres automatisk av Azure Logic Apps, Microsoft Graph/SharePoint REST API og Azure Automation-runbooks.
+Bestillingsportalen er en Azure-basert løsning for styrt selvbetjening av samarbeidsområder i Microsoft 365 (Teams, Microsoft 365-grupper, SharePoint-områder og Viva Engage-fellesskap). Brukere bestiller områder via en SPFx-basert webdel/Teams-app. Bestillingene lagres i en SharePoint-liste, godkjennes og provisjoneres automatisk av Azure Logic Apps, Microsoft Graph/SharePoint REST API og Azure Automation-runbooks.
 
 I tillegg inneholder løsningen en frittstående **gjesteinvitasjonsflyt**: en egen SPFx-webdel (`InviteGuests`) lar brukere invitere eksterne gjester til et eksisterende område. Invitasjonene lagres i `Guest Requests`-listen og prosesseres av Logic Apps og en Automation-runbook.
 
 ``` mermaid
 graph TD
     A(SPFx Webdel / Teams App) --> |Bestilling| B[(SharePoint-liste: Provisioning Requests)]
-    B --> C(Power Automate: Provisioning Request Approval)
+    B --> C(Logic App: ProcessApprovalRequest)
     C --> D(Logic App: ProcessProvisionRequest)
     D --> E(User-assigned Managed Identity)
     E --> |SharePoint Site| H[SharePoint REST API]
@@ -49,7 +49,7 @@ Hovedprinsipper:
 - Provisjoneringen kjører med **Application Permissions** via en delt **user-assigned managed identity** (`bestillingsportalen-uami`) som er koblet til alle Logic Apps og brukes mot Microsoft Graph, SharePoint REST og Azure Automation. Det finnes dermed **ingen client secret eller sertifikat å rotere**.
 - **Det finnes ingen unntak:** løsningen har ingen client secret, ingen Key Vault og ingen egen Entra ID-app-registrering i drift. Også sensitivitetsmerker settes app-only – `ConfigureSpace` bruker `Set-PnPTenantSite -SensitivityLabel` med Automation-kontoens managed identity, som via SharePoints tenant-admin-API propagerer container-merket til gruppen. Runbooken leser tilbake `assignedLabels` for å bekrefte at merket landet. Se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Konfigurasjon som ikke kan gjøres via Graph API utføres av runbooks i Azure Automation (`ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` samt det kundeeide utvidelsespunktet `CustomerSpecific`), som autentiserer med Automation-kontoens **systemtildelte managed identity** og PnP PowerShell.
-- E-post- og Teams-varsler sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
+- E-post- og Teams-varsler (inkludert godkjennings-epostene og godkjenningskortene i Teams) sendes i konteksten til en **tjenestekonto** (standard lisensiert bruker, ikke admin) via autoriserte API-tilkoblinger – disse connectorene er delegated-only og støtter ikke managed identity.
 
 ## 2. Hva som settes opp og installeres
 
@@ -80,7 +80,7 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 |--|--|
 | User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Automation-API-tilkoblingen. |
 | Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til M365-gruppe/SharePoint-grupper) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. **Merk at portalens standard Runbooks-blad viser disse som «PowerShell 5.1»** – en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle opplevelsen, som ikke kjenner runtime environments over 7.2. Faktisk versjon ses under **Runtime environments**, og `deploy.ps1` verifiserer og rapporterer den ved hver kjøring. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — kundespesifikke tilpasninger legges der. |
-| Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
+| Logic Apps (10 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessApprovalRequest` (godkjenningsprosessen – trigges når en bestilling får status `Submitted`, se [Godkjenningsflyt](./Approval-flow.md)), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
 | API-tilkoblinger (5 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
 
 **Navnekonvensjon for Azure-ressursene.** Alle ressurser i gruppa følger mønsteret `bestillingsportalen-<rolle>` — arbeidsbelastning først, rollen som **suffiks**: `-uami`, `-auto`, `-ps74`, `-spo`, `-o365`, `-o365users`, `-teams`, `-automation`. Poenget er at alt som hører til løsningen sorterer sammen alfabetisk i portalen og i `az resource list`. Ressursgruppa selv er det bevisste unntaket (`rg-bestillingsportalen`): den velges i en annen liste enn ressursene i den, og der er typeforkortelsen først mer lesbar.
@@ -89,13 +89,11 @@ Dette avviker fra [Microsofts CAF-abbreviasjonsliste](https://learn.microsoft.co
 
 > **Ressursnavnene er billige å velge, dyre å endre.** Bare `resourceGroupName` og `uamiName` er parametre; resten er hardkodet i bicep- og ARM-malene. Endrer du `uamiName` på et miljø i drift, oppretter deploy en **ny** identitet: den gamle beholder sine app-roller og RBAC-tildelinger på Automation-kontoen og må ryddes bort manuelt, og Logic Apps kan feile med `403 Authorization_RequestDenied` til de nye app-rollene har propagert (managed identity-tokens caches i opptil ~24 timer). Sett navnene ved førstegangs installasjon og la dem stå.
 
-### 2.4 Power Automate
+### 2.4 Godkjenningsprosessen (Logic App)
 
-Én flyt leveres med løsningen (`Source/Flows/Bestillingsportalen-Flows_unmanaged.zip` — importeres manuelt som tjenestekontoen, se Steg 2 i [Konfigurasjonsveiledningen](./Configuration-guide.md)) og kjører i tjenestekontoens kontekst:
+Godkjenningen av bestillinger kjører i Logic Appen **`ProcessApprovalRequest`** (se 2.3), som deployes og aktiveres av `deploy.ps1`. Den trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`, og støtter godkjenning via epost med Approve/Reject-valg eller adaptive cards i en Teams-kanal. Se [Godkjenningsflyt](./Approval-flow.md).
 
-- **Provisioning Request Approval** – godkjenningsprosessen. Trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`. Støtter godkjenning via Power Automate Approvals eller adaptive cards i en Teams-kanal. Er avslått som standard og må aktiveres etter installasjon. Se [Godkjenningsflyt](./Approval-flow.md).
-
-Flyten bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering.
+Løsningen har **ingen Power Platform-avhengighet**: tidligere versjoner brukte Power Automate-flyten `Provisioning Request Approval` (importert manuelt i tjenestekontoens miljø), som nå er erstattet av Logic Appen. Dermed bortfaller kravene om seeded Power Automate-lisens på tjenestekontoen, System Customizer-rollen i standardmiljøet og Power Platform Administrator-rollen under installasjon. Oppgradering fra flyt-basert godkjenning er beskrevet i [Oppgraderingsveiledningen](./Upgrade.md).
 
 ### 2.5 Klient (SPFx)
 
@@ -110,7 +108,7 @@ Flyten bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering
 |--|--|--|
 | **Global Administrator** | Opprette/godkjenne PnP PowerShell app registration. | Kun nødvendig under installasjon. |
 | **Owner på Azure-abonnementet** | Kjøre `deploy.ps1`: opprette ressursgruppe, managed identity, Automation-konto, Logic Apps og API-tilkoblinger, inkl. RBAC-tildelinger i bicep-malen. | Abonnementet MÅ tilhøre samme Entra ID-tenant som Microsoft 365. |
-| **SharePoint Administrator** | Opprette og konfigurere SharePoint-området og publisere SPFx-pakker til App Catalog under `deploy.ps1`. | Samme konto som over (kontoen som kjører `deploy.ps1` bør også være Power Platform- og Teams-administrator). |
+| **SharePoint Administrator** | Opprette og konfigurere SharePoint-området og publisere SPFx-pakker til App Catalog under `deploy.ps1`. | Samme konto som over (kontoen som kjører `deploy.ps1` bør også være Teams-administrator). |
 | Rettighet til å tildele app-roller til managed identities | `deploy.ps1` tildeler Graph-/SharePoint-app-roller til både den user-assigned identityen (`AssignUamiPermissions`) og Automation-kontoens systemtildelte identitet. | Krever Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator. `Source/Scripts/AssignPermissionsToManagedIdentity.ps1` kan brukes til manuell reparasjon/tildeling. |
 
 ### 3.2 PnP PowerShell app registration (midlertidig installasjonsidentitet)
@@ -185,9 +183,8 @@ Runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSp
 
 | Tilgang | Brukes til |
 |--|--|
-| Identitet bak de delegerte API-tilkoblingene (Outlook, Users, SharePoint, Teams) | Sende e-postvarsler, lese brukerprofiler, lese/skrive i SharePoint-listene og poste adaptive cards i Teams – i delegert kontekst fra Logic Apps og flytene. Connectorene støtter ikke managed identity. |
+| Identitet bak de delegerte API-tilkoblingene (Outlook, Users, SharePoint, Teams) | Sende e-postvarsler (inkludert godkjennings-epostene), lese brukerprofiler, lese/skrive i SharePoint-listene og poste adaptive cards i Teams – i delegert kontekst fra Logic Apps. Connectorene støtter ikke managed identity. |
 | Eier/site collection-administrator på Bestillingsportalen-området | Drift av backend-listene. |
-| Eier av Power Automate-flyten | Flyten `Provisioning Request Approval` kjører i tjenestekontoens kontekst. |
 | Medlem av godkjennings-teamet i Teams | Kreves kun ved bruk av adaptive card-godkjenning, for å kunne poste kort i kanalen. |
 
 ### 4.4 Sluttbrukere og administratorer
@@ -196,8 +193,8 @@ Runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSp
 |--|--|--|
 | Sluttbrukere (bestillere) | Lesetilgang (`Visitors`) til Bestillingsportalen-området, samt `Edit` på `Provisioning Requests`-listen (brutt tilgangsarv). | Gir mulighet til å opprette og følge egne bestillinger via webdel/Teams-app. Ingen Azure-tilgang nødvendig. |
 | Brukere av `InviteGuests`-webdelen | Skrivetilgang til `Guest Requests`-listen på Bestillingsportalen-området. | Webdelen oppretter og leser listeelementer i brukerens egen kontekst (PnPjs). |
-| Godkjennere | Mottar godkjenningsoppgaver (Approvals) eller er medlem av godkjennings-teamet i Teams. | Konfigureres via `ApproverEmail`/`PostToTeams` i innstillingslisten. |
-| Administratorer av løsningen | Medlemskap i administratorgruppen (`AdminGroupId` i innstillingslisten); flytene kan i tillegg deles med dem for innsyn i kjøringer. | Innstillingsskjermen i appen vises kun for medlemmer av denne gruppen. |
+| Godkjennere | Mottar godkjennings-epost med Approve/Reject-valg eller er medlem av godkjennings-teamet i Teams. | Konfigureres via `ApproverEmail`/`PostToTeams` i innstillingslisten. |
+| Administratorer av løsningen | Medlemskap i administratorgruppen (`AdminGroupId` i innstillingslisten); innsyn i godkjennings- og provisjoneringskjøringer krever lesetilgang til Logic Appene i Azure. | Innstillingsskjermen i appen vises kun for medlemmer av denne gruppen. |
 
 ## 5. Hemmeligheter – livssyklus
 
@@ -210,7 +207,7 @@ Det eneste som finnes er tjenestekontoens ordinære passord, som følger organis
 ## 6. Referanser
 
 - [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon (den skriptede delen)
-- [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenningsoppsett, flyt-import, deling og verifisering
+- [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenningsoppsett, deling og verifisering
 - [Datatilgang og sikkerhet](./Data-access-security.md) – detaljert tilgangsbeskrivelse
 - [Datalagre](./Data-stores.md) – alle SharePoint-lister og felter
 - [Godkjenningsflyt](./Approval-flow.md) – godkjenningsprosessen

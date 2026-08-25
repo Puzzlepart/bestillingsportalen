@@ -91,7 +91,7 @@ Gjenta for `GetSiteTemplates`, diff mot `Source/Runbooks/`, og flytt eventuelle 
 - Standardelementer som bevisst er **slettet** kommer tilbake ved oppgradering (sett heller `Allowed`/`Enabled` til `false`).
 - Standardelementer som er **omdøpt** blir duplikater, fordi `Title` er nøkkelen (`TimeZoneId` for Time Zones).
 
-**7. Godkjenningsflyten.** Ta en eksportkopi av `Provisioning Request Approval`, men **ikke** importer solution-pakken over en flyt som virker — den kjørende flyten beholdes uendret gjennom oppgraderingen.
+**7. Godkjenningsflyten.** Godkjenningen kjører nå i Logic Appen `ProcessApprovalRequest` i stedet for Power Automate-flyten `Provisioning Request Approval`. Ta en eksportkopi av flyten for arkivets skyld, og **skru flyten av før deployen** — begge motorene trigges av `Status = Submitted`, så en påslått flyt gir doble godkjenningsforespørsler. Følg [migreringsseksjonen i Upgrade.md](Upgrade.md#migrere-fra-power-automate-flyten-provisioning-request-approval) for rekkefølgen og oppryddingen (inkludert bestillinger som står i `Pending Approval`).
 
 ## 2. Tilganger
 
@@ -103,7 +103,7 @@ Oppgraderingen trenger mer enn Application Administrator. Fordelt på de to plat
 | Tildele app-roller til de to managed identityene (Graph + SharePoint Online) | **Global Administrator**, ev. **Privileged Role Administrator + Cloud Application Administrator** | **Application Administrator er ikke nok** — den kan ikke gi application permissions på Microsoft Graph, og `CheckAppRoleRights` i pre-flight godtar kun GA eller PRA+CAA. |
 | Registrere resource providers | Rettigheter på **abonnementsnivå** | `Microsoft.ManagedIdentity` er ny for pre-2.0-miljøer og er sannsynligvis **ikke** registrert. Pre-flight registrerer den hvis kontoen har rettigheter, ellers skriver den ut kommandoene en abonnementsadministrator må kjøre. |
 | Området, app-katalogen, tenant-innstillinger | **SharePoint Administrator** | Site collection admin på Bestillingsportalen-området gis automatisk av skriptet til kontoen som kjører. |
-| Power Platform | **Power Platform Administrator** | Kun hvis flyten skal (re)importeres eller tjenestekontoen mangler System Customizer. Ikke nødvendig når flyten allerede finnes og virker. |
+| Power Platform | Ingen | Flyten erstattes av Logic Appen `ProcessApprovalRequest`. Avskruing og sletting av den gamle flyten/løsningen gjøres som tjenestekontoen (eieren) — ingen adminrolle nødvendig. |
 
 **Har du ikke GA:** kjør med `-SkipAppRoles`. Alt annet installeres, og skriptet skriver ut en ferdig kommando med object-ID-ene fylt inn. Send `Source/Scripts/AssignPermissionsToManagedIdentity.ps1` og kommandoen til en Global Administrator. **Logic App-ene får 401/403 til den er kjørt** — planlegg dette inn i vinduet, ikke etterpå.
 
@@ -184,7 +184,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 1. `CheckSiteExists` — kjør trigger manuelt. Dette er Logic App-en som feilet med `AADSTS700027`; nå skal den gå grønt uten sertifikat.
 2. `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings`, `SyncLabels` — kjør trigger manuelt, alle skal ende `Succeeded`.
 3. Åpne området: lister og data intakte, `Guest Requests` opprettet, egne provisioning types på plass.
-4. Send inn en **testbestilling** av en enkel områdetype, og følg `ProcessProvisionRequest` gjennom godkjenningsflyten til området er opprettet. Sjekk at `ConfigureSpace`-jobben i Automation-kontoen kjørte grønt.
+4. Send inn en **testbestilling** av en enkel områdetype, godkjenn den (epost eller Teams-kort), og følg `ProcessApprovalRequest` og `ProcessProvisionRequest` til området er opprettet. Sjekk at `ConfigureSpace`-jobben i Automation-kontoen kjørte grønt.
 5. `InstalledVersion` i innstillinger-lista viser den nye versjonen.
 
 ## 5. Etterarbeid
@@ -222,7 +222,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 | `MissingSubscriptionRegistration` | `Microsoft.ManagedIdentity` (ny i 2.0) ikke registrert | `az provider register --namespace Microsoft.ManagedIdentity` som abonnementsadministrator |
 | Egendefinert navigasjon borte etter deploy | Full modus bruker `-ClearNavigation` | Legg lenkene tilbake; senere `-Upgrade`-kjøringer bevarer navigasjonen |
 | Bilder på provisioning types byttet ut | `UploadAssets` kjører i full modus | Last opp kundens bilder på nytt |
-| Flyten kan ikke aktiveres (`FlowNotOriginalAuthor`) | Tjenestekontoen mangler System Customizer, ev. lisens | Gjelder kun ved import — se [Konfigurasjonsveiledningen, Steg 2](Configuration-guide.md). En flyt som allerede kjører, røres ikke |
+| Doble godkjenningsforespørsler etter oppgradering | Den gamle Power Automate-flyten står fortsatt på | Skru av (og etter verifisering slett) flyten `Provisioning Request Approval` — se [migreringsseksjonen i Upgrade.md](Upgrade.md#migrere-fra-power-automate-flyten-provisioning-request-approval) |
 
 ## 7. Tilbakerulling
 
@@ -248,7 +248,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 - [ ] Listedata og navigasjon dokumentert
 - [ ] Bekreftet at `Signed in as (PnP)` blir riktig konto — SharePoint-administrator i kundens tenant
 - [ ] Bevisst slettede eller omdøpte standardelementer notert
-- [ ] Kopi av godkjenningsflyten eksportert
+- [ ] Kopi av den gamle godkjenningsflyten eksportert, og flyten skrudd av
 - [ ] Ny parameterfil bygget fra `parameters.template.json`, gamle nøkler fjernet
 - [ ] `VERSION` finnes i repo-rot
 - [ ] Azure Owner (ev. PIM) aktivert på ressursgruppen
@@ -292,6 +292,6 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 
 - [Upgrade.md](Upgrade.md) – Oppgradering av miljøer som allerede står på 2.0+
 - [Deployment-guide.md](Deployment-guide.md) – Forutsetninger og full installasjonsprosess
-- [Configuration-guide.md](Configuration-guide.md) – Godkjenningsprosess, flyt-import, deling
+- [Configuration-guide.md](Configuration-guide.md) – Godkjenningsprosess og deling
 - [CHANGELOG.md](CHANGELOG.md) – Hva som endret seg i 2.0.0
 - [Error-handling.md](Error-handling.md) – Feilsøkingsveiledning

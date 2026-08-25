@@ -13,7 +13,7 @@ Bestillingsportalen er en Azure-basert løsning som gir et alternativ til selvbe
 Bestillingsportalen tilbyr følgende:
 
 - SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder.
-- Konfigurerbar godkjenningsprosess via Power Automate.
+- Konfigurerbar godkjenningsprosess (godkjennings-epost eller adaptive cards i Teams) via Azure Logic Apps.
 - SharePoint-område med støttelister som utgjør backenden for løsningen.
 - Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation.

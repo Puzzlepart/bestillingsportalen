@@ -7,7 +7,7 @@ Denne veiledningen forklarer hvordan du oppgraderer en eksisterende Bestillingsp
 Oppgraderingsprosessen lar deg:
 
 - Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
-- Oppdatere Logic App-ene `ProcessProvisionRequest` og `ProcessGuestRequest` med de nyeste arbeidsflyt-forbedringene
+- Oppdatere Logic App-ene `ProcessProvisionRequest`, `ProcessGuestRequest` og `ProcessApprovalRequest` med de nyeste arbeidsflyt-forbedringene
 - Bygge og publisere SPFx-løsninger (f.eks. `InviteGuests`-webdelen) til tenant app-katalog
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
@@ -42,6 +42,7 @@ Bruk oppgraderingsmodus når du vil:
 2. **Logic Apps**
    - `ProcessProvisionRequest` — hovedflyten for områdeprovisjonering
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
+   - `ProcessApprovalRequest` — godkjenningsprosessen (erstatter Power Automate-flyten, se [Migrere fra Power Automate-flyten](#migrere-fra-power-automate-flyten-provisioning-request-approval))
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
@@ -81,6 +82,19 @@ Bruk oppgraderingsmodus når du vil:
    - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
+
+## Migrere fra Power Automate-flyten `Provisioning Request Approval`
+
+Tidligere versjoner håndterte godkjenning med Power Automate-flyten `Provisioning Request Approval`, importert manuelt i tjenestekontoens Power Platform-miljø. Fra denne versjonen kjører godkjenningen i Logic Appen **`ProcessApprovalRequest`**, som deployes av `deploy.ps1` — se [Godkjenningsflyt](./Approval-flow.md). Innstillingene i `Provisioning Request Settings` (`ApproverEmail`, `PostToTeams`, `TeamsTeamID`/`TeamsChannelID`, påminnelser, forretningsenheter, `EnablePublicSpaceApprovalOnly`) gjelder uendret.
+
+**Begge motorene trigges av `Status = Submitted` på samme liste.** Kjører flyten og Logic Appen samtidig, får godkjennerne doble godkjenningsforespørsler og statusfeltet kan bli oppdatert i kappløp. Følg derfor rekkefølgen:
+
+1. **Før oppgraderingen:** Skru AV flyten `Provisioning Request Approval` i make.powerautomate.com (logget inn som tjenestekontoen, i løsningen «Bestillingsportalen Flows»).
+2. Kjør `./deploy.ps1 -Upgrade` (eller full deploy). `ProcessApprovalRequest` deployes aktivert og gjenbruker de eksisterende API-tilkoblingene — ingen ny autorisering trengs.
+3. **Bestillinger som står i `Pending Approval`** ventet inne i flytkjøringer som nå er stoppet. Åpne `Provisioning Requests`-listen, filtrer på `Status = Pending Approval`, og sett statusen tilbake til `Submitted` på disse — Logic Appen plukker dem opp innen et minutt og sender nye godkjenningsforespørsler.
+4. **Etter at én bestilling er verifisert ende-til-ende** (godkjent og provisjonert): slett flyten og løsningen `BestillingsportalenFlows` fra Power Platform-miljøet. Tjenestekontoens tilkoblinger i Power Platform (Approvals, Outlook, SharePoint, Teams) kan også fjernes — de i Azure skal selvsagt beholdes.
+
+Etter migreringen bortfaller kravene om seeded Power Automate-lisens på tjenestekontoen, System Customizer-rollen i standardmiljøet og Power Platform Administrator-rollen. Merk funksjonelle forskjeller fra Approvals-oppgavene: godkjennings-eposten har ikke kommentarfelt (Teams-kortet har det fortsatt), og Approvals-appen i Teams brukes ikke lenger — se [Godkjenningsflyt](./Approval-flow.md).
 
 ## Manuell opprydding etter oppgradering: Key Vault og Entra ID-appen
 
@@ -273,13 +287,14 @@ Når oppgraderingen er fullført:
 
 3. **Test arbeidsflyten**
    - Opprett en test-bestilling (bruk en enkel områdetype)
-   - Overvåk Logic App-kjøringen i Azure Portal
+   - Godkjenn den (godkjennings-epost eller Teams-kort, avhengig av konfigurasjonen)
+   - Overvåk Logic App-kjøringene i Azure Portal
    - Verifiser at området opprettes korrekt
 
 4. **Gjennomgå Logic Apps**
    - Gå til Azure Portal → Ressursgruppe → `ProcessProvisionRequest` Logic App
    - Sjekk kjørehistorikken og verifiser at den bruker nyeste definisjon
-   - Gjenta for `ProcessGuestRequest` Logic App
+   - Gjenta for `ProcessGuestRequest` og `ProcessApprovalRequest` Logic Apps (en `ProcessApprovalRequest`-kjøring står som `Running` mens den venter på godkjenner — det er normalt)
    - **Husk:** SharePoint-koblingen (`bestillingsportalen-spo`) må kanskje re-autoriseres i Azure Portal etter oppgradering
 
 5. **Verifiser SPFx-løsninger** (hvis ikke `-SkipSPFxDeploy`)
@@ -420,12 +435,15 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
 - [ ] Verifiser at Node.js er installert (hvis SPFx skal deployes)
 - [ ] Varsle brukere om vedlikeholdsvindu
+- [ ] Skru av Power Automate-flyten `Provisioning Request Approval` (hvis miljøet fortsatt bruker den — se [migreringsseksjonen](#migrere-fra-power-automate-flyten-provisioning-request-approval))
 - [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten — eller bruk `-Force`, som svarer nei)
 - [ ] Verifiser at området lastes korrekt
 - [ ] Sjekk at alle lister og data er intakte (inkl. ny `Guest Requests`-liste)
-- [ ] Test `ProcessProvisionRequest` med en eksempel-bestilling
+- [ ] Test `ProcessApprovalRequest` + `ProcessProvisionRequest` med en eksempel-bestilling (send inn, godkjenn, verifiser provisjonering)
+- [ ] Sett bestillinger som sto i `Pending Approval` tilbake til `Submitted` (flyt-migrering)
+- [ ] Slett Power Automate-flyten og løsningen `BestillingsportalenFlows` etter verifisert godkjenning (flyt-migrering)
 - [ ] Test `ProcessGuestRequest` ved å invitere en gjest via webdelen
-- [ ] Gjennomgå Logic Apps-kjørehistorikk for begge
+- [ ] Gjennomgå Logic Apps-kjørehistorikk for alle tre
 - [ ] Re-autoriser API Connections i Azure Portal hvis nødvendig
 - [ ] Verifiser at SPFx-pakken vises som «Deployed» i app-katalog
 - [ ] Test ny funksjonalitet (hvis aktuelt)
