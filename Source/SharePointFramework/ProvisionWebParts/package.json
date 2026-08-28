@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@fluentui/react-components": "^9.72.10",
+    "@fluentui/react-datepicker-compat": "0.6.22",
     "@fluentui/react-icons": "^2.0.317",
+    "@fluentui/react-motion-preview": "0.5.25",
     "@microsoft/sp-component-base": "1.23.2",
     "@microsoft/sp-core-library": "1.23.2",
     "@microsoft/sp-lodash-subset": "1.23.2",
@@ -34,7 +36,11 @@
     "@pnp/spfx-property-controls": "3.23.0",
     "react": "17.0.1",
     "react-dom": "17.0.1",
+    "react-dropzone": "14.3.8",
+    "react-markdown": "8.0.7",
+    "rehype-raw": "6.1.1",
     "scheduler": "0.20.2",
+    "shade-blend-color": "1.0.0",
     "tslib": "2.3.1"
   },
   "devDependencies": {
@@ -47,6 +53,7 @@
     "@types/jest": "30.0.0",
     "@types/react": "17.0.45",
     "@types/react-dom": "17.0.17",
+    "@types/shade-blend-color": "1.0.3",
     "eslint": "9.37.0",
     "eslint-config-prettier": "9.1.2",
     "eslint-plugin-prettier": "5.5.5",
