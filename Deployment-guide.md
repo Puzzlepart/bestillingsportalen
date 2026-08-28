@@ -157,6 +157,8 @@ Beskrivelse av hver parameter:
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
 
+- `guestEntraGroup` (**valgfritt**) – Objekt-ID (anbefalt) eller visningsnavn på en Entra ID-gruppe som alle gjester invitert via `InviteGuests`-webdelen legges inn i, i tillegg til området de inviteres til. Lar organisasjonen gi alle gjester en felles grunntilgang ett sted — f.eks. lesetilgang på hub-området og app-katalogen ved å gi gruppen tilgang der. Gjelder hele installasjonen (alle webdel-instanser), og en gjest som allerede er medlem hoppes stille over. Sikkerhetsgrupper og M365-grupper støttes; rolletildelbare og on-premises-synkroniserte grupper kan ikke skrives via Graph. Angis et visningsnavn må det matche nøyaktig én gruppe i tenanten — ellers feiler invitasjonen med en tydelig melding. La stå tomt for å skru av funksjonen.
+
 - `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E- og F-lisenser fungerer begge, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.

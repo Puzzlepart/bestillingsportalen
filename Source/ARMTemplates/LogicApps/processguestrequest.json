@@ -37,6 +37,13 @@
         "uamiName": {
             "defaultValue": "",
             "type": "string"
+        },
+        "guestEntraGroup": {
+            "defaultValue": "",
+            "type": "string",
+            "metadata": {
+                "description": "Optional: object id or display name of an Entra ID group every invited guest is added to (empty = feature off). Passed through to the AddGuestToSite runbook."
+            }
         }
     },
     "variables": {
@@ -222,7 +229,8 @@
                                                     "m365GroupRole": "@{triggerBody()?['M365GroupRole']?['Value']}",
                                                     "spGroupAction": "@{triggerBody()?['SPGroupAction']?['Value']}",
                                                     "spGroupName": "@{triggerBody()?['SPGroupName']}",
-                                                    "spPermissionLevel": "@{triggerBody()?['SPPermissionLevel']?['Value']}"
+                                                    "spPermissionLevel": "@{triggerBody()?['SPPermissionLevel']?['Value']}",
+                                                    "guestEntraGroup": "[parameters('guestEntraGroup')]"
                                                 }
                                             }
                                         }
