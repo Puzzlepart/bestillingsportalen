@@ -32,6 +32,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     inviteMode,
     perGuestProfileMode,
     perGuestRoleMode,
+    defaultM365GroupRole,
     showAccessPreview,
     showM365GroupRoleSection,
     showSPGroupSection,
@@ -61,6 +62,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     sharedSpGroupName,
     sharedSpPermissionLevel,
     sharedSpGroupNameValidationMessage,
+    activeGuestSpGroupNameValidationMessage,
     setSharedSpGroupAction,
     setSharedSpGroupName,
     setSharedSpPermissionLevel,
@@ -71,6 +73,18 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
   } = useInviteDrawer({ open, onOpenChange })
 
   const guestEmails = React.useMemo(() => guests.map((g) => g.email), [guests])
+  // With the guest role the M365 group already grants access (guest → group →
+  // the site's member group), so the SP section is a pure add-on; without it,
+  // an SP group is the only way the invite grants access to this site.
+  const spSectionDescription = (role: 'None' | 'Member'): string =>
+    role === 'Member'
+      ? strings.SPGroupSectionDescriptionWithGuestRole
+      : strings.SPGroupSectionDescriptionNoRole
+  // The 'None' action still lands the guest in the standard member group when
+  // the role is Gjest (via the M365 group), so its label says "only the
+  // standard group" there and "do not add" only when no role is chosen.
+  const spNoneLabel = (role: 'None' | 'Member'): string =>
+    role === 'Member' ? strings.SPGroupActionNoneWithGuestRoleLabel : strings.SPGroupActionNoneLabel
   const showTabList =
     inviteMode === 'Multi' && guests.length >= 2 && (perGuestProfile || perGuestRole)
   const showToggleRow = perGuestProfileMode === 'Optional' || perGuestRoleMode === 'Optional'
@@ -169,7 +183,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
             <>
               {showM365GroupRoleSection && (
                 <M365GroupRoleSection
-                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  role={activeGuest.m365GroupRole ?? defaultM365GroupRole}
                   onChange={(r) => updateGuest(activeGuest.email, { m365GroupRole: r })}
                   disabled={submitting}
                   locked={lockM365GroupRole}
@@ -177,6 +191,10 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showSPGroupSection && (
                 <SPGroupSection
+                  description={spSectionDescription(
+                    activeGuest.m365GroupRole ?? defaultM365GroupRole
+                  )}
+                  noneLabel={spNoneLabel(activeGuest.m365GroupRole ?? defaultM365GroupRole)}
                   action={activeGuest.spGroupAction ?? spActionOptions[0]}
                   groupName={activeGuest.spGroupName}
                   permissionLevel={activeGuest.spPermissionLevel}
@@ -186,6 +204,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   locked={lockSpGroupAction}
                   presetGroupName={presetSpGroupName}
                   actionOptions={spActionOptions}
+                  nameValidationMessage={activeGuestSpGroupNameValidationMessage}
                   onActionChange={(a) =>
                     updateGuest(activeGuest.email, {
                       spGroupAction: a,
@@ -200,7 +219,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showAccessPreview && (
                 <AccessPreviewPanel
-                  role={activeGuest.m365GroupRole ?? 'Visitor'}
+                  role={activeGuest.m365GroupRole ?? defaultM365GroupRole}
                   spGroupAction={activeGuest.spGroupAction ?? 'None'}
                   spGroupName={activeGuest.spGroupName}
                   spPermissionLevel={activeGuest.spPermissionLevel}
@@ -222,6 +241,8 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
               )}
               {showSPGroupSection && (
                 <SPGroupSection
+                  description={spSectionDescription(sharedM365GroupRole)}
+                  noneLabel={spNoneLabel(sharedM365GroupRole)}
                   action={sharedSpGroupAction}
                   groupName={sharedSpGroupName}
                   permissionLevel={sharedSpPermissionLevel}

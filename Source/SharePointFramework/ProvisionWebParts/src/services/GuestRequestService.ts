@@ -1,5 +1,11 @@
 import type { SPFI } from '@pnp/sp'
-import type { IGuestInput, IGuestRequest, INewGuestRequest } from '../models/IGuestRequest'
+import type {
+  IGuestInput,
+  IGuestRequest,
+  INewGuestRequest,
+  M365GroupRoleStored,
+  M365GroupRoleWritable
+} from '../models/IGuestRequest'
 
 const SELECT = [
   'Id',
@@ -24,6 +30,15 @@ const SELECT = [
   'RequestedBy/EMail'
 ]
 const EXPAND = ['RequestedBy']
+
+/**
+ * Clamps a stored role down to what may be re-submitted. 'Owner' (pre-lock
+ * items only) collapses to 'Member' — the guest role — since the runbook now
+ * rejects it; legacy 'Visitor' passes through so a retry keeps its original
+ * read-only intent.
+ */
+const clampRole = (role: M365GroupRoleStored | undefined): M365GroupRoleWritable =>
+  role === 'Owner' ? 'Member' : (role ?? 'None')
 
 export class GuestRequestService {
   constructor(
@@ -102,7 +117,7 @@ export class GuestRequestService {
       FirstName: existing.FirstName,
       LastName: existing.LastName,
       Company: existing.Company,
-      M365GroupRole: existing.M365GroupRole ?? 'None',
+      M365GroupRole: clampRole(existing.M365GroupRole),
       SPGroupAction: existing.SPGroupAction ?? 'None',
       SPGroupName: existing.SPGroupName,
       SPPermissionLevel: existing.SPPermissionLevel,

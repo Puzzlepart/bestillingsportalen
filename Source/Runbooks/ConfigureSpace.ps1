@@ -144,7 +144,9 @@ function Skip-Step {
 function Invoke-Step {
     param([Parameter(Mandatory = $true)][string] $Name)
 
-    Write-Output ""
+    # No blank line before the header: Azure Automation prefixes every line with a
+    # timestamp and stream name, so an empty Write-Output is not whitespace - it is
+    # another "22:36:01 - Output:" line with nothing after it, once per step.
     Write-Output "--- $Name ---"
     $script:currentStepSkipReason = $null
 
@@ -918,7 +920,6 @@ function Write-StepSummary {
     $skipped = @($script:stepResults | Where-Object { $_.Status -eq 'Skipped' }).Count
     $failed = @($script:stepResults | Where-Object { $_.Status -eq 'Failed' }).Count
 
-    Write-Output ""
     Write-Output "===================== Step summary ====================="
     foreach ($result in $script:stepResults) {
         if ([string]::IsNullOrEmpty($result.Detail)) {

@@ -17,6 +17,14 @@ import type { ISiteGroup } from '../../../../services'
 import styles from './SPGroupSection.module.scss'
 
 interface ISPGroupSectionProps {
+  /** Context-dependent helper text: with the guest role the section is a pure
+   * add-on (the M365 group already grants access); without it, an SP group is
+   * the only way the invite grants site access. */
+  description?: string
+  /** Label for the 'None' action. With the guest role the guest still lands in
+   * the standard member group via the M365 group, so "do not add" would be
+   * misleading — the caller passes "only the standard group" instead. */
+  noneLabel?: string
   action: SPGroupActionUI
   groupName?: string
   permissionLevel?: SPPermissionLevel
@@ -56,6 +64,8 @@ const formatLockedLabel = (template: string, value: string): string =>
   template.replace('{0}', value)
 
 export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
+  description,
+  noneLabel,
   action,
   groupName,
   permissionLevel,
@@ -156,13 +166,17 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
   return (
     <section className={styles.section}>
       <h4 className={styles.title}>{strings.SPGroupSectionTitle}</h4>
+      {description && <p className={styles.description}>{description}</p>}
       {locked ? (
         <>
           <span className={styles.lockedValue}>
             <Tooltip content={strings.LockedFieldTooltip} relationship='label'>
               <LockClosed16Regular tabIndex={0} />
             </Tooltip>
-            {formatLockedLabel(strings.LockedActionLabel, actionLabel(action))}
+            {formatLockedLabel(
+              strings.LockedActionLabel,
+              action === 'None' ? (noneLabel ?? actionLabel(action)) : actionLabel(action)
+            )}
           </span>
           {(addToExistingFields || createNewFields) && (
             <div className={styles.lockedFields}>
@@ -179,7 +193,13 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
           {actionOptions.map((key) => {
             switch (key) {
               case 'None':
-                return <Radio key='None' value='None' label={strings.SPGroupActionNoneLabel} />
+                return (
+                  <Radio
+                    key='None'
+                    value='None'
+                    label={noneLabel ?? strings.SPGroupActionNoneLabel}
+                  />
+                )
               case 'AddToExisting':
                 return (
                   <React.Fragment key='AddToExisting'>

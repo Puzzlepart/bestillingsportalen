@@ -51,6 +51,21 @@ declare interface IProvisionWebPartsStrings {
   ShowM365GroupRoleSectionFieldLabel: string
   ShowSPGroupSectionFieldLabel: string
   TitleFieldLabel: string
+  TitleFieldDescription: string
+  DescriptionFieldDescription: string
+  DisplayModeFieldDescription: string
+  InviteModeFieldDescription: string
+  InviteAccessLevelFieldDescription: string
+  ShowSpActionsDescription: string
+  ShowAccessPreviewFieldDescription: string
+  ShowM365GroupRoleSectionFieldDescription: string
+  ShowSPGroupSectionFieldDescription: string
+  ShowStatusSummaryFieldDescription: string
+  ShowCopyRedeemUrlFieldDescription: string
+  ShowRetryButtonFieldDescription: string
+  StatusColumnsDescription: string
+  PerGuestProfileModeFieldDescription: string
+  PerGuestRoleModeFieldDescription: string
   DescriptionFieldLabel: string
   WebPartTitleInfoLabelTitle: string
   DisplayModeFieldLabel: string
@@ -104,15 +119,11 @@ declare interface IProvisionWebPartsStrings {
   GuestExistsMissingDetails: string
   NoValuePlaceholder: string
   AccessPreviewTitle: string
-  AccessPreviewWarningFooter: string
-  AccessFullAdminGroupConnected: string
-  AccessFullAdminSiteOnly: string
-  AccessSiteEdit: string
-  AccessSiteRead: string
   AccessNoM365: string
+  AccessNoSiteAccessWarning: string
+  AccessSiteEdit: string
   AccessTeamsMember: string
   AccessOneNotePlannerCalendar: string
-  AccessCanInviteOthers: string
   AccessNotGroupConnectedNote: string
   AccessSpGroupAddTemplate: string
   AccessSpGroupCreateTemplate: string
@@ -155,7 +166,10 @@ declare interface IProvisionWebPartsStrings {
   M365GroupRoleSectionDescription: string
 
   SPGroupSectionTitle: string
+  SPGroupSectionDescriptionWithGuestRole: string
+  SPGroupSectionDescriptionNoRole: string
   SPGroupActionNoneLabel: string
+  SPGroupActionNoneWithGuestRoleLabel: string
   SPGroupActionExistingLabel: string
   SPGroupActionNewLabel: string
   SPGroupExistingPickerLabel: string
