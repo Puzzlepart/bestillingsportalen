@@ -12,12 +12,12 @@ Bestillingsportalen er en Azure-basert løsning som gir et alternativ til selvbe
 
 Bestillingsportalen tilbyr følgende:
 
-- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder.
+- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder. Fra og med 2.1.0 inngår webdelen i dette repoets pakke `bp-provision-web-parts` (SPFx 1.23, Fluent UI v9) — tidligere fulgte den med Prosjektportalen 365.
 - Konfigurerbar godkjenningsprosess via Power Automate.
 - SharePoint-område med støttelister som utgjør backenden for løsningen.
 - Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation.
-- Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (SPFx 1.22, Fluent UI v9) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
+- Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (samme SPFx-pakke) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
 
 ### Gjesteinvitasjon
 

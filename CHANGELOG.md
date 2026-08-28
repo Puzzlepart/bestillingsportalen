@@ -4,6 +4,14 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ## Ikke utgitt
 
+### Nytt
+
+- **Bestillings-webdelen (ProjectProvision) er flyttet inn i dette repoet fra Prosjektportalen 365**: Webdelen som lar brukere bestille nye samarbeidsområder (og Teams-appen den utgjør) bygges og distribueres nå som del av `bp-provision-web-parts.sppkg` — Prosjektportalen 365 er ikke lenger en forutsetning for bestillingsflaten. Komponent-id-en (`e88cea29-09a0-4ce4-a38c-e0d74b65f619`) er beholdt, så eksisterende Bestillingsportalen-sider og Teams-appen fortsetter å virke etter oppgradering. **Viktig oppgraderingsrekkefølge for tenants med Prosjektportalen 365**: oppgrader først PP365 til en versjon uten webdelen, og distribuer deretter denne pakken i samme vedlikeholdsvindu — appkatalogen tillater ikke to pakker med samme komponent-id, og siden viser «finner ikke komponenten» i mellomtiden. Ny webdel-egenskap `provisionAccessGroupTitle` styrer hvilken SharePoint-gruppe som gir tilgang når tilgangsstyring er på (standard «Bestillingsportalen»).
+
+### Endret
+
+- **SPFx-verktøykjeden er løftet fra 1.22.1 til 1.23.2**: eslint 9 med flat config, oppdaterte @rushstack-pakker og @types/jest 30. Ingen funksjonell endring for sluttbrukere.
+
 ### Sikkerhet
 
 - **Gjeste-webdelen kan ikke lenger gi eksterne rollen Eier — rollen er låst til Gjest**: Hele invitasjonskjeden er bygget for eksterne brukere (`ProcessGuests` poster alltid til Graph `/invitations`), men webdelen tilbød likevel fire roller opp til Eier — og gjester kan ikke eie en Microsoft 365-gruppe, så runbooken feilet. Rollen er nå låst til **Gjest** (gjestemedlemskap i M365-gruppen via `Add-PnPMicrosoft365GroupMember` — standardmodellen for eksterne i Microsoft 365, gir tilgang til team, område, Planner osv.; lagres som `Member` i listen) eller **Ingen rolle**, i alle lag: radioknappene og property pane-dropdownen viser kun de to valgene, lagret `Owner` fra eldre versjoner klemmes til Gjest ved retry og i webdel-konfigurasjonen, og `AddGuestToSite`-runbooken avviser `Owner` med tydelig feilmelding som siste skanse. Det gamle Besøkende-valget (`Visitor`) er fjernet fra UI — mer begrenset tilgang gis via SP-gruppevalget (Besøkende-gruppen pre-velges som før) — men gamle `Visitor`-rader æres fortsatt av runbooken ved retry. `AccessPreviewPanel` er forenklet tilsvarende (Eier-grenen og warning-varianten er død kode og fjernet), og statuslisten viser fortsatt historiske Besøkende/Eier-rader korrekt.

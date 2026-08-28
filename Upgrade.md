@@ -12,6 +12,16 @@ Oppgraderingsprosessen lar deg:
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
 
+## Oppgradering til 2.1.0 i tenanter med Prosjektportalen 365 — rekkefølgen er obligatorisk
+
+Fra og med 2.1.0 følger bestillings-webdelen (ProjectProvision, komponent-id `e88cea29-09a0-4ce4-a38c-e0d74b65f619`) med `bp-provision-web-parts.sppkg`. Til og med Prosjektportalen 365 1.14 fulgte samme komponent med PP365-pakken `pp-portfolio-web-parts`. Tenant app-katalogen tillater ikke to pakker som registrerer samme komponent-id, så i tenanter som også kjører Prosjektportalen 365 **må** oppgraderingen gjøres i denne rekkefølgen, helst i samme vedlikeholdsvindu:
+
+1. **Oppgrader Prosjektportalen 365** til en versjon der webdelen er fjernet fra `pp-portfolio-web-parts`. Eksisterende `Bestillingsportalen.aspx`-sider viser nå «finner ikke komponenten» — det er forventet.
+2. **Distribuer denne løsningen** (2.1.0 eller nyere) med `deploy.ps1`. Sidene og Teams-appen virker igjen umiddelbart — komponent-id-en er beholdt, og sidene refererer bare til id-en.
+3. **Kjør `Sync to Teams` på nytt** fra `bp-provision-web-parts` i tenant app-katalogen, slik at Teams-app-manifestet eies av denne pakken. Verifiser at Bestillingsportalen-appen fortsatt åpner i Teams.
+
+Omvendt rekkefølge er ikke mulig: distribusjon av `bp-provision-web-parts` 2.1.0 feiler i appkatalogen så lenge en PP365-pakke med komponenten fortsatt er distribuert. Tenanter **uten** Prosjektportalen 365 oppgraderer som normalt uten ekstra steg.
+
 ## Når du skal bruke oppgraderingsmodus
 
 Bruk oppgraderingsmodus når du vil:

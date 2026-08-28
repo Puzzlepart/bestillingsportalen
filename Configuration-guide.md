@@ -204,22 +204,24 @@ Husk å rydde opp etterpå: slett testområdet/-teamet (slett Microsoft 365-grup
 
 ## Konfigurasjonen er nå fullført, og Bestillingsportalen webdel eller Teams app skal være tilgjengelig
 
-## Merknad: Bestillings-webdelen distribueres separat
+## Merknad: Bestillings-webdelen følger denne løsningen
 
-Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår ikke i dette repoet — per i dag følger den **Prosjektportalen**-leveransen. Etter at den er tilgjengelig i tenanten:
+Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår fra og med versjon 2.1.0 i **dette repoet**, som del av SPFx-pakken `bp-provision-web-parts.sppkg` — den distribueres automatisk av `deploy.ps1`. Prosjektportalen 365 er ikke lenger en forutsetning. Slik tas den i bruk:
 
-1. Legg webdelen inn manuelt på en SharePoint-side der brukerne skal bestille.
+1. Legg webdelen **Bestillingsportalen** inn på en SharePoint-side der brukerne skal bestille.
 2. Sett URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`) slik at bestillingene skrives til riktige lister.
 
 Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 3) før de kan bestille.
 
-## Merknad: Aktivere Teams-appen for Bestillingsportalen (krever Prosjektportalen)
+> **Oppgradering i tenanter med Prosjektportalen 365:** Til og med PP365 1.14 fulgte webdelen med PP365-pakken `pp-portfolio-web-parts`, med samme komponent-id. Appkatalogen tillater ikke to pakker som registrerer samme komponent — oppgrader derfor **først** Prosjektportalen 365 til en versjon uten webdelen, og distribuer **deretter** denne pakken, i samme vedlikeholdsvindu. Eksisterende Bestillingsportalen-sider viser «finner ikke komponenten» i mellomtiden og virker igjen så snart denne pakken er distribuert (komponent-id-en er beholdt). Kjør til slutt `Sync to Teams` på nytt fra denne pakken (se under).
 
-Bestillingsportalen finnes også som Teams-app, slik at brukerne kan bestille samarbeidsområder direkte fra Teams. Teams-app-manifestet følger med SPFx-pakken **Prosjektportalen 365 - Portfolio Web Parts** (`pp-portfolio-web-parts`) — akkurat som webdelen i merknaden over krever dette derfor at [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365) er installert i tenanten, slik at pakken ligger i tenant app-katalogen.
+## Merknad: Aktivere Teams-appen for Bestillingsportalen
+
+Bestillingsportalen finnes også som Teams-app, slik at brukerne kan bestille samarbeidsområder direkte fra Teams. Teams-app-manifestet følger med SPFx-pakken **Bestillingsportalen - Provision Web Parts** (`bp-provision-web-parts`), som `deploy.ps1` legger i tenant app-katalogen.
 
 > **Teams-appen har områdets URL hardkodet til `/<managedPath>/bestillingsportalen`.** Webdelen har URL-en som en property i property pane og kan peke hvor som helst — Teams-appen kan ikke. Området må derfor ligge på den URL-en for at Teams-appen skal finne listene. Det er også grunnen til at standardverdien for `requestsSiteAlias` er `bestillingsportalen`; er aliaset opptatt i tenanten, se framgangsmåten i [Installasjonsveiledningen](./Deployment-guide.md#steg-2-oppdatere-parametersjson).
 
-1. **Synkroniser pakken til Teams.** Som Teams og SharePoint-administrator: gå til tenant app-katalogen og åpne `Apps for SharePoint`-biblioteket. Merk pakken **Prosjektportalen 365 - Portfolio Web Parts** (`pp-portfolio-web-parts`) og klikk **`Sync to Teams`** i `FILES`-båndet.
+1. **Synkroniser pakken til Teams.** Som Teams og SharePoint-administrator: gå til tenant app-katalogen og åpne `Apps for SharePoint`-biblioteket. Merk pakken **Bestillingsportalen - Provision Web Parts** (`bp-provision-web-parts`) og klikk **`Sync to Teams`** i `FILES`-båndet.
 
    ![Sync to Teams fra tenant app-katalogen](/Images/teamsapp-step1.png)
 
