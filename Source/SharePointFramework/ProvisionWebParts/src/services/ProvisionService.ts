@@ -17,6 +17,7 @@ import '@pnp/sp/site-users/web'
 import '@pnp/sp/site-groups/web'
 import '@pnp/sp/security'
 import '@pnp/sp/profiles'
+import '@pnp/sp/groupsitemanager'
 import * as strings from 'ProvisionWebPartsStrings'
 import { IProvisionRequestItem } from '../models/IProvisionRequestItem'
 import { getTenantProvisionInstances, IProvisionInstance } from './provisionInstances'
@@ -596,9 +597,70 @@ export class ProvisionService {
   }
 
   public async siteExists(siteUrl: string): Promise<boolean> {
+    const normalizedUrl = siteUrl.replace(/\/+$/, '')
     try {
-      return await this._spfi().site.exists(siteUrl)
-    } catch {
+      const exists = await this._spfi().site.exists(normalizedUrl)
+      if (exists) return true
+    } catch (error) {
+      console.warn('(ProvisionService) (siteExists) SP.Site.Exists check failed:', error)
+    }
+    // SP.Site.Exists only reports live site collections. The URL can still be
+    // unavailable — the site may sit in the tenant recycle bin, or the alias
+    // may be taken by an existing Microsoft 365 group. GetValidSiteUrlFromAlias
+    // (used by SharePoint's own site creation form) returns a modified URL in
+    // those cases.
+    try {
+      const pathSegments = new URL(normalizedUrl).pathname.split('/').filter(Boolean)
+      if (pathSegments.length < 2) return false
+      const alias = pathSegments.pop()
+      const managedPath = `/${pathSegments.pop()}`
+      const validUrl = await this._spfi().groupSiteManager.getValidSiteUrlFromAlias(
+        alias,
+        managedPath,
+        true
+      )
+      return (
+        !!validUrl && validUrl.replace(/\/+$/, '').toLowerCase() !== normalizedUrl.toLowerCase()
+      )
+    } catch (error) {
+      console.warn('(ProvisionService) (siteExists) GetValidSiteUrlFromAlias check failed:', error)
+      return false
+    }
+  }
+
+  /**
+   * Checks if an in-flight provisioning request with the same site alias
+   * already exists in the "Provisioning Requests" list. Only requests that
+   * are still in flight block the alias: rejected and failed requests may be
+   * resubmitted, and created sites are detected by `siteExists` (blocking on
+   * them here would leave stale requests in the way if the site is later
+   * deleted).
+   *
+   * @param siteAlias Full site alias (including naming convention prefix/suffix)
+   * @param provisionUrl URL of the provisioning site
+   */
+  public async provisionRequestExists(siteAlias: string, provisionUrl: string): Promise<boolean> {
+    try {
+      const provisionRequestsList =
+        this._spfi(provisionUrl).web.lists.getByTitle('Provisioning Requests')
+      const escapedAlias = siteAlias.replace(/'/g, "''")
+      const items = await provisionRequestsList.items
+        .select('Id', 'SiteAlias', 'Status')
+        .filter(`SiteAlias eq '${escapedAlias}'`)
+        .top(10)()
+      const blockingStatuses: string[] = [
+        'Submitted',
+        'Pending Approval',
+        'Approved',
+        'Team Requested',
+        'Space Creation'
+      ]
+      return items.some((item) => blockingStatuses.includes(item.Status))
+    } catch (error) {
+      console.warn(
+        '(ProvisionService) (provisionRequestExists) Failed to check provisioning requests:',
+        error
+      )
       return false
     }
   }

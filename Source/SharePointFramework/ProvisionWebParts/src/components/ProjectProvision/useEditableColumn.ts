@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IProjectProvisionProps, IProjectProvisionState } from './types'
 import strings from 'ProvisionWebPartsStrings'
 import { normalizeHubSiteId } from '../../utils/normalizeHubSiteId'
+import { calculateAliasValue } from './calculateAlias'
 
 /**
  * Hook that manages the editable column Map for the provision form.
@@ -211,17 +212,15 @@ export function useEditableColumn(
   const calculateAlias = useCallback(
     (name: string, currentType: string): string => {
       const typeConfig = state.types?.find((t) => t.title === currentType)
-      const useGlobalNaming = getGlobalSetting('UseNamingConventions') === 'true'
+      // getProvisionRequestSettings converts 'true'/'false' strings to
+      // booleans, so a truthy check covers both (unlike upstream PP365,
+      // where the raw string requires === 'true')
+      const useGlobalNaming = !!getGlobalSetting('UseNamingConventions')
       const namingConvention = useGlobalNaming
         ? state.settings?.find((t) => t.title === 'NamingConvention')?.value
         : typeConfig?.namingConvention
 
-      const prefixLength = namingConvention?.prefixText?.length || 0
-      const suffixLength = namingConvention?.suffixText?.length || 0
-      const maxAliasLength = 64 - prefixLength - suffixLength
-
-      const cleanedValue = name.replace(/ /g, '').replace(/[^a-z-A-Z0-9-]/g, '')
-      return cleanedValue.substring(0, Math.max(1, maxAliasLength))
+      return calculateAliasValue(name, namingConvention)
     },
     [state.types, state.settings]
   )

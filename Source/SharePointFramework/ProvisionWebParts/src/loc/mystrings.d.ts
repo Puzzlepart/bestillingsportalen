@@ -238,6 +238,7 @@ declare interface IProvisionWebPartsStrings {
     SiteNamePrefixTooltipText: string
     SiteNameSuffixTooltipText: string
     SiteNameValidationErrorMessage: string
+    SiteNameRequestExistsErrorMessage: string
     SiteNameValidationSuccessMessage: string
     SiteDescriptionFieldLabel: string
     SiteDescriptionFieldDescription: string
@@ -353,6 +354,8 @@ declare interface IProvisionWebPartsStrings {
     InstancePickerDescription: string
     SwitchInstanceLabel: string
     CurrentInstanceLabel: string
+    ToastNameConflictErrorTitle: string
+    ToastNameConflictErrorBody: string
     ToastUserResolveErrorTitle: string
     ToastUserResolveErrorBody: string
     NoHubSiteConnectionMessage: string

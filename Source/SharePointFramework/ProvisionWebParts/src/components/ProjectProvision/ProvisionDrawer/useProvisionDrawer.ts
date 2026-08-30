@@ -1,4 +1,4 @@
-import { useContext, useState, useMemo } from 'react'
+import { useContext, useState, useMemo, useRef } from 'react'
 import { useMotion } from '@fluentui/react-motion-preview'
 import { useMotionStyles } from './motionStyles'
 import { ProjectProvisionContext } from '../context'
@@ -84,7 +84,12 @@ export const useProvisionDrawer = () => {
     ? context.state.settings?.find((t) => t.title === 'NamingConvention')?.value
     : context.state.types?.find((t) => t.title === context.column.get('type'))?.namingConvention
 
-  const urlPrefix = `${context.props.webAbsoluteUrl.split(managedPath)[0]}/${managedPath}/`
+  // `webAbsoluteUrl.split(managedPath)[0]` keeps its trailing slash, so it must
+  // not be joined with another '/' — the resulting double slash makes the URL
+  // differ from the one the provisioning engine creates.
+  const urlPrefix = `${context.props.webAbsoluteUrl
+    .split(managedPath)[0]
+    .replace(/\/+$/, '')}/${managedPath}/`
   const aliasSuffix = '@' + context.props.pageContext.user.loginName.split('@')[1]
 
   // A type that points at a specific `DefaultHub` is always hub associated —
@@ -106,6 +111,11 @@ export const useProvisionDrawer = () => {
   const isTeam = spaceTypeInternal === 'Microsoft Teams Team'
   const isViva = spaceTypeInternal === 'Viva Engage Community'
 
+  const [siteExists, setSiteExists] = useState(false)
+  const [requestExists, setRequestExists] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const isSavingRef = useRef(false)
+
   // People entries without an email/principal key cannot be resolved
   // server-side by validateUpdateListItem — catch them before submitting.
   const hasUnresolvedProvisionUsers = () =>
@@ -115,23 +125,33 @@ export const useProvisionDrawer = () => {
       return users.some((user) => !user?.secondaryText && !user?.id)
     })
 
-  const onSave = async (): Promise<boolean | 'userResolveError'> => {
+  const submitProvisionRequest = async (): Promise<boolean | 'conflict' | 'userResolveError'> => {
+    const name = `${namingConvention?.prefixText ?? ''}${context.column.get('name')}${
+      namingConvention?.suffixText ?? ''
+    }`
+    const alias = `${namingConvention?.prefixText ?? ''}${context.column.get('alias')}${
+      namingConvention?.suffixText ?? ''
+    }`
+
+    // Re-validate right before submitting — the debounced check while typing
+    // can be stale or still in flight when the user clicks save.
+    const [existingSite, pendingRequest] = await Promise.all([
+      context.props.provisionService.siteExists(`${urlPrefix}${alias}`),
+      context.props.provisionService.provisionRequestExists(alias, context.props.provisionUrl)
+    ])
+    if (existingSite || pendingRequest) {
+      setSiteExists(existingSite)
+      setRequestExists(pendingRequest)
+      return 'conflict'
+    }
+
     if (hasUnresolvedProvisionUsers()) {
       return 'userResolveError'
     }
 
-    const baseUrl = `${context.props.webAbsoluteUrl.split(managedPath)[0]}${managedPath}/`
-
     // Hub site of the CURRENT site (empty when not hub associated). Replaces
     // PP365's `portalDataService.url`, which pointed at the portfolio hub.
     const currentHubUrl = (await context.props.provisionService.getCurrentHubSite())?.url ?? ''
-
-    const name = `${namingConvention?.prefixText}${context.column.get('name')}${
-      namingConvention?.suffixText
-    }`
-    const alias = `${namingConvention?.prefixText}${context.column.get('alias')}${
-      namingConvention?.suffixText
-    }`
 
     const sensitivityLabelId = context.state.sensitivityLabels?.find(
       (t) => t.labelName === context.column.get('sensitivityLabel')
@@ -199,8 +219,8 @@ export const useProvisionDrawer = () => {
       RequestedSource: strings.Provision.RequestedSource,
       SpaceImage: context.column.get('image')?.split(',')[1],
       SiteURL: {
-        Description: `${baseUrl}${alias}`,
-        Url: `${baseUrl}${alias}`
+        Description: `${urlPrefix}${alias}`,
+        Url: `${urlPrefix}${alias}`
       },
       SiteAlias: alias,
       MailboxAlias: alias,
@@ -223,7 +243,7 @@ export const useProvisionDrawer = () => {
     if (hubUrl) {
       const properties: Record<string, any> = {
         Title: context.column.get('name'),
-        GtSiteUrl: `${baseUrl}${alias}`
+        GtSiteUrl: `${urlPrefix}${alias}`
       }
       if (isParentMode) {
         properties.GtParentProjects = `[{"SiteId":"${parentSite.SiteId}","Title":"${parentSite.Title}","SPWebURL":"${parentSite.SPWebURL}","HubSiteUrl":"${parentSite.HubSiteUrl}"}]`
@@ -260,7 +280,34 @@ export const useProvisionDrawer = () => {
     )
   }
 
-  const [siteExists, setSiteExists] = useState(false)
+  /**
+   * Submits the provision request, guarding against double submits. Without
+   * the guard a double click fires two concurrent submits, and the duplicate
+   * check in `submitProvisionRequest` can't catch the second one — neither has
+   * added its request to the list by the time both run their check, so two
+   * requests for the same site end up in the list.
+   *
+   * The ref is what actually blocks the second click: `isSaving` may not have
+   * been committed yet when the two click events arrive back to back.
+   */
+  const onSave = async (): Promise<boolean | 'conflict' | 'busy' | 'userResolveError'> => {
+    if (isSavingRef.current) return 'busy'
+    isSavingRef.current = true
+    setIsSaving(true)
+    try {
+      return await submitProvisionRequest()
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('(useProvisionDrawer) (onSave) Failed to submit provision request:', error)
+      return false
+    } finally {
+      // require-atomic-updates false positive: the ref is set synchronously
+      // before the awaits, exactly to make this guard race-free
+      // eslint-disable-next-line require-atomic-updates
+      isSavingRef.current = false
+      setIsSaving(false)
+    }
+  }
 
   const duplicateOwnerMembers = useMemo(() => {
     const owners: any[] = context.column.get('owner') || []
@@ -312,7 +359,8 @@ export const useProvisionDrawer = () => {
         })),
         missingRequiredFields,
         siteExists,
-        isSaveDisabled: missingRequiredFields || siteExists,
+        requestExists,
+        isSaveDisabled: missingRequiredFields || siteExists || requestExists,
         currentTypeConfig,
         currentTemplate: currentTemplate
           ? {
@@ -325,12 +373,17 @@ export const useProvisionDrawer = () => {
     }
 
     return (
-      missingRequiredFields || siteExists || duplicateOwnerMembers.length > 0 || insufficientOwners
+      missingRequiredFields ||
+      siteExists ||
+      requestExists ||
+      duplicateOwnerMembers.length > 0 ||
+      insufficientOwners
     )
   }, [
     fieldsToUse,
     context.column,
     siteExists,
+    requestExists,
     duplicateOwnerMembers,
     insufficientOwners,
     selectedType,
@@ -359,12 +412,13 @@ export const useProvisionDrawer = () => {
       }))
 
     return {
-      hasErrors: missingFields.length > 0 || siteExists,
+      hasErrors: missingFields.length > 0 || siteExists || requestExists,
       missingFields,
       siteExists,
+      requestExists,
       totalRequired: requiredFields.length
     }
-  }, [fieldsToUse, context.column, siteExists, currentTemplate])
+  }, [fieldsToUse, context.column, siteExists, requestExists, currentTemplate])
 
   const fluentProviderId = useId('fp-provision-drawer')
 
@@ -377,10 +431,13 @@ export const useProvisionDrawer = () => {
     motionStyles,
     context,
     onSave,
+    isSaving,
     isSaveDisabled,
     missingFieldsInfo,
     siteExists,
     setSiteExists,
+    requestExists,
+    setRequestExists,
     duplicateOwnerMembers,
     insufficientOwners,
     minimumOwners,

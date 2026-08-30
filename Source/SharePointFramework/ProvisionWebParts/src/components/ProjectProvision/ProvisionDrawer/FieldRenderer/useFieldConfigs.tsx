@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import React, { useContext, useRef } from 'react'
 import { Input, Switch, Dropdown, Option, Tag, Tooltip } from '@fluentui/react-components'
 import { DatePicker } from '@fluentui/react-datepicker-compat'
 import { format } from '../../../../utils/format'
@@ -7,6 +7,7 @@ import { FieldContainer } from '../../../FieldContainer'
 import { ProjectProvisionContext } from '../../context'
 import { SiteType } from '../SiteType'
 import { IFieldConfig } from './types'
+import { calculateAliasValue } from '../../calculateAlias'
 import drawerStyles from '../ProvisionDrawer.module.scss'
 
 interface LocalInputHandle {
@@ -17,6 +18,8 @@ interface LocalInputHandle {
 export interface UseFieldConfigsParams {
   siteExists: boolean
   setSiteExists: (exists: boolean) => void
+  requestExists: boolean
+  setRequestExists: (exists: boolean) => void
   duplicateOwnerMembers: any[]
   insufficientOwners: boolean
   minimumOwners: number
@@ -51,6 +54,11 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
     justification: justificationInput,
     additionalInfo: additionalInfoInput
   } = params.localInputs
+
+  // The availability check is debounced, and responses can complete out of
+  // order — the sequence counter makes sure only the latest check updates state.
+  const availabilityCheckTimeout = useRef<ReturnType<typeof setTimeout>>()
+  const availabilityCheckSequence = useRef(0)
 
   const configs: Record<string, IFieldConfig> = {}
 
@@ -113,13 +121,19 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
         required={field.required}
         hidden={field.hidden}
         validationState={
-          nameInput.value.length ? (params.siteExists ? 'error' : 'success') : 'none'
+          nameInput.value.length
+            ? params.siteExists || params.requestExists
+              ? 'error'
+              : 'success'
+            : 'none'
         }
         validationMessage={
           nameInput.value.length
             ? params.siteExists
               ? strings.Provision.SiteNameValidationErrorMessage
-              : strings.Provision.SiteNameValidationSuccessMessage
+              : params.requestExists
+                ? strings.Provision.SiteNameRequestExistsErrorMessage
+                : strings.Provision.SiteNameValidationSuccessMessage
             : field.description
         }>
         <Input
@@ -127,15 +141,30 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
           onChange={(_, data) => {
             const limitedValue = data.value.substring(0, 255)
             nameInput.onChange(limitedValue)
-            if (limitedValue) {
-              setTimeout(async () => {
-                const value = limitedValue.replace(/ /g, '').replace(/[^a-z-A-Z0-9-]/g, '')
-                const alias = `${params.namingConvention?.prefixText}${value}${params.namingConvention?.suffixText}`
-                params.setSiteExists(
-                  await context.props.provisionService.siteExists(`${params.urlPrefix}${alias}`)
-                )
-              }, 500)
+            clearTimeout(availabilityCheckTimeout.current)
+            const sequence = ++availabilityCheckSequence.current
+            if (!limitedValue) {
+              params.setSiteExists(false)
+              params.setRequestExists(false)
+              return
             }
+            availabilityCheckTimeout.current = setTimeout(async () => {
+              const alias = `${params.namingConvention?.prefixText ?? ''}${calculateAliasValue(
+                limitedValue,
+                params.namingConvention
+              )}${params.namingConvention?.suffixText ?? ''}`
+              const [existingSite, pendingRequest] = await Promise.all([
+                context.props.provisionService.siteExists(`${params.urlPrefix}${alias}`),
+                context.props.provisionService.provisionRequestExists(
+                  alias,
+                  context.props.provisionUrl
+                )
+              ])
+              if (sequence === availabilityCheckSequence.current) {
+                params.setSiteExists(existingSite)
+                params.setRequestExists(pendingRequest)
+              }
+            }, 500)
           }}
           contentBefore={
             params.namingConvention?.prefixText && (
@@ -219,14 +248,14 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
       <FieldContainer iconName={field.iconName} label={field.displayName} hidden={field.hidden}>
         <Tooltip
           withArrow
-          content={`${params.namingConvention?.prefixText}${context.column.get('alias')}${
-            params.namingConvention?.suffixText
+          content={`${params.namingConvention?.prefixText ?? ''}${context.column.get('alias')}${
+            params.namingConvention?.suffixText ?? ''
           }${params.aliasSuffix}`}
           relationship='label'>
           <Input
             disabled
-            value={`${params.namingConvention?.prefixText}${context.column.get('alias')}${
-              params.namingConvention?.suffixText
+            value={`${params.namingConvention?.prefixText ?? ''}${context.column.get('alias')}${
+              params.namingConvention?.suffixText ?? ''
             }`}
             contentAfter={<Tag size='small'>{params.aliasSuffix}</Tag>}
           />
@@ -240,14 +269,14 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
       <FieldContainer iconName={field.iconName} label={field.displayName} hidden={field.hidden}>
         <Tooltip
           withArrow
-          content={`${params.urlPrefix}${params.namingConvention?.prefixText}${context.column.get(
-            'alias'
-          )}${params.namingConvention?.suffixText}`}
+          content={`${params.urlPrefix}${
+            params.namingConvention?.prefixText ?? ''
+          }${context.column.get('alias')}${params.namingConvention?.suffixText ?? ''}`}
           relationship='label'>
           <Input
             disabled
-            value={`${params.namingConvention?.prefixText}${context.column.get('alias')}${
-              params.namingConvention?.suffixText
+            value={`${params.namingConvention?.prefixText ?? ''}${context.column.get('alias')}${
+              params.namingConvention?.suffixText ?? ''
             }`}
             contentBefore={<Tag size='small'>{params.urlPrefix}</Tag>}
           />
