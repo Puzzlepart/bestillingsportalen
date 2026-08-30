@@ -1,0 +1,47 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "id": "e88cea29-09a0-4ce4-a38c-e0d74b65f619",
+  "version": "0.0.0",
+  "packageName": "bp-provision-web-parts",
+  "developer": {
+    "name": "SoftwareOne",
+    "websiteUrl": "https://www.softwareone.com",
+    "privacyUrl": "https://www.softwareone.com/en-us/privacy-statement",
+    "termsOfUseUrl": "https://www.softwareone.com/en-us/terms-conditions"
+  },
+  "name": {
+    "short": "Bestillingsportalen"
+  },
+  "description": {
+    "short": "Bestill nye samhandlingsområder",
+    "full": "Bestillingsportalen lar deg bestille nye samhandlingsområder (SharePoint-områder og Teams) direkte fra Teams."
+  },
+  "icons": {
+    "color": "e88cea29-09a0-4ce4-a38c-e0d74b65f619_color.png",
+    "outline": "e88cea29-09a0-4ce4-a38c-e0d74b65f619_outline.png"
+  },
+  "accentColor": "#004578",
+  "staticTabs": [
+    {
+      "entityId": "bestillingsportalen",
+      "name": "Bestillingsportalen",
+      "contentUrl": "https://{teamSiteDomain}/_layouts/15/TeamsLogon.aspx?SPFX=true&dest=/_layouts/15/teamshostedapp.aspx%3Fteams%26personal%26componentId=e88cea29-09a0-4ce4-a38c-e0d74b65f619%26forceLocale={locale}",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "*.login.microsoftonline.com",
+    "*.sharepoint.com",
+    "*.sharepoint-df.com",
+    "spoppe-a.akamaihd.net",
+    "spoprod-a.akamaihd.net",
+    "resourceseng.blob.core.windows.net",
+    "msft.spoppe.com"
+  ],
+  "webApplicationInfo": {
+    "resource": "https://{teamSiteDomain}",
+    "id": "00000003-0000-0ff1-ce00-000000000000"
+  }
+}

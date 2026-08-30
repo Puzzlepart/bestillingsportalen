@@ -16,13 +16,14 @@ export function useProjectProvisionDataFetch(
 ) {
   useEffect(() => {
     Promise.all([
-      props.provisionService.hasProvisionSiteAccess(props.provisionUrl),
+      props.provisionService.getProvisionSiteAccess(props.provisionUrl),
       props.provisionService.isProvisionSiteAdmin(props.provisionUrl)
     ])
-      .then(([hasAccess, isAdmin]) => {
-        if (!hasAccess) {
+      .then(([access, isAdmin]) => {
+        if (access !== 'granted') {
           setState({
-            accessDenied: true,
+            accessDenied: access === 'denied',
+            siteNotFound: access === 'notFound',
             loading: false,
             isRefetching: false
           })

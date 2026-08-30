@@ -49,7 +49,7 @@ export function useTeamsConfigEditor() {
     void context.props.provisionService
       .loadTeamsConfig?.(context.props.provisionUrl)
       .then((config) => {
-        setHasExistingConfig(config !== null)
+        setHasExistingConfig(Boolean(config))
       })
   }, [])
 

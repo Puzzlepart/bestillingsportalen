@@ -1,5 +1,6 @@
 import { Slot } from '@fluentui/react-components'
 import { FluentIconName } from '../../icons'
+import { IProvisionInstance } from '../../services/provisionInstances'
 import { IBaseComponentProps } from '../types'
 
 /**
@@ -62,6 +63,10 @@ export interface IProjectProvisionProps extends IBaseComponentProps {
   provisionAccessGroupTitle?: string
   hasProjectProvisionAccess?: boolean
   isTeamsContext?: boolean
+  /** Instances from the tenant registry the current user has access to (Teams only) */
+  provisionInstances?: IProvisionInstance[]
+  /** Switches the active instance (Teams only, when more than one is accessible) */
+  onSwitchInstance?: (url: string) => void
   fields?: IProvisionField[]
   typeFieldConfigurations?: ITypeFieldConfiguration[]
   excludedTypes?: string[]
@@ -78,6 +83,7 @@ export interface IProjectProvisionState {
   loading: boolean
   error?: Error
   accessDenied?: boolean
+  siteNotFound?: boolean
   showProvisionDrawer: boolean
   showProvisionStatus: boolean
   showProvisionSettings: boolean

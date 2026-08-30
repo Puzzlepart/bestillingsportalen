@@ -48,6 +48,8 @@ export const ProvisionDrawer: FC<IProvisionDrawerProps> = (props) => {
     siteExists,
     setSiteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
+    minimumOwners,
     namingConvention,
     enableSensitivityLabels,
     enableSensitivityLabelsLibrary,
@@ -76,6 +78,8 @@ export const ProvisionDrawer: FC<IProvisionDrawerProps> = (props) => {
     siteExists,
     setSiteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
+    minimumOwners,
     namingConvention,
     urlPrefix,
     aliasSuffix,
@@ -253,23 +257,34 @@ export const ProvisionDrawer: FC<IProvisionDrawerProps> = (props) => {
                 appearance='primary'
                 disabled={currentLevel === levels.length - 1 && isSaveDisabled}
                 onClick={() => {
-                  currentLevel === levels.length - 1
-                    ? void onSave().then((response) => {
-                        if (response) {
-                          context.setState({ showProvisionConfirmation: true, properties: {} })
-                          setCurrentLevel(0)
-                          context.reset()
-                        } else {
-                          props.toast(
-                            <Toast appearance='inverted'>
-                              <ToastTitle>{strings.Provision.ToastCreatedErrorTitle}</ToastTitle>
-                              <ToastBody>{strings.Provision.ToastCreatedErrorBody}</ToastBody>
-                            </Toast>,
-                            { intent: 'error' }
-                          )
-                        }
-                      })
-                    : setCurrentLevel(currentLevel + 1)
+                  if (currentLevel === levels.length - 1) {
+                    void onSave().then((response) => {
+                      if (response === true) {
+                        context.setState({ showProvisionConfirmation: true, properties: {} })
+                        setCurrentLevel(0)
+                        context.reset()
+                      } else {
+                        const isUserResolveError = response === 'userResolveError'
+                        props.toast(
+                          <Toast appearance='inverted'>
+                            <ToastTitle>
+                              {isUserResolveError
+                                ? strings.Provision.ToastUserResolveErrorTitle
+                                : strings.Provision.ToastCreatedErrorTitle}
+                            </ToastTitle>
+                            <ToastBody>
+                              {isUserResolveError
+                                ? strings.Provision.ToastUserResolveErrorBody
+                                : strings.Provision.ToastCreatedErrorBody}
+                            </ToastBody>
+                          </Toast>,
+                          { intent: 'error' }
+                        )
+                      }
+                    })
+                  } else {
+                    setCurrentLevel(currentLevel + 1)
+                  }
                 }}>
                 {currentLevel === levels.length - 1
                   ? strings.Provision.ProvisionButtonLabel

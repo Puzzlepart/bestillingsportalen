@@ -79,7 +79,7 @@ export function useToolbarMenuRender() {
             disabled={item.disabled}
             onClick={(e) => {
               item.onClick(e)
-              closeMenu && closeMenu()
+              closeMenu?.()
             }}
           />
         </div>
@@ -97,7 +97,7 @@ export function useToolbarMenuRender() {
           disabled={item.disabled}
           onClick={(e) => {
             item.onClick(e)
-            closeMenu && closeMenu()
+            closeMenu?.()
           }}
         />
       </div>

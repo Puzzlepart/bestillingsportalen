@@ -18,6 +18,8 @@ export interface UseFieldConfigsParams {
   siteExists: boolean
   setSiteExists: (exists: boolean) => void
   duplicateOwnerMembers: any[]
+  insufficientOwners: boolean
+  minimumOwners: number
   namingConvention: any
   urlPrefix: string
   aliasSuffix: string
@@ -122,7 +124,7 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
         }>
         <Input
           value={nameInput.value}
-          onChange={async (_, data) => {
+          onChange={(_, data) => {
             const limitedValue = data.value.substring(0, 255)
             nameInput.onChange(limitedValue)
             if (limitedValue) {
@@ -203,6 +205,13 @@ export function useFieldConfigs(params: UseFieldConfigsParams): Record<string, I
       params.duplicateOwnerMembers.length > 0
         ? strings.Provision.DuplicateOwnerMemberMessage
         : undefined
+  }
+
+  configs.owner = {
+    validationState: params.insufficientOwners ? 'error' : 'none',
+    validationMessage: params.insufficientOwners
+      ? format(strings.Provision.MinimumOwnersMessage, params.minimumOwners)
+      : undefined
   }
 
   configs.alias = {

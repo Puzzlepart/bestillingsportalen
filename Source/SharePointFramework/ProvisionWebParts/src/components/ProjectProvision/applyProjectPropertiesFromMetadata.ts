@@ -34,13 +34,13 @@ type IContentTypeSchema = {
   Name?: string
 }
 
-const safeParse = (metadataJson: string): IDefaultMetadataShape | null => {
-  if (!metadataJson || typeof metadataJson !== 'string') return null
+const safeParse = (metadataJson: string): IDefaultMetadataShape | undefined => {
+  if (!metadataJson || typeof metadataJson !== 'string') return undefined
   try {
     return JSON.parse(metadataJson)
   } catch (error) {
     console.warn('Failed to parse DefaultMetadata JSON:', error)
-    return null
+    return undefined
   }
 }
 
@@ -56,14 +56,14 @@ const safeParse = (metadataJson: string): IDefaultMetadataShape | null => {
  *   - { label, termGuid } / { Label, TermGuid }
  *   - arrays of the above (multi-tax)
  */
-const formatTaxonomyValue = (value: any): string | null => {
-  if (value == null) return null
+const formatTaxonomyValue = (value: any): string | undefined => {
+  if (value === null || value === undefined) return undefined
   if (Array.isArray(value)) {
     const parts = value.map(formatTaxonomyValue).filter(Boolean) as string[]
-    return parts.length > 0 ? parts.join(';') : null
+    return parts.length > 0 ? parts.join(';') : undefined
   }
   if (typeof value === 'string') {
-    return value.trim() || null
+    return value.trim() || undefined
   }
   if (typeof value === 'object') {
     const label = value.label ?? value.Label
@@ -71,7 +71,7 @@ const formatTaxonomyValue = (value: any): string | null => {
     if (label && guid) return `${label}|${guid}`
     if (label) return String(label)
   }
-  return null
+  return undefined
 }
 
 /**
@@ -125,7 +125,7 @@ export const parseMetadataPreview = (metadataJson: string): IProjectPropertyEntr
 }
 
 const ensureUserIds = async (web: IWeb, value: any): Promise<number[]> => {
-  const list = Array.isArray(value) ? value : value != null ? [value] : []
+  const list = Array.isArray(value) ? value : value !== null && value !== undefined ? [value] : []
   const ids: number[] = []
   for (const v of list) {
     const login = typeof v === 'string' ? v : v?.email || v?.loginName

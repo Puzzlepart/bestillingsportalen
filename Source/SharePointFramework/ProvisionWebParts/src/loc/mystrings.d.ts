@@ -252,6 +252,7 @@ declare interface IProvisionWebPartsStrings {
     MemberFieldLabel: string
     MemberFieldDescription: string
     DuplicateOwnerMemberMessage: string
+    MinimumOwnersMessage: string
     RequestedByFieldLabel: string
     RequestedByFieldDescription: string
     UserFieldNoOptionsText: string
@@ -346,6 +347,14 @@ declare interface IProvisionWebPartsStrings {
     ExpirationDateNoneOption: string
     ExpirationDateMonthOption: string
     NoProvisionAccessMessage: string
+    SiteNotFoundTitle: string
+    SiteNotFoundMessage: string
+    InstancePickerTitle: string
+    InstancePickerDescription: string
+    SwitchInstanceLabel: string
+    CurrentInstanceLabel: string
+    ToastUserResolveErrorTitle: string
+    ToastUserResolveErrorBody: string
     NoHubSiteConnectionMessage: string
     DefaultTeamTemplate: string
     DefaultLanguage: string

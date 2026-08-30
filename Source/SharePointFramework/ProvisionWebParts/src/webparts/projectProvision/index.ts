@@ -33,6 +33,15 @@ import { Dropdown, Option, IdPrefixProvider, FluentProvider } from '@fluentui/re
 import { customLightTheme } from '../../utils/theme'
 import { format } from '../../utils/format'
 import { ProvisionService } from '../../services/ProvisionService'
+import {
+  DEFAULT_PROVISION_URL,
+  getRememberedInstanceUrl,
+  IProvisionInstance,
+  rememberInstanceUrl,
+  resolveProvisionUrl,
+  sameInstanceUrl
+} from '../../services/provisionInstances'
+import { InstancePicker } from '../../components/ProjectProvision/InstancePicker'
 
 const DEFAULT_PROVISION_TYPES = [
   { key: 'Prosjektområde', text: strings.Provision.ProjectAreaType },
@@ -46,6 +55,14 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
   private _defaultFields = getDefaultFields()
   private _defaultTypeFieldConfigurations = getDefaultTypeFieldConfigurations()
   private _provisionTypes: Array<{ key: string; text: string; disabled?: boolean }> = []
+  private _instances: IProvisionInstance[] = []
+  private _accessibleInstances: IProvisionInstance[] = []
+  private _instanceResolved = false
+  private _initialProperties: IProjectProvisionProps
+  // The effective site URL. Kept OUT of this.properties: on SharePoint pages
+  // the property bag is persisted on page save, and writing the resolved URL
+  // there would silently freeze the registry value into the page.
+  private _resolvedProvisionUrl = ''
 
   public async render(): Promise<void> {
     // SharePoint chrome can pre-register an older Tabster instance on
@@ -60,27 +77,46 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
       tabsterInstance.attrHandlers = new Map()
     }
 
-    let hasProjectProvisionAccess = true
-    if (this.properties.requireProvisionAccess) {
-      try {
-        hasProjectProvisionAccess = await this._provisionService.isUserInGroup(
-          this.properties.provisionAccessGroupTitle || DEFAULT_PROVISION_ACCESS_GROUP
-        )
-      } catch {
-        hasProjectProvisionAccess = false
+    let element: React.ReactElement
+    if (!this._instanceResolved) {
+      // The user has access to several instances and no remembered choice —
+      // let them pick before any instance-specific data is loaded.
+      element = React.createElement(InstancePicker, {
+        instances: this._accessibleInstances,
+        onSelect: (url: string) => this._switchInstance(url)
+      })
+    } else {
+      let hasProjectProvisionAccess = true
+      if (this.properties.requireProvisionAccess) {
+        try {
+          hasProjectProvisionAccess = await this._provisionService.isUserInGroup(
+            this.properties.provisionAccessGroupTitle || DEFAULT_PROVISION_ACCESS_GROUP
+          )
+        } catch {
+          hasProjectProvisionAccess = false
+        }
       }
-    }
 
-    const element = React.createElement(ProjectProvision, {
-      manifestId: this.manifest.id,
-      ...this.properties,
-      hasProjectProvisionAccess,
-      provisionService: this._provisionService,
-      displayMode: this.displayMode,
-      sp: this._sp,
-      pageContext: this.context.pageContext,
-      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl
-    })
+      element = React.createElement(ProjectProvision, {
+        // Remount on instance switch: the data-fetch effect only depends on
+        // `refetch`, so a fresh mount is what forces a refetch and resets state.
+        key: this._resolvedProvisionUrl,
+        manifestId: this.manifest.id,
+        ...this.properties,
+        provisionUrl: this._resolvedProvisionUrl,
+        provisionInstances: this._accessibleInstances,
+        onSwitchInstance:
+          this._accessibleInstances.length > 1
+            ? (url: string) => this._switchInstance(url)
+            : undefined,
+        hasProjectProvisionAccess,
+        provisionService: this._provisionService,
+        displayMode: this.displayMode,
+        sp: this._sp,
+        pageContext: this.context.pageContext,
+        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl
+      })
+    }
     ReactDom.render(element, this.domElement)
   }
 
@@ -120,23 +156,80 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
     this._sp = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
     this._provisionService = new ProvisionService(this.context)
 
-    if (this.context.sdks?.microsoftTeams) {
+    const isTeams = !!this.context.sdks?.microsoftTeams
+    if (isTeams) {
       this.properties.renderMode = 'inline'
       this.properties.isTeamsContext = true
       if (!this.properties.drawerSize) this.properties.drawerSize = 'full'
+    }
 
-      if (this.properties.provisionUrl) {
-        try {
-          const teamsConfig = await this._provisionService.loadTeamsConfig(
-            this.properties.provisionUrl
-          )
-          if (teamsConfig) {
-            Object.assign(this.properties, teamsConfig)
-            console.log('Loaded Teams configuration from TeamsAppConfig.json')
-          }
-        } catch (error) {
-          console.warn('Failed to load Teams configuration:', error)
+    // Pristine snapshot (taken after the Teams-mode flags) restored on every
+    // instance switch, so one instance's Object.assign-ed TeamsAppConfig does
+    // not leak into the next.
+    this._initialProperties = { ...this.properties }
+    this._instances = await this._provisionService.getTenantProvisionInstances()
+
+    if (!isTeams || this._instances.length <= 1) {
+      await this._applyProvisionUrl(
+        resolveProvisionUrl(this.properties.provisionUrl, this._instances, isTeams)
+      )
+      this._instanceResolved = true
+      return
+    }
+
+    // Multiple registry entries in Teams: offer only the instances the user
+    // can actually access, and show the picker only when there are several.
+    const accessResults = await Promise.all(
+      this._instances.map((instance) => this._provisionService.getProvisionSiteAccess(instance.url))
+    )
+    this._accessibleInstances = this._instances.filter(
+      (_, index) => accessResults[index] === 'granted'
+    )
+
+    if (this._accessibleInstances.length === 0) {
+      // Open the tenant default; the component's own access check renders the
+      // accurate access-denied / not-found message.
+      await this._applyProvisionUrl(this._instances[0].url)
+      this._instanceResolved = true
+    } else if (this._accessibleInstances.length === 1) {
+      await this._applyProvisionUrl(this._accessibleInstances[0].url)
+      this._instanceResolved = true
+    } else {
+      const remembered = getRememberedInstanceUrl()
+      const match = this._accessibleInstances.find((instance) =>
+        sameInstanceUrl(instance.url, remembered)
+      )
+      if (match) {
+        await this._applyProvisionUrl(match.url)
+        this._instanceResolved = true
+      }
+      // else: render() shows the instance picker. TeamsAppConfig and the
+      // provision types load once the user picks (inside _applyProvisionUrl).
+    }
+  }
+
+  /**
+   * Applies the effective site URL: restores the pristine property snapshot,
+   * loads `TeamsAppConfig.json` from the instance (Teams only), re-merges
+   * fields/type configurations (the config may carry them) and reloads the
+   * provision types. Runs on init and on every instance switch.
+   */
+  private async _applyProvisionUrl(url: string): Promise<void> {
+    for (const key of Object.keys(this.properties)) {
+      if (!(key in this._initialProperties)) delete (this.properties as any)[key]
+    }
+    Object.assign(this.properties, this._initialProperties)
+    this._resolvedProvisionUrl = url
+
+    if (this.context.sdks?.microsoftTeams && url) {
+      try {
+        const teamsConfig = await this._provisionService.loadTeamsConfig(url)
+        if (teamsConfig) {
+          Object.assign(this.properties, teamsConfig)
+          console.log('Loaded Teams configuration from TeamsAppConfig.json')
         }
+      } catch (error) {
+        console.warn('Failed to load Teams configuration:', error)
       }
     }
 
@@ -149,14 +242,22 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
     await this.loadProvisionTypes()
   }
 
+  private _switchInstance(url: string): void {
+    rememberInstanceUrl(url)
+    void this._applyProvisionUrl(url).then(() => {
+      this._instanceResolved = true
+      return this.render()
+    })
+  }
+
   private async loadProvisionTypes(): Promise<void> {
-    if (!this.properties.provisionUrl) {
+    if (!this._resolvedProvisionUrl) {
       this._provisionTypes = [...DEFAULT_PROVISION_TYPES]
       return
     }
 
     try {
-      const types = await this._provisionService.getProvisionTypes(this.properties.provisionUrl)
+      const types = await this._provisionService.getProvisionTypes(this._resolvedProvisionUrl)
       const availableTypeNames = types.map((type: any) => type.title)
       const mergedTypes = new Map<string, { key: string; text: string; disabled?: boolean }>()
 
@@ -368,7 +469,8 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
               groupFields: [
                 PropertyPaneTextField('provisionUrl', {
                   label: strings.Provision.ProvisionUrlFieldLabel,
-                  description: strings.Provision.ProvisionUrlFieldDescription
+                  description: strings.Provision.ProvisionUrlFieldDescription,
+                  placeholder: this._instances[0]?.url || DEFAULT_PROVISION_URL
                 }),
                 PropertyPaneToggle('requireProvisionAccess', {
                   label: strings.Provision.RequireProvisionAccessFieldLabel,
@@ -753,6 +855,8 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
     newValue: any
   ): Promise<void> {
     if (propertyPath === 'provisionUrl' && oldValue !== newValue) {
+      // An emptied field falls back to the tenant registry default
+      this._resolvedProvisionUrl = resolveProvisionUrl(newValue, this._instances, false)
       await this.loadProvisionTypes()
       this.context.propertyPane.refresh()
       void this.render()

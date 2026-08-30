@@ -138,62 +138,23 @@ export function useEditableColumn(
           ],
           [
             'owner',
-            async () => {
+            () => {
               if (!value || !Array.isArray(value)) return []
-              if (!props.provisionService) {
-                return []
-              }
-              try {
-                const users = await props.provisionService.getProvisionUsers(
-                  value,
-                  props.provisionUrl
-                )
-                const values = await Promise.all(users)
-                return values.flat()
-              } catch (error) {
-                console.warn(`Failed to get provision users for owner: ${error}`)
-                return []
-              }
+              return value.filter((user) => user?.secondaryText || user?.id)
             }
           ],
           [
             'member',
-            async () => {
+            () => {
               if (!value || !Array.isArray(value)) return []
-              if (!props.provisionService) {
-                return []
-              }
-              try {
-                const users = await props.provisionService.getProvisionUsers(
-                  value,
-                  props.provisionUrl
-                )
-                const values = await Promise.all(users)
-                return values.flat()
-              } catch (error) {
-                console.warn(`Failed to get provision users for member: ${error}`)
-                return []
-              }
+              return value.filter((user) => user?.secondaryText || user?.id)
             }
           ],
           [
             'requestedBy',
-            async () => {
+            () => {
               if (!value || !Array.isArray(value)) return []
-              if (!props.provisionService) {
-                return []
-              }
-              try {
-                const users = await props.provisionService.getProvisionUsers(
-                  value,
-                  props.provisionUrl
-                )
-                const values = await Promise.all(users)
-                return values.flat()
-              } catch (error) {
-                console.warn(`Failed to get provision users for requestedBy: ${error}`)
-                return []
-              }
+              return value.filter((user) => user?.secondaryText || user?.id)
             }
           ],
           [

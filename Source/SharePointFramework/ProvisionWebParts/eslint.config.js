@@ -25,6 +25,10 @@ module.exports = [
       quotes: ['error', 'single', { avoidEscape: true, allowTemplateLiterals: true }],
       semi: ['error', 'never'],
       'no-console': 1,
+      // The SPFx profile enables @typescript-eslint/no-floating-promises, whose
+      // sanctioned opt-out for fire-and-forget calls is the `void` operator —
+      // so `void` must stay legal in statement position.
+      'no-void': [1, { allowAsStatement: true }],
       eqeqeq: 1,
       'require-await': 1,
       '@typescript-eslint/no-explicit-any': 0,

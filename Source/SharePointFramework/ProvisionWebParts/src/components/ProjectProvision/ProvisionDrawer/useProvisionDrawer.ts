@@ -8,6 +8,7 @@ import { useId } from '@fluentui/react-components'
 import strings from 'ProvisionWebPartsStrings'
 import { getFieldsForType } from '../getFieldsForType'
 import { normalizeHubSiteId } from '../../../utils/normalizeHubSiteId'
+import { parseMinimumOwners } from '../../../utils/parseMinimumOwners'
 import {
   applyProjectPropertiesFromMetadata,
   applyTaxonomyUpdatesAfterAdd
@@ -74,6 +75,8 @@ export const useProvisionDrawer = () => {
   const enableAutoApproval = getGlobalSetting('EnableAutoApproval')
   const managedPath = getGlobalSetting('SPOManagedPath')
 
+  const minimumOwners = parseMinimumOwners(getGlobalSetting('MinimumOwners'))
+
   const typeDefaults = context.state.types?.find((t) => t.title === selectedType)
   const enableExternalSharing = typeDefaults?.externalSharing
 
@@ -103,7 +106,20 @@ export const useProvisionDrawer = () => {
   const isTeam = spaceTypeInternal === 'Microsoft Teams Team'
   const isViva = spaceTypeInternal === 'Viva Engage Community'
 
-  const onSave = async (): Promise<boolean> => {
+  // People entries without an email/principal key cannot be resolved
+  // server-side by validateUpdateListItem — catch them before submitting.
+  const hasUnresolvedProvisionUsers = () =>
+    ['owner', 'member', 'requestedBy'].some((field) => {
+      const users = context.column.get(field)
+      if (!Array.isArray(users)) return false
+      return users.some((user) => !user?.secondaryText && !user?.id)
+    })
+
+  const onSave = async (): Promise<boolean | 'userResolveError'> => {
+    if (hasUnresolvedProvisionUsers()) {
+      return 'userResolveError'
+    }
+
     const baseUrl = `${context.props.webAbsoluteUrl.split(managedPath)[0]}${managedPath}/`
 
     // Hub site of the CURRENT site (empty when not hub associated). Replaces
@@ -156,9 +172,9 @@ export const useProvisionDrawer = () => {
         context.column.get('teamify') || isTeam
           ? context.state.properties.teamTemplate || 'standard'
           : '',
-      OwnersId: context.state.properties.owner,
-      MembersId: context.state.properties.member,
-      RequestedById: context.state.properties.requestedBy,
+      OwnersId: context.column.get('owner'),
+      MembersId: context.column.get('member'),
+      RequestedById: context.column.get('requestedBy'),
       ConfidentialData: context.column.get('isConfidential'),
       Metadata: context.column.get('metadata'),
       Visibility: context.state.properties.privacy || 'Private',
@@ -254,6 +270,12 @@ export const useProvisionDrawer = () => {
     return members.filter((m) => ownerEmails.has(m?.secondaryText?.toLowerCase()))
   }, [context.column])
 
+  const insufficientOwners = useMemo(() => {
+    if (minimumOwners <= 1) return false
+    const owners: any[] = context.column.get('owner') || []
+    return owners.length < minimumOwners
+  }, [context.column, minimumOwners])
+
   const isSaveDisabled = useMemo(() => {
     const requiredFields = fieldsToUse.filter((field) => field.required && !field.hidden)
 
@@ -280,6 +302,7 @@ export const useProvisionDrawer = () => {
     })
 
     if (context.props.debugMode || (typeof DEBUG !== 'undefined' && DEBUG)) {
+      // eslint-disable-next-line no-console
       console.log('sitetype debug menu:', {
         selectedType: selectedType,
         requiredFields: requiredFields.map((f) => ({
@@ -301,12 +324,15 @@ export const useProvisionDrawer = () => {
       })
     }
 
-    return missingRequiredFields || siteExists || duplicateOwnerMembers.length > 0
+    return (
+      missingRequiredFields || siteExists || duplicateOwnerMembers.length > 0 || insufficientOwners
+    )
   }, [
     fieldsToUse,
     context.column,
     siteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
     selectedType,
     context.props.debugMode,
     currentTemplate,
@@ -356,6 +382,8 @@ export const useProvisionDrawer = () => {
     siteExists,
     setSiteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
+    minimumOwners,
     namingConvention,
     enableSensitivityLabels,
     enableSensitivityLabelsLibrary,

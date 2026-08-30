@@ -8,10 +8,10 @@
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
     "developer": {
-      "name": "Crayon",
-      "websiteUrl": "https://www.crayon.com",
-      "privacyUrl": "",
-      "termsOfUseUrl": "",
+      "name": "SoftwareOne",
+      "websiteUrl": "https://www.softwareone.com",
+      "privacyUrl": "https://www.softwareone.com/en-us/privacy-statement",
+      "termsOfUseUrl": "https://www.softwareone.com/en-us/terms-conditions",
       "mpnId": ""
     },
     "metadata": {

@@ -30,7 +30,9 @@ export const getFieldsForType = (
     if (typeof typeConfig.fieldConfigurations === 'string') {
       try {
         fieldConfigs = JSON.parse(typeConfig.fieldConfigurations)
-      } catch (error) {}
+      } catch {
+        /* malformed JSON — keep the empty default */
+      }
     } else {
       fieldConfigs = typeConfig.fieldConfigurations
     }

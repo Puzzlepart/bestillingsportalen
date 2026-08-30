@@ -19,6 +19,7 @@ import '@pnp/sp/security'
 import '@pnp/sp/profiles'
 import * as strings from 'ProvisionWebPartsStrings'
 import { IProvisionRequestItem } from '../models/IProvisionRequestItem'
+import { getTenantProvisionInstances, IProvisionInstance } from './provisionInstances'
 import { format } from '../utils/format'
 import { normalizeHubSiteId } from '../utils/normalizeHubSiteId'
 
@@ -44,6 +45,12 @@ export interface IProvisionPersona {
 const DefaultCaching = Caching({ store: 'session' })
 
 /**
+ * Result of a provisioning-site access check: `notFound` means the site does
+ * not exist on the given URL (HTTP 404), as opposed to a real access denial.
+ */
+export type ProvisionSiteAccess = 'granted' | 'denied' | 'notFound'
+
+/**
  * Service handling all data operations for the `ProjectProvision` web part.
  * Ported from PP365's `DataAdapter` provisioning slice, rewritten for
  * PnPjs v4: instead of the v3 `Web([sp.web, url])` tuple pattern, a
@@ -51,7 +58,7 @@ const DefaultCaching = Caching({ store: 'session' })
  */
 export class ProvisionService {
   private _webs = new Map<string, SPFI>()
-  private _currentHubSite: Promise<{ hubSiteId: string; title: string; url: string } | null>
+  private _currentHubSite: Promise<{ hubSiteId: string; title: string; url: string } | undefined>
 
   constructor(private readonly _context: WebPartContext) {}
 
@@ -89,21 +96,33 @@ export class ProvisionService {
         { CanCurrentUserViewMembership: boolean; Title: string }[]
       >()
       return siteGroup && siteGroup.CanCurrentUserViewMembership
-    } catch (error) {
+    } catch {
       return false
     }
   }
 
   /**
-   * Checks if the current user has read access to the provisioning site.
+   * Reads the tenant-wide Bestillingsportalen instance registry (storage
+   * entity `bp_ProvisionUrls`) via the current web.
    */
-  public async hasProvisionSiteAccess(provisionUrl: string): Promise<boolean> {
+  public getTenantProvisionInstances(): Promise<IProvisionInstance[]> {
+    return getTenantProvisionInstances(this._spfi())
+  }
+
+  /**
+   * Checks the current user's access to the provisioning site, distinguishing
+   * between the site not being found (e.g. misconfigured URL, HTTP 404) and
+   * the user actually lacking access.
+   */
+  public async getProvisionSiteAccess(provisionUrl: string): Promise<ProvisionSiteAccess> {
     try {
-      return await this._spfi(provisionUrl).web.currentUserHasPermissions(
+      const granted = await this._spfi(provisionUrl).web.currentUserHasPermissions(
         PermissionKind.ViewListItems
       )
+      return granted ? 'granted' : 'denied'
     } catch (error) {
-      return false
+      if (error?.status === 404 || error?.response?.status === 404) return 'notFound'
+      return 'denied'
     }
   }
 
@@ -119,16 +138,32 @@ export class ProvisionService {
       PrincipalSource: 15,
       PrincipalType: 1
     })
-    const items = profiles.map((profile) => ({
-      text: profile.DisplayText,
-      secondaryText: profile.EntityData.Email,
-      tertiaryText: profile.EntityData.Title,
-      optionalText: profile.EntityData.Department,
-      imageUrl: `/_layouts/15/userphoto.aspx?AccountName=${profile.EntityData.Email}&size=L`,
-      id: profile.Key
-    }))
-    return items.filter(
-      ({ secondaryText }) => !selectedItems?.some((item) => item.secondaryText === secondaryText)
+    const selectedKeys = (selectedItems ?? [])
+      .map((item) => this._getProvisionUserSearchKey(item))
+      .filter(Boolean)
+    const uniqueItems = profiles.reduce((items: IProvisionPersona[], profile) => {
+      const key = this._getProvisionUserSearchKey({
+        id: profile.Key,
+        secondaryText: profile.EntityData.Email,
+        text: profile.DisplayText
+      })
+      if (!key || items.some((item) => this._getProvisionUserSearchKey(item) === key)) {
+        return items
+      }
+      return [
+        ...items,
+        {
+          text: profile.DisplayText,
+          secondaryText: profile.EntityData.Email,
+          tertiaryText: profile.EntityData.Title,
+          optionalText: profile.EntityData.Department,
+          imageUrl: `/_layouts/15/userphoto.aspx?AccountName=${profile.EntityData.Email}&size=L`,
+          id: profile.Key
+        }
+      ]
+    }, [])
+    return uniqueItems.filter(
+      (item) => !selectedKeys.includes(this._getProvisionUserSearchKey(item))
     )
   }
 
@@ -285,45 +320,131 @@ export class ProvisionService {
     }
   }
 
-  public async getProvisionUsers(
-    users: IProvisionPersona[],
-    provisionUrl: string
-  ): Promise<Promise<number | null>[]> {
-    try {
-      const provisionWeb = this._spfi(provisionUrl).web
-      return users.map(async (user) => {
-        try {
-          const result = await provisionWeb.ensureUser(user.secondaryText)
-          return result?.Id ?? null
-        } catch (error) {
-          console.warn(
-            `(ProvisionService) (getProvisionUsers) ensureUser failed for ${user.secondaryText}:`,
-            error
-          )
-          return null
-        }
-      })
-    } catch (error) {
-      console.warn(
-        '(ProvisionService) (getProvisionUsers) Failed to resolve provision site:',
-        error
-      )
-      return []
-    }
-  }
-
+  /**
+   * Adds a provisioning request. People fields (Owners/Members/RequestedBy)
+   * are stripped from the item body and applied afterwards with
+   * `validateUpdateListItem`, which resolves users server-side — client-side
+   * `ensureUser` requires more than read access on the ordering site and
+   * failed for ordinary users.
+   */
   public async addProvisionRequests(
     properties: IProvisionRequestItem,
     provisionUrl: string
-  ): Promise<boolean> {
+  ): Promise<boolean | 'userResolveError'> {
     try {
       const provisionRequestsList =
         this._spfi(provisionUrl).web.lists.getByTitle('Provisioning Requests')
-      await provisionRequestsList.items.add(properties)
+      const { itemProperties, userFieldUpdates } = this._extractProvisionUserFields(properties)
+      const added = (await provisionRequestsList.items.add(itemProperties)) as { Id?: number }
+      if (userFieldUpdates.length > 0 && added?.Id) {
+        const item = provisionRequestsList.items.getById(added.Id)
+        const updateResults = await item.validateUpdateListItem(userFieldUpdates)
+        const failedUpdates = (updateResults ?? []).filter(
+          (updateResult) => updateResult.HasException
+        )
+        if (failedUpdates.length > 0) {
+          console.error(
+            '(ProvisionService) (addProvisionRequests) Failed to resolve provision request users:',
+            failedUpdates
+          )
+          try {
+            await item.delete()
+          } catch (deleteError) {
+            console.error(
+              '(ProvisionService) (addProvisionRequests) Failed to delete incomplete provision request:',
+              deleteError
+            )
+          }
+          return 'userResolveError'
+        }
+      }
       return true
     } catch (error) {
-      return false
+      console.error(
+        '(ProvisionService) (addProvisionRequests) Failed to add provision request:',
+        error
+      )
+      return error?.code === 'ProvisionUserResolveError' ? 'userResolveError' : false
     }
+  }
+
+  private _extractProvisionUserFields(properties: IProvisionRequestItem): {
+    itemProperties: IProvisionRequestItem
+    userFieldUpdates: { FieldName: string; FieldValue: string }[]
+  } {
+    const itemProperties = { ...properties }
+    const userFieldUpdates: { FieldName: string; FieldValue: string }[] = []
+    const userFields: { itemFieldName: keyof IProvisionRequestItem; updateFieldName: string }[] = [
+      { itemFieldName: 'OwnersId', updateFieldName: 'Owners' },
+      { itemFieldName: 'MembersId', updateFieldName: 'Members' },
+      { itemFieldName: 'RequestedById', updateFieldName: 'RequestedBy' }
+    ]
+
+    userFields.forEach(({ itemFieldName, updateFieldName }) => {
+      const value = itemProperties[itemFieldName]
+      if (Array.isArray(value) && value.length === 0) {
+        delete itemProperties[itemFieldName]
+      } else if (this._shouldValidateProvisionUserField(value)) {
+        userFieldUpdates.push(this._getProvisionUserFieldUpdate(updateFieldName, value))
+        delete itemProperties[itemFieldName]
+      }
+    })
+
+    return { itemProperties, userFieldUpdates }
+  }
+
+  private _getProvisionUserFieldUpdate(
+    fieldName: string,
+    users: any
+  ): { FieldName: string; FieldValue: string } {
+    const userValues = Array.isArray(users) ? users : users ? [users] : []
+    const fieldValue = userValues.map((user) => ({ Key: this._getProvisionUserLoginKey(user) }))
+    if (fieldValue.some((user) => !user.Key)) {
+      throw this._createProvisionUserResolveError(`Missing user key for ${fieldName}`)
+    }
+
+    return {
+      FieldName: fieldName,
+      FieldValue: JSON.stringify(fieldValue)
+    }
+  }
+
+  // Numeric values are already-resolved SharePoint user ids (legacy rows and
+  // retry paths) and stay in the item body as plain OwnersId/... assignments.
+  private _shouldValidateProvisionUserField(users: any): boolean {
+    const userValues = Array.isArray(users) ? users : users ? [users] : []
+    return userValues.length > 0 && userValues.every((user) => typeof user !== 'number')
+  }
+
+  private _getProvisionUserSearchKey(user: any): string {
+    if (!user) {
+      return ''
+    }
+    if (typeof user === 'string') {
+      return user.toLowerCase()
+    }
+    const key = (user.secondaryText || user.id || user.text || '').toLowerCase()
+    return key.includes('|') ? key.split('|').pop() || key : key
+  }
+
+  private _getProvisionUserLoginKey(user: any): string {
+    if (!user) {
+      return ''
+    }
+    if (typeof user === 'string') {
+      return user.toLowerCase()
+    }
+    const key = user.id || user.secondaryText || user.text || ''
+    if (!key) {
+      return ''
+    }
+    return key.includes('|') ? key.toLowerCase() : `i:0#.f|membership|${key}`.toLowerCase()
+  }
+
+  private _createProvisionUserResolveError(message: string): Error & { code: string } {
+    const error = new Error(message) as Error & { code: string }
+    error.code = 'ProvisionUserResolveError'
+    return error
   }
 
   public async addProjectData(
@@ -344,7 +465,7 @@ export class ProvisionService {
         this._spfi(provisionUrl).web.lists.getByTitle('Provisioning Requests')
       await provisionRequestsList.items.getById(requestId).delete()
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -477,12 +598,12 @@ export class ProvisionService {
   public async siteExists(siteUrl: string): Promise<boolean> {
     try {
       return await this._spfi().site.exists(siteUrl)
-    } catch (error) {
+    } catch {
       return false
     }
   }
 
-  public async loadTeamsConfig(provisionUrl: string): Promise<any | null> {
+  public async loadTeamsConfig(provisionUrl: string): Promise<any> {
     try {
       const file = this._spfi(provisionUrl)
         .web.getFolderByServerRelativePath('SiteAssets')
@@ -491,7 +612,7 @@ export class ProvisionService {
       return JSON.parse(content)
     } catch (error) {
       console.log('TeamsAppConfig.json not found or error loading:', error.message)
-      return null
+      return undefined
     }
   }
 
@@ -554,9 +675,9 @@ export class ProvisionService {
    */
   public async resolveHubSiteById(
     hubSiteId: string
-  ): Promise<{ hubSiteId: string; title: string; url: string } | null> {
+  ): Promise<{ hubSiteId: string; title: string; url: string } | undefined> {
     const normalizedId = normalizeHubSiteId(hubSiteId)
-    if (!normalizedId) return null
+    if (!normalizedId) return undefined
     try {
       const webAbsoluteUrl = this._context.pageContext.web.absoluteUrl
       const response = await fetch(`${webAbsoluteUrl}/_api/HubSites/GetById('${normalizedId}')`, {
@@ -564,7 +685,7 @@ export class ProvisionService {
         headers: { Accept: 'application/json;odata=nometadata' },
         credentials: 'include'
       })
-      if (!response.ok) return null
+      if (!response.ok) return undefined
       const hubSite = await response.json()
       return {
         hubSiteId: normalizeHubSiteId(hubSite.ID) || normalizedId,
@@ -573,21 +694,25 @@ export class ProvisionService {
       }
     } catch (error) {
       console.warn('Failed to resolve hub site by ID:', error)
-      return null
+      return undefined
     }
   }
 
   /**
    * Resolves the hub site of the CURRENT site (via
-   * `legacyPageContext.hubSiteId`), or null when the current site is not
+   * `legacyPageContext.hubSiteId`), or undefined when the current site is not
    * associated with a hub. The result is cached for the lifetime of the
    * service. Replaces PP365's `portalDataService.url`, which pointed at the
    * portfolio hub the web part was installed on.
    */
-  public getCurrentHubSite(): Promise<{ hubSiteId: string; title: string; url: string } | null> {
+  public getCurrentHubSite(): Promise<
+    { hubSiteId: string; title: string; url: string } | undefined
+  > {
     if (!this._currentHubSite) {
       const hubSiteId = (this._context.pageContext.legacyPageContext as any)?.hubSiteId
-      this._currentHubSite = hubSiteId ? this.resolveHubSiteById(hubSiteId) : Promise.resolve(null)
+      this._currentHubSite = hubSiteId
+        ? this.resolveHubSiteById(hubSiteId)
+        : Promise.resolve(undefined)
     }
     return this._currentHubSite
   }

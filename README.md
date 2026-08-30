@@ -41,7 +41,7 @@ For arkitekturdiagrammer og en samlet oversikt over hva som installeres og hvilk
 
 ## Kom i gang
 
-For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](Deployment-guide.md) – den dekker den skriptede delen. Fortsett deretter i [Konfigurasjonsveiledningen](Configuration-guide.md), som tar over med godkjenningsoppsett, flyt-import, deling og en verifiserende testbestilling. Løsningen er ikke i drift før begge er gjennomført.
+For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](Deployment-guide.md) – den dekker den skriptede delen. Fortsett deretter i [Konfigurasjonsveiledningen](Configuration-guide.md), som tar over med godkjenningsoppsett, flyt-import, deling og en verifiserende testbestilling. Løsningen er ikke i drift før begge er gjennomført. Merk at Bestillingsportalen-appen i Teams normalt må lastes opp manuelt i Teams admin center (zip-pakken produseres av deploy-skriptet) — se [Teams-appen](Deployment-guide.md#teams-appen) i installasjonsveiledningen.
 
 ## Oppgradering
 

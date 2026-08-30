@@ -1,4 +1,5 @@
 import {
+  Button,
   FluentProvider,
   IdPrefixProvider,
   Menu,
@@ -10,6 +11,7 @@ import {
   Skeleton,
   SkeletonItem,
   SplitButton,
+  Text,
   Toaster,
   useRestoreFocusTarget,
   useToastController
@@ -17,6 +19,7 @@ import {
 import React, { FC } from 'react'
 import { IProjectProvisionProps } from './types'
 import { customLightTheme } from '../../utils/theme'
+import { format } from '../../utils/format'
 import { getFluentIcon } from '../../icons'
 import { UserMessage } from '../UserMessage'
 import { ProvisionStatus } from './ProvisionStatus'
@@ -55,6 +58,16 @@ export const ProjectProvision: FC<IProjectProvisionProps> = (props) => {
     return <UserMessage title={strings.ErrorTitle} text={state.error.message} intent='error' />
   }
 
+  if (state.siteNotFound) {
+    return (
+      <UserMessage
+        title={strings.Provision.SiteNotFoundTitle}
+        text={format(strings.Provision.SiteNotFoundMessage, props.provisionUrl)}
+        intent='warning'
+      />
+    )
+  }
+
   if (state.accessDenied) {
     return (
       <UserMessage
@@ -85,6 +98,39 @@ export const ProjectProvision: FC<IProjectProvisionProps> = (props) => {
         <FluentProvider
           theme={customLightTheme}
           className={props.renderMode === 'inline' ? styles.containerInline : styles.container}>
+          {props.isTeamsContext &&
+            props.provisionInstances?.length > 1 &&
+            props.onSwitchInstance && (
+              <div className={styles.instanceBar}>
+                <Text size={200}>
+                  {format(
+                    strings.Provision.CurrentInstanceLabel,
+                    props.provisionInstances.find((instance) => instance.url === props.provisionUrl)
+                      ?.title ?? props.provisionUrl
+                  )}
+                </Text>
+                <Menu positioning='below-end'>
+                  <MenuTrigger disableButtonEnhancement>
+                    <Button appearance='subtle' size='small'>
+                      {strings.Provision.SwitchInstanceLabel}
+                    </Button>
+                  </MenuTrigger>
+                  <MenuPopover>
+                    <MenuList>
+                      {props.provisionInstances
+                        .filter((instance) => instance.url !== props.provisionUrl)
+                        .map((instance) => (
+                          <MenuItem
+                            key={instance.url}
+                            onClick={() => props.onSwitchInstance(instance.url)}>
+                            {instance.title}
+                          </MenuItem>
+                        ))}
+                    </MenuList>
+                  </MenuPopover>
+                </Menu>
+              </div>
+            )}
           {props.renderMode === 'inline' ? (
             <FullscreenDrawer toast={dispatchToast} renderMode={props.renderMode} />
           ) : (

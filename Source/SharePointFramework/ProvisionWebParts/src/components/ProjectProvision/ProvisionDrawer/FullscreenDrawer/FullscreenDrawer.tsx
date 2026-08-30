@@ -47,6 +47,8 @@ export const FullscreenDrawer: FC<IFullscreenDrawerProps> = (props) => {
     siteExists,
     setSiteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
+    minimumOwners,
     namingConvention,
     enableSensitivityLabels,
     enableSensitivityLabelsLibrary,
@@ -75,6 +77,8 @@ export const FullscreenDrawer: FC<IFullscreenDrawerProps> = (props) => {
     siteExists,
     setSiteExists,
     duplicateOwnerMembers,
+    insufficientOwners,
+    minimumOwners,
     namingConvention,
     urlPrefix,
     aliasSuffix,
@@ -113,15 +117,24 @@ export const FullscreenDrawer: FC<IFullscreenDrawerProps> = (props) => {
 
   const handleSave = () => {
     void onSave().then((response) => {
-      if (response) {
+      if (response === true) {
         context.setState({ showProvisionConfirmation: true, properties: {} })
         setCurrentStep('siteType')
         context.reset()
       } else {
+        const isUserResolveError = response === 'userResolveError'
         props.toast(
           <Toast appearance='inverted'>
-            <ToastTitle>{strings.Provision.ToastCreatedErrorTitle}</ToastTitle>
-            <ToastBody>{strings.Provision.ToastCreatedErrorBody}</ToastBody>
+            <ToastTitle>
+              {isUserResolveError
+                ? strings.Provision.ToastUserResolveErrorTitle
+                : strings.Provision.ToastCreatedErrorTitle}
+            </ToastTitle>
+            <ToastBody>
+              {isUserResolveError
+                ? strings.Provision.ToastUserResolveErrorBody
+                : strings.Provision.ToastCreatedErrorBody}
+            </ToastBody>
           </Toast>,
           { intent: 'error' }
         )

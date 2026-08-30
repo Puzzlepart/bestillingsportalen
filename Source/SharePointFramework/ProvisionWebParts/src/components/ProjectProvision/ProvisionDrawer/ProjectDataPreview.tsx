@@ -35,7 +35,7 @@ const stripTaxonomyGuids = (s: string): string =>
     : s
 
 const formatValue = (value: any): string => {
-  if (value == null) return ''
+  if (value === null || value === undefined) return ''
   if (Array.isArray(value)) {
     return value.map(formatValue).filter(Boolean).join(', ')
   }

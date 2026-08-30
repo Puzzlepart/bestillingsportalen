@@ -56,8 +56,12 @@ export const StatusGrid: React.FC = () => {
         <Commands
           search={search}
           onSearchChange={setSearch}
-          onRefresh={() => void onRefresh()}
-          onRetry={() => void onRetry()}
+          onRefresh={() => {
+            void onRefresh()
+          }}
+          onRetry={() => {
+            void onRetry()
+          }}
           retryEnabled={retryEnabled}
           refreshing={loading}
           showRetryButton={showRetryButton}
