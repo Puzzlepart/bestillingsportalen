@@ -55,6 +55,10 @@
         "Value": "",
         "Description": "Path to a company logo which will be set as the site logo for Communication sites and no Group Team Sites when provisioned. Optional - can be left blank."
     },
+    "guestEntraGroup": {
+        "Value": "",
+        "Description": "Object id (recommended) or display name of an Entra ID group that every guest invited through the InviteGuests web part is added to, in addition to the invited site - e.g. a group granted read access to the hub site and app catalog. Optional - leave blank to disable."
+    },
     "serviceAccountUPN": {
         "Value": "",
         "Description": "UPN of Service Account to be used for the solution - used to connect to SharePoint and send Emails in the Logic App."

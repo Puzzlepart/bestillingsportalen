@@ -27,6 +27,8 @@ Webdelen låser rollen til **Gjest** — gjestemedlemskap i Microsoft 365-gruppe
 |--|--|
 | ![Invitasjons-drawer med rollen Gjest valgt og standard SharePoint-medlemsgruppe](/Images/Gjesteinvitasjonswebdel.png) | ![Invitasjons-drawer med Ingen rolle valgt og advarsel om at invitasjonen alene ikke gir tilgang](/Images/Gjesteinvitasjonswebdel-2.png) |
 
+I tillegg kan installasjonen konfigureres med en **felles Entra ID-gruppe for gjester** (installasjonsparameteren `guestEntraGroup`): hver invitert gjest legges da også inn i denne gruppen, slik at organisasjonen kan gi alle gjester grunntilgang ett sted — for eksempel lesetilgang på hub-området og app-katalogen. Valgfritt og avslått som standard, se [Installasjonsveiledningen](Deployment-guide.md).
+
 ## Arkitektur
 
 Løsningen bruker Microsoft Graph og SharePoint REST API-ene for provisjonering. Azure Runbooks brukes sammen med PnP PowerShell for oppgaver som ikke kan utføres via Graph API.
