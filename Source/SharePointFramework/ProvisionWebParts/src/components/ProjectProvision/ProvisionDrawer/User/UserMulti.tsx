@@ -121,6 +121,9 @@ export const UserMulti = (props: { type: string; disabled?: boolean }) => {
 
   return (
     <TagPicker
+      // 'large' gives the two-line tags (name + email) room - the default
+      // 'medium' (32px) clips the secondary text
+      size='large'
       onOptionSelect={onOptionSelect}
       selectedOptions={selectedUsers}
       disabled={props.disabled}>
