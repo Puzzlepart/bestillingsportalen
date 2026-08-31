@@ -27,6 +27,8 @@ Webdelen låser rollen til **Gjest** — gjestemedlemskap i Microsoft 365-gruppe
 |--|--|
 | ![Invitasjons-drawer med rollen Gjest valgt og standard SharePoint-medlemsgruppe](/Images/Gjesteinvitasjonswebdel.png) | ![Invitasjons-drawer med Ingen rolle valgt og advarsel om at invitasjonen alene ikke gir tilgang](/Images/Gjesteinvitasjonswebdel-2.png) |
 
+Bestilleren registreres alltid som gjestens **sponsor** i Entra ID — feltet Microsoft selv fyller ut ved manuell invitasjon, men som ellers ville stått tomt her fordi Bestillingsportalen inviterer app-only. Dermed er det dokumentert på selve gjestekontoen hvem i organisasjonen som står bak den eksterne brukeren.
+
 I tillegg kan installasjonen konfigureres med en **felles Entra ID-gruppe for gjester** (installasjonsparameteren `guestEntraGroup`): hver invitert gjest legges da også inn i denne gruppen, slik at organisasjonen kan gi alle gjester grunntilgang ett sted — for eksempel lesetilgang på hub-området og app-katalogen. Valgfritt og avslått som standard, se [Installasjonsveiledningen](Deployment-guide.md).
 
 ## Arkitektur

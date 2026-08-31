@@ -27,7 +27,7 @@ graph TD
     P --> R(Azure Automation: AddGuestToSite) --> M
 ```
 
-Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve tenant-invitasjonen gi gjesten rollen **Gjest** (gjestemedlemskap i M365-gruppen, standardmodellen for eksterne i Microsoft 365 — gir tilgang til team, område, Planner osv.) og/eller medlemskap i en valgfri SharePoint-brukergruppe på selve siten. Eksterne kan aldri bli eiere — webdelen tilbyr ikke valget, og `AddGuestToSite`-runbooken avviser verdien. Er installasjonsparameteren `guestEntraGroup` konfigurert, legges hver gjest i tillegg inn i en felles Entra ID-gruppe for gjester — slik at organisasjonen kan gi alle gjester grunntilgang (f.eks. lesetilgang på hub-området og app-katalogen) ett sted:
+Gjesteinvitasjonsflyten i detalj — hver invitasjon kan i tillegg til selve tenant-invitasjonen gi gjesten rollen **Gjest** (gjestemedlemskap i M365-gruppen, standardmodellen for eksterne i Microsoft 365 — gir tilgang til team, område, Planner osv.) og/eller medlemskap i en valgfri SharePoint-brukergruppe på selve siten. Eksterne kan aldri bli eiere — webdelen tilbyr ikke valget, og `AddGuestToSite`-runbooken avviser verdien. Er installasjonsparameteren `guestEntraGroup` konfigurert, legges hver gjest i tillegg inn i en felles Entra ID-gruppe for gjester — slik at organisasjonen kan gi alle gjester grunntilgang (f.eks. lesetilgang på hub-området og app-katalogen) ett sted. Uavhengig av dette registreres alltid **bestilleren som gjestens sponsor** i Entra ID, slik at det er dokumentert hvem i organisasjonen som står bak hver eksterne bruker:
 
 ``` mermaid
 graph TD
@@ -36,6 +36,7 @@ graph TD
     B --> |"When an item is created (1 min poll)"| C(ProcessGuestRequest Logic App)
     C --> | Workflow action | D(ProcessGuests Logic App)
     D --> E(Microsoft Graph /invitations API) --> F(Guest user in Entra ID)
+    D --> | "POST /users/{id}/sponsors/$ref (bestilleren som sponsor)" | F
     D --> | Status, GuestId, InviteRedeemUrl | B
     C --> | After successful invite, with guest + group params | G(AddGuestToSite runbook)
     G --> | Managed Identity | H(PnP PowerShell)
@@ -157,7 +158,7 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 | `TeamTemplates.Read.All` | Application | Lese Teams-maler og synkronisere dem til `Teams Templates`-listen. |
 | `Community.ReadWrite.All` | Application | Opprette Viva Engage-fellesskap. |
 | `User.Invite.All` | Application | Invitere gjestebrukere til organisasjonen. |
-| `User.ReadWrite.All` | Application | Oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere. |
+| `User.ReadWrite.All` | Application | Oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere, og registrere bestilleren som gjestens sponsor. |
 
 **SharePoint:**
 

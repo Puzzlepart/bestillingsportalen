@@ -137,7 +137,8 @@
                                             "SiteUrl": "@{triggerBody()?['SiteUrl']}",
                                             "FirstName": "@triggerBody()?['FirstName']",
                                             "LastName": "@triggerBody()?['LastName']",
-                                            "Company": "@triggerBody()?['Company']"
+                                            "Company": "@triggerBody()?['Company']",
+                                            "RequestedByEmail": "@{coalesce(triggerBody()?['RequestedBy']?['Email'], '')}"
                                         },
                                         "host": {
                                             "triggerName": "manual",

@@ -84,6 +84,9 @@
                                         },
                                         "Company": {
                                             "type": "string"
+                                        },
+                                        "RequestedByEmail": {
+                                            "type": "string"
                                         }
                                     },
                                     "type": "object"
@@ -405,10 +408,96 @@
                                 }
                             }
                         },
-                        "Response": {
+                        "Set_guest_sponsor": {
+                            "comments": "Records the requester as the guest's sponsor in Entra ID. Entra normally sets the inviter as sponsor automatically, but this solution invites app-only (managed identity), so without this the field stays empty. Best-effort by design: the whole scope is contained and Response runs regardless of its outcome, so a sponsor that cannot be set (Entra caps a guest at five sponsors, or the requester cannot be resolved) never fails an otherwise successful invitation.",
                             "runAfter": {
                                 "Check_if_Guest_exists": [
                                     "Succeeded"
+                                ]
+                            },
+                            "type": "Scope",
+                            "actions": {
+                                "Check_if_requester_is_known": {
+                                    "runAfter": {},
+                                    "type": "If",
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": [
+                                                    {
+                                                        "equals": [
+                                                            "@coalesce(triggerBody()?['RequestedByEmail'], '')",
+                                                            ""
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Get_sponsor_user": {
+                                            "runAfter": {},
+                                            "type": "Http",
+                                            "inputs": {
+                                                "authentication": {
+                                                    "audience": "https://graph.microsoft.com",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                },
+                                                "method": "GET",
+                                                "uri": "@{variables('GraphURL')}/users?$filter=mail eq '@{triggerBody()?['RequestedByEmail']}' or userPrincipalName eq '@{triggerBody()?['RequestedByEmail']}'&$select=id"
+                                            }
+                                        },
+                                        "Check_if_sponsor_was_found": {
+                                            "runAfter": {
+                                                "Get_sponsor_user": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "If",
+                                            "expression": {
+                                                "and": [
+                                                    {
+                                                        "equals": [
+                                                            "@empty(body('Get_sponsor_user')?['value'])",
+                                                            false
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "actions": {
+                                                "Add_sponsor_to_guest": {
+                                                    "runAfter": {},
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "authentication": {
+                                                            "audience": "https://graph.microsoft.com",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        },
+                                                        "body": {
+                                                            "@@odata.id": "@{variables('GraphURL')}/users/@{first(body('Get_sponsor_user')?['value'])?['id']}"
+                                                        },
+                                                        "headers": {
+                                                            "Content-Type": "application/json"
+                                                        },
+                                                        "method": "POST",
+                                                        "uri": "@{variables('GraphURL')}/users/@{first(variables('Guests'))?['GuestId']}/sponsors/$ref"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "Response": {
+                            "comments": "Runs on Failed/TimedOut as well so a sponsor that could not be set still returns the invited guests. Deliberately NOT on Skipped: the scope is only skipped when Check_if_Guest_exists itself failed, and a failed invitation must fail the run so the caller marks the request Failed.",
+                            "runAfter": {
+                                "Set_guest_sponsor": [
+                                    "Succeeded",
+                                    "Failed",
+                                    "TimedOut"
                                 ]
                             },
                             "type": "Response",

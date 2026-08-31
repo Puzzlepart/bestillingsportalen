@@ -1764,7 +1764,7 @@ function ConfirmDeployment {
     }
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
     if ($global:upgrade) {
-        WritePlanLine "Logic Apps" "ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
+        WritePlanLine "Logic Apps" "ProcessGuests + ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
     }
     else {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
@@ -2264,6 +2264,14 @@ function DeployUpgradeLogicApp {
         if ([string]::IsNullOrEmpty($global:guestRequestsListId)) {
             throw "Guest Requests list ID not found. Did the PnP template apply succeed?"
         }
+
+        # ProcessGuests is part of the guest chain and must be upgraded alongside its
+        # caller: ProcessGuestRequest passes it RequestedByEmail (the sponsor), which
+        # only an up-to-date ProcessGuests reads.
+        Write-Host "ProcessGuests" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
+        RecordAzResult "Logic App: ProcessGuests" -DeploymentName "processguests"
 
         Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
 
