@@ -24,6 +24,7 @@ import * as strings from 'ProvisionWebPartsStrings'
 import { InviteGuests } from '../../components/InviteGuests'
 import type { IInviteGuestsProps } from '../../components/InviteGuests/types'
 import { GraphService, GuestRequestService, SiteService } from '../../services'
+import { getTenantDefaultProvisionUrl } from '../../services/provisionInstances'
 
 export interface IInviteGuestsWebPartProps {
   title: string
@@ -70,27 +71,36 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
   private _service!: GuestRequestService
   private _siteService!: SiteService
   private _graphService!: GraphService
+  private _resolvedDefaultGuestRequestSiteUrl!: string
 
   /**
-   * Default location of the Guest Requests list when guestRequestSiteUrl is
-   * blank. /sites/bestillingsportalen is the solution-wide convention (the
-   * requestsSiteAlias deploy default; the Teams app hardcodes the same URL).
-   * Falling back to the CURRENT site only ever worked when the web part sat on
-   * the portal itself — everywhere else it pointed at a site without the list.
+   * Last-resort location of the Guest Requests list when guestRequestSiteUrl
+   * is blank and the tenant registry (storage entity bp_ProvisionUrls) is not
+   * configured. /sites/bestillingsportalen is the solution-wide convention
+   * (the requestsSiteAlias deploy default). Falling back to the CURRENT site
+   * only ever worked when the web part sat on the portal itself — everywhere
+   * else it pointed at a site without the list.
    */
   private get _defaultGuestRequestSiteUrl(): string {
     return new URL('/sites/bestillingsportalen', this.context.pageContext.web.absoluteUrl).href
   }
 
   protected async onInit(): Promise<void> {
+    const currentSp: SPFI = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
+
+    // Empty property -> tenant registry default -> conventional default
+    const tenantDefault = await getTenantDefaultProvisionUrl(currentSp)
+    this._resolvedDefaultGuestRequestSiteUrl = tenantDefault
+      ? new URL(tenantDefault, this.context.pageContext.web.absoluteUrl).href
+      : this._defaultGuestRequestSiteUrl
+
     const targetSiteUrl =
-      (this.properties.guestRequestSiteUrl || '').trim() || this._defaultGuestRequestSiteUrl
+      (this.properties.guestRequestSiteUrl || '').trim() || this._resolvedDefaultGuestRequestSiteUrl
     const adminSp: SPFI = spfi(targetSiteUrl).using(SPFx(this.context))
     this._service = new GuestRequestService(
       adminSp,
       this.properties.guestRequestListTitle || 'Guest Requests'
     )
-    const currentSp: SPFI = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
     this._siteService = new SiteService(currentSp)
     const graphClient = await this.context.msGraphClientFactory.getClient('3')
     this._graphService = new GraphService(graphClient)
@@ -508,7 +518,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                 PropertyPaneTextField('guestRequestSiteUrl', {
                   label: strings.GuestRequestSiteUrlFieldLabel,
                   description: strings.GuestRequestSiteUrlFieldDescription,
-                  placeholder: this._defaultGuestRequestSiteUrl
+                  placeholder: this._resolvedDefaultGuestRequestSiteUrl
                 }),
                 PropertyPaneTextField('guestRequestListTitle', {
                   label: strings.GuestRequestListTitleFieldLabel,

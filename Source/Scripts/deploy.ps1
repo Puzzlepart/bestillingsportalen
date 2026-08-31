@@ -218,6 +218,7 @@ $global:requestsSettingsListId = $null
 $global:siteTemplatesListId = $null
 $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
+$global:teamsAppManualUploadZip = $null
 $global:guestRequestsListId = $null
 $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
@@ -1547,13 +1548,14 @@ function ValidateSiteAlias {
         return
     }
 
-    # The Teams app has the site URL hardcoded to /<managedPath>/bestillingsportalen, so
-    # the fix is not just 'pick another alias' - the site has to end up on that URL. The
-    # alias only becomes the group mailNickname at creation time, so creating on a free
-    # alias and renaming the URL afterwards keeps both constraints satisfied.
+    # A collision still blocks the run: SharePoint would silently create the group as
+    # '<alias>1' and every computed URL would be wrong. But the site no longer has to
+    # end up on /sites/bestillingsportalen - the web parts and the Teams app locate it
+    # via the tenant registry (storage entity bp_ProvisionUrls), which deploy.ps1
+    # maintains automatically - so the fix is simply to pick a free alias.
     $suggestion = "BP"
     if ($requestsSiteAlias -ieq $suggestion) { $suggestion = "$requestsSiteAlias-site" }
-    RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status MISSING -Detail "Collides with $collidesWith - SharePoint would silently create the group as '$($requestsSiteAlias)1' and every computed URL would be wrong" -Fix "Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion') and re-run. The Teams app expects the site on /$($parameters.managedPath.Value)/bestillingsportalen, so afterwards: rename the site URL in the SharePoint admin center (the group mailNickname keeps the free alias), then set requestsSiteAlias to 'bestillingsportalen' for later runs. See Deployment-guide.md."
+    RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status MISSING -Detail "Collides with $collidesWith - SharePoint would silently create the group as '$($requestsSiteAlias)1' and every computed URL would be wrong" -Fix "Set requestsSiteAlias in $parametersFileName to a free alias (e.g. '$suggestion') and re-run. Any alias works: the web parts and the Teams app locate the site via the tenant registry (storage entity bp_ProvisionUrls), which deploy.ps1 maintains automatically. See Deployment-guide.md."
 }
 
 # Reads the language (LCID) of the tenant's root site collection for the pre-flight
@@ -2298,6 +2300,89 @@ function ConnectPnP {
     Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
 }
 
+# Packages the solution's Teams app (teams/manifest.json + icons) and publishes it to the
+# tenant's Teams app catalog via Graph, replacing the unreliable "Sync to Teams" button in
+# the SharePoint app catalog. The app is matched on externalId (= the component id in the
+# manifest), so an app previously synced from the app catalog is updated, not duplicated.
+# Publishing requires the delegated Graph permission AppCatalog.ReadWrite.All on the PnP
+# app (see Deployment-guide.md) - without it the zip is still produced and the manual
+# upload path via the Teams admin center is printed.
+function PublishTeamsApp {
+    param([Parameter(Mandatory = $true)][System.IO.DirectoryInfo]$Solution)
+
+    $teamsFolder = Join-Path $Solution.FullName "teams"
+    $manifestPath = Join-Path $teamsFolder "manifest.json"
+    if (-not (Test-Path $manifestPath)) { return }
+
+    $componentName = "Teams app: $($Solution.Name)"
+    $zipPath = Join-Path $Solution.FullName "sharepoint/solution/bestillingsportalen-teams-app.zip"
+    try {
+        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+
+        # The Teams app version follows the solution version (first three parts)
+        $solutionVersion = (Get-Content (Join-Path $Solution.FullName "config/package-solution.json") -Raw | ConvertFrom-Json).solution.version
+        $appVersion = ($solutionVersion -split '\.')[0..2] -join '.'
+
+        # Stage icons + version-stamped manifest, and zip them (flat, no folder inside)
+        $staging = Join-Path ([System.IO.Path]::GetTempPath()) "bp-teams-app-$([guid]::NewGuid())"
+        New-Item -ItemType Directory -Path $staging | Out-Null
+        try {
+            Get-ChildItem $teamsFolder -File | Where-Object Name -ne "manifest.json" | Copy-Item -Destination $staging
+            $manifest.version = $appVersion
+            $manifest | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $staging "manifest.json") -Encoding utf8
+            Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $zipPath -Force
+        }
+        finally {
+            Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "Packaged Teams app $appVersion -> $zipPath" -ForegroundColor Yellow
+
+        $headers = @{ Authorization = "Bearer $(Get-PnPAccessToken)" }
+        $filter = [uri]::EscapeDataString("externalId eq '$($manifest.id)'")
+        $existing = (Invoke-RestMethod -Method Get -Headers $headers -Uri "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?`$filter=$filter&`$expand=appDefinitions").value | Select-Object -First 1
+
+        if ($existing -and ($existing.appDefinitions.version -contains $appVersion)) {
+            Write-Host "Teams app '$($manifest.name.short)' $appVersion is already published" -ForegroundColor Green
+            RecordDeployStatus -Component $componentName -Status 'OK'
+            return
+        }
+
+        if ($existing) {
+            Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/zip" -InFile $zipPath -Uri "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/$($existing.id)/appDefinitions" | Out-Null
+            Write-Host "Updated Teams app '$($manifest.name.short)' to $appVersion in the Teams app catalog" -ForegroundColor Green
+        }
+        else {
+            Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/zip" -InFile $zipPath -Uri "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps" | Out-Null
+            Write-Host "Published Teams app '$($manifest.name.short)' $appVersion to the Teams app catalog" -ForegroundColor Green
+        }
+        RecordDeployStatus -Component $componentName -Status 'OK'
+    }
+    catch {
+        $reason = ($_.Exception.Message -split "`r?`n")[0]
+        Write-Host "Teams app publish FAILED: $reason" -ForegroundColor Red
+        Write-Host "Upload the package manually instead: Teams admin center -> Teams apps -> Manage apps -> Actions: Upload new app -> $zipPath" -ForegroundColor Yellow
+        Write-Host "(Automatic publish requires the delegated Graph permission AppCatalog.ReadWrite.All on the PnP app - see Deployment-guide.md.)" -ForegroundColor Yellow
+        # Surfaced again at the very end of the run - see WriteTeamsAppManualUploadNotice
+        $global:teamsAppManualUploadZip = $zipPath
+        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Publish failed ($reason). Upload $zipPath manually via the Teams admin center (Manage apps -> Upload new app)."
+    }
+}
+
+# Repeats the manual Teams app upload instructions at the end of the run, where they
+# won't be scrolled away by the output of later deployment steps. Most tenants won't
+# grant the PnP app AppCatalog.ReadWrite.All, so this is the expected path.
+function WriteTeamsAppManualUploadNotice {
+    if (-not $global:teamsAppManualUploadZip) { return }
+    Write-Host ""
+    Write-Host "MANUAL STEP - Teams app was NOT published automatically (the PnP app most likely lacks the" -ForegroundColor Yellow
+    Write-Host "delegated Graph permission AppCatalog.ReadWrite.All). Upload it in the Teams admin center:" -ForegroundColor Yellow
+    Write-Host "  1. Teams admin center -> Teams apps -> Manage apps -> Actions: Upload new app" -ForegroundColor Yellow
+    Write-Host "  2. Select: $global:teamsAppManualUploadZip" -ForegroundColor Yellow
+    Write-Host "  If a 'Bestillingsportalen' app already exists, open it and use 'Upload file' to update it instead." -ForegroundColor Yellow
+    Write-Host "  See 'Teams-appen' in Deployment-guide.md." -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # Build all SPFx solutions under Source/SharePointFramework/ and upload them to the tenant app catalog.
 # Each subfolder with config/package-solution.json is treated as a solution to deploy.
 function DeploySPFxPackages {
@@ -2361,6 +2446,9 @@ function DeploySPFxPackages {
                 $app = Add-PnPApp -Path $sppkg.FullName -Overwrite -Publish -SkipFeatureDeployment
                 Write-Host "Uploaded and published tenant-wide: $($app.Title)" -ForegroundColor Green
                 RecordDeployStatus -Component "SPFx: $($solution.Name)" -Status 'OK'
+
+                # Publish the solution's Teams app (if it ships one) to the Teams app catalog
+                PublishTeamsApp -Solution $solution
             }
             catch {
                 # Record and continue - a failed SPFx build should not abort the rest of
@@ -2461,6 +2549,73 @@ function SetSettingValue {
     }
     else {
         Set-PnPListItem -List $requestSettingsListName -Identity $existing[0].Id -Values @{ Value = $Value; Description = $Description } -ErrorAction Stop | Out-Null
+    }
+}
+
+# Upserts this installation into the tenant-wide instance registry (storage entity
+# bp_ProvisionUrls) that the Bestillingsportalen web part/Teams app and the guest web
+# part read to locate the site. The value is either a plain URL or a JSON array of
+# {title, url} objects; the first entry is the tenant default. Set-PnPStorageEntity
+# only works against the tenant app catalog connection. Plain read-modify-write
+# without locking - acceptable since deployments are rare and run manually. Entries
+# are never REMOVED here; decommissioned instances are cleaned up manually with
+# Set-PnPStorageEntity. Best effort: a failure is a WARNING with the manual command,
+# never fatal.
+function RegisterProvisionInstance {
+    $componentName = "Instance registry (bp_ProvisionUrls)"
+    try {
+        Write-Host "Registering $requestsSiteUrl in tenant storage entity bp_ProvisionUrls..." -ForegroundColor Yellow
+        $instanceTitle = if (IsValidParam($parameters.provisionInstanceTitle)) {
+            $parameters.provisionInstanceTitle.Value
+        }
+        else {
+            $parameters.requestsSiteName.Value
+        }
+
+        # The token is cached in-session, so these do not prompt again
+        ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
+        $appCatalogUrl = Get-PnPTenantAppCatalogUrl
+        if ([string]::IsNullOrEmpty($appCatalogUrl)) {
+            throw "Tenant app catalog not found - create one in the SharePoint admin center"
+        }
+        ConnectPnP $appCatalogUrl
+
+        $existingRaw = (Get-PnPStorageEntity -Key "bp_ProvisionUrls" -ErrorAction SilentlyContinue).Value
+        $instances = @()
+        if (-not [string]::IsNullOrWhiteSpace($existingRaw)) {
+            $trimmed = $existingRaw.Trim()
+            if ($trimmed.StartsWith('[')) {
+                try { $instances = @($trimmed | ConvertFrom-Json -ErrorAction Stop) } catch { $instances = @() }
+            }
+            else {
+                # Migrate a plain-string entity to the array format
+                $instances = @([pscustomobject]@{ title = 'Bestillingsportalen'; url = $trimmed })
+            }
+        }
+
+        $normalize = { param($u) "$u".Trim().TrimEnd('/').ToLowerInvariant() }
+        $match = $instances | Where-Object { (& $normalize $_.url) -eq (& $normalize $requestsSiteUrl) } | Select-Object -First 1
+        if ($null -ne $match) {
+            $match.title = $instanceTitle
+            $match.url = $requestsSiteUrl
+        }
+        else {
+            $instances += [pscustomobject]@{ title = $instanceTitle; url = $requestsSiteUrl }
+        }
+
+        # Re-project to keep the entity clean, and -AsArray (via the pipeline, which
+        # enumerates) so a single entry still serializes as a JSON array - passing the
+        # array as an argument would double-wrap it
+        $json = $instances | Select-Object title, url | ConvertTo-Json -Compress -AsArray
+        Set-PnPStorageEntity -Key "bp_ProvisionUrls" -Value $json -Description "Bestillingsportalen-instanser (JSON-array av {title, url}; foerste element er standard). Vedlikeholdes av deploy.ps1 - kan ogsaa redigeres manuelt." -ErrorAction Stop
+        Write-Host "Registered instance '$instanceTitle' -> $requestsSiteUrl ($(@($instances).Count) instance(s) in the registry)" -ForegroundColor Green
+        RecordDeployStatus -Component $componentName -Status 'OK' -Detail "$instanceTitle -> $requestsSiteUrl"
+    }
+    catch {
+        $reason = ($_.Exception.Message -split "`r?`n")[0]
+        Write-Host "[WARNING] Failed to register the instance in bp_ProvisionUrls: $reason" -ForegroundColor Yellow
+        Write-Host "Set it manually against the tenant app catalog: Set-PnPStorageEntity -Key bp_ProvisionUrls -Value $requestsSiteUrl" -ForegroundColor Yellow
+        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Registry not updated ($reason). Set it manually against the tenant app catalog: Set-PnPStorageEntity -Key bp_ProvisionUrls -Value $requestsSiteUrl"
     }
 }
 
@@ -2632,10 +2787,10 @@ $global:tenantUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com"
 # service account called bestillingsportalen@<domain> - and SharePoint resolves that
 # collision by silently creating the group as 'bestillingsportalen1'.
 #
-# The default stays 'bestillingsportalen' regardless, because the Teams app has the site
-# URL hardcoded to /<managedPath>/bestillingsportalen. When the alias is taken,
-# ValidateSiteAlias stops the run and points at the workaround (create on a free alias,
-# rename the site URL, then set the parameter to 'bestillingsportalen').
+# The default stays 'bestillingsportalen' as a recognizable convention, but any alias
+# works: the web parts and the Teams app locate the site via the tenant registry
+# (storage entity bp_ProvisionUrls) that RegisterProvisionInstance maintains. When the
+# alias is taken, ValidateSiteAlias stops the run and says to pick a free one.
 #
 # Falls back to the old title-derived alias when the parameter is absent or blank, so
 # existing parameters.json files keep pointing at the site they already installed.
@@ -2882,11 +3037,15 @@ if ($global:upgrade) {
         RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
     }
 
+    RegisterProvisionInstance
+
     StampInstalledVersion
 
     SendDeployPingback
 
     WriteDeploymentReport
+
+    WriteTeamsAppManualUploadNotice
 
     if ((GetFailedDeployComponents).Count -gt 0) {
         Write-Host "### UPGRADE COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
@@ -2989,6 +3148,8 @@ else {
     RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
 }
 
+RegisterProvisionInstance
+
 StampInstalledVersion
 
 SendDeployPingback
@@ -3002,6 +3163,8 @@ Write-Host "The scripted part is done. Next: authorise the API connections as th
 Write-Host "('Autorisere API-tilkoblinger' in Deployment-guide.md - guided flow: ./Authorize-ApiConnections.ps1)," -ForegroundColor Cyan
 Write-Host "then follow Configuration-guide.md for approval setup, flow import, sharing and a verification order." -ForegroundColor Cyan
 Write-Host ""
+
+WriteTeamsAppManualUploadNotice
 
 if ((GetFailedDeployComponents).Count -gt 0) {
     Write-Host "### DEPLOYMENT COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red

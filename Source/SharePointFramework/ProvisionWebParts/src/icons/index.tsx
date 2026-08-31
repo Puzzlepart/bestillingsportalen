@@ -10,14 +10,14 @@ import type { FluentIconName, GetFluentIconOptions } from './types'
  * @param options - The options to use when retrieving the icon.
  *
  * @returns The specified Fluent icon as a JSX element (or component when `jsx: false`),
- * or null if the icon is not found in the catalog.
+ * or undefined if the icon is not found in the catalog.
  */
 export function getFluentIcon<T = JSX.Element>(
   name: FluentIconName,
   options?: GetFluentIconOptions
-): T | null {
+): T | undefined {
   const icon = iconCatalog[name]
-  if (!icon) return null
+  if (!icon) return undefined
   const bundle = options?.bundle ?? true
   const color = options?.color
   const size = options?.size

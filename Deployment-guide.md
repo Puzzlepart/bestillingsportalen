@@ -65,9 +65,11 @@ Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive pro
 Register-PnPEntraIDAppForInteractiveLogin `
     -ApplicationName "Bestillingsportalen PnP" `
     -Tenant "<kunde>.onmicrosoft.com" `
-    -GraphDelegatePermissions "Group.ReadWrite.All" `
+    -GraphDelegatePermissions "Group.ReadWrite.All", "AppCatalog.ReadWrite.All" `
     -SharePointDelegatePermissions "AllSites.FullControl"
 ```
+
+`AppCatalog.ReadWrite.All` er **valgfri** og brukes kun til å publisere Bestillingsportalen-appen til Teams-appkatalogen automatisk som del av SPFx-distribusjonen. De fleste tenanter gir ikke denne tillatelsen (og PP365-appen i alternativ A har den ikke) — da fullfører `deploy.ps1` likevel, og Teams-appen lastes i stedet opp manuelt, se [Teams-appen](#teams-appen). Vil du ha automatisk publisering på en eksisterende PnP-app, kan en Global Administrator legge tillatelsen til under `API permissions` på app-registreringen i Entra ID (Microsoft Graph → Delegated → `AppCatalog.ReadWrite.All` → Grant admin consent).
 
 **App-ID-en (Client ID)** fra outputen settes som `pnpAppId` i `parameters.json`. Under installasjonen åpner `deploy.ps1` nettleseren for pålogging (kun ved første tilkobling — tokens caches). De effektive rettighetene er snittet av dine rettigheter og appens delegerte tilganger; kontoen som kjører skriptet er uansett SharePoint-administrator.
 
@@ -129,17 +131,13 @@ Beskrivelse av hver parameter:
 
 - `requestsSiteAlias` – Aliaset til området, som bestemmer **URL-en** (`/<managedPath>/<alias>`) og **e-postadressen til Microsoft 365-gruppen** (`<alias>@<maildomene>`). Standard er `bestillingsportalen`, altså `/sites/bestillingsportalen` og `bestillingsportalen@kunde.no`.
 
-  > **Behold standardverdien.** Teams-appen har områdets URL **hardkodet** til `/<managedPath>/bestillingsportalen` (webdelen har URL-en som en property og kan peke hvor som helst — Teams-appen kan ikke). Ligger området et annet sted, virker webdelen, men Teams-appen finner ikke listene.
+  > **Ethvert alias fungerer.** Webdelene og Teams-appen finner området via tenant-registeret (storage entity `bp_ProvisionUrls`), som `deploy.ps1` vedlikeholder automatisk — se [Tenant-registeret](./Configuration-guide.md#merknad-tenant-registeret-bp_provisionurls). Standardverdien beholdes for gjenkjennelighet, ikke av teknisk nødvendighet.
   >
-  > **Aliaset deler navnerom med alle brukere og grupper i tenanten.** Har kunden en tjenestekonto som `bestillingsportalen@kunde.no`, er aliaset opptatt — og SharePoint **feiler ikke** på det, det oppretter gruppen som `bestillingsportalen1` i stedet. Da peker alle URL-ene skriptet har regnet ut på et område som ikke finnes, og kjøringen stopper lenger ned med `Object reference not set to an instance of an object`. Derfor validerer `deploy.ps1` aliaset mot tjenestekontoen og mot brukere i tenanten **før** noe opprettes, og stopper i pre-flight med `MISSING` på `Site alias` hvis det er opptatt.
-  >
-  > **Er aliaset opptatt**, gjør dette i stedet for å gi opp URL-en:
-  >
-  > 1. Sett `requestsSiteAlias` til et ledig alias, f.eks. `BP`, og kjør installasjonen.
-  > 2. Endre områdets URL til `/<managedPath>/bestillingsportalen` i SharePoint Admin Center → `Områder` → `Aktive områder` → området → `Rediger URL`. Dette endrer URL-en, men **ikke** gruppens `mailNickname` — som fortsatt er `BP`, og dermed ikke kolliderer med tjenestekontoen.
-  > 3. Sett `requestsSiteAlias` til `bestillingsportalen` i parameterfila, så senere kjøringer peker på den nye URL-en. Alias-sjekken hopper over seg selv når området allerede finnes der, så kollisjonen blokkerer ikke re-kjøringer.
+  > **Aliaset deler navnerom med alle brukere og grupper i tenanten.** Har kunden en tjenestekonto som `bestillingsportalen@kunde.no`, er aliaset opptatt — og SharePoint **feiler ikke** på det, det oppretter gruppen som `bestillingsportalen1` i stedet. Da peker alle URL-ene skriptet har regnet ut på et område som ikke finnes, og kjøringen stopper lenger ned med `Object reference not set to an instance of an object`. Derfor validerer `deploy.ps1` aliaset mot tjenestekontoen og mot brukere i tenanten **før** noe opprettes, og stopper i pre-flight med `MISSING` på `Site alias` hvis det er opptatt. Fiksen er å sette et ledig alias (f.eks. `BP`) og kjøre på nytt.
   >
   > **Ved oppgradering av et eksisterende miljø: verifiser mot områdets faktiske URL.** Ligger området på `/sites/bestillingsportalen`, gjør standardverdien jobben. Ligger det et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, da utledes aliaset fra `requestsSiteName` som før 2.0. Setter du feil verdi, peker kjøringen på et annet område enn det du har i drift.
+
+- `provisionInstanceTitle` (**valgfritt**) – Visningsnavnet for **denne** installasjonen i tenant-registeret `bp_ProvisionUrls`, som vises i Teams-appens instansvelger når tenanten har flere Bestillingsportalen-installasjoner. La stå tomt for å bruke `requestsSiteName`. Kan ikke settes registeret? `deploy.ps1` fullfører likevel med en `WARNING` og skriver ut `Set-PnPStorageEntity`-kommandoen for manuell registrering.
 
 - `requestsSiteDesc` – Beskrivelse av området som opprettes.
 
@@ -270,6 +268,17 @@ Når webdelen er publisert kan den legges til på en hvilken som helst SharePoin
 ```powershell
 ./deploy.ps1 -SkipSPFxDeploy
 ```
+
+### Teams-appen
+
+Bestillingsportalen skal også være tilgjengelig som personlig app i Teams. Som del av SPFx-distribusjonen pakker `deploy.ps1` Teams-app-manifestet (`ProvisionWebParts/teams/`, versjon synkronisert fra `package-solution.json`) til `bestillingsportalen-teams-app.zip` og forsøker å publisere den til Teams-appkatalogen via Graph. Automatisk publisering krever delegert `AppCatalog.ReadWrite.All` på PnP-appen (se [PnP PowerShell App Registration](#pnp-powershell-app-registration)) — en tillatelse de fleste tenanter ikke gir. **Regn derfor med å laste opp appen manuelt** (skriptet minner om det på slutten av kjøringen):
+
+1. Åpne **Teams admin center** → `Teams-apper` → `Administrer apper`
+2. `Handlinger` → `Last opp ny app`, og velg `Source/SharePointFramework/ProvisionWebParts/sharepoint/solution/bestillingsportalen-teams-app.zip` (produseres av deploy-skriptet, som også skriver ut stien)
+3. Finnes appen **Bestillingsportalen** i katalogen fra før (f.eks. synkronisert fra Prosjektportalen 365 tidligere), åpne den eksisterende appen og bruk `Last opp fil` for å oppdatere den i stedet
+4. Verifiser at appen åpner i Teams
+
+Steget trengs ved førstegangsinstallasjon og ved oppgraderinger som gir ny appversjon. Ikke bruk `Sync to Teams`-knappen i SharePoint-appkatalogen — den er upålitelig (deaktivert eller «Failed to sync» i mange tenanter), og zip-opplastingen gjør nøyaktig det samme.
 
 ## Videre: Konfigurasjonsveiledningen
 

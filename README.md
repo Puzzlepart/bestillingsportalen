@@ -12,12 +12,12 @@ Bestillingsportalen er en Azure-basert løsning som gir et alternativ til selvbe
 
 Bestillingsportalen tilbyr følgende:
 
-- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder.
+- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder. Fra og med 2.1.0 inngår webdelen i dette repoets pakke `bp-provision-web-parts` (SPFx 1.23, Fluent UI v9) — tidligere fulgte den med Prosjektportalen 365.
 - Konfigurerbar godkjenningsprosess via Power Automate.
 - SharePoint-område med støttelister som utgjør backenden for løsningen.
 - Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation.
-- Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (SPFx 1.22, Fluent UI v9) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
+- Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (samme SPFx-pakke) som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
 
 ### Gjesteinvitasjon
 
@@ -43,7 +43,7 @@ For arkitekturdiagrammer og en samlet oversikt over hva som installeres og hvilk
 
 ## Kom i gang
 
-For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](Deployment-guide.md) – den dekker den skriptede delen. Fortsett deretter i [Konfigurasjonsveiledningen](Configuration-guide.md), som tar over med godkjenningsoppsett, flyt-import, deling og en verifiserende testbestilling. Løsningen er ikke i drift før begge er gjennomført.
+For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](Deployment-guide.md) – den dekker den skriptede delen. Fortsett deretter i [Konfigurasjonsveiledningen](Configuration-guide.md), som tar over med godkjenningsoppsett, flyt-import, deling og en verifiserende testbestilling. Løsningen er ikke i drift før begge er gjennomført. Merk at Bestillingsportalen-appen i Teams normalt må lastes opp manuelt i Teams admin center (zip-pakken produseres av deploy-skriptet) — se [Teams-appen](Deployment-guide.md#teams-appen) i installasjonsveiledningen.
 
 ## Oppgradering
 

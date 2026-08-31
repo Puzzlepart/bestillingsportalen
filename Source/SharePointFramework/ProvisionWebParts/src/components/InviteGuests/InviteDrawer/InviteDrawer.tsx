@@ -279,7 +279,9 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
           </Button>
           <Button
             appearance='primary'
-            onClick={() => void submit()}
+            onClick={() => {
+              void submit()
+            }}
             disabled={submitDisabled}
             icon={submitting ? <Spinner size='tiny' /> : undefined}>
             {strings.SendInvitationsButton}
