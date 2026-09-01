@@ -36,13 +36,13 @@ graph TD
     B --> |"When an item is created (1 min poll)"| C(ProcessGuestRequest Logic App)
     C --> | Workflow action | D(ProcessGuests Logic App)
     D --> E(Microsoft Graph /invitations API) --> F(Guest user in Entra ID)
-    D --> | "POST /users/{id}/sponsors/$ref (bestilleren som sponsor)" | F
+    D --> |"POST /users/{id}/sponsors/$ref (bestilleren som sponsor)"| F
     D --> | Status, GuestId, InviteRedeemUrl | B
     C --> | After successful invite, with guest + group params | G(AddGuestToSite runbook)
     G --> | Managed Identity | H(PnP PowerShell)
     H --> | Add-PnPMicrosoft365GroupMember | I2(M365-gruppen på siten)
     H --> | Add-PnPGroupMember / New-PnPGroup | J2(SP-brukergruppe på siten)
-    H --> | "POST /groups/{id}/members/$ref (valgfritt, guestEntraGroup)" | K2(Felles Entra-gruppe for gjester)
+    H --> |"POST /groups/{id}/members/$ref (valgfritt, guestEntraGroup)"| K2(Felles Entra-gruppe for gjester)
     A --> | DataGrid view filtered by SiteUrl | B
 ```
 
