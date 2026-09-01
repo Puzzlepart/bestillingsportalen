@@ -213,6 +213,14 @@ Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområ
 
 Husk også at brukerne må ha tilgang til området og `Provisioning Requests`-listen (Steg 3) før de kan bestille.
 
+### Tilgangsstyring med sikkerhetsgruppe (`requireProvisionAccess`)
+
+Webdelen kan begrenses til medlemmer av en SharePoint-gruppe: slå på egenskapen **`requireProvisionAccess`** (av som standard) i property pane. Webdelen slår da opp en gruppe **på området der siden ligger**, med tittel lik egenskapen **`provisionAccessGroupTitle`** (standard `Bestillingsportalen`), og skjuler bestillingsflaten for brukere som ikke er medlem.
+
+Gruppen opprettes **ikke** automatisk — verken av `deploy.ps1` eller av PnP-malen (den vet ikke hvor webdelen plasseres). Skal tilgangsstyring brukes, opprett gruppen manuelt på området (Områdeinnstillinger → Personer og grupper), gi den samme tittel som `provisionAccessGroupTitle`, og legg inn brukerne som skal kunne bestille.
+
+> **Tenanter med Prosjektportalen 365:** Porteføljer provisjonert med PP365 ≤ 1.13 har allerede gruppen — `Bestillingsportalen` på norske installasjoner, **`Provision portal`** på engelske (sett i så fall `provisionAccessGroupTitle` til den engelske tittelen). Fra og med PP365 1.14 provisjonerer ikke PP365-malen gruppen lenger; eksisterende grupper består.
+
 > **Oppgradering i tenanter med Prosjektportalen 365:** Til og med PP365 1.14 fulgte webdelen med PP365-pakken `pp-portfolio-web-parts`, med samme komponent-id. Appkatalogen tillater ikke to pakker som registrerer samme komponent — oppgrader derfor **først** Prosjektportalen 365 til en versjon uten webdelen, og distribuer **deretter** denne pakken, i samme vedlikeholdsvindu. Eksisterende Bestillingsportalen-sider viser «finner ikke komponenten» i mellomtiden og virker igjen så snart denne pakken er distribuert (komponent-id-en er beholdt). Oppdater til slutt Teams-appen fra denne pakken (se under).
 
 ## Merknad: Tenant-registeret `bp_ProvisionUrls`
