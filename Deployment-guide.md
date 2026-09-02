@@ -151,6 +151,12 @@ Beskrivelse av hver parameter:
 
 - `uamiName` (**valgfritt**) – Navn på user-assigned managed identity som opprettes og brukes av Logic Apps. Standard er `bestillingsportalen-uami`.
 
+  > **Navnet er synlig for sluttbrukere.** Identiteten utfører gruppe- og teammedlemskapsoperasjoner via Graph, og navnet dukker derfor opp som avsender i Microsoft 365 — f.eks. i Teams-aktivitetsfeeden når noen legges til i et team:
+  >
+  > ![UAMI-navnet i Teams-aktivitetsfeeden](/Images/bestillingsportalen-uami.png)
+  >
+  > Vurder derfor navnet som en brukersynlig tekst, ikke bare et ressursnavn: standardverdien `bestillingsportalen-uami` er gjenkjennelig nok for de fleste, men ønsker kunden noe annet (f.eks. uten `-uami`-suffikset), settes det her **før installasjon** — å bytte navn senere oppretter en ny identitet som må få app-roller og rolletildelinger på nytt.
+
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
 
 - `siteLogoPath` (**valgfritt**) – Sti til en firmalogo (ideelt lagret i SharePoint) som alle brukere har tilgang til, brukes som logo for opprettede områder. Sørg for at stien peker til et bilde. Hvis du ikke har et bilde, la dette stå tomt.
