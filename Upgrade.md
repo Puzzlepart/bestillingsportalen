@@ -59,7 +59,7 @@ Bruk oppgraderingsmodus når du vil:
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
    - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
    - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
-   - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (kundeeid innhold — tilpasninger legges der)
+   - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (organisasjonens eget innhold — tilpasninger legges der)
 
 4. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
@@ -89,7 +89,7 @@ Bruk oppgraderingsmodus når du vil:
 
 3. **Andre Azure-ressurser:**
    - Azure Automation Account
-   - Innholdet i `CustomerSpecific`-runbooken (kundeeid utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
+   - Innholdet i `CustomerSpecific`-runbooken (organisasjonens eget utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
    - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
    - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
@@ -168,7 +168,7 @@ Før du starter oppgraderingen:
 4. **Ha parameterne klare**
    - Bruk samme parameterfil som ved første installasjon (`-ParametersPath` hvis den heter noe annet enn `parameters.json`)
    - Verifiser at alle verdiene fortsatt er gyldige
-   - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 1.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`, som Teams-appen har hardkodet), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
+   - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 1.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)

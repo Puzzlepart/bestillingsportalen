@@ -28,15 +28,15 @@
     is kept - the value is a suggestion, not a blocker.
 
 .PARAMETER Tenant
-    The target (customer) tenant to generate parameters for - initial domain
+    The target tenant to generate parameters for - initial domain
     (e.g. contoso.onmicrosoft.com) or tenant id. Prompted for when omitted.
     The script signs the Azure CLI in to THIS tenant and only offers
-    subscriptions that belong to it, so consultants working across customer
+    subscriptions that belong to it, so anyone working across several
     tenants cannot generate parameters against the wrong environment.
 
 .PARAMETER OutputPath
     Where to write the generated file. Default: .\parameters.json (next to deploy.ps1).
-    Use one file per customer (e.g. .\parameters-contoso.json - parameters-*.json is
+    Use one file per tenant (e.g. .\parameters-contoso.json - parameters-*.json is
     git-ignored) and pass it to deploy.ps1 with -ParametersPath.
 
 .PARAMETER ServiceAccountUPN
@@ -82,12 +82,12 @@ if (-not (Test-Path $templatePath)) {
 
 # ---------------------------------------------------------------------------
 # 1. Target tenant + Azure CLI sign-in
-# Always anchored to an explicitly stated target tenant, so consultants who
-# work across customer tenants cannot generate parameters against the wrong
+# Always anchored to an explicitly stated target tenant, so anyone who
+# works across several tenants cannot generate parameters against the wrong
 # environment by accident. Only subscriptions in the target tenant are offered.
 # ---------------------------------------------------------------------------
 while ([string]::IsNullOrWhiteSpace($Tenant)) {
-    $Tenant = Read-Host "Which tenant (customer) are you generating parameters for? Enter the initial domain or tenant id (e.g. contoso.onmicrosoft.com)"
+    $Tenant = Read-Host "Which tenant are you generating parameters for? Enter the initial domain or tenant id (e.g. contoso.onmicrosoft.com)"
 }
 
 # A UPN pasted by mistake (user@tenant.onmicrosoft.com) - the domain part is the tenant
@@ -209,7 +209,7 @@ Write-Host "NOTE: verify that '$spoTenantName' matches your actual SharePoint UR
 #
 # resourceGroupName and region were template defaults only, so generating a parameter
 # file for an environment that is ALREADY installed produced 'rg-bestillingsportalen' in
-# 'norwayeast' no matter what the customer actually used. Deploying with that does not
+# 'norwayeast' no matter what the environment actually uses. Deploying with that does not
 # fail - it builds a complete second installation next to the first one, in a new
 # resource group, and orphans everything that was there.
 #
@@ -477,7 +477,7 @@ if ($null -eq $pnpSp) {
 }
 
 # Point at the generated file explicitly when it is not the default deploy.ps1 reads,
-# so a per-customer file does not have to be copied over parameters.json first.
+# so a per-environment file does not have to be copied over parameters.json first.
 $deployCommand = if ((Split-Path -Leaf $OutputPath) -eq 'parameters.json') {
     "./deploy.ps1"
 }

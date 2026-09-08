@@ -30,9 +30,37 @@ Før du bidrar:
     git checkout -b my-contribution
     ```
 
+## Bygge og kjøre webdelene lokalt
+
+SPFx-løsningen (`ProjectProvision`-webdelen/Teams-appen og `InviteGuests`-webdelen) ligger i
+`Source/SharePointFramework/ProvisionWebParts/` og bygges med SPFx 1.23 og Heft. `deploy.ps1` kjører
+`npm install` og `npm run build` for deg ved installasjon, men for utvikling bygger du selv:
+
+```sh
+cd Source/SharePointFramework/ProvisionWebParts
+nvm use            # Node 22.14 - versjonen står i .nvmrc
+npm install
+npm start          # heft start: lokal serve mot hosted workbench
+```
+
+`npm start` serverer bundlene fra `https://localhost:4321`. Åpne den hostede workbenchen i din egen
+tenant, `https://<tenant>.sharepoint.com/_layouts/workbench.aspx`, og legg til webdelen der (bytt ut
+`contoso` i `config/serve.json` om du vil at kommandoen skal åpne riktig tenant automatisk).
+
+| Kommando | Gjør |
+| --- | --- |
+| `npm test` | Kjører Jest-testene (`*.test.ts`) |
+| `npm run lint` / `npm run lint:check` | ESLint med og uten autofiks |
+| `npm run format` | Prettier + ESLint på hele kildekoden |
+| `npm run build` | Tester, bygger for produksjon og pakker `sharepoint/solution/bp-provision-web-parts.sppkg` |
+
+Pakken publiseres til tenantens app-katalog av `deploy.ps1`; skal du kun laste opp en lokalt bygget
+pakke, bruk `Add-PnPApp -Path <sppkg> -Overwrite -Publish -Scope Tenant`, eller kjør `deploy.ps1 -SkipSPFxDeploy`
+for å oppdatere alt annet uten å bygge.
+
 ## Dokumentasjon som PDF
 
-Skal dokumentasjonen sendes til en kunde – typisk som underlag for en sikkerhetsgjennomgang – bygger `Source/Scripts/build-docs-pdf.mjs` én samlet PDF med tittelside, innholdsfortegnelse, rendrede mermaid-diagrammer og kryssreferansene skrevet om til interne anker:
+Skal dokumentasjonen deles utenfor GitHub – typisk som underlag for en sikkerhetsgjennomgang i en organisasjon som vurderer løsningen – bygger `Source/Scripts/build-docs-pdf.mjs` én samlet PDF med tittelside, innholdsfortegnelse, rendrede mermaid-diagrammer og kryssreferansene skrevet om til interne anker:
 
 ```sh
 npm install --no-save markdown-it markdown-it-anchor playwright-core mermaid

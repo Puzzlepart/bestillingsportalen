@@ -26,7 +26,7 @@
 .PARAMETER ParametersPath
     Path to the parameters file to deploy from. Default: .\parameters.json.
 
-    Use this to keep one file per customer environment (parameters-<customer>.json,
+    Use this to keep one file per environment (parameters-<tenant>.json,
     all ignored by git) instead of copying the right one over parameters.json before
     every run. The path is resolved before anything else happens, so a typo fails
     immediately rather than after three sign-ins.
@@ -69,8 +69,8 @@
     Unattended upgrade of an existing environment: no prompts, no template re-apply.
 
 .EXAMPLE
-    deploy.ps1 -ParametersPath .\parameters-gjesdal.json
-    Deploy using a specific customer's parameter file.
+    deploy.ps1 -ParametersPath .\parameters-contoso.json
+    Deploy using a specific environment's parameter file.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -78,7 +78,7 @@
 param
 (
     [Parameter(Mandatory = $false)]
-    [string]$ParametersPath = ".\parameters.json", # Parameter file to deploy from - one per customer environment
+    [string]$ParametersPath = ".\parameters.json", # Parameter file to deploy from - one per environment
     [switch]$SkipVerifyModules,
     [switch]$SkipSharepointSite,
     [switch]$SkipBicepDeploy,

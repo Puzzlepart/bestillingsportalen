@@ -2,6 +2,13 @@
   "name": "bp-provision-web-parts",
   "version": "0.0.1",
   "private": true,
+  "description": "SPFx web parts for Bestillingsportalen (ProjectProvision and InviteGuests)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Puzzlepart/bestillingsportalen.git",
+    "directory": "Source/SharePointFramework/ProvisionWebParts"
+  },
   "main": "lib/index.js",
   "engines": {
     "node": ">=22.14.0 <23.0.0"

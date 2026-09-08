@@ -1,6 +1,6 @@
 Source/Scripts/parameters copy.json
 Source/Scripts/parameters.json
-# Per-kunde parameterfiler (tenant-ID, subscription-ID, tjenestekonto-UPN)
+# Parameterfiler per miljø (tenant-ID, subscription-ID, tjenestekonto-UPN)
 Source/Scripts/parameters-*.json
 !Source/Scripts/parameters.template.json
 .DS_Store
@@ -27,3 +27,6 @@ Source/SharePointFramework/ProvisionWebParts/jest-output/
 /node_modules/
 /package.json
 /package-lock.json
+
+# Lokale Claude Code-innstillinger (maskinspesifikke stier/tillatelser)
+.claude/settings.local.json

@@ -40,7 +40,7 @@ Godkjenninger er nå konfigurert til å bruke Power Automate Approvals-oppgaver.
 
 6. Trekk ut Group Id og Channel Id fra lenkestrengen som vist nedenfor:
 
-https://teams.microsoft.com/l/channel/<span style="color:red">19%3af221b1abbb214c4b8b5fe3d7e4074194%40thread.tacv2</span>/Request%2520Approvals?groupId=<span style="color:green">320312d1-e925-433f-80bc-4422f5395edf</span>&tenantId=32292181-0169-456b-b0a4-95fa4c5773a4
+https://teams.microsoft.com/l/channel/<span style="color:red">19%3af221b1abbb214c4b8b5fe3d7e4074194%40thread.tacv2</span>/Request%2520Approvals?groupId=<span style="color:green">00000000-0000-0000-0000-000000000000</span>&tenantId=<tenant-id>
 
 Teksten i <span style="color:red">rødt</span> er Channel Id. Teksten i <span style="color:green">grønt</span> er Group Id.
 
@@ -98,7 +98,7 @@ Flyten importeres i avslått tilstand (Draft) og må slås på manuelt som tjene
 >
 > ![Sikkerhetsroller for tjenestekontoen](/Images/FlowSecurityRoles.png)
 >
-> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — kan årsaken være **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter — en konto uten gyldig lisens får dessuten access mode «Administrative» i Dataverse og kan da heller ikke importere ([kjent årsak](https://learn.microsoft.com/troubleshoot/power-platform/dataverse/working-with-solutions/install-failure-priviledge-not-assigned)). Merk at seeded Power Automate fra F-lisenser normalt er tilstrekkelig (verifisert i kundetenant) — feilen er kun sett én gang, i et utviklingsmiljø. Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
+> Vedvarer feilen med rollen på plass — typisk også med `Kan ikke bruke tilkoblingen … til shared_logicflows`-feil hvis du prøver `Edit` — kan årsaken være **lisensen**: flow-tjenesten nekter kontoer uten brukbar Power Automate-plan å eie/aktivere flyter — en konto uten gyldig lisens får dessuten access mode «Administrative» i Dataverse og kan da heller ikke importere ([kjent årsak](https://learn.microsoft.com/troubleshoot/power-platform/dataverse/working-with-solutions/install-failure-priviledge-not-assigned)). Merk at seeded Power Automate fra F-lisenser normalt er tilstrekkelig (verifisert i produksjonstenant) — feilen er kun sett én gang, i et utviklingsmiljø. Test ved å opprette en triviell flyt under `My flows` som tjenestekontoen. Merk at lisensendringer kan bruke litt tid på å propagere til flow-tjenesten — logg ut/inn og prøv igjen etter en stund før du feilsøker videre.
 
 ## Steg 3: Dele flyt og SharePoint-område
 

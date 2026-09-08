@@ -111,7 +111,7 @@
     </pnp:DataRow>
     <pnp:DataRow>
       <pnp:DataValue FieldName="Title">CompanyName</pnp:DataValue>
-      <pnp:DataValue FieldName="Value">Puzzlepart</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">SoftwareOne</pnp:DataValue>
       <pnp:DataValue FieldName="Description">Firmanavn som skal vises i invitasjons-e-poster til eksterne gjester.</pnp:DataValue>
     </pnp:DataRow>
     <pnp:DataRow>

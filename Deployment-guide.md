@@ -4,7 +4,7 @@
 
 ### Sjekkliste
 
-Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe må ofte bestilles hos kundens administratorer — gjør det tidlig, de har ledetid.
+Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe må ofte bestilles hos organisasjonens administratorer — gjør det tidlig, de har ledetid.
 
 **Maskinen som kjører installasjonen:**
 
@@ -34,7 +34,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 
 - Power Automate (seeded licenses) aktivert og utrullet i organisasjonen.
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har alt dette ([Microsofts lisens-FAQ](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/faqs#office-365-license-questions)), og en F3-lisensiert tjenestekonto er verifisert i praksis gjennom hele løpet inkludert flyt-import og -aktivering (kundetenant, august 2026). Uprovisjonerte prøvelisenser («viral» `FLOW_P2_VIRAL`) teller ikke. Skulle flyt-aktiveringen mot formodning feile med `FlowNotOriginalAuthor` (sett én gang i et utviklingsmiljø), se feilsøkingsboksen i [Konfigurasjonsveiledningen, Steg 2](./Configuration-guide.md) — bytte av lisens er siste utvei, ikke førstevalg.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, og eier godkjenningsflyten) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online, Teams **og seeded Power Automate** — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har alt dette ([Microsofts lisens-FAQ](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/faqs#office-365-license-questions)), og en F3-lisensiert tjenestekonto er verifisert i praksis gjennom hele løpet inkludert flyt-import og -aktivering (produksjonstenant, august 2026). Uprovisjonerte prøvelisenser («viral» `FLOW_P2_VIRAL`) teller ikke. Skulle flyt-aktiveringen mot formodning feile med `FlowNotOriginalAuthor` (sett én gang i et utviklingsmiljø), se feilsøkingsboksen i [Konfigurasjonsveiledningen, Steg 2](./Configuration-guide.md) — bytte av lisens er siste utvei, ikke førstevalg.
 - Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
@@ -64,7 +64,7 @@ Installasjonen kjøres manuelt og overvåket (skriptet har flere interaktive pro
 ```powershell
 Register-PnPEntraIDAppForInteractiveLogin `
     -ApplicationName "Bestillingsportalen PnP" `
-    -Tenant "<kunde>.onmicrosoft.com" `
+    -Tenant "<tenant>.onmicrosoft.com" `
     -GraphDelegatePermissions "Group.ReadWrite.All", "AppCatalog.ReadWrite.All" `
     -SharePointDelegatePermissions "AllSites.FullControl"
 ```
@@ -101,7 +101,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 2: Oppdatere parameters.json
 
-**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant (kunde) du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere kunder, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts). Skriptet verifiserer samtidig at tjenestekontoen faktisk finnes i tenanten (re-prompter hvis ikke), og at PnP-appen `pnpAppId` er registrert der — mangler den, sier skriptet det i «Next steps»:
+**Tips: generer filen automatisk.** Kjør hjelpeskriptet `GenerateParameters.ps1` fra `Scripts`-mappen. Det spør først **hvilken tenant du skal installere i** (initial-domene eller tenant-ID) og logger Azure CLI inn i akkurat den tenanten — jobber du mot flere tenanter, kan du dermed ikke generere parametre mot feil miljø ved et uhell. Subscription-velgeren viser kun abonnementer i mål-tenanten, sammen med hvem du er logget inn som. Deretter fylles alt som kan utledes fra miljøet (`tenantId`, `subscriptionId`, `fullTenantName`, `spoTenantName`) pluss fornuftige standardverdier. Du blir bare spurt om det som ikke kan utledes (tjenestekonto-UPN — kan også angis som parameter for kjøring uten prompts). Skriptet verifiserer samtidig at tjenestekontoen faktisk finnes i tenanten (re-prompter hvis ikke), og at PnP-appen `pnpAppId` er registrert der — mangler den, sier skriptet det i «Next steps»:
 
 ```powershell
 ./GenerateParameters.ps1
@@ -111,7 +111,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 > **Managed path leses fra tenanten.** Mot slutten spør skriptet om det skal hente `Opprett gruppeområder under` fra SharePoint Admin Center (`Innstillinger` → `Områdeoppretting`). Dette er det ene som ikke kan leses med Azure CLI — SharePoint krever eget token — så steget bruker PnP.PowerShell og åpner én nettleser-pålogging som SharePoint-administrator. Svarer du `n`, mangler PnP.PowerShell, eller kjører du med `-Force`, beholdes standardverdien `sites`. Kan verdien ikke leses ut av tenanten, spør skriptet deg om den i stedet, med henvisning til innstillingen — **kontroller den**, for `sites` mot en `/teams/`-tenant gir feil område-URL-er.
 
-> **Jobber du mot flere kunder?** Bruk én fil per miljø i stedet for å kopiere den riktige over `parameters.json` før hver kjøring: `./GenerateParameters.ps1 -OutputPath .\parameters-contoso.json`, og kjør deretter `./deploy.ps1 -ParametersPath .\parameters-contoso.json`. `parameters-*.json` er git-ignorert, og deploy-skriptets PRE-FLIGHT SUMMARY viser hvilken fil verdiene kom fra.
+> **Jobber du mot flere tenanter?** Bruk én fil per miljø i stedet for å kopiere den riktige over `parameters.json` før hver kjøring: `./GenerateParameters.ps1 -OutputPath .\parameters-contoso.json`, og kjør deretter `./deploy.ps1 -ParametersPath .\parameters-contoso.json`. `parameters-*.json` er git-ignorert, og deploy-skriptets PRE-FLIGHT SUMMARY viser hvilken fil verdiene kom fra.
 
 Skriptet endrer ingenting i miljøet (kun lesekall) og skriver ut en oversikt over alle genererte verdier til slutt. **Gå gjennom filen etterpå** — særlig standardnavnene (`resourceGroupName`, `appName`, `requestsSiteName`) og at `spoTenantName` stemmer med den faktiske SharePoint-URL-en (tenants som har byttet navn kan avvike fra initial-domenet).
 
@@ -123,7 +123,7 @@ Beskrivelse av hver parameter:
 
 - `tenantId` – ID til tenanten du skal installere i. Finnes i Microsoft Entra ID-bladet.
 
-- `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `puzzlepart`.
+- `spoTenantName` – Navnet på SharePoint-tenanten eksklusivt `.sharepoint.com`, f.eks. `contoso`.
 
 - `fullTenantName` – Fullt tenant-navn inklusive `.onmicrosoft.com`, f.eks. `contoso.onmicrosoft.com`.
 
@@ -133,7 +133,7 @@ Beskrivelse av hver parameter:
 
   > **Ethvert alias fungerer.** Webdelene og Teams-appen finner området via tenant-registeret (storage entity `bp_ProvisionUrls`), som `deploy.ps1` vedlikeholder automatisk — se [Tenant-registeret](./Configuration-guide.md#merknad-tenant-registeret-bp_provisionurls). Standardverdien beholdes for gjenkjennelighet, ikke av teknisk nødvendighet.
   >
-  > **Aliaset deler navnerom med alle brukere og grupper i tenanten.** Har kunden en tjenestekonto som `bestillingsportalen@kunde.no`, er aliaset opptatt — og SharePoint **feiler ikke** på det, det oppretter gruppen som `bestillingsportalen1` i stedet. Da peker alle URL-ene skriptet har regnet ut på et område som ikke finnes, og kjøringen stopper lenger ned med `Object reference not set to an instance of an object`. Derfor validerer `deploy.ps1` aliaset mot tjenestekontoen og mot brukere i tenanten **før** noe opprettes, og stopper i pre-flight med `MISSING` på `Site alias` hvis det er opptatt. Fiksen er å sette et ledig alias (f.eks. `BP`) og kjøre på nytt.
+  > **Aliaset deler navnerom med alle brukere og grupper i tenanten.** Har organisasjonen en tjenestekonto som `bestillingsportalen@contoso.com`, er aliaset opptatt — og SharePoint **feiler ikke** på det, det oppretter gruppen som `bestillingsportalen1` i stedet. Da peker alle URL-ene skriptet har regnet ut på et område som ikke finnes, og kjøringen stopper lenger ned med `Object reference not set to an instance of an object`. Derfor validerer `deploy.ps1` aliaset mot tjenestekontoen og mot brukere i tenanten **før** noe opprettes, og stopper i pre-flight med `MISSING` på `Site alias` hvis det er opptatt. Fiksen er å sette et ledig alias (f.eks. `BP`) og kjøre på nytt.
   >
   > **Ved oppgradering av et eksisterende miljø: verifiser mot områdets faktiske URL.** Ligger området på `/sites/bestillingsportalen`, gjør standardverdien jobben. Ligger det et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, da utledes aliaset fra `requestsSiteName` som før 1.0. Setter du feil verdi, peker kjøringen på et annet område enn det du har i drift.
 
@@ -155,7 +155,7 @@ Beskrivelse av hver parameter:
   >
   > ![UAMI-navnet i Teams-aktivitetsfeeden](/Images/bestillingsportalen-uami.png)
   >
-  > Vurder derfor navnet som en brukersynlig tekst, ikke bare et ressursnavn: standardverdien `bestillingsportalen-uami` er gjenkjennelig nok for de fleste, men ønsker kunden noe annet (f.eks. uten `-uami`-suffikset), settes det her **før installasjon** — å bytte navn senere oppretter en ny identitet som må få app-roller og rolletildelinger på nytt.
+  > Vurder derfor navnet som en brukersynlig tekst, ikke bare et ressursnavn: standardverdien `bestillingsportalen-uami` er gjenkjennelig nok for de fleste, men ønsker organisasjonen noe annet (f.eks. uten `-uami`-suffikset), settes det her **før installasjon** — å bytte navn senere oppretter en ny identitet som må få app-roller og rolletildelinger på nytt.
 
 - `pnpAppId` – ID til PnP Entra-app registration du opprettet da du konfigurerte PnP PowerShell.
 
@@ -191,7 +191,7 @@ PnP PowerShell logger inn interaktivt — et nettleservindu åpnes ved første t
 
 Etter at alle innloggingene er fullført — men **før noe opprettes eller endres** — kjører skriptet alle forhåndssjekkene og viser en **PRE-DEPLOYMENT CHECKLIST**: én linje per sjekk (løsningsversjon, maler, tjenestekonto med lisens, område-alias, RBAC, resource providers, app-rolle-rettigheter, app-katalog, Node.js) med status `OK`, `MISSING`, `WARNING` eller `SKIPPED`, og en `Fix:`-linje med konkret løsning for hver mangel. Finnes `MISSING`-punkter stopper skriptet der — med **hele** mangellisten synlig, ikke bare første funn. Vil du bare ha statusoversikten uten å installere, kjør `./deploy.ps1 -Preflight`. Deretter viser skriptet en **PRE-FLIGHT SUMMARY**: hvilken versjon som installeres (og hvilken miljøet står på fra før), hvilken parameterfil verdiene kom fra, hvilken Entra ID-tenant, Azure-subscription og SharePoint-tenant du faktisk er koblet til, hvilken konto du er logget inn med, **språket (LCID) på tenantens rot-område**, og hva som vil bli satt opp (ressursgruppe, SharePoint-område, Automation/managed identity, app-roller, runbooks, API-tilkoblinger, Logic Apps, SPFx). **Kontroller at du er koblet til riktig miljø** og bekreft med `y` — svarer du `n` avsluttes skriptet uten at noe er endret.
 
-> **Om rot-områdets språk:** linja `Root site language` viser LCID og språknavn for tenantens rot-område (`https://<tenant>.sharepoint.com`). Vi har sett problemer ved provisjonering av områder med et annet språk enn rot-området, så verdien vises for at du skal kunne vurdere det før du kjører. Den påvirker ingenting i seg selv, og skriptet stopper ikke på den — men vurder å sette `DefaultLCID` i `Provisioning Request Settings` til samme språk, og å begrense `Locales`-listen (se [Regionale innstillinger](./Regional-settings.md)) hvis kunden ikke har behov for å bestille områder på flere språk. Kan verdien ikke leses, står det `could not be read (...)`; det er kun en visningsverdi og blokkerer ikke installasjonen.
+> **Om rot-områdets språk:** linja `Root site language` viser LCID og språknavn for tenantens rot-område (`https://<tenant>.sharepoint.com`). Vi har sett problemer ved provisjonering av områder med et annet språk enn rot-området, så verdien vises for at du skal kunne vurdere det før du kjører. Den påvirker ingenting i seg selv, og skriptet stopper ikke på den — men vurder å sette `DefaultLCID` i `Provisioning Request Settings` til samme språk, og å begrense `Locales`-listen (se [Regionale innstillinger](./Regional-settings.md)) hvis organisasjonen ikke har behov for å bestille områder på flere språk. Kan verdien ikke leses, står det `could not be read (...)`; det er kun en visningsverdi og blokkerer ikke installasjonen.
 
 For gjentatte eller uovervåkede kjøringer: `-SkipConfirmation` hopper over denne prompten og gjenbruker cachede sesjoner, og `-Force` gjør i tillegg at «re-anvend PnP-template?»-prompten svares **nei**. `-Force` auto-godkjenner bevisst **ikke** de destruktive promptene (tømme slettet site/gruppe fra papirkurv, slette en aktiv gruppe) — de avbryter i stedet. Se [Oppgraderingsveiledningen](/Upgrade.md#uovervåket-kjøring-med--force).
 
@@ -212,10 +212,10 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 ### Kjøre uten Global Administrator (`-SkipAppRoles`)
 
-App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Administrator. Har ikke kontoen din den rollen i kundens tenant:
+App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Administrator. Har ikke kontoen din den rollen i tenanten:
 
 1. Kjør `./deploy.ps1 -SkipAppRoles`. Alt annet installeres som normalt, og `App roles`-linjene i DEPLOYMENT SUMMARY står som `SKIPPED` med en ferdig kommando i detaljene.
-2. Send **én fil** til kundens Global Administrator: `Source/Scripts/AssignPermissionsToManagedIdentity.ps1`, sammen med kommandoen skriptet skrev ut — den har tenant-ID og begge identitetenes object-ID-er ferdig utfylt:
+2. Send **én fil** til organisasjonens Global Administrator: `Source/Scripts/AssignPermissionsToManagedIdentity.ps1`, sammen med kommandoen skriptet skrev ut — den har tenant-ID og begge identitetenes object-ID-er ferdig utfylt:
 
    ```powershell
    ./AssignPermissionsToManagedIdentity.ps1 -TenantId <tenantId> -AutomationIdentityId <objectId> -UamiId <objectId>
@@ -263,9 +263,9 @@ Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede
 
 **Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
-### SPFx-løsninger (`InviteGuests`-webdel)
+### SPFx-løsninger (webdelene `ProjectProvision` og `InviteGuests`)
 
-Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
+Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder bestillings-webdelen `ProjectProvision` og `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
 
 Når webdelen er publisert kan den legges til på en hvilken som helst SharePoint-side. Husk å konfigurere `guestRequestSiteUrl` i property pane til URL-en til Bestillingsportalen-admin-området slik at gjesteforespørsler skrives til riktig liste.
 

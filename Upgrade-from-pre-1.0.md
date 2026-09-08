@@ -44,7 +44,7 @@ Ja, fra 1.0 — men det var det ikke før, og det er derfor det er verdt å si e
 
 - **Listedata røres ikke.** Standardelementene seedes nå av PnP-malens `<pnp:DataRows>` med `UpdateBehavior="Skip"`. Den gamle destruktive Excel-reseedingen (som slettet og gjenopprettet Settings, Provisioning Types, Teams Templates, Time Zones og Locales i fresh-modus) er borte. Bestillingsdata har aldri vært berørt.
 - **Navigasjon** nullstilles derimot i full modus (`-ClearNavigation` brukes ikke bare i upgrade-modus). Har området egendefinerte nav-lenker, ta et skjermbilde først.
-- **Bilder og ikoner beholdes.** Områdekonfigurasjonen slettet tidligere hele `SiteAssets/Provisioning Request` og opprettet den på nytt når den fant den — som på en re-deploy kastet alt kunden hadde lastet opp for egne områdetyper, og etterlot `Image`/`Icon`-URL-er som pekte på slettede filer. Fra 1.0.0 opprettes mappene bare hvis de mangler. `UploadAssets` skriver pakkens egne filer over sine egne navn; kundens filer røres ikke.
+- **Bilder og ikoner beholdes.** Områdekonfigurasjonen slettet tidligere hele `SiteAssets/Provisioning Request` og opprettet den på nytt når den fant den — som på en re-deploy kastet alt organisasjonen hadde lastet opp for egne områdetyper, og etterlot `Image`/`Icon`-URL-er som pekte på slettede filer. Fra 2.0.0 opprettes mappene bare hvis de mangler. `UploadAssets` skriver pakkens egne filer over sine egne navn; kundens filer røres ikke.
 - **Du kan ikke svare `n` på den første kjøringen.** Etter `n` hopper skriptet over malen, men leser fortsatt liste-ID-ene — inkludert `Guest Requests`, som ikke finnes i et pre-1.0-miljø. Kjøringen feiler da på listeoppslaget. Første pass mot et pre-1.0-miljø må derfor svare `y`, som er greit: det er nettopp skjemaoppdateringen du er ute etter. `n` er først et alternativ ved senere kjøringer.
 - **Runbook-innhold overskrives fra repoet.** Dette er den største risikoen — se punkt 4 under.
 
@@ -82,7 +82,7 @@ Alias-sjekken i pre-flight hopper over seg selv når området allerede finnes p�
 az rest --method get --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Automation/automationAccounts/<aa>/runbooks/ConfigureSpace/content?api-version=2023-11-01" > ConfigureSpace.prod.ps1
 ```
 
-Gjenta for `GetSiteTemplates`, diff mot `Source/Runbooks/`, og flytt eventuelle kundetilpasninger til `CustomerSpecific`-runbooken (opprettes tom av deployen og overskrives aldri).
+Gjenta for `GetSiteTemplates`, diff mot `Source/Runbooks/`, og flytt eventuelle lokale tilpasninger til `CustomerSpecific`-runbooken (opprettes tom av deployen og overskrives aldri).
 
 **5. Logic App-tilpasninger.** Er noen av Logic App-ene redigert i portalen, blir endringene overskrevet. Hent ut definisjonene (Logic App → Code view, eller `az rest`) som referanse før du kjører.
 
@@ -116,13 +116,13 @@ Bygg en ny fil fra `parameters.template.json` og kopier verdiene fra den gamle. 
 | `appName`, `keyVaultName` | **Fjernet** — leses ikke lenger |
 | `certName`, `createSelfSignedCert`, `certValidityDays` | **Fjernet** — det finnes ikke noe sertifikat |
 | `enableSensitivity` | **Fjernet** — bryteren er raden `EnableSensitivityLabels` i innstillinger-lista |
-| `fullTenantName` | **Ny, påkrevd** (`<kunde>.onmicrosoft.com`) |
+| `fullTenantName` | **Ny, påkrevd** (`<tenant>.onmicrosoft.com`) |
 | `pnpAppId` | **Ny, påkrevd** — Prosjektportalens PnP-app er standardverdi |
 | `uamiName` | **Ny, valgfri** — standard `bestillingsportalen-uami` |
 | `requestsSiteAlias` | **Ny** — standard `bestillingsportalen` (URL-en Teams-appen har hardkodet). Verifiser mot områdets faktiske URL, se punkt 3 i kartleggingen. Feil verdi = deployen peker på et annet område |
 | Resten (`tenantId`, `spoTenantName`, `subscriptionId`, `region`, `resourceGroupName`, `managedPath`, `requestsSiteName`, `requestsSiteDesc`, `serviceAccountUPN`, `siteLogoPath`, `isEdu`, `skipApplySPOTemplate`) | Uendret — verifiser at verdiene fortsatt stemmer |
 
-Bruk `-ParametersPath` hvis fila heter noe annet enn `parameters.json` (f.eks. én fil per kunde).
+Bruk `-ParametersPath` hvis fila heter noe annet enn `parameters.json` (f.eks. én fil per tenant).
 
 Sjekk også at `VERSION` finnes i repo-rot og inneholder versjonsnummeret — mangler den, blir versjonsstemplingen i miljøet stående som `unknown`.
 
@@ -138,7 +138,7 @@ Alt kjøres fra `Source/Scripts` i PowerShell 7.4+, i et **nytt** PowerShell-vin
 
 Fiks alt som står `MISSING`. `WARNING` på app-rolle-rettigheter er forventet uten aktiv GA — da planlegger du `-SkipAppRoles`.
 
-Kontroller samtidig de tre identitetene i PRE-FLIGHT SUMMARY — `Signed in as (Az)`, `(CLI)` og `(PnP)` er tre uavhengige innlogginger, og jobber du mot flere kundetenanter er det ikke gitt at de peker samme vei. `(PnP)` er den som avgjør om området kan leses og malen anvendes. Er den feil, slett PnP-cachen og kjør pre-flight på nytt:
+Kontroller samtidig de tre identitetene i PRE-FLIGHT SUMMARY — `Signed in as (Az)`, `(CLI)` og `(PnP)` er tre uavhengige innlogginger, og jobber du mot flere tenanter er det ikke gitt at de peker samme vei. `(PnP)` er den som avgjør om området kan leses og malen anvendes. Er den feil, slett PnP-cachen og kjør pre-flight på nytt:
 
 ```powershell
 Remove-Item "$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache" -Force
@@ -177,7 +177,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 
 **Steg 6 — app-roller**, hvis du kjørte med `-SkipAppRoles`. Ingenting virker før dette er gjort.
 
-> **`bestillingsportalen-automation` må gjenopprettes — og `deploy.ps1` gjør det for deg.** Dette er den eneste tilkoblingen som skiftet autentiseringsmodell i 1.0: fra Entra ID-appens credentials til den user-assigned managed identityen. På en **nyinstallasjon** opprettes den for managed identity og melder `Ready`. På en **oppgradering** finnes den allerede, med app-registreringens sertifikat-credentials, og ARM bytter bare `parameterValueType` til `Alternative` — den gamle credentialen blir liggende, klarer ikke å fornye seg (`AADSTS700027` når Key Vault-sertifikatet er rotert) og etterlater tilkoblingen i `Error`. Designeren kaller den da «Invalid connection», og runtime sender runbook-kallet **uten Authorization-header i det hele tatt**: `ConfigureSpace` starter aldri, og bestillingen feiler med «Authentication failed. The 'Authorization' header is missing.» Verifisert 19.08.2026 mot puzzlepart (oppgradert: `Error`) og tarjeieo (nyinstallert: `Ready`). Fra og med denne versjonen sletter og gjenoppretter `deploy.ps1` tilkoblingen når statusen ikke er `Ready`/`Connected` — det koster ingenting, siden en managed identity-tilkobling ikke holder credentials og ikke trenger samtykke. Feiler slettingen (typisk manglende rettigheter), sier DEPLOYMENT SUMMARY det, og du må slette den i portalen og kjøre på nytt.
+> **`bestillingsportalen-automation` må gjenopprettes — og `deploy.ps1` gjør det for deg.** Dette er den eneste tilkoblingen som skiftet autentiseringsmodell i 1.0: fra Entra ID-appens credentials til den user-assigned managed identityen. På en **nyinstallasjon** opprettes den for managed identity og melder `Ready`. På en **oppgradering** finnes den allerede, med app-registreringens sertifikat-credentials, og ARM bytter bare `parameterValueType` til `Alternative` — den gamle credentialen blir liggende, klarer ikke å fornye seg (`AADSTS700027` når Key Vault-sertifikatet er rotert) og etterlater tilkoblingen i `Error`. Designeren kaller den da «Invalid connection», og runtime sender runbook-kallet **uten Authorization-header i det hele tatt**: `ConfigureSpace` starter aldri, og bestillingen feiler med «Authentication failed. The 'Authorization' header is missing.» Verifisert 19.08.2026 mot både et oppgradert miljø (`Error`) og en nyinstallasjon (`Ready`). Fra og med denne versjonen sletter og gjenoppretter `deploy.ps1` tilkoblingen når statusen ikke er `Ready`/`Connected` — det koster ingenting, siden en managed identity-tilkobling ikke holder credentials og ikke trenger samtykke. Feiler slettingen (typisk manglende rettigheter), sier DEPLOYMENT SUMMARY det, og du må slette den i portalen og kjøre på nytt.
 
 **Steg 7 — verifiser i denne rekkefølgen:**
 

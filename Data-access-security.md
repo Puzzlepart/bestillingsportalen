@@ -46,13 +46,13 @@ App-roller tildelt den user-assigned managed identityen:
 
 ### Systemtildelt managed identity (Azure Automation)
 
-App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSpecific` (kundeeid utvidelsespunkt) via PnP PowerShell `-ManagedIdentity`:
+App-roller tildelt Automation-kontoens systemtildelte managed identity, som brukes av runbookene `ConfigureSpace`, `AddGuestToSite`, `GetSiteTemplates` og `CustomerSpecific` (organisasjonens eget utvidelsespunkt) via PnP PowerShell `-ManagedIdentity`:
 
 | API Permission | Type | Beskrivelse | Årsak |
 |--|--|--|--|
 | Group.ReadWrite.All (Microsoft Graph) | Application | Lese og skrive alle grupper | Brukes av runbookene til å endre gruppemedlemskap og -egenskaper. `AddGuestToSite` bruker den til gjestemedlemskap i områdets M365-gruppe, og — når `guestEntraGroup`-parameteren er konfigurert — til å legge gjesten inn i den felles Entra-gjestegruppen (`POST /groups/{id}/members/$ref`). |
 | User.Read.All (Microsoft Graph) | Application | Lese alle brukeres fulle profiler | Kreves av `AddGuestToSite` for å slå opp gjestebrukere på e-post før de legges til. |
-| Sites.FullControl.All (SharePoint) | Application | Full kontroll over alle områder | Brukes av `ConfigureSpace` til tenant-admin-operasjoner (`Set-PnPTenantSite`, hub-registrering/-tilknytning, site designs) og til etterkonfigurasjon av dynamisk opprettede områder, forelder- og hub-områder (PnP-maler, temaer m.m.). Tenant-admin-cmdletene kan ikke kjøres med `Sites.Selected`, og runbooken må kunne koble til områder som ikke fantes da tilgangen ble gitt. Dette er også tilgangen som muliggjør ad hoc-/kundetilpasninger i runbooks mot provisjonerte områder. |
+| Sites.FullControl.All (SharePoint) | Application | Full kontroll over alle områder | Brukes av `ConfigureSpace` til tenant-admin-operasjoner (`Set-PnPTenantSite`, hub-registrering/-tilknytning, site designs) og til etterkonfigurasjon av dynamisk opprettede områder, forelder- og hub-områder (PnP-maler, temaer m.m.). Tenant-admin-cmdletene kan ikke kjøres med `Sites.Selected`, og runbooken må kunne koble til områder som ikke fantes da tilgangen ble gitt. Dette er også tilgangen som muliggjør ad hoc-/lokale tilpasninger i runbooks mot provisjonerte områder. |
 
 ### Entra ID-app-registrering
 

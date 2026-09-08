@@ -28,7 +28,7 @@ Følgende steg har automatisk feilhåndtering:
 
 Sensitivitetsmerking har ikke lenger et eget scope her – den gjøres i `ConfigureSpace`-runbooken og dekkes av `Handle_Error_Configure_space` (se [Sensitivitetsmerker](Sensitivity-labels.md)).
 
-> **Merk:** `Run_CustomerSpecific_runbook` (det kundeeide utvidelsespunktet som kjøres rett etter `Configure_space`) har ikke eget `Handle_Error`-scope — en feil *inne i* kundeskriptet gir Failed-status på Automation-jobben uten å sette bestillingen til «Space Creation Failed». Sjekk jobbhistorikken på `CustomerSpecific`-runbooken ved feilsøking av kundetilpasninger.
+> **Merk:** `Run_CustomerSpecific_runbook` (organisasjonens eget utvidelsespunkt, som kjøres rett etter `Configure_space`) har ikke eget `Handle_Error`-scope — en feil *inne i* utvidelsesskriptet gir Failed-status på Automation-jobben uten å sette bestillingen til «Space Creation Failed». Sjekk jobbhistorikken på `CustomerSpecific`-runbooken ved feilsøking av lokale tilpasninger.
 
 ### Hvordan det fungerer
 
