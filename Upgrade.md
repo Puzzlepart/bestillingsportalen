@@ -13,15 +13,15 @@ Oppgraderingsprosessen lar deg:
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
 
-## Oppgradering til 2.1.0 i tenanter med Prosjektportalen 365 — rekkefølgen er obligatorisk
+## Oppgradering til 1.0.0 i tenanter med Prosjektportalen 365 — rekkefølgen er obligatorisk
 
-Fra og med 2.1.0 følger bestillings-webdelen (ProjectProvision, komponent-id `e88cea29-09a0-4ce4-a38c-e0d74b65f619`) med `bp-provision-web-parts.sppkg`. Til og med Prosjektportalen 365 1.14 fulgte samme komponent med PP365-pakken `pp-portfolio-web-parts`. Tenant app-katalogen tillater ikke to pakker som registrerer samme komponent-id, så i tenanter som også kjører Prosjektportalen 365 **må** oppgraderingen gjøres i denne rekkefølgen, helst i samme vedlikeholdsvindu:
+Fra og med 1.0.0 følger bestillings-webdelen (ProjectProvision, komponent-id `e88cea29-09a0-4ce4-a38c-e0d74b65f619`) med `bp-provision-web-parts.sppkg`. Til og med Prosjektportalen 365 1.14 fulgte samme komponent med PP365-pakken `pp-portfolio-web-parts`. Tenant app-katalogen tillater ikke to pakker som registrerer samme komponent-id, så i tenanter som også kjører Prosjektportalen 365 **må** oppgraderingen gjøres i denne rekkefølgen, helst i samme vedlikeholdsvindu:
 
 1. **Oppgrader Prosjektportalen 365** til en versjon der webdelen er fjernet fra `pp-portfolio-web-parts`. Eksisterende `Bestillingsportalen.aspx`-sider viser nå «finner ikke komponenten» — det er forventet.
-2. **Distribuer denne løsningen** (2.1.0 eller nyere) med `deploy.ps1`. Sidene og Teams-appen virker igjen umiddelbart — komponent-id-en er beholdt, og sidene refererer bare til id-en.
+2. **Distribuer denne løsningen** (1.0.0 eller nyere) med `deploy.ps1`. Sidene og Teams-appen virker igjen umiddelbart — komponent-id-en er beholdt, og sidene refererer bare til id-en.
 3. **Oppdater Teams-appen og verifiser at den åpner i Teams.** `deploy.ps1` produserer Teams-app-pakken (`sharepoint/solution/bestillingsportalen-teams-app.zip`) og forsøker å publisere den til Teams-appkatalogen via Graph — men det krever delegert `AppCatalog.ReadWrite.All` på PnP-appen, som de fleste tenanter ikke gir. **Regn med å laste opp zip-en manuelt** i Teams admin center (skriptet minner om det på slutten av kjøringen): fantes appen fra PP365-synkroniseringen, åpne den og bruk `Last opp fil`; ellers `Administrer apper` → `Last opp ny app`. Se [Teams-appen](Deployment-guide.md#teams-appen) i installasjonsveiledningen. Ikke bruk `Sync to Teams`-knappen i SharePoint-appkatalogen — den er upålitelig (deaktivert eller «failed to sync» i mange tenanter).
 
-Omvendt rekkefølge er ikke mulig: distribusjon av `bp-provision-web-parts` 2.1.0 feiler i appkatalogen så lenge en PP365-pakke med komponenten fortsatt er distribuert. Tenanter **uten** Prosjektportalen 365 oppgraderer som normalt uten ekstra steg.
+Omvendt rekkefølge er ikke mulig: distribusjon av `bp-provision-web-parts` 1.0.0 feiler i appkatalogen så lenge en PP365-pakke med komponenten fortsatt er distribuert. Tenanter **uten** Prosjektportalen 365 oppgraderer som normalt uten ekstra steg.
 
 ## Når du skal bruke oppgraderingsmodus
 
@@ -37,7 +37,7 @@ Bruk oppgraderingsmodus når du vil:
 - Førstegangs installasjon (bruk standard installasjonsprosess)
 - Større breaking changes som krever datamigrering
 - Komplette miljørebygginger
-- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen (2.0.0) må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes. Re-autoriser deretter de fire delegerte API-tilkoblingene med tjenestekontoen (`Authorize-ApiConnections.ps1`) — en redeploy av tilkoblingsressursene kan nullstille autoriseringen — og rydd bort restene fra den gamle modellen, se [Manuell opprydding](#manuell-opprydding-etter-oppgradering-key-vault-og-entra-id-appen) nedenfor. **Skal du oppgradere et slikt miljø, følg [Oppgradere fra versjoner før 2.0](Upgrade-from-pre-2.0.md)** — den dekker kartlegging, tilganger, parametermigrering, kjøreplan og opprydding for dette tilfellet spesielt.
+- **Migrering til managed identity** – installasjoner fra før managed identity-migreringen (1.0.0) må kjøre én full `deploy.ps1` (uten `-Upgrade`) først, slik at managed identityen, tilgangene og API-tilkoblingene opprettes. Oppgraderingsmodus feiler med en tydelig melding hvis managed identityen ikke finnes. Re-autoriser deretter de fire delegerte API-tilkoblingene med tjenestekontoen (`Authorize-ApiConnections.ps1`) — en redeploy av tilkoblingsressursene kan nullstille autoriseringen — og rydd bort restene fra den gamle modellen, se [Manuell opprydding](#manuell-opprydding-etter-oppgradering-key-vault-og-entra-id-appen) nedenfor. **Skal du oppgradere et slikt miljø, følg [Oppgradere fra versjoner før 1.0](Upgrade-from-pre-1.0.md)** — den dekker kartlegging, tilganger, parametermigrering, kjøreplan og opprydding for dette tilfellet spesielt.
 
 ## Hva som blir oppdatert
 
@@ -141,7 +141,7 @@ SUMMARY viser `Version: <ny> (installed: <gammel>)` før du bekrefter, og DEPLOY
 SUMMARY bekrefter overgangen med en `Version stamp`-linje.
 
 Er begge stedene tomme, er miljøet installert før versjonsstemplingen ble innført
-(2.0.0). Merk at `InstalledVersion` **ikke** oppdateres hvis en kjøring hadde
+(1.0.0). Merk at `InstalledVersion` **ikke** oppdateres hvis en kjøring hadde
 komponenter som feilet — den gamle verdien beholdes med vilje, slik at en halvferdig
 oppgradering ikke framstår som fullført.
 
@@ -168,7 +168,7 @@ Før du starter oppgraderingen:
 4. **Ha parameterne klare**
    - Bruk samme parameterfil som ved første installasjon (`-ParametersPath` hvis den heter noe annet enn `parameters.json`)
    - Verifiser at alle verdiene fortsatt er gyldige
-   - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 2.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`, som Teams-appen har hardkodet), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
+   - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 1.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`, som Teams-appen har hardkodet), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
    - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
@@ -473,7 +473,7 @@ Etter en vellykket oppgradering:
 **Relatert dokumentasjon:**
 
 - [README.md](README.md) – Hoveddokumentasjon
-- [Upgrade-from-pre-2.0.md](Upgrade-from-pre-2.0.md) – Oppgradering av miljøer fra før managed identity-migreringen
+- [Upgrade-from-pre-1.0.md](Upgrade-from-pre-1.0.md) – Oppgradering av miljøer fra før managed identity-migreringen
 - [Deployment-guide.md](Deployment-guide.md) – Full installasjonsprosess (den skriptede delen)
 - [Configuration-guide.md](Configuration-guide.md) – Konfigurasjon og verifisering etter installasjon
 - [CHANGELOG.md](CHANGELOG.md) – Versjonshistorikk

@@ -1,6 +1,6 @@
-# Oppgradere fra versjoner før 2.0 (pre managed identity)
+# Oppgradere fra versjoner før 1.0 (pre managed identity)
 
-[Oppgraderingsveiledningen](Upgrade.md) dekker normaltilfellet: et miljø som allerede står på 2.0 eller nyere, og som oppgraderes med `./deploy.ps1 -Upgrade`. Denne veiledningen dekker det ene tilfellet den bare nevner i en setning — et **produksjonsmiljø installert før managed identity-migreringen**, som fortsatt kjører på Key Vault, client secret og sertifikat.
+[Oppgraderingsveiledningen](Upgrade.md) dekker normaltilfellet: et miljø som allerede står på 1.0 eller nyere, og som oppgraderes med `./deploy.ps1 -Upgrade`. Denne veiledningen dekker det ene tilfellet den bare nevner i en setning — et **produksjonsmiljø installert før managed identity-migreringen**, som fortsatt kjører på Key Vault, client secret og sertifikat.
 
 Slike miljøer kan **ikke** oppgraderes med `-Upgrade`. Oppgraderingsmodus deployer ikke `azureresources.bicep`, og stopper derfor med:
 
@@ -11,7 +11,7 @@ Run a full deployment (without -Upgrade) once to migrate to managed identity bef
 
 Rekkefølgen er altså: **én full `deploy.ps1` nå, `-Upgrade` ved senere oppgraderinger.** Alt i [Upgrade.md](Upgrade.md) gjelder i tillegg til dette dokumentet — særlig avsnittene om listedata, den interaktive template-prompten og tilbakerulling.
 
-## Er miljøet pre-2.0?
+## Er miljøet pre-1.0?
 
 Sjekk noen av disse — én av dem er nok:
 
@@ -30,7 +30,7 @@ Sjekk noen av disse — én av dem er nok:
 
 Logic App-ene begynner plutselig å feile med `AADSTS700027` — «The certificate with identifier used to sign the client assertion is not registered on application… The key was not found». Årsaken er ikke at sertifikatet er utløpt: Key Vault-sertifikatet ble opprettet av `az ad app credential reset --create-cert --keyvault`, som setter en policy med `AutoRenew` 90 dager før utløp. Key Vault fornyer sertifikatet med et **nytt tumbavtrykk**, uten å oppdatere app-registreringen. Logic App-ene henter siste secret-versjon og signerer med en nøkkel Entra ID aldri har sett.
 
-Oppgraderingen fjerner årsaken permanent — det finnes ikke noe sertifikat i 2.0. **Trenger du produksjon opp før oppgraderingsvinduet**, last ned gjeldende sertifikat fra Key Vault og last opp den offentlige nøkkelen på app-registreringen (App registration → Certificates & secrets → Upload certificate):
+Oppgraderingen fjerner årsaken permanent — det finnes ikke noe sertifikat i 1.0. **Trenger du produksjon opp før oppgraderingsvinduet**, last ned gjeldende sertifikat fra Key Vault og last opp den offentlige nøkkelen på app-registreringen (App registration → Certificates & secrets → Upload certificate):
 
 ```bash
 az keyvault certificate download --vault-name <keyVaultName> --name <certName> --file bp-cert.cer --encoding DER
@@ -40,12 +40,12 @@ Det tar ti minutter, påvirker ikke oppgraderingen, og gir deg et fungerende mil
 
 ## Er en full deploy trygg mot et miljø i produksjon?
 
-Ja, fra 2.0 — men det var det ikke før, og det er derfor det er verdt å si eksplisitt:
+Ja, fra 1.0 — men det var det ikke før, og det er derfor det er verdt å si eksplisitt:
 
 - **Listedata røres ikke.** Standardelementene seedes nå av PnP-malens `<pnp:DataRows>` med `UpdateBehavior="Skip"`. Den gamle destruktive Excel-reseedingen (som slettet og gjenopprettet Settings, Provisioning Types, Teams Templates, Time Zones og Locales i fresh-modus) er borte. Bestillingsdata har aldri vært berørt.
 - **Navigasjon** nullstilles derimot i full modus (`-ClearNavigation` brukes ikke bare i upgrade-modus). Har området egendefinerte nav-lenker, ta et skjermbilde først.
-- **Bilder og ikoner beholdes.** Områdekonfigurasjonen slettet tidligere hele `SiteAssets/Provisioning Request` og opprettet den på nytt når den fant den — som på en re-deploy kastet alt kunden hadde lastet opp for egne områdetyper, og etterlot `Image`/`Icon`-URL-er som pekte på slettede filer. Fra 2.0.0 opprettes mappene bare hvis de mangler. `UploadAssets` skriver pakkens egne filer over sine egne navn; kundens filer røres ikke.
-- **Du kan ikke svare `n` på den første kjøringen.** Etter `n` hopper skriptet over malen, men leser fortsatt liste-ID-ene — inkludert `Guest Requests`, som ikke finnes i et pre-2.0-miljø. Kjøringen feiler da på listeoppslaget. Første pass mot et pre-2.0-miljø må derfor svare `y`, som er greit: det er nettopp skjemaoppdateringen du er ute etter. `n` er først et alternativ ved senere kjøringer.
+- **Bilder og ikoner beholdes.** Områdekonfigurasjonen slettet tidligere hele `SiteAssets/Provisioning Request` og opprettet den på nytt når den fant den — som på en re-deploy kastet alt kunden hadde lastet opp for egne områdetyper, og etterlot `Image`/`Icon`-URL-er som pekte på slettede filer. Fra 1.0.0 opprettes mappene bare hvis de mangler. `UploadAssets` skriver pakkens egne filer over sine egne navn; kundens filer røres ikke.
+- **Du kan ikke svare `n` på den første kjøringen.** Etter `n` hopper skriptet over malen, men leser fortsatt liste-ID-ene — inkludert `Guest Requests`, som ikke finnes i et pre-1.0-miljø. Kjøringen feiler da på listeoppslaget. Første pass mot et pre-1.0-miljø må derfor svare `y`, som er greit: det er nettopp skjemaoppdateringen du er ute etter. `n` er først et alternativ ved senere kjøringer.
 - **Runbook-innhold overskrives fra repoet.** Dette er den største risikoen — se punkt 4 under.
 
 ## 1. Kartlegg miljøet før du gjør noe
@@ -69,14 +69,14 @@ az resource list -g <rg> -o table
 
 **2. Ressursgruppa og regionen.** Begge må matche det som faktisk står der. En Logic App kan ikke flyttes, så en redeploy med annen `location` feiler — og et feil ressursgruppenavn feiler ikke i det hele tatt: det bygger en komplett andre installasjon i en ny ressursgruppe og etterlater den gamle. `GenerateParameters.ps1` finner begge selv ved å lete opp `ProcessProvisionRequest`-Logic Appen i abonnementet, og fyller `resourceGroupName` og `region` fra den. Finner den flere installasjoner, sier den det og lar deg velge.
 
-**3. Områdets faktiske URL.** `requestsSiteAlias` er ny i 2.0 og bestemmer URL-en kjøringen peker på. Standardverdien er `bestillingsportalen`, fordi Teams-appen har URL-en `/<managedPath>/bestillingsportalen` hardkodet — noe et pre-2.0-miljø i drift normalt allerede oppfyller. Sjekk likevel:
+**3. Områdets faktiske URL.** `requestsSiteAlias` er ny i 1.0 og bestemmer URL-en kjøringen peker på. Standardverdien er `bestillingsportalen`, fordi Teams-appen har URL-en `/<managedPath>/bestillingsportalen` hardkodet — noe et pre-1.0-miljø i drift normalt allerede oppfyller. Sjekk likevel:
 
 - Området ligger på `/sites/bestillingsportalen` → standardverdien er riktig (det samme er en tom verdi, siden aliaset da utledes fra `requestsSiteName`).
 - Området ligger et annet sted (typisk etter en URL-endring i SharePoint admin center) → sett `requestsSiteAlias` til **siste segment i den faktiske URL-en**. Merk at gruppens `mailNickname` ikke endres ved en URL-endring, så alias og gruppe-alias kan avvike — det er URL-segmentet som gjelder her. Ligger området et annet sted enn `/sites/bestillingsportalen`, virker webdelen (URL-en er en property), men Teams-appen finner ikke listene.
 
 Alias-sjekken i pre-flight hopper over seg selv når området allerede finnes på den beregnede URL-en, så en kollisjon med tjenestekontoen blokkerer ikke en oppgradering.
 
-**4. Runbook-innholdet — eksporter det nå.** I pre-2.0 ble `ConfigureSpace` og `GetSiteTemplates` limt inn manuelt i portalen. Fra 2.0 lastes innholdet opp fra `Source/Runbooks/` og publiseres ved **hver** deploy og oppgradering. Alle portal-side endringer forsvinner.
+**4. Runbook-innholdet — eksporter det nå.** I pre-1.0 ble `ConfigureSpace` og `GetSiteTemplates` limt inn manuelt i portalen. Fra 1.0 lastes innholdet opp fra `Source/Runbooks/` og publiseres ved **hver** deploy og oppgradering. Alle portal-side endringer forsvinner.
 
 ```bash
 az rest --method get --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Automation/automationAccounts/<aa>/runbooks/ConfigureSpace/content?api-version=2023-11-01" > ConfigureSpace.prod.ps1
@@ -101,7 +101,7 @@ Oppgraderingen trenger mer enn Application Administrator. Fordelt på de to plat
 |--|--|--|
 | Opprette managed identity, oppdatere Automation/Logic Apps, og **opprette RBAC-tildelinger** (`azureresources.bicep` gir UAMI-en Automation Job/Runbook Operator) | **Owner** på ressursgruppen, ev. Contributor + **User Access Administrator** | Azure RBAC, ikke Entra. Application Administrator dekker ikke dette. Er rollen PIM-basert: **aktiver den før du kjører** — pre-flight sjekker `Microsoft.Authorization/roleAssignments/write`. |
 | Tildele app-roller til de to managed identityene (Graph + SharePoint Online) | **Global Administrator**, ev. **Privileged Role Administrator + Cloud Application Administrator** | **Application Administrator er ikke nok** — den kan ikke gi application permissions på Microsoft Graph, og `CheckAppRoleRights` i pre-flight godtar kun GA eller PRA+CAA. |
-| Registrere resource providers | Rettigheter på **abonnementsnivå** | `Microsoft.ManagedIdentity` er ny for pre-2.0-miljøer og er sannsynligvis **ikke** registrert. Pre-flight registrerer den hvis kontoen har rettigheter, ellers skriver den ut kommandoene en abonnementsadministrator må kjøre. |
+| Registrere resource providers | Rettigheter på **abonnementsnivå** | `Microsoft.ManagedIdentity` er ny for pre-1.0-miljøer og er sannsynligvis **ikke** registrert. Pre-flight registrerer den hvis kontoen har rettigheter, ellers skriver den ut kommandoene en abonnementsadministrator må kjøre. |
 | Området, app-katalogen, tenant-innstillinger | **SharePoint Administrator** | Site collection admin på Bestillingsportalen-området gis automatisk av skriptet til kontoen som kjører. |
 | Power Platform | **Power Platform Administrator** | Kun hvis flyten skal (re)importeres eller tjenestekontoen mangler System Customizer. Ikke nødvendig når flyten allerede finnes og virker. |
 
@@ -111,7 +111,7 @@ Oppgraderingen trenger mer enn Application Administrator. Fordelt på de to plat
 
 Bygg en ny fil fra `parameters.template.json` og kopier verdiene fra den gamle. `GenerateParameters.ps1` kan brukes, men den fyller feltene med standardverdier fra malen — gå gjennom resultatet mot det eksisterende miljøet før du kjører, særlig `requestsSiteAlias`, `region` og `managedPath`.
 
-| Gammel nøkkel | Status i 2.0 |
+| Gammel nøkkel | Status i 1.0 |
 |--|--|
 | `appName`, `keyVaultName` | **Fjernet** — leses ikke lenger |
 | `certName`, `createSelfSignedCert`, `certValidityDays` | **Fjernet** — det finnes ikke noe sertifikat |
@@ -177,7 +177,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 
 **Steg 6 — app-roller**, hvis du kjørte med `-SkipAppRoles`. Ingenting virker før dette er gjort.
 
-> **`bestillingsportalen-automation` må gjenopprettes — og `deploy.ps1` gjør det for deg.** Dette er den eneste tilkoblingen som skiftet autentiseringsmodell i 2.0: fra Entra ID-appens credentials til den user-assigned managed identityen. På en **nyinstallasjon** opprettes den for managed identity og melder `Ready`. På en **oppgradering** finnes den allerede, med app-registreringens sertifikat-credentials, og ARM bytter bare `parameterValueType` til `Alternative` — den gamle credentialen blir liggende, klarer ikke å fornye seg (`AADSTS700027` når Key Vault-sertifikatet er rotert) og etterlater tilkoblingen i `Error`. Designeren kaller den da «Invalid connection», og runtime sender runbook-kallet **uten Authorization-header i det hele tatt**: `ConfigureSpace` starter aldri, og bestillingen feiler med «Authentication failed. The 'Authorization' header is missing.» Verifisert 19.08.2026 mot puzzlepart (oppgradert: `Error`) og tarjeieo (nyinstallert: `Ready`). Fra og med denne versjonen sletter og gjenoppretter `deploy.ps1` tilkoblingen når statusen ikke er `Ready`/`Connected` — det koster ingenting, siden en managed identity-tilkobling ikke holder credentials og ikke trenger samtykke. Feiler slettingen (typisk manglende rettigheter), sier DEPLOYMENT SUMMARY det, og du må slette den i portalen og kjøre på nytt.
+> **`bestillingsportalen-automation` må gjenopprettes — og `deploy.ps1` gjør det for deg.** Dette er den eneste tilkoblingen som skiftet autentiseringsmodell i 1.0: fra Entra ID-appens credentials til den user-assigned managed identityen. På en **nyinstallasjon** opprettes den for managed identity og melder `Ready`. På en **oppgradering** finnes den allerede, med app-registreringens sertifikat-credentials, og ARM bytter bare `parameterValueType` til `Alternative` — den gamle credentialen blir liggende, klarer ikke å fornye seg (`AADSTS700027` når Key Vault-sertifikatet er rotert) og etterlater tilkoblingen i `Error`. Designeren kaller den da «Invalid connection», og runtime sender runbook-kallet **uten Authorization-header i det hele tatt**: `ConfigureSpace` starter aldri, og bestillingen feiler med «Authentication failed. The 'Authorization' header is missing.» Verifisert 19.08.2026 mot puzzlepart (oppgradert: `Error`) og tarjeieo (nyinstallert: `Ready`). Fra og med denne versjonen sletter og gjenoppretter `deploy.ps1` tilkoblingen når statusen ikke er `Ready`/`Connected` — det koster ingenting, siden en managed identity-tilkobling ikke holder credentials og ikke trenger samtykke. Feiler slettingen (typisk manglende rettigheter), sier DEPLOYMENT SUMMARY det, og du må slette den i portalen og kjøre på nytt.
 
 **Steg 7 — verifiser i denne rekkefølgen:**
 
@@ -219,7 +219,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 | Slettede standardelementer er tilbake, eller finnes i to varianter | `DataRows` legger til manglende standardrader, med `Title` som nøkkel | Sett `Allowed`/`Enabled = false` framfor å slette; ikke gi standardelementer nytt navn |
 | Tilkoblinger står `Unauthorized`/`Error` etter deploy | Nye tilkoblinger (navneskifte fra `provisionassist-*`), eller en tilkobling som har mistet samtykket. En in-place redeploy av tilkoblinger med samme navn beholder normalt autoriseringen | `Authorize-ApiConnections.ps1`, ev. portalen: Edit API connection → Authorize |
 | `Method 'get_Services' in type '...LoggingBuilder' does not have an implementation` | Az lastet før PnP.PowerShell i økten | Nytt PowerShell-vindu, kjør på nytt |
-| `MissingSubscriptionRegistration` | `Microsoft.ManagedIdentity` (ny i 2.0) ikke registrert | `az provider register --namespace Microsoft.ManagedIdentity` som abonnementsadministrator |
+| `MissingSubscriptionRegistration` | `Microsoft.ManagedIdentity` (ny i 1.0) ikke registrert | `az provider register --namespace Microsoft.ManagedIdentity` som abonnementsadministrator |
 | Egendefinert navigasjon borte etter deploy | Full modus bruker `-ClearNavigation` | Legg lenkene tilbake; senere `-Upgrade`-kjøringer bevarer navigasjonen |
 | Bilder på provisioning types byttet ut | `UploadAssets` kjører i full modus | Last opp kundens bilder på nytt |
 | Flyten kan ikke aktiveres (`FlowNotOriginalAuthor`) | Tjenestekontoen mangler System Customizer, ev. lisens | Gjelder kun ved import — se [Konfigurasjonsveiledningen, Steg 2](Configuration-guide.md). En flyt som allerede kjører, røres ikke |
@@ -237,7 +237,7 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 
 **Før vinduet**
 
-- [ ] Bekreftet at miljøet er pre-2.0 (Key Vault finnes, ingen UAMI)
+- [ ] Bekreftet at miljøet er pre-1.0 (Key Vault finnes, ingen UAMI)
 - [ ] Vurdert akutt sertifikat-fiks hvis produksjon må opp før vinduet
 - [ ] Ressursnavn-generasjon kartlagt (`bestillingsportalen-*` eller `provisionassist-*`)
 - [ ] Faktisk region på ressursgruppa/ressursene notert
@@ -290,8 +290,8 @@ Hvor mye arbeid dette blir, avhenger av navnegenerasjonen fra punkt 1:
 
 **Relatert dokumentasjon:**
 
-- [Upgrade.md](Upgrade.md) – Oppgradering av miljøer som allerede står på 2.0+
+- [Upgrade.md](Upgrade.md) – Oppgradering av miljøer som allerede står på 1.0+
 - [Deployment-guide.md](Deployment-guide.md) – Forutsetninger og full installasjonsprosess
 - [Configuration-guide.md](Configuration-guide.md) – Godkjenningsprosess, flyt-import, deling
-- [CHANGELOG.md](CHANGELOG.md) – Hva som endret seg i 2.0.0
+- [CHANGELOG.md](CHANGELOG.md) – Hva som endret seg i 1.0.0
 - [Error-handling.md](Error-handling.md) – Feilsøkingsveiledning

@@ -1700,7 +1700,7 @@ function CheckVersionFile {
     $installed = if ($script:previousInstalledVersion) { "installed: $script:previousInstalledVersion" } else { "no version stamped in the environment yet" }
 
     if ($script:versionFileIssue) {
-        RecordPreflightCheck -Name "Solution version" -Status WARNING -Detail "$script:versionFileIssue - the installation would be stamped 'unknown' ($installed)" -Fix "Restore VERSION in the repo root as a single MAJOR.MINOR.PATCH line (e.g. 2.0.0), or pull the repository again."
+        RecordPreflightCheck -Name "Solution version" -Status WARNING -Detail "$script:versionFileIssue - the installation would be stamped 'unknown' ($installed)" -Fix "Restore VERSION in the repo root as a single MAJOR.MINOR.PATCH line (e.g. 1.0.0), or pull the repository again."
         return
     }
     RecordPreflightCheck -Name "Solution version" -Status OK -Detail "$deployVersion ($installed)"
@@ -2003,9 +2003,9 @@ function AssignUamiPermissions {
 
 # Deploy ARM templates
 # The azureautomation connection is the only one that changed authentication model in
-# 2.0: from the Entra ID app's credentials to the user-assigned managed identity. On a
+# 1.0: from the Entra ID app's credentials to the user-assigned managed identity. On a
 # FRESH install it is created for managed identity and reports 'Ready'. On an upgrade from
-# before 2.0 it already exists, holding the app registration's certificate credentials, and
+# before 1.0 it already exists, holding the app registration's certificate credentials, and
 # ARM only switches parameterValueType to 'Alternative' - the old stored credential stays,
 # fails to refresh (AADSTS700027 once the Key Vault certificate has rotated), and leaves
 # the connection in 'Error'. The designer then calls it "Invalid connection", and the
@@ -2175,7 +2175,7 @@ function VerifyRunbookRuntimeEnvironment {
     }
 
     # CustomerSpecific is customer-owned and deliberately never overwritten, so deploy
-    # cannot fix it. Environments upgraded from before 2.0.0 may still have it on the
+    # cannot fix it. Environments upgraded from before 1.0.0 may still have it on the
     # classic runtime - report it, but do not fail the deployment over it.
     $customerRuntime = Get-RunbookRuntime 'CustomerSpecific'
     if ($customerRuntime -eq $runtimeEnvironmentName) {
@@ -3012,14 +3012,14 @@ if ($global:upgrade) {
     # Get the location from parameters for the logic app deployment
     $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
 
-    # Ensure new runbooks (e.g. AddGuestToSite in 2.0.0) exist BEFORE the Logic Apps
+    # Ensure new runbooks (e.g. AddGuestToSite in 1.0.0) exist BEFORE the Logic Apps
     # that invoke them are deployed.
     DeployLocalRunbooks
 
     # Idempotent — grants Sites.FullControl.All + Group.ReadWrite.All to the
     # automation account's system-assigned managed identity if not already
     # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
-    # Pre-2.0.0 deploys may have skipped this in upgrade mode.
+    # Pre-1.0.0 deploys may have skipped this in upgrade mode.
     AssignManagedIdentityPermissions
 
     # The logic apps reference the user-assigned managed identity, which is created by

@@ -48,13 +48,13 @@ er konkrete for denne løsningen:
 
 | Ledd | Når det økes | Eksempel |
 | --- | --- | --- |
-| **MAJOR** | Oppgraderingen er ikke en ren `-Upgrade`: krever full deploy, manuelle oppryddingssteg, re-autorisering av API-tilkoblinger, eller rotasjon av hemmeligheter | 2.0.0: migreringen til managed identity |
+| **MAJOR** | Oppgraderingen er ikke en ren `-Upgrade`: krever full deploy, manuelle oppryddingssteg, re-autorisering av API-tilkoblinger, eller rotasjon av hemmeligheter | 1.0.0: migreringen til managed identity |
 | **MINOR** | Ny funksjonalitet som `-Upgrade` håndterer selv — nye lister, Logic Apps, runbooks, webdeler eller innstillinger | Ny `Guest Requests`-liste med `ProcessGuestRequest` |
 | **PATCH** | Rettelser innenfor eksisterende komponenter, uten nye ressurser eller skjemaendringer | Feilmeldinger, innhold i `StatusReason`, nye pre-flight-sjekker |
 
 ### `VERSION` er eneste kilde
 
-Versjonsnummeret står i **`VERSION`** i repo-rot, som én linje (`2.0.0`). `deploy.ps1`
+Versjonsnummeret står i **`VERSION`** i repo-rot, som én linje (`1.0.0`). `deploy.ps1`
 leser den derfra — nummeret skal ikke hardkodes noe annet sted. Er fila borte eller
 feilformatert, stopper ikke installasjonen: versjonen faller til `unknown`, og
 pre-flight-sjekklista sier hvorfor.
@@ -65,11 +65,11 @@ Repoet har ingen CI, så rekkefølgen er manuell:
 
 1. Oppdater `VERSION` med det nye nummeret.
 2. Sett releasedato på den øverste seksjonen i [CHANGELOG.md](CHANGELOG.md) (erstatt `TBA`).
-3. Commit endringene: `Release 2.0.0`.
+3. Commit endringene: `Release 1.0.0`.
 4. Lag en annotert tag:
 
     ```sh
-    git tag -a v2.0.0 -m "Bestillingsportalen 2.0.0"
+    git tag -a v1.0.0 -m "Bestillingsportalen 1.0.0"
     ```
 
 5. Push begge: `git push && git push --tags`.

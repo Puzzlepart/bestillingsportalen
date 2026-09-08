@@ -12,7 +12,7 @@ Bestillingsportalen er en Azure-basert løsning som gir et alternativ til selvbe
 
 Bestillingsportalen tilbyr følgende:
 
-- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder. Fra og med 2.1.0 inngår webdelen i dette repoets pakke `bp-provision-web-parts` (SPFx 1.23, Fluent UI v9) — tidligere fulgte den med Prosjektportalen 365.
+- SPFx-basert Bestillingsportalen webdel og Teams app som lar brukere bestille samarbeidsområder. Fra og med 1.0.0 inngår webdelen i dette repoets pakke `bp-provision-web-parts` (SPFx 1.23, Fluent UI v9) — tidligere fulgte den med Prosjektportalen 365.
 - Konfigurerbar godkjenningsprosess via Power Automate.
 - SharePoint-område med støttelister som utgjør backenden for løsningen.
 - Dashboard for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
@@ -51,7 +51,7 @@ For å komme i gang med en ny installasjon, følg [Installasjonsveiledningen](De
 
 Hvis du har en eksisterende Bestillingsportalen-installasjon og vil oppgradere til nyeste versjon, se [Oppgraderingsveiledningen](Upgrade.md) for detaljerte instruksjoner om hvordan du oppgraderer uten å miste data.
 
-Kjører miljøet en versjon fra **før 2.0** – med Key Vault, client secret og sertifikat – gjelder [Oppgradere fra versjoner før 2.0](Upgrade-from-pre-2.0.md) i stedet. Slike miljøer må gjennom én full installasjon før `-Upgrade` kan brukes.
+Kjører miljøet en versjon fra **før 1.0** – med Key Vault, client secret og sertifikat – gjelder [Oppgradere fra versjoner før 1.0](Upgrade-from-pre-1.0.md) i stedet. Slike miljøer må gjennom én full installasjon før `-Upgrade` kan brukes.
 
 ## Feil og problemer
 

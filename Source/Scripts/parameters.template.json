@@ -17,7 +17,7 @@
     },
     "requestsSiteAlias": {
         "Value": "bestillingsportalen",
-        "Description": "Alias for the site: decides the URL (/<managedPath>/<alias>) and the Microsoft 365 group mail (<alias>@<maildomain>). Any alias works - the web parts and the Teams app locate the site via the tenant registry (storage entity bp_ProvisionUrls), which deploy.ps1 maintains automatically; the default is kept for recognizability. The alias shares a namespace with every user and group in the tenant, so a service account called bestillingsportalen@... occupies it - deploy.ps1 stops in pre-flight if it does; pick a free alias (e.g. 'BP') and re-run. Leave blank to derive it from requestsSiteName (pre-2.0 behaviour)."
+        "Description": "Alias for the site: decides the URL (/<managedPath>/<alias>) and the Microsoft 365 group mail (<alias>@<maildomain>). Any alias works - the web parts and the Teams app locate the site via the tenant registry (storage entity bp_ProvisionUrls), which deploy.ps1 maintains automatically; the default is kept for recognizability. The alias shares a namespace with every user and group in the tenant, so a service account called bestillingsportalen@... occupies it - deploy.ps1 stops in pre-flight if it does; pick a free alias (e.g. 'BP') and re-run. Leave blank to derive it from requestsSiteName (pre-1.0 behaviour)."
     },
     "provisionInstanceTitle": {
         "Value": "",

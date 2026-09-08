@@ -206,7 +206,7 @@ Husk å rydde opp etterpå: slett testområdet/-teamet (slett Microsoft 365-grup
 
 ## Merknad: Bestillings-webdelen følger denne løsningen
 
-Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår fra og med versjon 2.1.0 i **dette repoet**, som del av SPFx-pakken `bp-provision-web-parts.sppkg` — den distribueres automatisk av `deploy.ps1`. Prosjektportalen 365 er ikke lenger en forutsetning. Slik tas den i bruk:
+Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår fra og med versjon 1.0.0 i **dette repoet**, som del av SPFx-pakken `bp-provision-web-parts.sppkg` — den distribueres automatisk av `deploy.ps1`. Prosjektportalen 365 er ikke lenger en forutsetning. Slik tas den i bruk:
 
 1. Legg webdelen **Bestillingsportalen** inn på en SharePoint-side der brukerne skal bestille.
 2. Sett eventuelt URL-egenskapen i webdelens property pane til den **absolutte URL-en** til Bestillingsportalen-området (f.eks. `https://<tenant>.sharepoint.com/sites/Bestillingsportalen`). Feltet kan stå tomt: da brukes standardinstansen fra tenant-registeret `bp_ProvisionUrls` (se [Tenant-registeret](#merknad-tenant-registeret-bp_provisionurls)), deretter `/sites/bestillingsportalen`.

@@ -3,7 +3,7 @@
   "solution": {
     "name": "Bestillingsportalen - Provision Web Parts",
     "id": "00b53018-61b2-4576-b559-27df9321cfc8",
-    "version": "2.1.0.0",
+    "version": "1.0.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -30,7 +30,7 @@
         "title": "Bestillingsportalen Provision Web Parts feature",
         "description": "Registers the Bestillingsportalen Provision Web Parts (ProjectProvision and InviteGuests).",
         "id": "89d45ac4-058c-4d1f-b925-2fe55198e614",
-        "version": "2.1.0.0"
+        "version": "1.0.0.0"
       }
     ],
     "webApiPermissionRequests": [
