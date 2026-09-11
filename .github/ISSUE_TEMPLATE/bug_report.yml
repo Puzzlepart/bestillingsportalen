@@ -1,0 +1,61 @@
+name: Feilrapport
+description: Noe fungerer ikke som dokumentert
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Takk for at du melder fra. Sjekk først om feilen allerede er rapportert i [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues).
+        **Sikkerhetssårbarheter skal ikke meldes her** – bruk privat rapportering, se [SECURITY.md](https://github.com/Puzzlepart/bestillingsportalen/blob/main/SECURITY.md).
+        Ikke lim inn tenant-ID, subscription-ID, brukernavn eller e-postadresser fra miljøet ditt – bytt dem ut med plassholdere.
+  - type: input
+    id: version
+    attributes:
+      label: Versjon
+      description: Innholdet i `VERSION` i repoet du installerte fra, eller versjonen deployment summary viste.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Komponent
+      options:
+        - Installasjon (deploy.ps1 / GenerateParameters.ps1)
+        - Bestillings-webdel eller Teams-app (ProjectProvision)
+        - Gjesteinvitasjon (InviteGuests / ProcessGuestRequest / AddGuestToSite)
+        - Provisjonering (ProcessProvisionRequest / ConfigureSpace)
+        - Godkjenningsflyt (Power Automate)
+        - PnP-mal og SharePoint-lister
+        - Dokumentasjon
+        - Annet / vet ikke
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Hva skjer, og hva forventet du?
+      description: Beskriv gjeldende oppførsel og hvorfor den er feil.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steg for å reprodusere
+      placeholder: |
+        1. Kjør `./deploy.ps1 -Preflight`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Feilmeldinger og logg
+      description: Utdrag fra deployment summary, Logic App-kjøringen, runbook-jobben eller nettleserkonsollen. Fjern identifiserende verdier.
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: Miljø
+      description: Det som er relevant, for eksempel PowerShell-versjon, PnP.PowerShell-versjon, Azure-region, om Prosjektportalen 365 er installert, lisenstype på tjenestekontoen.

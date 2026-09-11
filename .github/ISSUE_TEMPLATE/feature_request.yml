@@ -1,0 +1,33 @@
+name: Forslag til ny funksjonalitet
+description: En idé til noe Bestillingsportalen bør kunne
+title: "[Forslag] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Takk for idéen. Sjekk om noe lignende allerede ligger i [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues), og les gjerne [retningslinjene for bidrag](https://github.com/Puzzlepart/bestillingsportalen/blob/main/CONTRIBUTING.md) – vi vil helst bli enige om retning før noen bruker mye tid på en implementasjon.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hvilket behov løser dette?
+      description: Beskriv situasjonen i dag og hva som er tungvint eller mangler.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Forslag til løsning
+      description: Hvordan ser du for deg at det fungerer? Hvilke komponenter berøres (webdel, Logic App, runbook, PnP-mal, installasjonsskript)?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativer du har vurdert
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Bidrag
+      options:
+        - label: Jeg kan bidra med implementasjonen selv

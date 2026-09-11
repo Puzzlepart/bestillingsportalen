@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Sikkerhetssårbarhet
+    url: https://github.com/Puzzlepart/bestillingsportalen/security/advisories/new
+    about: Sårbarheter rapporteres privat her, ikke som et offentlig issue. Se SECURITY.md.
+  - name: Dokumentasjon
+    url: https://github.com/Puzzlepart/bestillingsportalen#dokumentasjon
+    about: Installasjons-, konfigurasjons- og oppgraderingsveiledningene, og teknisk løsningsbeskrivelse.
