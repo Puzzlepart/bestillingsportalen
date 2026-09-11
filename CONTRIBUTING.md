@@ -4,6 +4,8 @@ Vi setter pris på at du vil bidra til Bestillingsportalen. Før du sender din f
 
 Sharing is caring!
 
+Alle som deltar forventes å følge [retningslinjene for oppførsel](./CODE_OF_CONDUCT.md).
+
 ## Du har en idé til ny funksjonalitet
 
 Flott! Gode idéer er uvurderlige for ethvert produkt. Før du setter i gang, sjekk om en lignende idé allerede ligger i [issues-listen](https://github.com/Puzzlepart/bestillingsportalen/issues). Hvis ikke, opprett et nytt issue som beskriver idéen din. Når vi er enige om funksjonalitet og arkitektur, er idéen klar til å bygges. Ikke nøl med å nevne i issuet hvis du ønsker å bygge funksjonaliteten selv.
