@@ -2,6 +2,12 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Uutgitt
+
+### Feilrettinger
+
+- **`GtChildProjects` ble lagret med loggtekst foran JSON-en når et område ble bestilt fra et overordnet prosjekt**: `Merge-ChildProjects` i `ConfigureSpace`-runbooken brukte `Write-Output` for meldingene «Existing child projects found» og «Could not parse existing GtChildProjects». I PowerShell blir alt en funksjon skriver til pipelinen en del av returverdien, så feltet på foreldrens `Prosjektegenskaper` og på foreldrens rad i hubens `Prosjekter` fikk verdien `Existing child projects found: 0 [{…}]`. Det er ugyldig JSON, og Prosjektportalen 365 viste dermed ikke det underordnede prosjektet. Meldingene går nå til verbose- og warning-strømmen, og funksjonen returnerer bare JSON-strengen. De to `Set-PnPListItem`-kallene dumper heller ikke lenger hele listeelementet til jobbloggen. **Allerede berørte prosjekter må ryddes manuelt**: fjern teksten foran `[` i `GtChildProjects` på foreldrens `Prosjektegenskaper` og på foreldrens rad i hubens `Prosjekter`.
+
 ## 1.0.0 - 10.09.2026
 
 ### Sikkerhet

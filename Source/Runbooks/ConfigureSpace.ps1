@@ -818,6 +818,9 @@ function UpdateParentSite {
 
     # Merges $childProjectObject into an existing GtChildProjects JSON string,
     # replacing any entry for the same SiteId.
+    # Returns ONLY the JSON string. Anything else written to the pipeline here
+    # (e.g. Write-Output) becomes part of the return value and ends up stored
+    # in the GtChildProjects field, which breaks JSON parsing in PP365.
     function Merge-ChildProjects {
         param([string] $ExistingJson)
 
@@ -825,10 +828,10 @@ function UpdateParentSite {
         if (-not [string]::IsNullOrWhiteSpace($ExistingJson)) {
             try {
                 $projects = @($ExistingJson | ConvertFrom-Json)
-                Write-Output "Existing child projects found: $($projects.Count)"
+                Write-Verbose "Existing child projects found: $($projects.Count)"
             }
             catch {
-                Write-Output "Could not parse existing GtChildProjects, starting with new array"
+                Write-Warning "Could not parse existing GtChildProjects, starting with new array"
                 $projects = @()
             }
         }
@@ -851,7 +854,7 @@ function UpdateParentSite {
         $updatedChildProjectsJson = Merge-ChildProjects -ExistingJson $listItem["GtChildProjects"]
         Write-Output "Updating parent site 'Prosjektegenskaper' with: $updatedChildProjectsJson"
 
-        Set-PnPListItem -List "Prosjektegenskaper" -Identity $listItem.Id -Values @{
+        $null = Set-PnPListItem -List "Prosjektegenskaper" -Identity $listItem.Id -Values @{
             "GtChildProjects" = $updatedChildProjectsJson
         }
 
@@ -885,7 +888,7 @@ function UpdateParentSite {
     $updatedHubChildProjectsJson = Merge-ChildProjects -ExistingJson $parentProjectItem["GtChildProjects"]
     Write-Output "Updating hub site 'Prosjekter' with: $updatedHubChildProjectsJson"
 
-    Set-PnPListItem -List "Prosjekter" -Identity $parentProjectItem.Id -Values @{
+    $null = Set-PnPListItem -List "Prosjekter" -Identity $parentProjectItem.Id -Values @{
         "GtChildProjects" = $updatedHubChildProjectsJson
     }
 
