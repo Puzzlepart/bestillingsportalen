@@ -121,6 +121,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 
 **Kom i gang**
 
+- [Brukerveiledning for Bestillingsportalen-appen](./App-brukerveiledning.md) – bestilling, status og gjesteinvitasjon
 - [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md) – komponenter, arkitektur og tilganger
 - [Installasjonsveiledning](./Deployment-guide.md) – forutsetninger og den skriptede installasjonen
 - [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenning, flyt-import, deling og Teams-app
@@ -142,6 +143,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 
 **Referanse**
 
+- [Teknisk referanse for Bestillingsportalen-appen](./App-teknisk-referanse.md) – SPFx-komponenter, dataflyt, konfigurasjon, bygg og kjente begrensninger
 - [Datalagre](./Data-stores.md) – alle lister og felter
 - [Datatilgang og sikkerhet](./Data-access-security.md) – hver tillatelse koblet til kjøretidskallene som bruker den
 - [Power Automate-pakken](./Source/Flows/README.md) og [diagnoseskript](./Source/Diagnostics/README.md)

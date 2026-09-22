@@ -35,6 +35,8 @@ const split = process.argv.includes('--split')
 // Leserekkefølge: samme som navigasjonstabellen i README, med README først.
 const ORDER = [
   'README.md',
+  'App-brukerveiledning.md',
+  'App-teknisk-referanse.md',
   'Teknisk-losningsbeskrivelse.md',
   'Data-access-security.md',
   'Deployment-guide.md',
