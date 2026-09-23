@@ -288,6 +288,21 @@ Statusflaten tilbyr søk og sortering. Filterkommandoen er synlig i kildekoden, 
 
 Synlighet i klienten er ikke tilgangskontroll. Beskytt innstillingslistene med SharePoint-tillatelser, uavhengig av menyegenskapene `hideSettingsMenu` og `AdminGroupId`-konfigurasjon i eldre oppsett.
 
+### Tillatelser for sluttbrukere
+
+Klienten kjører som innlogget bruker, så bestilleren trenger SharePoint-tillatelser på Bestillingsportalen-området. Ingen Entra ID- eller Graph-roller er nødvendige utover det SPFx gir; provisjoneringen utføres av managed identity og tjenestekontoen (se [Datatilgang og sikkerhet](./Data-access-security.md)). Oppsettet er beskrevet i Steg 3 i [Konfigurasjonsveiledningen](./Configuration-guide.md).
+
+| Hvor                                                     | Minste tillatelse | Hvorfor                                                                                                                                                                                                                             |
+| -------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bestillingsportalen-området                              | Lese              | Tilgangskontrollen ved oppstart krever `ViewListItems`, og Teams-appen viser bare instanser brukeren kan lese. Innstillings-, type-, mal- og merkelistene leses.                                                                     |
+| `Provisioning Requests`                                  | Bidra             | `items.add` oppretter bestillingen, `validateUpdateListItem` setter personfeltene på det nye elementet (krever redigering), og elementet slettes ved brukeroppløsningsfeil og når brukeren sletter en bestilling i statusflaten. |
+| `Guest Requests` (kun `InviteGuests`)                    | Bidra             | Nye forespørsler legges til, og **Prøv på nytt** oppretter et nytt element og sender det gamle til papirkurven.                                                                                                                       |
+| `Prosjektdata` på hub-/forelderområdet (kun ved metadata) | Bidra             | Skrives når typen har `DefaultMetadata` eller `parentMode` er aktivert. Personfelt løses med `web.ensureUser` mot hub-området, som krever mer enn lesetilgang der.                                                               |
+
+`Legg til` alene er ikke tilstrekkelig på `Provisioning Requests`: opprettelsen lykkes, men oppdateringen av personfeltene feiler, og et element uten eiere blir liggende igjen fordi oppryddingen heller ikke har rettighet til å slette. `Rediger` fungerer, men gir også rett til å administrere listen.
+
+Listene arver tillatelser fra området, med unntak av `PnP Templates`. Tilgangen må derfor gis ved å bryte arv på den enkelte listen. Merk at det ikke er satt elementnivå-sikkerhet: statusflaten filtrerer på bestiller i klienten, men alle med lesetilgang kan lese alle bestillinger, og alle med Bidra kan i praksis endre eller slette andres elementer via SharePoint.
+
 ## 7. Godkjenning og provisjonering
 
 ```mermaid
