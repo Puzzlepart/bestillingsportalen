@@ -4,7 +4,16 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ## Uutgitt
 
+### Ny funksjonalitet
+
+- **Årsaken til en feilet bestilling vises i statusoversikten**: Har en bestilling status «Områdeopprettelse feilet», viser statusen innholdet i `StatusReason` som tooltip. Bestilleren kan dermed se hva som gikk galt uten å spørre en administrator.
+
 ### Feilrettinger
+
+- **Bestillinger ble stående i «Space Creation» når en eier eller et medlem ikke ble funnet i Entra ID**: `Loop_through_Members` og `Loop_through_Owners` i `ProcessProvisionRequest` lå på toppnivå uten eget `Handle_Error`-scope. Feilet brukeroppslaget, stoppet kjøringen uten at bestillingen ble oppdatert, og bestilleren fikk aldri vite noe. Løkkene har nå hvert sitt `Handle_Error_Loop_through_*`-scope som setter «Space Creation Failed» med en `StatusReason` som sier at en eier eller et medlem ikke ble funnet.
+- **Brukere uten e-postadresse kunne ikke være eiere eller medlemmer**: Oppslaget i Entra ID brukte `Email` fra personfeltet. For brukere uten postkasse er feltet tomt, og oppslaget ga 404. Oppslaget faller nå tilbake på UPN-en i `Claims`. UPN-ene som sendes videre til runbooken hentes fra Entra ID (`userPrincipalName`) i stedet for fra e-postfeltet.
+- **Opprettelse av gruppe feilet når samme person var både eier og medlem**: Eiere legges også inn som medlemmer, så personen sto to ganger i `members@odata.bind`, og Graph avviste forespørselen med «can only be present once as an add/remove change». Listene over medlemmer og eiere fjernes nå for duplikater før gruppen og Viva Engage-fellesskapet opprettes.
+- **Gjester og vilkårlige e-postadresser kunne velges som eiere og medlemmer**: Personvelgeren i bestillingsskjemaet viste også gjestebrukere (`#ext#`) og tillot frie e-postadresser. Ingen av dem finnes som interne brukere, og bestillingen feilet. Velgeren viser nå bare interne brukere, og teksten ved ingen treff henviser eksterne brukere til gjestefeltet.
 
 - **`GtChildProjects` ble lagret som `System.Object[]` når et område ble bestilt fra et overordnet prosjekt**: `Merge-ChildProjects` i `ConfigureSpace`-runbooken brukte `Write-Output` for meldingene «Existing child projects found» og «Could not parse existing GtChildProjects». I PowerShell blir alt en funksjon skriver til pipelinen en del av returverdien, så funksjonen returnerte et array med to strenger i stedet for én JSON-streng. `Set-PnPListItem` kalte `.ToString()` på arrayet, og feltet på foreldrens `Prosjektegenskaper` og på foreldrens rad i hubens `Prosjekter` fikk verdien `System.Object[]`. Prosjektportalen 365 viste dermed ikke det underordnede prosjektet. Feilen slo bare til når feltet allerede hadde en verdi (typisk `[]`, som PP365 seeder), siden meldingen ikke skrives for tomme felt. Meldingene går nå til verbose- og warning-strømmen, og funksjonen returnerer bare JSON-strengen. De to `Set-PnPListItem`-kallene dumper heller ikke lenger hele listeelementet til jobbloggen. **Allerede berørte prosjekter må ryddes manuelt**: erstatt `System.Object[]` i `GtChildProjects` med riktig JSON, eller tøm feltet og bestill underprosjektet på nytt, på foreldrens `Prosjektegenskaper` og på foreldrens rad i hubens `Prosjekter`.
 

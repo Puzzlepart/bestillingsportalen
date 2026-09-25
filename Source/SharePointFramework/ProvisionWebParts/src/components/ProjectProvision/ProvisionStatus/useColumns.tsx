@@ -12,7 +12,8 @@ import {
   PopoverTrigger,
   Toast,
   ToastTitle,
-  ToastBody
+  ToastBody,
+  Tooltip
 } from '@fluentui/react-components'
 import React, { useContext } from 'react'
 
@@ -146,15 +147,29 @@ export const useColumns = (toast: any): TableColumnDefinition<IRequestItem>[] =>
             break
         }
 
+        const tag = (
+          <Tag
+            icon={statusIcon}
+            style={{
+              backgroundColor: statusColor
+            }}>
+            {statusText}
+          </Tag>
+        )
+
+        // The flow writes why provisioning failed to StatusReason - surface it
+        // so the requester doesn't have to ask an admin to open the run history.
+        const showReason = request.status === Status.SpaceCreationFailed && request.statusReason
+
         return (
           <TableCellLayout>
-            <Tag
-              icon={statusIcon}
-              style={{
-                backgroundColor: statusColor
-              }}>
-              {statusText}
-            </Tag>
+            {showReason ? (
+              <Tooltip content={request.statusReason} relationship='description' withArrow>
+                <span tabIndex={0}>{tag}</span>
+              </Tooltip>
+            ) : (
+              tag
+            )}
           </TableCellLayout>
         )
       }

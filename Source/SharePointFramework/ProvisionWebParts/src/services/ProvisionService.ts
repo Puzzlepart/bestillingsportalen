@@ -135,7 +135,9 @@ export class ProvisionService {
     const profiles = await this._spfi().profiles.clientPeoplePickerSearchUser({
       QueryString: queryString,
       MaximumEntitySuggestions: maximumEntitySuggestions,
-      AllowEmailAddresses: true,
+      // Off: an arbitrary email address has no Entra ID account, so the
+      // provisioning flow's user lookup would 404 on it.
+      AllowEmailAddresses: false,
       PrincipalSource: 15,
       PrincipalType: 1
     })
@@ -143,6 +145,12 @@ export class ProvisionService {
       .map((item) => this._getProvisionUserSearchKey(item))
       .filter(Boolean)
     const uniqueItems = profiles.reduce((items: IProvisionPersona[], profile) => {
+      // Guests (claims key 'i:0#.f|membership|<name>_<domain>#ext#@<tenant>')
+      // can't be owners or members - the flow looks them up by email and gets
+      // a 404. External users are invited through the guest field instead.
+      if (this._isGuestUser(profile.Key)) {
+        return items
+      }
       const key = this._getProvisionUserSearchKey({
         id: profile.Key,
         secondaryText: profile.EntityData.Email,
@@ -417,6 +425,10 @@ export class ProvisionService {
     return userValues.length > 0 && userValues.every((user) => typeof user !== 'number')
   }
 
+  private _isGuestUser(claimsKey: string): boolean {
+    return (claimsKey || '').toLowerCase().includes('#ext#')
+  }
+
   private _getProvisionUserSearchKey(user: any): string {
     if (!user) {
       return ''
@@ -486,6 +498,7 @@ export class ProvisionService {
           'SpaceType',
           'SiteURL',
           'Status',
+          'StatusReason',
           'Stage',
           'Comments',
           'ApprovedDate',
@@ -509,6 +522,7 @@ export class ProvisionService {
             type: item.SpaceType,
             siteUrl: item.SiteURL?.Url,
             status: item.Status,
+            statusReason: item.StatusReason,
             stage: item.Stage,
             comments: item.Comments,
             approvedDate: item.ApprovedDate,

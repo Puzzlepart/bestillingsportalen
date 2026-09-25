@@ -328,7 +328,7 @@
                                                     "type": "SetVariable",
                                                     "inputs": {
                                                         "name": "MembersRequestBody",
-                                                        "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{if(greater(length(triggerBody()?['MailboxAlias']),64),substring(triggerBody()?['MailboxAlias'],0,64),triggerBody()?['MailboxAlias'])}\",\n  \"members@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('MembersGraph'),10),variables('MembersGraph'))},\n  \"owners@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(variables('OwnersGraph'),10),variables('OwnersGraph'))},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\": @{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceTypeInternal'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
+                                                        "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{if(greater(length(triggerBody()?['MailboxAlias']),64),substring(triggerBody()?['MailboxAlias'],0,64),triggerBody()?['MailboxAlias'])}\",\n  \"members@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(union(variables('MembersGraph'),variables('MembersGraph')),10),union(variables('MembersGraph'),variables('MembersGraph')))},\n  \"owners@odata.bind\": @{if(greater(variables('MembersOwnersCount'),20),take(union(variables('OwnersGraph'),variables('OwnersGraph')),10),union(variables('OwnersGraph'),variables('OwnersGraph')))},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\": @{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceTypeInternal'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
                                                     }
                                                 }
                                             },
@@ -339,7 +339,7 @@
                                                         "type": "SetVariable",
                                                         "inputs": {
                                                             "name": "MembersRequestBody",
-                                                            "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{if(greater(length(triggerBody()?['MailboxAlias']),64),substring(triggerBody()?['MailboxAlias'],0,64),triggerBody()?['MailboxAlias'])}\",\n  \"owners@odata.bind\": @{variables('OwnersGraph')},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\":@{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceTypeInternal'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
+                                                            "value": "{\n  \"description\": \"@{triggerBody()?['Description']}\",\n  \"displayName\": \"@{If(equals(variables('UseNamingConventions'),true),If(and(equals(empty(triggerBody()?['Prefix']),true),equals(empty(triggerBody()?['Suffix']),true)),triggerBody()?['Title'],concat(triggerBody()?['Prefix'],triggerBody()?['SiteAlias'],triggerBody()?['Suffix'])),triggerBody()?['Title'])}\",\n  \"groupTypes\": [\n    \"Unified\"\n  ],\n  \"creationOptions\": [\"SPSiteLanguage:@{triggerBody()?['LCID']}\"],\n  \"mailEnabled\": true,\n  \"mailNickname\": \"@{if(greater(length(triggerBody()?['MailboxAlias']),64),substring(triggerBody()?['MailboxAlias'],0,64),triggerBody()?['MailboxAlias'])}\",\n  \"owners@odata.bind\": @{union(variables('OwnersGraph'),variables('OwnersGraph'))},\n  \"securityEnabled\": false,\n\"visibility\":\"@{triggerBody()?['Visibility']?['Value']}\",\n\"classification\":@{if(empty(triggerBody()?['Classification']),'null',concat('\"',triggerBody()?['Classification'],'\"'))},\n\"resourceBehaviorOptions\":[@{if(or(equals(triggerBody()?['Teamify'], true),equals(triggerBody()?['SpaceTypeInternal'], 'Microsoft Teams Team')),concat(variables('QuoteMark'),'WelcomeEmailDisabled',variables('QuoteMark')),'')}]\n}"
                                                         }
                                                     }
                                                 }
@@ -1483,7 +1483,7 @@
                                                                             "displayName": "@{triggerBody()?['SpaceDisplayName']}",
                                                                             "description": "@{triggerBody()?['Description']}",
                                                                             "privacy": "@{triggerBody()?['Visibility']?['Value']}",
-                                                                            "owners@odata.bind": "@variables('OwnersGraph')"
+                                                                            "owners@odata.bind": "@union(variables('OwnersGraph'),variables('OwnersGraph'))"
                                                                         },
                                                                         "authentication": {
                                                                             "audience": "https://graph.microsoft.com",
@@ -3320,7 +3320,7 @@
                                     "type": "AppendToArrayVariable",
                                     "inputs": {
                                         "name": "MemberUPNs",
-                                        "value": "@items('Loop_through_Members')?['Email']"
+                                        "value": "@coalesce(body('Get_member_user_profile')?['userPrincipalName'], coalesce(items('Loop_through_Members')?['Email'], last(split(items('Loop_through_Members')?['Claims'], '|'))))"
                                     }
                                 },
                                 "Append_to_MembersGraph_variable": {
@@ -3346,7 +3346,7 @@
                                         "name": "Members",
                                         "value": {
                                             "ID": "@{body('Get_member_user_profile')?['id']}",
-                                            "MemberUPN": "@{items('Loop_through_Members')?['Email']}"
+                                            "MemberUPN": "@{coalesce(body('Get_member_user_profile')?['userPrincipalName'], coalesce(items('Loop_through_Members')?['Email'], last(split(items('Loop_through_Members')?['Claims'], '|'))))}"
                                         }
                                     }
                                 },
@@ -3360,7 +3360,7 @@
                                             }
                                         },
                                         "method": "GET",
-                                        "path": "/codeless/v1.0/users/@{encodeURIComponent(items('Loop_through_Members')?['Email'])}"
+                                        "path": "/codeless/v1.0/users/@{encodeURIComponent(coalesce(items('Loop_through_Members')?['Email'], last(split(items('Loop_through_Members')?['Claims'], '|'))))}"
                                     }
                                 }
                             },
@@ -3395,7 +3395,7 @@
                                     "type": "AppendToArrayVariable",
                                     "inputs": {
                                         "name": "OwnerUPNs",
-                                        "value": "@items('Loop_through_Owners')?['Email']"
+                                        "value": "@coalesce(body('Get_owner_user_profile')?['userPrincipalName'], coalesce(items('Loop_through_Owners')?['Email'], last(split(items('Loop_through_Owners')?['Claims'], '|'))))"
                                     }
                                 },
                                 "Append_to_OwnersGraph_variable": {
@@ -3421,7 +3421,7 @@
                                         "name": "Owners",
                                         "value": {
                                             "ID": "@{body('Get_owner_user_profile')?['id']}",
-                                            "OwnerUPN": "@{items('Loop_through_Owners')?['Email']}"
+                                            "OwnerUPN": "@{coalesce(body('Get_owner_user_profile')?['userPrincipalName'], coalesce(items('Loop_through_Owners')?['Email'], last(split(items('Loop_through_Owners')?['Claims'], '|'))))}"
                                         }
                                     }
                                 },
@@ -3459,7 +3459,7 @@
                                             }
                                         },
                                         "method": "GET",
-                                        "path": "/codeless/v1.0/users/@{encodeURIComponent(items('Loop_through_Owners')?['Email'])}"
+                                        "path": "/codeless/v1.0/users/@{encodeURIComponent(coalesce(items('Loop_through_Owners')?['Email'], last(split(items('Loop_through_Owners')?['Claims'], '|'))))}"
                                     }
                                 }
                             },
@@ -5291,6 +5291,136 @@
                             },
                             "runAfter": {
                                 "Check_if_space_exists": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Loop_through_Members": {
+                            "type": "Scope",
+                            "actions": {
+                                "Filter_failed_actions_Loop_through_Members": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Loop_through_Members')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() on a Foreach returns the inner actions of every iteration, so this picks up the failed user lookup (typically 404 when the user no longer exists in Entra ID)."
+                                },
+                                "Compose_error_message_Loop_through_Members": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Loop_through_Members'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Loop_through_Members'))?['error']?['message'], first(body('Filter_failed_actions_Loop_through_Members'))?['outputs']?['body']?['message'], first(body('Filter_failed_actions_Loop_through_Members'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Loop_through_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Update_status_to_Space_Creation_Failed_Loop_through_Members": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Could not look up one or more members in Entra ID - check that every member on the request still exists and is enabled: @{outputs('Compose_error_message_Loop_through_Members')}",
+                                            "Teamify": "@triggerBody()?['Teamify']",
+                                            "Title": "@triggerBody()?['Title']"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {
+                                        "Compose_error_message_Loop_through_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Terminate_Loop_through_Members": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Loop_through_Members": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Loop_through_Members": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Handle_Error_Loop_through_Owners": {
+                            "type": "Scope",
+                            "actions": {
+                                "Filter_failed_actions_Loop_through_Owners": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@result('Loop_through_Owners')",
+                                        "where": "@equals(item()?['status'], 'Failed')"
+                                    },
+                                    "runAfter": {},
+                                    "description": "result() on a Foreach returns the inner actions of every iteration, so this picks up the failed user lookup (typically 404 when the user no longer exists in Entra ID)."
+                                },
+                                "Compose_error_message_Loop_through_Owners": {
+                                    "type": "Compose",
+                                    "inputs": "@{concat(coalesce(first(body('Filter_failed_actions_Loop_through_Owners'))?['name'], 'unknown action'), ': ', coalesce(first(body('Filter_failed_actions_Loop_through_Owners'))?['error']?['message'], first(body('Filter_failed_actions_Loop_through_Owners'))?['outputs']?['body']?['message'], first(body('Filter_failed_actions_Loop_through_Owners'))?['code'], 'no error detail available'))}",
+                                    "runAfter": {
+                                        "Filter_failed_actions_Loop_through_Owners": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Update_status_to_Space_Creation_Failed_Loop_through_Owners": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "PATCH",
+                                        "body": {
+                                            "Status": {
+                                                "Value": "Space Creation Failed"
+                                            },
+                                            "StatusReason": "Could not look up one or more owners in Entra ID - check that every owner on the request still exists and is enabled: @{outputs('Compose_error_message_Loop_through_Owners')}",
+                                            "Teamify": "@triggerBody()?['Teamify']",
+                                            "Title": "@triggerBody()?['Title']"
+                                        },
+                                        "path": "[concat('/datasets/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsSiteUrl'),variables('singlequote'),'))}/tables/@{encodeURIComponent(encodeURIComponent(',variables('singlequote'),parameters('requestsListId'),variables('singlequote'),'))}/items/@{encodeURIComponent(triggerBody()?[',variables('singlequote'),'ID',variables('singlequote'),'])}')]"
+                                    },
+                                    "runAfter": {
+                                        "Compose_error_message_Loop_through_Owners": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Terminate_Loop_through_Owners": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Failed"
+                                    },
+                                    "runAfter": {
+                                        "Update_status_to_Space_Creation_Failed_Loop_through_Owners": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Loop_through_Owners": [
                                     "Failed",
                                     "TimedOut"
                                 ]

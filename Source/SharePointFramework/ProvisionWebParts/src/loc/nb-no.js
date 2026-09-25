@@ -247,7 +247,7 @@ define([], function () {
       "MinimumOwnersMessage": "Det kreves minst {0} eiere for denne bestillingen. Legg til flere eiere.",
       "RequestedByFieldLabel": "Bestilt på vegne av",
       "RequestedByFieldDescription": "Dersom du bestiller området på vegne av noen, kan du angi navnet på vedkommende her. Dersom du bestiller området for deg selv, kan du la feltet stå tomt.",
-      "UserFieldNoOptionsText": "Ingen treff...",
+      "UserFieldNoOptionsText": "Ingen treff. Eksterne brukere kan ikke legges til her - inviter dem som gjester i stedet.",
       "TeamifyFieldLabel": "Aktivere Teams for området?",
       "TeamifyFieldDescription": "Om du aktiverer Teams for området, vil et Teams-område bli opprettet og knyttet til området.",
       "TeamTemplateFieldLabel": "Teams mal",

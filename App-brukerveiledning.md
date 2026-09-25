@@ -198,7 +198,7 @@ Når du prøver på nytt, opprettes en ny forespørsel. Den gamle mislykkede for
 | En person kan ikke legges til                 | Kontroller skrivemåte og at personen finnes i organisasjonen. Kontakt administrator hvis oppslaget fortsatt feiler. |
 | Jeg ser ikke ønsket områdetype eller felt     | Administrator har ikke aktivert typen, du mangler målgruppetilgang, eller feltet er skjult for typen.               |
 | Status står lenge på Submitted eller Approved | Oppdater status. Ved langvarig venting må administrator kontrollere godkjenningsflyten og Logic App-kjøringene.     |
-| Bestillingen har status Space Creation Failed | Oppgi bestillingens navn og tidspunkt til administrator. Administrator kan lese detaljene i feltet `StatusReason`.  |
+| Bestillingen har status Space Creation Failed | Hold musepekeren over statusen for å se årsaken. Oppgi bestillingens navn, tidspunkt og årsaken til administrator. |
 | Gjesteinvitasjonen står på Pending            | Oppdater status etter noen minutter. Ved langvarig venting må administrator kontrollere `ProcessGuestRequest`.      |
 | Gjesteinvitasjonen har status Failed          | Les feilmeldingen i statusvisningen og prøv på nytt dersom knappen er tilgjengelig.                                 |
 | Jeg får ikke åpnet appen                      | Kontroller at du har tilgang til Bestillingsportalen-området og siden eller Teams-appen.                            |
