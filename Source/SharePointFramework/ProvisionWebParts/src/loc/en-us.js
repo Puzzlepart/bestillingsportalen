@@ -247,7 +247,7 @@ define([], function () {
       "MinimumOwnersMessage": "At least {0} owners are required for this request. Please add more owners.",
       "RequestedByFieldLabel": "Requested on behalf of",
       "RequestedByFieldDescription": "If you're requesting on someone's behalf, enter their name here. Leave blank if it's for yourself.",
-      "UserFieldNoOptionsText": "No results...",
+      "UserFieldNoOptionsText": "No results. External users can't be added here - invite them as guests instead.",
       "TeamifyFieldLabel": "Enable Teams for this site?",
       "TeamifyFieldDescription": "If enabled, a Teams workspace will be created and linked to this site.",
       "TeamTemplateFieldLabel": "Teams template",

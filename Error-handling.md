@@ -17,14 +17,15 @@ Logic App-en har dedikerte feilhåndteringsscopes for hvert hovedsteg i provisjo
 Følgende steg har automatisk feilhåndtering:
 
 1. **Check_if_space_exists** - Sjekk om området allerede eksisterer
-2. **Check_space_type** - Validering og provisjonering basert på områdetype
-3. **Process_Owners_and_Members** - Prosessering av eiere og medlemmer
-4. **Process_Team** - Oppsett av Team-innstillinger
-5. **Apply_Site_Template** - Anvendelse av nettstedmal
-6. **Set_external_sharing** - Konfigurasjon av ekstern deling
-7. **Invite_guests** - Invitasjon av gjestebrukere
-8. **Store_expiration_date** - Lagring av utløpsdato
-9. **Configure_space** - Konfigurering via Azure Automation runbook
+2. **Loop_through_Members** / **Loop_through_Owners** - Oppslag av medlemmer og eiere i Entra ID (feiler typisk med 404 hvis en bruker er slettet)
+3. **Check_space_type** - Validering og provisjonering basert på områdetype
+4. **Process_Owners_and_Members** - Prosessering av eiere og medlemmer
+5. **Process_Team** - Oppsett av Team-innstillinger
+6. **Apply_Site_Template** - Anvendelse av nettstedmal
+7. **Set_external_sharing** - Konfigurasjon av ekstern deling
+8. **Invite_guests** - Invitasjon av gjestebrukere
+9. **Store_expiration_date** - Lagring av utløpsdato
+10. **Configure_space** - Konfigurering via Azure Automation runbook
 
 Sensitivitetsmerking har ikke lenger et eget scope her – den gjøres i `ConfigureSpace`-runbooken og dekkes av `Handle_Error_Configure_space` (se [Sensitivitetsmerker](Sensitivity-labels.md)).
 

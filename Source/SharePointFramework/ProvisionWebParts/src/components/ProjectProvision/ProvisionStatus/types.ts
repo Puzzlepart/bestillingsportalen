@@ -5,6 +5,7 @@ export interface IRequestItem {
   siteUrl: string
   created: Date
   status: string
+  statusReason?: string
   type: string
 }
 
