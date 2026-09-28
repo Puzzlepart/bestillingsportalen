@@ -219,6 +219,7 @@ $global:siteTemplatesListId = $null
 $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
 $global:teamsAppManualUploadZip = $null
+$script:teamsAppPublishScope = $null # Set by CheckTeamsAppPublish: $true, $false, or $null when unknown
 $global:guestRequestsListId = $null
 $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
@@ -230,11 +231,14 @@ function IsValidParam {
     [OutputType([bool])]
     param
     (
+        # AllowNull: optional keys (e.g. provisionInstanceTitle) are absent from
+        # parameter files generated before they were introduced
         [Parameter(Mandatory = $true)]
+        [AllowNull()]
         $param
     )
 
-    return -not([string]::IsNullOrEmpty($param.Value)) -and ($param.Value -ne '<<value>>')
+    return $null -ne $param -and -not([string]::IsNullOrEmpty($param.Value)) -and ($param.Value -ne '<<value>>')
 }
 
 function IsValidGuid {
@@ -1589,16 +1593,21 @@ function CheckSpoAdminAccess {
 # WARNING and not MISSING on purpose: enforcement depends on the tenant's policy, and a
 # password-only session was seen completing a full deployment earlier the same day. Blocking
 # would stop runs that work.
+# Decodes the payload of a JWT. Callers read single claims out of it - the token itself
+# is never logged.
+function ReadJwtClaims {
+    param([Parameter(Mandatory = $true)][string]$Token)
+    $payload = ($Token -split '\.')[1]
+    switch ($payload.Length % 4) { 2 { $payload += '==' } 3 { $payload += '=' } }
+    return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload.Replace('-', '+').Replace('_', '/'))) | ConvertFrom-Json
+}
+
 function CheckAzureWriteMfa {
     try {
         $armToken = az account get-access-token --resource https://management.azure.com --query accessToken --output tsv 2>$null
         if ([string]::IsNullOrWhiteSpace($armToken)) { throw "no ARM token from the Azure CLI" }
 
-        # Only the amr claim is read out of the token, and the token itself is never logged.
-        $payload = ($armToken -split '\.')[1]
-        switch ($payload.Length % 4) { 2 { $payload += '==' } 3 { $payload += '=' } }
-        $claims = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload.Replace('-', '+').Replace('_', '/'))) | ConvertFrom-Json
-        $methods = @($claims.amr)
+        $methods = @((ReadJwtClaims $armToken).amr)
 
         if ($methods -contains 'mfa') {
             RecordPreflightCheck -Name "MFA on the Azure session" -Status OK -Detail "amr: $($methods -join ', ')"
@@ -1608,6 +1617,29 @@ function CheckAzureWriteMfa {
     }
     catch {
         RecordPreflightCheck -Name "MFA on the Azure session" -Status UNKNOWN -Detail "Could not read the Azure CLI token to check for an MFA claim - a deployment failing with AADSTS50076 means it was missing"
+    }
+}
+
+# Publishing the Teams app over Graph needs the delegated permission AppCatalog.ReadWrite.All
+# (or Directory.ReadWrite.All) on the PnP app. Most tenants never grant it, so a missing
+# scope is a WARNING announcing the manual upload - never a blocker. The result is kept in
+# $script:teamsAppPublishScope so PublishTeamsApp skips the doomed Graph call.
+function CheckTeamsAppPublish {
+    if ($SkipSPFxDeploy) {
+        RecordPreflightCheck -Name "Teams app publish" -Status SKIPPED -Detail "-SkipSPFxDeploy"
+        return
+    }
+    try {
+        $scopes = @("$((ReadJwtClaims (Get-PnPAccessToken)).scp)" -split ' ')
+        $script:teamsAppPublishScope = [bool]($scopes | Where-Object { $_ -in @('AppCatalog.ReadWrite.All', 'Directory.ReadWrite.All') })
+        if ($script:teamsAppPublishScope) {
+            RecordPreflightCheck -Name "Teams app publish" -Status OK -Detail "The PnP app has AppCatalog.ReadWrite.All - the Teams app is published automatically"
+            return
+        }
+        RecordPreflightCheck -Name "Teams app publish" -Status WARNING -Detail "The PnP app lacks the delegated Graph permission AppCatalog.ReadWrite.All - the Teams app zip is built, but must be uploaded manually in the Teams admin center after the run" -Fix "Nothing needed - the run prints the upload steps at the end. To publish automatically instead, grant the PnP app AppCatalog.ReadWrite.All (delegated, admin consent). See 'Teams-appen' in Deployment-guide.md."
+    }
+    catch {
+        RecordPreflightCheck -Name "Teams app publish" -Status UNKNOWN -Detail "Could not read the PnP Graph token - automatic publish is attempted, with manual upload as fallback"
     }
 }
 
@@ -2345,6 +2377,14 @@ function PublishTeamsApp {
         }
         Write-Host "Packaged Teams app $appVersion -> $zipPath" -ForegroundColor Yellow
 
+        # Preflight already found the scope missing - the Graph call can only return 403
+        if ($script:teamsAppPublishScope -eq $false) {
+            Write-Host "Teams app not published automatically (the PnP app lacks AppCatalog.ReadWrite.All) - upload it manually, see the steps at the end of the run." -ForegroundColor Yellow
+            $global:teamsAppManualUploadZip = $zipPath
+            RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Manual upload required (the PnP app lacks AppCatalog.ReadWrite.All). Upload $zipPath via the Teams admin center."
+            return
+        }
+
         $headers = @{ Authorization = "Bearer $(Get-PnPAccessToken)" }
         $filter = [uri]::EscapeDataString("externalId eq '$($manifest.id)'")
         $existing = (Invoke-RestMethod -Method Get -Headers $headers -Uri "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?`$filter=$filter&`$expand=appDefinitions").value | Select-Object -First 1
@@ -2367,9 +2407,8 @@ function PublishTeamsApp {
     }
     catch {
         $reason = ($_.Exception.Message -split "`r?`n")[0]
-        Write-Host "Teams app publish FAILED: $reason" -ForegroundColor Red
-        Write-Host "Upload the package manually instead: Teams admin center -> Teams apps -> Manage apps -> Actions: Upload new app -> $zipPath" -ForegroundColor Yellow
-        Write-Host "(Automatic publish requires the delegated Graph permission AppCatalog.ReadWrite.All on the PnP app - see Deployment-guide.md.)" -ForegroundColor Yellow
+        # A WARNING, not a failure: the zip is built and the manual upload always works
+        Write-Host "Teams app not published automatically ($reason) - upload it manually, see the steps at the end of the run." -ForegroundColor Yellow
         # Surfaced again at the very end of the run - see WriteTeamsAppManualUploadNotice
         $global:teamsAppManualUploadZip = $zipPath
         RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Publish failed ($reason). Upload $zipPath manually via the Teams admin center (Manage apps -> Upload new app)."
@@ -2906,7 +2945,7 @@ catch {
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
 CheckSpoAdminAccess
 CheckAzureWriteMfa
@@ -2917,6 +2956,7 @@ ValidateAzureRbac
 ValidateResourceProviders
 CheckAppRoleRights
 CheckAppCatalog
+CheckTeamsAppPublish
 CheckNodeJs
 
 $missingCount = ShowPreflightChecklist
