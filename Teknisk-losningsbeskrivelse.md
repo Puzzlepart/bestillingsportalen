@@ -62,7 +62,7 @@ Installasjonen utføres i sin helhet fra en administrators arbeidsstasjon med `d
 | Komponent | Beskrivelse |
 |--|--|
 | SharePoint-område | Et gruppetilknyttet Team Site (navn fra `requestsSiteName` i `parameters.json`) som utgjør backend for løsningen. Tjenestekontoen settes som eier og site collection-administrator. |
-| Lister og biblioteker | PnP-provisjoneringsmal (`Bestillingsportalen.xml`) oppretter listene `Provisioning Requests`, `Guest Requests`, `Provisioning Request Settings`, `Provisioning Types`, `Site Templates`, `Teams Templates`, `Hub Sites`, `Business Units`, `IP Labels`, `Retention Labels`, `Time Zones`, `Locales` samt dokumentbiblioteket `PnP Templates`. Se [Datalagre](./Data-stores.md) for full beskrivelse. |
+| Lister og biblioteker | PnP-provisjoneringsmal (`Bestillingsportalen.xml`) oppretter listene `Provisioning Requests`, `Guest Requests`, `Provisioning Request Settings`, `Provisioning Types`, `Site Templates`, `Teams Templates`, `Hub Sites`, `Business Units`, `IP Labels`, `Retention Labels`, `Time Zones`, `Locales`, `Teams Governance`, `Governance Log` samt dokumentbiblioteket `PnP Templates`. Se [Datalagre](./Data-stores.md) for full beskrivelse. |
 | Standardinnhold | Listeelementer (innstillinger, områdetyper, Teams-maler, tidssoner, språk) seedes av `<pnp:DataRows>`-blokker i PnP-malen (`Source/Templates/Objects/Lists/*.xml`) med `UpdateBehavior="Skip"`: eksisterende elementer røres aldri, manglende standardelementer legges til ved re-apply. Bilder og ikoner lastes opp til `SiteAssets`. |
 | SPFx-pakke i app-katalogen | `deploy.ps1` bygger SPFx-løsningene under `Source/SharePointFramework/` (npm) og publiserer dem tenant-wide i tenantens App Catalog (`Add-PnPApp -Overwrite -Publish`). Per i dag gjelder dette `bp-provision-web-parts.sppkg`, som inneholder bestillings-webdelen (`ProjectProvision`, også Teams-appen) og `InviteGuests`-webdelen. Kan hoppes over med `-SkipSPFxDeploy`. |
 
@@ -82,7 +82,7 @@ Alle Azure-ressurser opprettes i en ny, dedikert ressursgruppe (navn fra `resour
 |--|--|
 | User-assigned managed identity | `bestillingsportalen-uami` (navn konfigurerbart via `uamiName`). Koblet til alle Logic Apps og brukt til alle HTTP-kall mot Microsoft Graph og SharePoint REST samt Automation-API-tilkoblingen. |
 | Azure Automation-konto | `bestillingsportalen-auto` (Free SKU) med **systemtildelt managed identity**. Runbookene `ConfigureSpace` (etterkonfigurasjon av provisjonerte områder), `AddGuestToSite` (legger gjester til M365-gruppen, SharePoint-brukergrupper og/eller en felles Entra-gjestegruppe) og `GetSiteTemplates` kjører i et **PowerShell 7.4 runtime environment** (`bestillingsportalen-ps74`) med `PnP.PowerShell` 3.2 og Az-pakken. **Merk at portalens standard Runbooks-blad viser disse som «PowerShell 5.1»** – en [dokumentert begrensning](https://learn.microsoft.com/en-us/azure/automation/runtime-environment-overview#limitations) i den gamle opplevelsen, som ikke kjenner runtime environments over 7.2. Faktisk versjon ses under **Runtime environments**, og `deploy.ps1` verifiserer og rapporterer den ved hver kjøring. Kontoen har i tillegg variablene `tenantId` og `logoUrl`. Runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres av installasjonsskriptet — endringer gjort direkte i Azure Portal overskrives ved deploy/oppgradering. Unntaket er `CustomerSpecific`: et utvidelsespunkt som kjøres rett etter `ConfigureSpace` ved provisjonering, opprettes med tomt innhold og **aldri** overskrives — organisasjonens egne tilpasninger legges der. |
-| Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). |
+| Logic Apps (9 stk.) | `ProcessProvisionRequest` (hovedmotor – provisjonerer godkjente bestillinger), `ProcessGuestRequest` (trigges av nye elementer i `Guest Requests`-listen, kaller `ProcessGuests` og `AddGuestToSite`-runbooken), `ProcessGuests` (inviterer gjestebrukere via Graph), `CheckSiteExists` (sjekker om område/URL finnes, inkl. papirkurv), `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings` og `SyncLabels` (synkroniserer hhv. hub-områder, site-maler, Teams-maler, gruppeinnstillinger og sensitivitetsmerker fra tenanten til SharePoint-listene; kjører ukentlig som standard). Med `enableGovernance` kommer i tillegg de fire governance-appene, se kapittel 6. |
 | API-tilkoblinger (5 stk.) | `bestillingsportalen-spo` (SharePoint Online), `bestillingsportalen-o365` (Office 365 Outlook), `bestillingsportalen-o365users` (Office 365 Users) og `bestillingsportalen-teams` (Microsoft Teams) er delegated-only og autoriseres manuelt med tjenestekontoen etter installasjon. `bestillingsportalen-automation` (Azure Automation) autentiserer med den user-assigned managed identityen og krever ingen manuell autorisering. |
 
 **Navnekonvensjon for Azure-ressursene.** Alle ressurser i gruppa følger mønsteret `bestillingsportalen-<rolle>` — arbeidsbelastning først, rollen som **suffiks**: `-uami`, `-auto`, `-ps74`, `-spo`, `-o365`, `-o365users`, `-teams`, `-automation`. Poenget er at alt som hører til løsningen sorterer sammen alfabetisk i portalen og i `az resource list`. Ressursgruppa selv er det bevisste unntaket (`rg-bestillingsportalen`): den velges i en annen liste enn ressursene i den, og der er typeforkortelsen først mer lesbar.
@@ -159,6 +159,8 @@ Den primære kjøretidsidentiteten. Brukes av alle Logic Apps til HTTP-kall mot 
 | `Community.ReadWrite.All` | Application | Opprette Viva Engage-fellesskap. |
 | `User.Invite.All` | Application | Invitere gjestebrukere til organisasjonen. |
 | `User.ReadWrite.All` | Application | Oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere, og registrere bestilleren som gjestens sponsor. |
+| `TeamSettings.ReadWrite.All` | Application | *Bare med `enableGovernance`:* arkivere team og lese arkivstatus (Teams governance). |
+| `Chat.Create` | Application | *Bare med `enableGovernance`:* opprette gruppechatten med teamets eiere der governance-varslene postes. |
 
 **SharePoint:**
 
@@ -209,8 +211,29 @@ Det eneste som finnes er tjenestekontoens ordinære passord, som følger organis
 
 > Tidligere versjoner hadde en client secret (1 års gyldighet) og tjenestekonto-credentials i en Key Vault, for ROPC-flyten som satte sensitivitetsmerker. Alt dette er fjernet – se [Oppgraderingsveiledningen](./Upgrade.md) for opprydding i eksisterende miljøer.
 
-## 6. Referanser
+## 6. Valgfri modul: Teams governance
 
+Med installasjonsparameteren `enableGovernance` installeres i tillegg en modul for livssyklusstyring av team: varsel før sluttdato, årlig gjennomgang av team uten sluttdato, arkivering og valgfri sletting. Svarene gis i adaptive kort i Teams. Modulen består av fire Logic Apps i samme ressursgruppe (`GovernanceSync`, `GovernanceEndDate`, `GovernanceAnnualReview`, `GovernanceNotify`) og to lister på Bestillingsportalen-området (`Teams Governance`, `Governance Log`). Den bruker den samme managed identityen og de samme API-tilkoblingene (`bestillingsportalen-teams`, `bestillingsportalen-o365`), og legger bare til app-rollene i tabellen over. Modulen installeres avslått og i tørrkjøringsmodus. Se [Teams governance](./Teams-governance.md).
+
+```mermaid
+graph TD
+    G(Microsoft Graph: alle M365-grupper) --> S(Logic App: GovernanceSync, daglig)
+    S --> L[(SharePoint-liste: Teams Governance)]
+    L --> E(Logic App: GovernanceEndDate, daglig)
+    L --> A(Logic App: GovernanceAnnualReview, daglig)
+    E --> |Workflow-action| N(Logic App: GovernanceNotify)
+    A --> |Workflow-action| N
+    N --> |Flow bot: kort og venting på svar| T(Gruppechat med teamets eiere)
+    E --> |POST /teams/id/archive, DELETE /groups/id| G
+    N --> L
+    E --> LOG[(Governance Log)]
+    A --> LOG
+    N --> LOG
+```
+
+## 7. Referanser
+
+- [Teams governance](./Teams-governance.md) – den valgfrie modulen for livssyklusstyring av team
 - [Installasjonsveiledning](./Deployment-guide.md) – steg-for-steg-installasjon (den skriptede delen)
 - [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenningsoppsett, flyt-import, deling og verifisering
 - [Datatilgang og sikkerhet](./Data-access-security.md) – detaljert tilgangsbeskrivelse

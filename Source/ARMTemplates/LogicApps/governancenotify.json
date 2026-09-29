@@ -1,0 +1,1972 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "uamiName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "spoRootSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceLogListId": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Teams governance - posts one governance card and processes the response",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "GovernanceNotify",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "SiteUrl": {
+                            "defaultValue": "[parameters('requestsSiteUrl')]",
+                            "type": "String"
+                        },
+                        "GovernanceListId": {
+                            "defaultValue": "[parameters('governanceListId')]",
+                            "type": "String"
+                        },
+                        "GovernanceLogListId": {
+                            "defaultValue": "[parameters('governanceLogListId')]",
+                            "type": "String"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "notificationType": {
+                                            "type": "string"
+                                        },
+                                        "teamId": {
+                                            "type": "string"
+                                        },
+                                        "teamName": {
+                                            "type": "string"
+                                        },
+                                        "itemId": {
+                                            "type": "string"
+                                        },
+                                        "chatId": {
+                                            "type": "string"
+                                        },
+                                        "endDate": {
+                                            "type": "string"
+                                        },
+                                        "createdDate": {
+                                            "type": "string"
+                                        },
+                                        "ownersDisplayNames": {
+                                            "type": "string"
+                                        },
+                                        "previousStatus": {
+                                            "type": "string"
+                                        },
+                                        "previousLastNotificationDate": {
+                                            "type": "string"
+                                        },
+                                        "language": {
+                                            "type": "string"
+                                        },
+                                        "guideUrl": {
+                                            "type": "string"
+                                        },
+                                        "deletionEnabled": {
+                                            "type": "boolean"
+                                        },
+                                        "deleteAfterDays": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "required": [
+                                        "notificationType",
+                                        "teamId",
+                                        "itemId",
+                                        "chatId"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Initialize_variables": {
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "Lang",
+                                        "type": "string",
+                                        "value": "@{coalesce(triggerBody()?['language'], 'nb-no')}"
+                                    },
+                                    {
+                                        "name": "CardBody",
+                                        "type": "object",
+                                        "value": {}
+                                    }
+                                ]
+                            },
+                            "runAfter": {}
+                        },
+                        "Response": {
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "body": {
+                                    "accepted": true
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_variables": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Switch_on_notification_type": {
+                            "type": "Switch",
+                            "expression": "@triggerBody()?['notificationType']",
+                            "cases": {
+                                "enddate_first": {
+                                    "case": "enddate-first",
+                                    "actions": {
+                                        "Set_card_enddate_first": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "CardBody",
+                                                "value": {
+                                                    "type": "AdaptiveCard",
+                                                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                    "version": "1.4",
+                                                    "body": [
+                                                        {
+                                                            "type": "Container",
+                                                            "style": "attention",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'⚠️ Teamet ditt går snart ut',if(equals(variables('Lang'),'en-us'),'⚠️ Your team is expiring soon','⚠️ Teamet ditt går snart ut'))}",
+                                                                    "weight": "Bolder",
+                                                                    "size": "Large",
+                                                                    "wrap": true
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "FactSet",
+                                                            "facts": [
+                                                                {
+                                                                    "title": "Team:",
+                                                                    "value": "@{triggerBody()?['teamName']}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Sluttdato:',if(equals(variables('Lang'),'en-us'),'End date:','Sluttdato:'))}",
+                                                                    "value": "@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Eigarar:',if(equals(variables('Lang'),'en-us'),'Owners:','Eiere:'))}",
+                                                                    "value": "@{triggerBody()?['ownersDisplayNames']}"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Teamet **',if(equals(variables('Lang'),'en-us'),'The team **','Teamet **'))}@{triggerBody()?['teamName']}@{if(equals(variables('Lang'),'nn-no'),'** har sluttdato **',if(equals(variables('Lang'),'en-us'),'** has an end date of **','** har sluttdato **'))}@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}**.",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Dersom du treng teamet vidare, må du forlenge sluttdatoen.',if(equals(variables('Lang'),'en-us'),'If you still need the team, you must extend the end date.','Hvis du trenger teamet videre, må du forlenge sluttdatoen.'))}",
+                                                            "wrap": true,
+                                                            "spacing": "Small"
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Dersom du avsluttar teamet, blir det arkivert (låst for endringar) når sluttdatoen er passert.',if(equals(variables('Lang'),'en-us'),'If you end the team, it will be archived (locked for changes) once the end date has passed.','Hvis du avslutter teamet, blir det arkivert (låst for endringer) når sluttdatoen er passert.'))}@{if(equals(triggerBody()?['deletionEnabled'], true), if(equals(variables('Lang'),'nn-no'),' Deretter blir det sletta automatisk etter ',if(equals(variables('Lang'),'en-us'),' It will then be deleted automatically after ',' Deretter blir det slettet automatisk etter ')), '')}@{if(equals(triggerBody()?['deletionEnabled'], true), concat(string(coalesce(triggerBody()?['deleteAfterDays'], 90)), if(equals(variables('Lang'),'nn-no'),' dagar.',if(equals(variables('Lang'),'en-us'),' days.',' dager.'))), '')}",
+                                                            "wrap": true,
+                                                            "spacing": "Small"
+                                                        },
+                                                        {
+                                                            "type": "Input.Date",
+                                                            "id": "newEndDate",
+                                                            "label": "@{if(equals(variables('Lang'),'nn-no'),'Ny sluttdato',if(equals(variables('Lang'),'en-us'),'New end date','Ny sluttdato'))}",
+                                                            "isRequired": true,
+                                                            "errorMessage": "@{if(equals(variables('Lang'),'nn-no'),'Vel ein ny sluttdato',if(equals(variables('Lang'),'en-us'),'Please select a new end date','Velg en ny sluttdato'))}",
+                                                            "min": "@{formatDateTime(addDays(utcNow(), 1), 'yyyy-MM-dd')}"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "wrap": true,
+                                                                    "spacing": "None",
+                                                                    "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "actions": [
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'📅 Forleng sluttdato',if(equals(variables('Lang'),'en-us'),'📅 Extend end date','📅 Forleng sluttdato'))}",
+                                                            "style": "positive",
+                                                            "data": {
+                                                                "actionId": "extend"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'Avslutt teamet',if(equals(variables('Lang'),'en-us'),'End the team','Avslutt teamet'))}",
+                                                            "associatedInputs": "none",
+                                                            "data": {
+                                                                "actionId": "no-extension"
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    }
+                                },
+                                "enddate_reminder": {
+                                    "case": "enddate-reminder",
+                                    "actions": {
+                                        "Set_card_enddate_reminder": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "CardBody",
+                                                "value": {
+                                                    "type": "AdaptiveCard",
+                                                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                    "version": "1.4",
+                                                    "body": [
+                                                        {
+                                                            "type": "Container",
+                                                            "style": "attention",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'🔔 PÅMINNING: Teamet ditt går snart ut',if(equals(variables('Lang'),'en-us'),'🔔 REMINDER: Your team is expiring soon','🔔 PÅMINNELSE: Teamet ditt går snart ut'))}",
+                                                                    "weight": "Bolder",
+                                                                    "size": "Large",
+                                                                    "wrap": true
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "FactSet",
+                                                            "facts": [
+                                                                {
+                                                                    "title": "Team:",
+                                                                    "value": "@{triggerBody()?['teamName']}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Sluttdato:',if(equals(variables('Lang'),'en-us'),'End date:','Sluttdato:'))}",
+                                                                    "value": "@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Eigarar:',if(equals(variables('Lang'),'en-us'),'Owners:','Eiere:'))}",
+                                                                    "value": "@{triggerBody()?['ownersDisplayNames']}"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Teamet **',if(equals(variables('Lang'),'en-us'),'The team **','Teamet **'))}@{triggerBody()?['teamName']}@{if(equals(variables('Lang'),'nn-no'),'** har sluttdato **',if(equals(variables('Lang'),'en-us'),'** has an end date of **','** har sluttdato **'))}@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}**.",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Dersom du treng teamet vidare, må du forlenge sluttdatoen.',if(equals(variables('Lang'),'en-us'),'If you still need the team, you must extend the end date.','Hvis du trenger teamet videre, må du forlenge sluttdatoen.'))}",
+                                                            "wrap": true,
+                                                            "spacing": "Small"
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Dersom sluttdatoen ikkje blir forlengd, blir teamet arkivert (låst for endringar) etter sluttdatoen.',if(equals(variables('Lang'),'en-us'),'If the end date is not extended, the team will be archived (locked for changes) after the end date.','Hvis sluttdatoen ikke forlenges, blir teamet arkivert (låst for endringer) etter sluttdatoen.'))}@{if(equals(triggerBody()?['deletionEnabled'], true), if(equals(variables('Lang'),'nn-no'),' Deretter blir det sletta automatisk etter ',if(equals(variables('Lang'),'en-us'),' It will then be deleted automatically after ',' Deretter blir det slettet automatisk etter ')), '')}@{if(equals(triggerBody()?['deletionEnabled'], true), concat(string(coalesce(triggerBody()?['deleteAfterDays'], 90)), if(equals(variables('Lang'),'nn-no'),' dagar.',if(equals(variables('Lang'),'en-us'),' days.',' dager.'))), '')}",
+                                                            "wrap": true,
+                                                            "spacing": "Small"
+                                                        },
+                                                        {
+                                                            "type": "Input.Date",
+                                                            "id": "newEndDate",
+                                                            "label": "@{if(equals(variables('Lang'),'nn-no'),'Ny sluttdato',if(equals(variables('Lang'),'en-us'),'New end date','Ny sluttdato'))}",
+                                                            "isRequired": true,
+                                                            "errorMessage": "@{if(equals(variables('Lang'),'nn-no'),'Vel ein ny sluttdato',if(equals(variables('Lang'),'en-us'),'Please select a new end date','Velg en ny sluttdato'))}",
+                                                            "min": "@{formatDateTime(addDays(utcNow(), 1), 'yyyy-MM-dd')}"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "wrap": true,
+                                                                    "spacing": "None",
+                                                                    "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "actions": [
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'📅 Forleng sluttdato',if(equals(variables('Lang'),'en-us'),'📅 Extend end date','📅 Forleng sluttdato'))}",
+                                                            "style": "positive",
+                                                            "data": {
+                                                                "actionId": "extend"
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    }
+                                },
+                                "annual_review": {
+                                    "case": "annual-review",
+                                    "actions": {
+                                        "Set_card_annual_review": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "CardBody",
+                                                "value": {
+                                                    "type": "AdaptiveCard",
+                                                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                    "version": "1.4",
+                                                    "body": [
+                                                        {
+                                                            "type": "Container",
+                                                            "style": "accent",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'📋 Årleg gjennomgang av teamet ditt',if(equals(variables('Lang'),'en-us'),'📋 Annual review of your team','📋 Årlig gjennomgang av teamet ditt'))}",
+                                                                    "weight": "Bolder",
+                                                                    "size": "Large",
+                                                                    "wrap": true
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "FactSet",
+                                                            "facts": [
+                                                                {
+                                                                    "title": "Team:",
+                                                                    "value": "@{triggerBody()?['teamName']}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Oppretta:',if(equals(variables('Lang'),'en-us'),'Created:','Opprettet:'))}",
+                                                                    "value": "@{formatDateTime(triggerBody()?['createdDate'], 'dd.MM.yyyy')}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Eigarar:',if(equals(variables('Lang'),'en-us'),'Owners:','Eiere:'))}",
+                                                                    "value": "@{triggerBody()?['ownersDisplayNames']}"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Det er tid for den årlege gjennomgangen av teamet **',if(equals(variables('Lang'),'en-us'),'It is time for the annual review of the team **','Det er tid for den årlige gjennomgangen av teamet **'))}@{triggerBody()?['teamName']}**.",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'🧹 **Ryddetips**',if(equals(variables('Lang'),'en-us'),'🧹 **Tidy-up tips**','🧹 **Ryddetips**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Sjekk at eigarane er rette - eit team bør ha minst to eigarar.',if(equals(variables('Lang'),'en-us'),'• Check that the owners are correct - a team should have at least two owners.','• Sjekk at eierne er riktige - et team bør ha minst to eiere.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Fjern medlemmar som ikkje lenger treng tilgang.',if(equals(variables('Lang'),'en-us'),'• Remove members who no longer need access.','• Fjern medlemmer som ikke lenger trenger tilgang.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Slett gamle filer og samtalar, og arkiver dokument med arkivverdi i sak-/arkivsystemet.',if(equals(variables('Lang'),'en-us'),'• Delete old files and conversations, and file records in your records management system.','• Slett gamle filer og samtaler, og arkiver dokumenter med arkivverdi i sak-/arkivsystemet.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Når du har sjekka eigarar og rydda, vel eitt av vala nedanfor. **Avslutt teamet** arkiverer teamet med ein gong (låst for endringar). Eigarar kan sjølve gjenopprette eit arkivert team.',if(equals(variables('Lang'),'en-us'),'Once you have checked the owners and tidied up, choose one of the options below. **End the team** archives the team immediately (locked for changes). Owners can restore an archived team themselves.','Når du har sjekket eiere og ryddet, velg ett av valgene nedenfor. **Avslutt teamet** arkiverer teamet med én gang (låst for endringer). Eiere kan selv gjenopprette et arkivert team.'))}",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "wrap": true,
+                                                                    "spacing": "None",
+                                                                    "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "actions": [
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'✅ Bruk teamet vidare',if(equals(variables('Lang'),'en-us'),'✅ Continue using the team','✅ Bruk teamet videre'))}",
+                                                            "style": "positive",
+                                                            "data": {
+                                                                "actionId": "still-needed"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'Avslutt teamet',if(equals(variables('Lang'),'en-us'),'End the team','Avslutt teamet'))}",
+                                                            "associatedInputs": "none",
+                                                            "data": {
+                                                                "actionId": "not-needed"
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    }
+                                },
+                                "annual_review_reminder": {
+                                    "case": "annual-review-reminder",
+                                    "actions": {
+                                        "Set_card_annual_review_reminder": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "CardBody",
+                                                "value": {
+                                                    "type": "AdaptiveCard",
+                                                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                    "version": "1.4",
+                                                    "body": [
+                                                        {
+                                                            "type": "Container",
+                                                            "style": "accent",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'🔔 PÅMINNING: Årleg gjennomgang av teamet ditt',if(equals(variables('Lang'),'en-us'),'🔔 REMINDER: Annual review of your team','🔔 PÅMINNELSE: Årlig gjennomgang av teamet ditt'))}",
+                                                                    "weight": "Bolder",
+                                                                    "size": "Large",
+                                                                    "wrap": true
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "FactSet",
+                                                            "facts": [
+                                                                {
+                                                                    "title": "Team:",
+                                                                    "value": "@{triggerBody()?['teamName']}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Oppretta:',if(equals(variables('Lang'),'en-us'),'Created:','Opprettet:'))}",
+                                                                    "value": "@{formatDateTime(triggerBody()?['createdDate'], 'dd.MM.yyyy')}"
+                                                                },
+                                                                {
+                                                                    "title": "@{if(equals(variables('Lang'),'nn-no'),'Eigarar:',if(equals(variables('Lang'),'en-us'),'Owners:','Eiere:'))}",
+                                                                    "value": "@{triggerBody()?['ownersDisplayNames']}"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Det er tid for den årlege gjennomgangen av teamet **',if(equals(variables('Lang'),'en-us'),'It is time for the annual review of the team **','Det er tid for den årlige gjennomgangen av teamet **'))}@{triggerBody()?['teamName']}**.",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'🧹 **Ryddetips**',if(equals(variables('Lang'),'en-us'),'🧹 **Tidy-up tips**','🧹 **Ryddetips**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Sjekk at eigarane er rette - eit team bør ha minst to eigarar.',if(equals(variables('Lang'),'en-us'),'• Check that the owners are correct - a team should have at least two owners.','• Sjekk at eierne er riktige - et team bør ha minst to eiere.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Fjern medlemmar som ikkje lenger treng tilgang.',if(equals(variables('Lang'),'en-us'),'• Remove members who no longer need access.','• Fjern medlemmer som ikke lenger trenger tilgang.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• Slett gamle filer og samtalar, og arkiver dokument med arkivverdi i sak-/arkivsystemet.',if(equals(variables('Lang'),'en-us'),'• Delete old files and conversations, and file records in your records management system.','• Slett gamle filer og samtaler, og arkiver dokumenter med arkivverdi i sak-/arkivsystemet.'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'Når du har sjekka eigarar og rydda, vel eitt av vala nedanfor. **Avslutt teamet** arkiverer teamet med ein gong (låst for endringar). Eigarar kan sjølve gjenopprette eit arkivert team.',if(equals(variables('Lang'),'en-us'),'Once you have checked the owners and tidied up, choose one of the options below. **End the team** archives the team immediately (locked for changes). Owners can restore an archived team themselves.','Når du har sjekket eiere og ryddet, velg ett av valgene nedenfor. **Avslutt teamet** arkiverer teamet med én gang (låst for endringer). Eiere kan selv gjenopprette et arkivert team.'))}",
+                                                            "wrap": true,
+                                                            "spacing": "Medium"
+                                                        },
+                                                        {
+                                                            "type": "TextBlock",
+                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'⚠️ Dersom ingen svarar, blir teamet arkivert automatisk.',if(equals(variables('Lang'),'en-us'),'⚠️ If nobody responds, the team will be archived automatically.','⚠️ Hvis ingen svarer, blir teamet arkivert automatisk.'))}",
+                                                            "wrap": true,
+                                                            "spacing": "Small"
+                                                        },
+                                                        {
+                                                            "type": "Container",
+                                                            "spacing": "Medium",
+                                                            "items": [
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                    "wrap": true,
+                                                                    "spacing": "Small"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "wrap": true,
+                                                                    "spacing": "None",
+                                                                    "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                },
+                                                                {
+                                                                    "type": "TextBlock",
+                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                    "wrap": true,
+                                                                    "spacing": "None"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "actions": [
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'✅ Bruk teamet vidare',if(equals(variables('Lang'),'en-us'),'✅ Continue using the team','✅ Bruk teamet videre'))}",
+                                                            "style": "positive",
+                                                            "data": {
+                                                                "actionId": "still-needed"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "Action.Submit",
+                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'Avslutt teamet',if(equals(variables('Lang'),'en-us'),'End the team','Avslutt teamet'))}",
+                                                            "associatedInputs": "none",
+                                                            "data": {
+                                                                "actionId": "not-needed"
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    }
+                                }
+                            },
+                            "default": {
+                                "actions": {
+                                    "Terminate_unknown_type": {
+                                        "type": "Terminate",
+                                        "inputs": {
+                                            "runStatus": "Failed",
+                                            "runError": {
+                                                "code": "UnknownNotificationType",
+                                                "message": "@{triggerBody()?['notificationType']}"
+                                            }
+                                        },
+                                        "runAfter": {}
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Response": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Post_adaptive_card_and_wait_for_a_response": {
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['teams']['connectionId']"
+                                    }
+                                },
+                                "path": "/v1.0/teams/conversation/gatherinput/poster/Flow bot/location/@{encodeURIComponent('Group chat')}/$subscriptions",
+                                "body": {
+                                    "notificationUrl": "@{listCallbackUrl()}",
+                                    "body": {
+                                        "messageBody": "@{string(variables('CardBody'))}",
+                                        "updateMessage": "@{if(equals(variables('Lang'),'nn-no'),'Takk for svaret!',if(equals(variables('Lang'),'en-us'),'Thank you for your response!','Takk for svaret!'))}",
+                                        "recipient": {
+                                            "recipient": "@{triggerBody()?['chatId']}"
+                                        }
+                                    }
+                                }
+                            },
+                            "limit": {
+                                "timeout": "P14D"
+                            },
+                            "runAfter": {
+                                "Switch_on_notification_type": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Scope_-_Handle_response": {
+                            "type": "Scope",
+                            "runAfter": {
+                                "Post_adaptive_card_and_wait_for_a_response": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "actions": {
+                                "Get_response_data": {
+                                    "type": "Compose",
+                                    "inputs": "@body('Post_adaptive_card_and_wait_for_a_response')?['data']",
+                                    "runAfter": {}
+                                },
+                                "Get_responder": {
+                                    "type": "Compose",
+                                    "inputs": "@coalesce(body('Post_adaptive_card_and_wait_for_a_response')?['responder']?['displayName'], body('Post_adaptive_card_and_wait_for_a_response')?['responder']?['userPrincipalName'], 'Ukjent')",
+                                    "runAfter": {
+                                        "Get_response_data": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Get_responder_upn": {
+                                    "type": "Compose",
+                                    "inputs": "@body('Post_adaptive_card_and_wait_for_a_response')?['responder']?['userPrincipalName']",
+                                    "runAfter": {
+                                        "Get_responder": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Get_message_id": {
+                                    "type": "Compose",
+                                    "inputs": "@body('Post_adaptive_card_and_wait_for_a_response')?['messageId']",
+                                    "runAfter": {
+                                        "Get_responder_upn": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Switch_on_action_id": {
+                                    "type": "Switch",
+                                    "expression": "@outputs('Get_response_data')?['actionId']",
+                                    "cases": {
+                                        "Case_extend": {
+                                            "case": "extend",
+                                            "actions": {
+                                                "Update_item_extended": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata",
+                                                            "IF-MATCH": "*",
+                                                            "X-HTTP-Method": "MERGE"
+                                                        },
+                                                        "body": {
+                                                            "EndDate": "@{outputs('Get_response_data')?['newEndDate']}",
+                                                            "GovernanceStatus": "Active",
+                                                            "LastNotificationDate": null,
+                                                            "LastMessageId": "@{outputs('Get_message_id')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {}
+                                                },
+                                                "Card_extended": {
+                                                    "type": "Compose",
+                                                    "inputs": {
+                                                        "type": "AdaptiveCard",
+                                                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                        "version": "1.4",
+                                                        "body": [
+                                                            {
+                                                                "type": "Container",
+                                                                "style": "good",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'✅ Sluttdatoen er forlengd',if(equals(variables('Lang'),'en-us'),'✅ End date extended','✅ Sluttdatoen er forlenget'))}",
+                                                                        "weight": "Bolder",
+                                                                        "size": "Large",
+                                                                        "wrap": true
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "FactSet",
+                                                                "facts": [
+                                                                    {
+                                                                        "title": "Team:",
+                                                                        "value": "@{triggerBody()?['teamName']}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Opphavleg sluttdato:',if(equals(variables('Lang'),'en-us'),'Original end date:','Opprinnelig sluttdato:'))}",
+                                                                        "value": "@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Ny sluttdato:',if(equals(variables('Lang'),'en-us'),'New end date:','Ny sluttdato:'))}",
+                                                                        "value": "@{formatDateTime(outputs('Get_response_data')?['newEndDate'], 'dd.MM.yyyy')}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Forlengd av:',if(equals(variables('Lang'),'en-us'),'Extended by:','Forlenget av:'))}",
+                                                                        "value": "@{outputs('Get_responder')}"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "TextBlock",
+                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'Du får eit nytt varsel før den nye sluttdatoen.',if(equals(variables('Lang'),'en-us'),'You will be notified again before the new end date.','Du får et nytt varsel før den nye sluttdatoen.'))}",
+                                                                "wrap": true,
+                                                                "spacing": "Medium"
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'🧹 **Ryddetips**',if(equals(variables('Lang'),'en-us'),'🧹 **Tidy-up tips**','🧹 **Ryddetips**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Sjekk at eigarane er rette - eit team bør ha minst to eigarar.',if(equals(variables('Lang'),'en-us'),'• Check that the owners are correct - a team should have at least two owners.','• Sjekk at eierne er riktige - et team bør ha minst to eiere.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Fjern medlemmar som ikkje lenger treng tilgang.',if(equals(variables('Lang'),'en-us'),'• Remove members who no longer need access.','• Fjern medlemmer som ikke lenger trenger tilgang.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Slett gamle filer og samtalar, og arkiver dokument med arkivverdi i sak-/arkivsystemet.',if(equals(variables('Lang'),'en-us'),'• Delete old files and conversations, and file records in your records management system.','• Slett gamle filer og samtaler, og arkiver dokumenter med arkivverdi i sak-/arkivsystemet.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "wrap": true,
+                                                                        "spacing": "None",
+                                                                        "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_item_extended": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Update_card_extended": {
+                                                    "type": "ApiConnection",
+                                                    "inputs": {
+                                                        "host": {
+                                                            "connection": {
+                                                                "name": "@parameters('$connections')['teams']['connectionId']"
+                                                            }
+                                                        },
+                                                        "method": "post",
+                                                        "path": "/v1.0/teams/conversation/updateAdaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                        "body": {
+                                                            "messageId": "@{outputs('Get_message_id')}",
+                                                            "recipient": "@{triggerBody()?['chatId']}",
+                                                            "messageBody": "@{string(outputs('Card_extended'))}"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Card_extended": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Log_extended": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata"
+                                                        },
+                                                        "body": {
+                                                            "Title": "Sluttdato forlenget",
+                                                            "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                            "TeamName": "@{triggerBody()?['teamName']}",
+                                                            "LogAction": "EndDateExtended",
+                                                            "LogDetails": "Sluttdato forlenget fra @{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')} til @{formatDateTime(outputs('Get_response_data')?['newEndDate'], 'dd.MM.yyyy')} av @{outputs('Get_responder')}.",
+                                                            "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_card_extended": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "Case_no_extension": {
+                                            "case": "no-extension",
+                                            "actions": {
+                                                "Update_item_confirmed": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata",
+                                                            "IF-MATCH": "*",
+                                                            "X-HTTP-Method": "MERGE"
+                                                        },
+                                                        "body": {
+                                                            "GovernanceStatus": "EndDateConfirmed",
+                                                            "LastMessageId": "@{outputs('Get_message_id')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {}
+                                                },
+                                                "Card_no_extension": {
+                                                    "type": "Compose",
+                                                    "inputs": {
+                                                        "type": "AdaptiveCard",
+                                                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                        "version": "1.4",
+                                                        "body": [
+                                                            {
+                                                                "type": "Container",
+                                                                "style": "default",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'ℹ️ Teamet blir avslutta på sluttdatoen',if(equals(variables('Lang'),'en-us'),'ℹ️ The team will end on the end date','ℹ️ Teamet avsluttes på sluttdatoen'))}",
+                                                                        "weight": "Bolder",
+                                                                        "size": "Large",
+                                                                        "wrap": true
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "FactSet",
+                                                                "facts": [
+                                                                    {
+                                                                        "title": "Team:",
+                                                                        "value": "@{triggerBody()?['teamName']}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Sluttdato:',if(equals(variables('Lang'),'en-us'),'End date:','Sluttdato:'))}",
+                                                                        "value": "@{formatDateTime(triggerBody()?['endDate'], 'dd.MM.yyyy')}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Svara av:',if(equals(variables('Lang'),'en-us'),'Responded by:','Besvart av:'))}",
+                                                                        "value": "@{outputs('Get_responder')}"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "TextBlock",
+                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'Ein eigar har bestemt at teamet skal arkiverast når sluttdatoen er passert. Lagre det de treng før det.',if(equals(variables('Lang'),'en-us'),'An owner has decided that the team will be archived once the end date has passed. Save anything you need before then.','En eier har bestemt at teamet skal arkiveres når sluttdatoen er passert. Lagre det dere trenger før det.'))}",
+                                                                "wrap": true,
+                                                                "spacing": "Medium"
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'🧹 **Ryddetips**',if(equals(variables('Lang'),'en-us'),'🧹 **Tidy-up tips**','🧹 **Ryddetips**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Sjekk at eigarane er rette - eit team bør ha minst to eigarar.',if(equals(variables('Lang'),'en-us'),'• Check that the owners are correct - a team should have at least two owners.','• Sjekk at eierne er riktige - et team bør ha minst to eiere.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Fjern medlemmar som ikkje lenger treng tilgang.',if(equals(variables('Lang'),'en-us'),'• Remove members who no longer need access.','• Fjern medlemmer som ikke lenger trenger tilgang.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Slett gamle filer og samtalar, og arkiver dokument med arkivverdi i sak-/arkivsystemet.',if(equals(variables('Lang'),'en-us'),'• Delete old files and conversations, and file records in your records management system.','• Slett gamle filer og samtaler, og arkiver dokumenter med arkivverdi i sak-/arkivsystemet.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "wrap": true,
+                                                                        "spacing": "None",
+                                                                        "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_item_confirmed": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Update_card_no_extension": {
+                                                    "type": "ApiConnection",
+                                                    "inputs": {
+                                                        "host": {
+                                                            "connection": {
+                                                                "name": "@parameters('$connections')['teams']['connectionId']"
+                                                            }
+                                                        },
+                                                        "method": "post",
+                                                        "path": "/v1.0/teams/conversation/updateAdaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                        "body": {
+                                                            "messageId": "@{outputs('Get_message_id')}",
+                                                            "recipient": "@{triggerBody()?['chatId']}",
+                                                            "messageBody": "@{string(outputs('Card_no_extension'))}"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Card_no_extension": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Log_confirmed": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata"
+                                                        },
+                                                        "body": {
+                                                            "Title": "Avslutning bekreftet",
+                                                            "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                            "TeamName": "@{triggerBody()?['teamName']}",
+                                                            "LogAction": "EndDateConfirmed",
+                                                            "LogDetails": "@{outputs('Get_responder')} bekreftet at teamet skal avsluttes på sluttdatoen.",
+                                                            "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_card_no_extension": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "Case_still_needed": {
+                                            "case": "still-needed",
+                                            "actions": {
+                                                "Update_item_still_needed": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata",
+                                                            "IF-MATCH": "*",
+                                                            "X-HTTP-Method": "MERGE"
+                                                        },
+                                                        "body": {
+                                                            "GovernanceStatus": "Active",
+                                                            "LastAnnualReviewDate": "@{utcNow()}",
+                                                            "LastNotificationDate": null,
+                                                            "LastMessageId": "@{outputs('Get_message_id')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {}
+                                                },
+                                                "Card_still_needed": {
+                                                    "type": "Compose",
+                                                    "inputs": {
+                                                        "type": "AdaptiveCard",
+                                                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                        "version": "1.4",
+                                                        "body": [
+                                                            {
+                                                                "type": "Container",
+                                                                "style": "good",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'✅ Årleg gjennomgang fullført',if(equals(variables('Lang'),'en-us'),'✅ Annual review complete','✅ Årlig gjennomgang fullført'))}",
+                                                                        "weight": "Bolder",
+                                                                        "size": "Large",
+                                                                        "wrap": true
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "FactSet",
+                                                                "facts": [
+                                                                    {
+                                                                        "title": "Team:",
+                                                                        "value": "@{triggerBody()?['teamName']}"
+                                                                    },
+                                                                    {
+                                                                        "title": "@{if(equals(variables('Lang'),'nn-no'),'Gjennomgått av:',if(equals(variables('Lang'),'en-us'),'Reviewed by:','Gjennomgått av:'))}",
+                                                                        "value": "@{outputs('Get_responder')}"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "TextBlock",
+                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'Teamet er stadfesta som aktivt. Neste gjennomgang kjem om eitt år.',if(equals(variables('Lang'),'en-us'),'The team is confirmed as active. The next review is in one year.','Teamet er bekreftet som aktivt. Neste gjennomgang kommer om ett år.'))}",
+                                                                "wrap": true,
+                                                                "spacing": "Medium"
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'🧹 **Ryddetips**',if(equals(variables('Lang'),'en-us'),'🧹 **Tidy-up tips**','🧹 **Ryddetips**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Sjekk at eigarane er rette - eit team bør ha minst to eigarar.',if(equals(variables('Lang'),'en-us'),'• Check that the owners are correct - a team should have at least two owners.','• Sjekk at eierne er riktige - et team bør ha minst to eiere.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Fjern medlemmar som ikkje lenger treng tilgang.',if(equals(variables('Lang'),'en-us'),'• Remove members who no longer need access.','• Fjern medlemmer som ikke lenger trenger tilgang.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• Slett gamle filer og samtalar, og arkiver dokument med arkivverdi i sak-/arkivsystemet.',if(equals(variables('Lang'),'en-us'),'• Delete old files and conversations, and file records in your records management system.','• Slett gamle filer og samtaler, og arkiver dokumenter med arkivverdi i sak-/arkivsystemet.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                "type": "Container",
+                                                                "spacing": "Medium",
+                                                                "items": [
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Small"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "wrap": true,
+                                                                        "spacing": "None",
+                                                                        "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                        "wrap": true,
+                                                                        "spacing": "None"
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_item_still_needed": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Update_card_still_needed": {
+                                                    "type": "ApiConnection",
+                                                    "inputs": {
+                                                        "host": {
+                                                            "connection": {
+                                                                "name": "@parameters('$connections')['teams']['connectionId']"
+                                                            }
+                                                        },
+                                                        "method": "post",
+                                                        "path": "/v1.0/teams/conversation/updateAdaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                        "body": {
+                                                            "messageId": "@{outputs('Get_message_id')}",
+                                                            "recipient": "@{triggerBody()?['chatId']}",
+                                                            "messageBody": "@{string(outputs('Card_still_needed'))}"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Card_still_needed": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                },
+                                                "Log_still_needed": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                        "headers": {
+                                                            "Accept": "application/json;odata=nometadata",
+                                                            "Content-Type": "application/json;odata=nometadata"
+                                                        },
+                                                        "body": {
+                                                            "Title": "Årlig gjennomgang fullført",
+                                                            "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                            "TeamName": "@{triggerBody()?['teamName']}",
+                                                            "LogAction": "UsageConfirmed",
+                                                            "LogDetails": "@{outputs('Get_responder')} bekreftet at teamet fortsatt er i bruk.",
+                                                            "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                        },
+                                                        "authentication": {
+                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Update_card_still_needed": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "Case_not_needed": {
+                                            "case": "not-needed",
+                                            "actions": {
+                                                "Archive_team": {
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "method": "POST",
+                                                        "uri": "https://graph.microsoft.com/v1.0/teams/@{triggerBody()?['teamId']}/archive",
+                                                        "authentication": {
+                                                            "audience": "https://graph.microsoft.com",
+                                                            "identity": "[variables('uamiId')]",
+                                                            "type": "ManagedServiceIdentity"
+                                                        },
+                                                        "headers": {
+                                                            "Content-Type": "application/json"
+                                                        },
+                                                        "body": {}
+                                                    },
+                                                    "runAfter": {}
+                                                },
+                                                "Check_archive_result": {
+                                                    "type": "If",
+                                                    "expression": {
+                                                        "or": [
+                                                            {
+                                                                "equals": [
+                                                                    "@outputs('Archive_team')['statusCode']",
+                                                                    202
+                                                                ]
+                                                            },
+                                                            {
+                                                                "and": [
+                                                                    {
+                                                                        "equals": [
+                                                                            "@outputs('Archive_team')['statusCode']",
+                                                                            400
+                                                                        ]
+                                                                    },
+                                                                    {
+                                                                        "contains": [
+                                                                            "@toLower(string(body('Archive_team')))",
+                                                                            "already archived"
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "actions": {
+                                                        "Update_item_archived": {
+                                                            "type": "Http",
+                                                            "inputs": {
+                                                                "method": "POST",
+                                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                                                "headers": {
+                                                                    "Accept": "application/json;odata=nometadata",
+                                                                    "Content-Type": "application/json;odata=nometadata",
+                                                                    "IF-MATCH": "*",
+                                                                    "X-HTTP-Method": "MERGE"
+                                                                },
+                                                                "body": {
+                                                                    "GovernanceStatus": "Archived",
+                                                                    "ArchivedDate": "@{utcNow()}",
+                                                                    "LastNotificationDate": null,
+                                                                    "LastMessageId": "@{outputs('Get_message_id')}"
+                                                                },
+                                                                "authentication": {
+                                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
+                                                                }
+                                                            },
+                                                            "runAfter": {}
+                                                        },
+                                                        "Card_archived": {
+                                                            "type": "Compose",
+                                                            "inputs": {
+                                                                "type": "AdaptiveCard",
+                                                                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                                "version": "1.4",
+                                                                "body": [
+                                                                    {
+                                                                        "type": "Container",
+                                                                        "style": "default",
+                                                                        "items": [
+                                                                            {
+                                                                                "type": "TextBlock",
+                                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'📁 Teamet er arkivert',if(equals(variables('Lang'),'en-us'),'📁 Team archived','📁 Teamet er arkivert'))}",
+                                                                                "weight": "Bolder",
+                                                                                "size": "Large",
+                                                                                "wrap": true
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    {
+                                                                        "type": "FactSet",
+                                                                        "facts": [
+                                                                            {
+                                                                                "title": "Team:",
+                                                                                "value": "@{triggerBody()?['teamName']}"
+                                                                            },
+                                                                            {
+                                                                                "title": "@{if(equals(variables('Lang'),'nn-no'),'Avslutta av:',if(equals(variables('Lang'),'en-us'),'Ended by:','Avsluttet av:'))}",
+                                                                                "value": "@{outputs('Get_responder')}"
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    {
+                                                                        "type": "TextBlock",
+                                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'Ein eigar har stadfesta at teamet ikkje lenger trengst, og teamet er arkivert (låst for endringar). Var dette ein feil, kan eigarane gjenopprette teamet sjølve.',if(equals(variables('Lang'),'en-us'),'An owner confirmed that the team is no longer needed, and it has been archived (locked for changes). If this was a mistake, the owners can restore the team themselves.','En eier har bekreftet at teamet ikke lenger trengs, og teamet er arkivert (låst for endringer). Var dette en feil, kan eierne gjenopprette teamet selv.'))}",
+                                                                        "wrap": true,
+                                                                        "spacing": "Medium"
+                                                                    },
+                                                                    {
+                                                                        "type": "Container",
+                                                                        "spacing": "Medium",
+                                                                        "items": [
+                                                                            {
+                                                                                "type": "TextBlock",
+                                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'📖 **Nyttige lenker**',if(equals(variables('Lang'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                                "wrap": true,
+                                                                                "spacing": "Small"
+                                                                            },
+                                                                            {
+                                                                                "type": "TextBlock",
+                                                                                "wrap": true,
+                                                                                "spacing": "None",
+                                                                                "isVisible": "@not(empty(coalesce(triggerBody()?['guideUrl'], '')))",
+                                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Retningslinjer for Teams',if(equals(variables('Lang'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(triggerBody()?['guideUrl'], '')})"
+                                                                            },
+                                                                            {
+                                                                                "type": "TextBlock",
+                                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik administrerer du eit team',if(equals(variables('Lang'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                                "wrap": true,
+                                                                                "spacing": "None"
+                                                                            },
+                                                                            {
+                                                                                "type": "TextBlock",
+                                                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(variables('Lang'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                                "wrap": true,
+                                                                                "spacing": "None"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            },
+                                                            "runAfter": {
+                                                                "Update_item_archived": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "Update_card_archived": {
+                                                            "type": "ApiConnection",
+                                                            "inputs": {
+                                                                "host": {
+                                                                    "connection": {
+                                                                        "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                    }
+                                                                },
+                                                                "method": "post",
+                                                                "path": "/v1.0/teams/conversation/updateAdaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                                "body": {
+                                                                    "messageId": "@{outputs('Get_message_id')}",
+                                                                    "recipient": "@{triggerBody()?['chatId']}",
+                                                                    "messageBody": "@{string(outputs('Card_archived'))}"
+                                                                }
+                                                            },
+                                                            "runAfter": {
+                                                                "Card_archived": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "Log_archived": {
+                                                            "type": "Http",
+                                                            "inputs": {
+                                                                "method": "POST",
+                                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                                "headers": {
+                                                                    "Accept": "application/json;odata=nometadata",
+                                                                    "Content-Type": "application/json;odata=nometadata"
+                                                                },
+                                                                "body": {
+                                                                    "Title": "Team arkivert etter svar på årlig gjennomgang",
+                                                                    "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                                    "TeamName": "@{triggerBody()?['teamName']}",
+                                                                    "LogAction": "TeamArchived",
+                                                                    "LogDetails": "@{outputs('Get_responder')} svarte at teamet ikke lenger trengs. Teamet er arkivert.",
+                                                                    "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                                },
+                                                                "authentication": {
+                                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                                    "identity": "[variables('uamiId')]",
+                                                                    "type": "ManagedServiceIdentity"
+                                                                }
+                                                            },
+                                                            "runAfter": {
+                                                                "Update_card_archived": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            }
+                                                        }
+                                                    },
+                                                    "else": {
+                                                        "actions": {
+                                                            "Check_team_already_deleted": {
+                                                                "type": "If",
+                                                                "expression": {
+                                                                    "equals": [
+                                                                        "@outputs('Archive_team')['statusCode']",
+                                                                        404
+                                                                    ]
+                                                                },
+                                                                "actions": {
+                                                                    "Update_item_deleted": {
+                                                                        "type": "Http",
+                                                                        "inputs": {
+                                                                            "method": "POST",
+                                                                            "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                                                            "headers": {
+                                                                                "Accept": "application/json;odata=nometadata",
+                                                                                "Content-Type": "application/json;odata=nometadata",
+                                                                                "IF-MATCH": "*",
+                                                                                "X-HTTP-Method": "MERGE"
+                                                                            },
+                                                                            "body": {
+                                                                                "GovernanceStatus": "Deleted",
+                                                                                "LastNotificationDate": null
+                                                                            },
+                                                                            "authentication": {
+                                                                                "audience": "[parameters('spoRootSiteUrl')]",
+                                                                                "identity": "[variables('uamiId')]",
+                                                                                "type": "ManagedServiceIdentity"
+                                                                            }
+                                                                        },
+                                                                        "runAfter": {}
+                                                                    },
+                                                                    "Card_already_gone": {
+                                                                        "type": "Compose",
+                                                                        "inputs": {
+                                                                            "type": "AdaptiveCard",
+                                                                            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                                            "version": "1.4",
+                                                                            "body": [
+                                                                                {
+                                                                                    "type": "Container",
+                                                                                    "style": "default",
+                                                                                    "items": [
+                                                                                        {
+                                                                                            "type": "TextBlock",
+                                                                                            "text": "@{if(equals(variables('Lang'),'nn-no'),'ℹ️ Teamet finst ikkje lenger',if(equals(variables('Lang'),'en-us'),'ℹ️ The team no longer exists','ℹ️ Teamet finnes ikke lenger'))}",
+                                                                                            "weight": "Bolder",
+                                                                                            "size": "Large",
+                                                                                            "wrap": true
+                                                                                        }
+                                                                                    ]
+                                                                                },
+                                                                                {
+                                                                                    "type": "FactSet",
+                                                                                    "facts": [
+                                                                                        {
+                                                                                            "title": "Team:",
+                                                                                            "value": "@{triggerBody()?['teamName']}"
+                                                                                        },
+                                                                                        {
+                                                                                            "title": "@{if(equals(variables('Lang'),'nn-no'),'Svara av:',if(equals(variables('Lang'),'en-us'),'Responded by:','Besvart av:'))}",
+                                                                                            "value": "@{outputs('Get_responder')}"
+                                                                                        }
+                                                                                    ]
+                                                                                },
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "text": "@{if(equals(variables('Lang'),'nn-no'),'Teamet var allereie sletta då svaret kom inn.',if(equals(variables('Lang'),'en-us'),'The team had already been deleted when the response arrived.','Teamet var allerede slettet da svaret kom inn.'))}",
+                                                                                    "wrap": true,
+                                                                                    "spacing": "Medium"
+                                                                                }
+                                                                            ]
+                                                                        },
+                                                                        "runAfter": {
+                                                                            "Update_item_deleted": [
+                                                                                "Succeeded"
+                                                                            ]
+                                                                        }
+                                                                    },
+                                                                    "Update_card_already_gone": {
+                                                                        "type": "ApiConnection",
+                                                                        "inputs": {
+                                                                            "host": {
+                                                                                "connection": {
+                                                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                                }
+                                                                            },
+                                                                            "method": "post",
+                                                                            "path": "/v1.0/teams/conversation/updateAdaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                                            "body": {
+                                                                                "messageId": "@{outputs('Get_message_id')}",
+                                                                                "recipient": "@{triggerBody()?['chatId']}",
+                                                                                "messageBody": "@{string(outputs('Card_already_gone'))}"
+                                                                            }
+                                                                        },
+                                                                        "runAfter": {
+                                                                            "Card_already_gone": [
+                                                                                "Succeeded"
+                                                                            ]
+                                                                        }
+                                                                    },
+                                                                    "Log_already_deleted": {
+                                                                        "type": "Http",
+                                                                        "inputs": {
+                                                                            "method": "POST",
+                                                                            "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                                            "headers": {
+                                                                                "Accept": "application/json;odata=nometadata",
+                                                                                "Content-Type": "application/json;odata=nometadata"
+                                                                            },
+                                                                            "body": {
+                                                                                "Title": "Teamet var allerede slettet",
+                                                                                "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                                                "TeamName": "@{triggerBody()?['teamName']}",
+                                                                                "LogAction": "TeamAlreadyDeleted",
+                                                                                "LogDetails": "Svar om avslutning kom inn, men teamet finnes ikke lenger.",
+                                                                                "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                                            },
+                                                                            "authentication": {
+                                                                                "audience": "[parameters('spoRootSiteUrl')]",
+                                                                                "identity": "[variables('uamiId')]",
+                                                                                "type": "ManagedServiceIdentity"
+                                                                            }
+                                                                        },
+                                                                        "runAfter": {
+                                                                            "Update_card_already_gone": [
+                                                                                "Succeeded"
+                                                                            ]
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "else": {
+                                                                    "actions": {
+                                                                        "Log_archive_error": {
+                                                                            "type": "Http",
+                                                                            "inputs": {
+                                                                                "method": "POST",
+                                                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                                                "headers": {
+                                                                                    "Accept": "application/json;odata=nometadata",
+                                                                                    "Content-Type": "application/json;odata=nometadata"
+                                                                                },
+                                                                                "body": {
+                                                                                    "Title": "Arkivering feilet",
+                                                                                    "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                                                                    "TeamName": "@{triggerBody()?['teamName']}",
+                                                                                    "LogAction": "ArchiveError",
+                                                                                    "LogDetails": "Arkivering etter svar feilet med status @{outputs('Archive_team')['statusCode']}: @{string(body('Archive_team'))}",
+                                                                                    "PerformedBy": "@{coalesce(outputs('Get_responder_upn'), 'System')}"
+                                                                                },
+                                                                                "authentication": {
+                                                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                                                    "identity": "[variables('uamiId')]",
+                                                                                    "type": "ManagedServiceIdentity"
+                                                                                }
+                                                                            },
+                                                                            "runAfter": {}
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Archive_team": [
+                                                            "Succeeded",
+                                                            "Failed"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Get_message_id": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "Scope_-_Handle_timeout": {
+                            "type": "Scope",
+                            "runAfter": {
+                                "Post_adaptive_card_and_wait_for_a_response": [
+                                    "TimedOut"
+                                ]
+                            },
+                            "actions": {
+                                "Card_expired": {
+                                    "type": "Compose",
+                                    "inputs": {
+                                        "type": "AdaptiveCard",
+                                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                        "version": "1.4",
+                                        "body": [
+                                            {
+                                                "type": "Container",
+                                                "style": "warning",
+                                                "items": [
+                                                    {
+                                                        "type": "TextBlock",
+                                                        "text": "@{if(equals(variables('Lang'),'nn-no'),'⏰ Varselet har gått ut',if(equals(variables('Lang'),'en-us'),'⏰ The notification has expired','⏰ Varselet har utløpt'))}",
+                                                        "weight": "Bolder",
+                                                        "size": "Large",
+                                                        "wrap": true
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "FactSet",
+                                                "facts": [
+                                                    {
+                                                        "title": "Team:",
+                                                        "value": "@{triggerBody()?['teamName']}"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "TextBlock",
+                                                "text": "@{if(equals(variables('Lang'),'nn-no'),'Vi fekk ikkje svar på eit tidlegare varsel om dette teamet innan fristen, og knappane i det verkar ikkje lenger. Bruk det nyaste varselet i chatten.',if(equals(variables('Lang'),'en-us'),'An earlier notification about this team was not answered in time, and its buttons no longer work. Please use the latest notification in this chat.','Vi fikk ikke svar på et tidligere varsel om dette teamet innen fristen, og knappene i det virker ikke lenger. Bruk det nyeste varselet i chatten.'))}",
+                                                "wrap": true,
+                                                "spacing": "Medium"
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Post_expired_card": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['teams']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/v1.0/teams/conversation/adaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                        "body": {
+                                            "recipient": "@{triggerBody()?['chatId']}",
+                                            "messageBody": "@{string(outputs('Card_expired'))}"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Card_expired": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Log_expired": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Varsel utløpt uten svar",
+                                            "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                            "TeamName": "@{triggerBody()?['teamName']}",
+                                            "LogAction": "NotificationExpired",
+                                            "LogDetails": "Ingen svar på varselet (@{triggerBody()?['notificationType']}) innen fristen.",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Post_expired_card": [
+                                            "Succeeded",
+                                            "Failed"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "Scope_-_Handle_post_failure": {
+                            "type": "Scope",
+                            "runAfter": {
+                                "Post_adaptive_card_and_wait_for_a_response": [
+                                    "Failed"
+                                ]
+                            },
+                            "actions": {
+                                "Revert_item_status": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{triggerBody()?['itemId']})",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata",
+                                            "IF-MATCH": "*",
+                                            "X-HTTP-Method": "MERGE"
+                                        },
+                                        "body": {
+                                            "GovernanceStatus": "@{coalesce(triggerBody()?['previousStatus'], 'Active')}",
+                                            "LastNotificationDate": "@if(empty(triggerBody()?['previousLastNotificationDate']), null, triggerBody()?['previousLastNotificationDate'])"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Log_post_failure": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Varsel kunne ikke sendes",
+                                            "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                            "TeamName": "@{triggerBody()?['teamName']}",
+                                            "LogAction": "NotificationFailed",
+                                            "LogDetails": "Kortet (@{triggerBody()?['notificationType']}) kunne ikke postes i chatten @{triggerBody()?['chatId']}. Status er satt tilbake til @{coalesce(triggerBody()?['previousStatus'], 'Active')}, og neste kjøring prøver på nytt. Feil: @{string(actions('Post_adaptive_card_and_wait_for_a_response')?['outputs']?['body'])}",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Revert_item_status": [
+                                            "Succeeded",
+                                            "Failed"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "Log_response_failure": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                "headers": {
+                                    "Accept": "application/json;odata=nometadata",
+                                    "Content-Type": "application/json;odata=nometadata"
+                                },
+                                "body": {
+                                    "Title": "Behandling av svar feilet",
+                                    "TeamObjectGUID": "@{triggerBody()?['teamId']}",
+                                    "TeamName": "@{triggerBody()?['teamName']}",
+                                    "LogAction": "ResponseError",
+                                    "LogDetails": "Svaret ble mottatt, men ikke behandlet ferdig. Se kjøringshistorikken til GovernanceNotify. Svar: @{string(body('Post_adaptive_card_and_wait_for_a_response')?['data'])}",
+                                    "PerformedBy": "System"
+                                },
+                                "authentication": {
+                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
+                                }
+                            },
+                            "runAfter": {
+                                "Scope_-_Handle_response": [
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "teams": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-teams')]",
+                                "connectionName": "bestillingsportalen-teams",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/teams')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

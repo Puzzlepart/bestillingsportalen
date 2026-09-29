@@ -167,6 +167,8 @@ $hubSitesListName = "Hub Sites"
 $teamsTemplatesListName = "Teams Templates"
 $ipLabelsListName = "IP Labels"
 $guestRequestsListName = "Guest Requests"
+$governanceListName = "Teams Governance"
+$governanceLogListName = "Governance Log"
 
 #  Folder names
 $provRequestsFolderName = "Provisioning Request"
@@ -220,6 +222,9 @@ $global:hubSitesListId = $null
 $global:teamsTemplatesListId = $null
 $global:teamsAppManualUploadZip = $null
 $global:guestRequestsListId = $null
+$global:governanceListId = $null
+$global:governanceLogListId = $null
+$global:enableGovernance = $false
 $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
@@ -763,6 +768,10 @@ function ConfigureSharePointSite {
             $context.ExecuteQuery()
             $global:guestRequestsListId = $guestRequestsList.Id
 
+            # Teams governance lists (always provisioned by the template, used only when enableGovernance is set)
+            $global:governanceListId = (Get-PnPList $governanceListName).Id
+            $global:governanceLogListId = (Get-PnPList $governanceLogListName).Id
+
             Write-Host "Finished site configuration (existing list content preserved)" -ForegroundColor Green
             return
         }
@@ -907,6 +916,10 @@ function ConfigureSharePointSite {
         $context.Load($guestRequestsList)
         $context.ExecuteQuery()
         $global:guestRequestsListId = $guestRequestsList.Id
+
+        # Teams governance lists (always provisioned by the template, used only when enableGovernance is set)
+        $global:governanceListId = (Get-PnPList $governanceListName).Id
+        $global:governanceLogListId = (Get-PnPList $governanceLogListName).Id
 
         Write-Host "Configuring Service Account permissions"
         Add-PnPSiteCollectionAdmin -Owners $parameters.serviceAccountUPN.value
@@ -1389,6 +1402,30 @@ function CheckAppCatalog {
     }
 }
 
+# Teams governance (enableGovernance). The Entra ID group expiration policy is a second
+# lifecycle mechanism: when it covers all groups it renews/expires the same teams that
+# governance archives on its own schedule. Not a blocker - but the two should be a
+# deliberate choice, so it is surfaced before anything is deployed.
+function CheckGovernance {
+    if (-not $global:enableGovernance) {
+        RecordPreflightCheck -Name "Teams governance" -Status SKIPPED -Detail "enableGovernance is not set in the parameter file"
+        return
+    }
+    $policiesJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groupLifecyclePolicies" --output json 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($policiesJson)) {
+        RecordPreflightCheck -Name "Teams governance" -Status UNKNOWN -Detail "Could not read the Entra ID group expiration policy - check it manually (see Teams-governance.md)"
+        return
+    }
+    $policies = @(($policiesJson | ConvertFrom-Json).value)
+    $allGroups = $policies | Where-Object { $_.managedGroupTypes -eq 'All' }
+    if ($allGroups) {
+        RecordPreflightCheck -Name "Teams governance" -Status WARNING -Detail "An Entra ID group expiration policy covers ALL groups ($($allGroups[0].groupLifetimeInDays) days). It expires groups independently of governance's archiving" -Fix "Decide which mechanism governs lifecycle - see 'Samspill med andre livssyklusmekanismer' in Teams-governance.md."
+    }
+    else {
+        RecordPreflightCheck -Name "Teams governance" -Status OK -Detail "Enabled - 4 logic apps, TeamSettings.ReadWrite.All + Chat.Create. Starts in dry-run mode (GovernanceDryRun)"
+    }
+}
+
 # App role assignment needs Global Administrator (or Privileged Role Administrator +
 # Cloud Application Administrator). Detection is best-effort via the account's ACTIVE
 # directory roles - a PIM-eligible role that is not activated will not show, so a
@@ -1770,6 +1807,12 @@ function ConfirmDeployment {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
+    if ($global:enableGovernance) {
+        WritePlanLine "Teams governance" "GovernanceNotify, GovernanceSync, GovernanceEndDate, GovernanceAnnualReview (+ TeamSettings.ReadWrite.All, Chat.Create)" $SkipDeployARMTemplates
+    }
+    else {
+        WritePlanLine "Teams governance" "(not enabled - enableGovernance in the parameter file)" $true
+    }
     WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
 
     Write-Host ""
@@ -1806,6 +1849,9 @@ function EmitAppRoleHandover {
     }
     else {
         Write-Host "WARN: Could not resolve the user-assigned managed identity '$uamiName' - the handover command below lacks -UamiId. Find the object id on the identity resource and add it." -ForegroundColor Yellow
+    }
+    if ($global:enableGovernance) {
+        $handoverArgs += @("-IncludeGovernance")
     }
     $handoverCommand = "./AssignPermissionsToManagedIdentity.ps1 " + ($handoverArgs -join ' ')
 
@@ -1958,6 +2004,16 @@ function AssignUamiPermissions {
         @{ ResourceSp = $graphResource; RoleName = 'User.Invite.All' },
         @{ ResourceSp = $graphResource; RoleName = 'User.ReadWrite.All' }
     )
+    # Teams governance (enableGovernance) only:
+    #   TeamSettings.ReadWrite.All       - POST /teams/{id}/archive, GET /teams/{id}?$select=isArchived
+    #   Chat.Create                      - POST /chats (the governance group chat per team)
+    # Group.ReadWrite.All above covers DELETE /groups/{id} and reading groups with owners.
+    if ($global:enableGovernance) {
+        $rolesToGrant += @(
+            @{ ResourceSp = $graphResource; RoleName = 'TeamSettings.ReadWrite.All' },
+            @{ ResourceSp = $graphResource; RoleName = 'Chat.Create' }
+        )
+    }
 
     $failedRoles = @()
     foreach ($role in $rolesToGrant) {
@@ -2122,6 +2178,8 @@ function DeployARMTemplates {
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName" --output none
         RecordAzResult "Logic App: GetTeamsTemplates" -DeploymentName "getteamstemplates"
+
+        DeployGovernanceLogicApps
         
         Write-Host "Finished deploying logic apps" -ForegroundColor Green
     }
@@ -2283,11 +2341,57 @@ function DeployUpgradeLogicApp {
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
         RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
 
+        DeployGovernanceLogicApps
+
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
     catch {
         throw('Failed to deploy logic apps in upgrade mode: {0}', $_.Exception.Message)
     }
+}
+
+# Optional Teams governance module - see Teams-governance.md. Deployed in both full and
+# upgrade mode when enableGovernance is set. GovernanceNotify goes first: the three
+# others call it with a Workflow action, which ARM resolves at deployment time.
+function DeployGovernanceLogicApps {
+    if (-not $global:enableGovernance) {
+        return
+    }
+    if ([string]::IsNullOrEmpty($global:governanceListId) -or [string]::IsNullOrEmpty($global:governanceLogListId)) {
+        RecordDeployStatus -Component "Teams governance logic apps" -Status 'FAILED' -Detail "The '$governanceListName' / '$governanceLogListName' lists were not found - the PnP template must be applied (not skipped) at least once for them to be created"
+        return
+    }
+
+    $common = @(
+        "resourceGroupName=$($parameters.resourceGroupName.Value)",
+        "subscriptionId=$($parameters.subscriptionId.Value)",
+        "location=$($global:location)",
+        "uamiName=$uamiName",
+        "requestsSiteUrl=$requestsSiteUrl",
+        "spoRootSiteUrl=$global:tenantUrl",
+        "governanceListId=$global:governanceListId",
+        "governanceLogListId=$global:governanceLogListId"
+    )
+    $parents = @(
+        "requestsSettingsListId=$global:requestsSettingsListId",
+        "serviceAccountUPN=$($parameters.serviceAccountUPN.Value)"
+    )
+
+    Write-Host "GovernanceNotify" -ForegroundColor Yellow
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/governancenotify.json' --parameters @common --output none
+    RecordAzResult "Logic App: GovernanceNotify" -DeploymentName "governancenotify"
+
+    Write-Host "GovernanceSync" -ForegroundColor Yellow
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/governancesync.json' --parameters @common "requestsSettingsListId=$global:requestsSettingsListId" "requestsListId=$global:requestsListId" --output none
+    RecordAzResult "Logic App: GovernanceSync" -DeploymentName "governancesync"
+
+    Write-Host "GovernanceEndDate" -ForegroundColor Yellow
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/governanceenddate.json' --parameters @common @parents --output none
+    RecordAzResult "Logic App: GovernanceEndDate" -DeploymentName "governanceenddate"
+
+    Write-Host "GovernanceAnnualReview" -ForegroundColor Yellow
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/governanceannualreview.json' --parameters @common @parents --output none
+    RecordAzResult "Logic App: GovernanceAnnualReview" -DeploymentName "governanceannualreview"
 }
 
 # Connects PnP PowerShell to the given URL with interactive browser sign-in
@@ -2753,6 +2857,13 @@ if ($parameters.PSObject.Properties.Name -contains 'uamiName' -and (IsValidParam
     $uamiName = $parameters.uamiName.Value
 }
 
+# Optional Teams governance module (see Teams-governance.md). Off unless the parameter
+# file says so: it deploys four extra logic apps and grants the managed identity
+# TeamSettings.ReadWrite.All and Chat.Create, which the rest of the solution does not need.
+if ($parameters.PSObject.Properties.Name -contains 'enableGovernance') {
+    $global:enableGovernance = ("$($parameters.enableGovernance.Value)".Trim().ToLower() -eq 'true')
+}
+
 Write-Ascii -InputObject "Bestillingsportalen" -ForegroundColor Green
 
 # Set upgrade mode
@@ -2918,6 +3029,7 @@ ValidateResourceProviders
 CheckAppRoleRights
 CheckAppCatalog
 CheckNodeJs
+CheckGovernance
 
 $missingCount = ShowPreflightChecklist
 
@@ -3002,6 +3114,10 @@ else {
     $context.Load($guestRequestsList)
     $context.ExecuteQuery()
     $global:guestRequestsListId = $guestRequestsList.Id
+
+    # Teams governance lists (always provisioned by the template, used only when enableGovernance is set)
+    $global:governanceListId = (Get-PnPList $governanceListName).Id
+    $global:governanceLogListId = (Get-PnPList $governanceLogListName).Id
 }
 
 # Skip Azure resource deployment in upgrade mode - only deploy Logic App

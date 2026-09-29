@@ -55,6 +55,7 @@ Bruk oppgraderingsmodus når du vil:
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - `ProcessGuests` — selve invitasjonsflyten mot Graph. Oppgraderes sammen med kalleren, siden de to utveksler felter (f.eks. bestilleren som skal registreres som gjestens sponsor)
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
+   - Med `enableGovernance = true` i `parameters.json` også de fire Teams governance-appene (`GovernanceNotify`, `GovernanceSync`, `GovernanceEndDate`, `GovernanceAnnualReview`), og app-rollene `TeamSettings.ReadWrite.All` og `Chat.Create`. Slik legges modulen til i en eksisterende installasjon: sett parameteren og kjør `deploy.ps1 -Upgrade`. PnP-malen må anvendes (svar `y` på prompten) første gang, slik at listene `Teams Governance` og `Governance Log` opprettes. Se [Teams governance](./Teams-governance.md).
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
    - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres

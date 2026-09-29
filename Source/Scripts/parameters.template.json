@@ -70,5 +70,9 @@
     "skipApplySPOTemplate": {
         "Value": false,
         "Description": "Skip applying the PnP template to the SharePoint site."
+    },
+    "enableGovernance": {
+        "Value": false,
+        "Description": "Install the optional Teams governance module (end-date and annual review of Teams, archiving, optional deletion): four extra logic apps (GovernanceNotify, GovernanceSync, GovernanceEndDate, GovernanceAnnualReview) and the Graph app roles TeamSettings.ReadWrite.All and Chat.Create on the managed identity. Installed switched off and in dry-run mode - it is switched on with the GovernanceEnabled setting in the Provisioning Request Settings list. See Teams-governance.md."
     }
 }

@@ -52,6 +52,7 @@ const ORDER = [
   'Teams-templates.md',
   'PnP-templates.md',
   'Retention-labels.md',
+  'Teams-governance.md',
   'Approval-flow.md',
   'Regional-settings.md',
   'Error-handling.md',

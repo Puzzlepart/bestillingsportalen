@@ -1,0 +1,1452 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "uamiName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "spoRootSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSettingsListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceLogListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "serviceAccountUPN": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Teams governance - annual review of teams without an end date, and weekly report of teams without owners",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "GovernanceAnnualReview",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "SiteUrl": {
+                            "defaultValue": "[parameters('requestsSiteUrl')]",
+                            "type": "String"
+                        },
+                        "SettingsListId": {
+                            "defaultValue": "[parameters('requestsSettingsListId')]",
+                            "type": "String"
+                        },
+                        "GovernanceListId": {
+                            "defaultValue": "[parameters('governanceListId')]",
+                            "type": "String"
+                        },
+                        "GovernanceLogListId": {
+                            "defaultValue": "[parameters('governanceLogListId')]",
+                            "type": "String"
+                        },
+                        "ServiceAccountUPN": {
+                            "defaultValue": "[parameters('serviceAccountUPN')]",
+                            "type": "String"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "type": "Recurrence",
+                            "recurrence": {
+                                "frequency": "Day",
+                                "interval": 1,
+                                "schedule": {
+                                    "hours": [
+                                        "9"
+                                    ],
+                                    "minutes": [
+                                        0
+                                    ]
+                                },
+                                "timeZone": "W. Europe Standard Time"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Initialize_variables": {
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "Items",
+                                        "type": "array",
+                                        "value": []
+                                    },
+                                    {
+                                        "name": "ItemsNextLink",
+                                        "type": "string",
+                                        "value": ""
+                                    }
+                                ]
+                            },
+                            "runAfter": {}
+                        },
+                        "Get_settings": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "GET",
+                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('SettingsListId')}')/items",
+                                "queries": {
+                                    "$select": "Title,Value",
+                                    "$top": "500",
+                                    "$filter": "startswith(Title,'Governance') or Title eq 'EnableExpirationDate'"
+                                },
+                                "headers": {
+                                    "Accept": "application/json;odata=nometadata"
+                                },
+                                "authentication": {
+                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_variables": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_settings_with_value": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Get_settings')?['value']",
+                                "where": "@not(empty(trim(coalesce(item()?['Value'], ''))))"
+                            },
+                            "runAfter": {
+                                "Get_settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_settings": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@body('Filter_settings_with_value')",
+                                "select": "@concat(substring(string(createArray(item()?['Title'])), 1, sub(length(string(createArray(item()?['Title']))), 2)), ':', substring(string(createArray(trim(item()?['Value']))), 1, sub(length(string(createArray(trim(item()?['Value'])))), 2)))"
+                            },
+                            "runAfter": {
+                                "Filter_settings_with_value": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Settings": {
+                            "type": "Compose",
+                            "inputs": "@json(concat('{', join(body('Select_settings'), ','), '}'))",
+                            "runAfter": {
+                                "Select_settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Check_governance_enabled": {
+                            "type": "If",
+                            "expression": "@not(equals(toLower(coalesce(outputs('Settings')?['GovernanceEnabled'], 'false')), 'true'))",
+                            "actions": {
+                                "Stop_governance_disabled": {
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runStatus": "Succeeded"
+                                    },
+                                    "runAfter": {}
+                                }
+                            },
+                            "runAfter": {
+                                "Settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Scope_-_Get_governance_items": {
+                            "type": "Scope",
+                            "actions": {
+                                "Get_items_page": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "GET",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items?$select=ID,Title,ObjectGUID,GroupType,OwnersJSON,EndDate,ExcludeFromGovernance,GovernanceStatus,LastNotificationDate,LastAnnualReviewDate,ArchivedDate,GovernanceChatId,GroupCreatedDateTime&$top=5000",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Set_Items": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "Items",
+                                        "value": "@body('Get_items_page')?['value']"
+                                    },
+                                    "runAfter": {
+                                        "Get_items_page": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Set_ItemsNextLink": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "ItemsNextLink",
+                                        "value": "@{coalesce(body('Get_items_page')?['odata.nextLink'], '')}"
+                                    },
+                                    "runAfter": {
+                                        "Set_Items": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Until_all_items_pages": {
+                                    "type": "Until",
+                                    "expression": "@equals(variables('ItemsNextLink'), '')",
+                                    "limit": {
+                                        "count": 200,
+                                        "timeout": "PT2H"
+                                    },
+                                    "actions": {
+                                        "Get_next_items_page": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "GET",
+                                                "uri": "@{variables('ItemsNextLink')}",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Union_items": {
+                                            "type": "Compose",
+                                            "inputs": "@union(variables('Items'), body('Get_next_items_page')?['value'])",
+                                            "runAfter": {
+                                                "Get_next_items_page": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_Items": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "Items",
+                                                "value": "@outputs('Union_items')"
+                                            },
+                                            "runAfter": {
+                                                "Union_items": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_ItemsNextLink": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "ItemsNextLink",
+                                                "value": "@{coalesce(body('Get_next_items_page')?['odata.nextLink'], '')}"
+                                            },
+                                            "runAfter": {
+                                                "Update_Items": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Set_ItemsNextLink": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Check_governance_enabled": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Service_account_member": {
+                            "type": "Compose",
+                            "inputs": [
+                                {
+                                    "@@odata.type": "#microsoft.graph.aadUserConversationMember",
+                                    "roles": [
+                                        "owner"
+                                    ],
+                                    "user@odata.bind": "https://graph.microsoft.com/v1.0/users('@{parameters('ServiceAccountUPN')}')"
+                                }
+                            ],
+                            "runAfter": {
+                                "Scope_-_Get_governance_items": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_annual_review": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(equals(item()?['GroupType'], 'Team'), not(equals(item()?['ExcludeFromGovernance'], true)), empty(item()?['EndDate']), equals(item()?['GovernanceStatus'], 'Active'), not(empty(json(if(empty(item()?['OwnersJSON']), '[]', item()?['OwnersJSON'])))), if(empty(item()?['LastAnnualReviewDate']), and(not(empty(item()?['GroupCreatedDateTime'])), lessOrEquals(ticks(addDays(coalesce(item()?['GroupCreatedDateTime'], utcNow()), int(coalesce(outputs('Settings')?['GovernanceAnnualReviewDays'], '365')))), ticks(utcNow()))), lessOrEquals(ticks(addDays(coalesce(item()?['LastAnnualReviewDate'], utcNow()), int(coalesce(outputs('Settings')?['GovernanceAnnualReviewDays'], '365')))), ticks(utcNow()))))"
+                            },
+                            "runAfter": {
+                                "Service_account_member": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_review_reminder": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(equals(item()?['GroupType'], 'Team'), not(equals(item()?['ExcludeFromGovernance'], true)), empty(item()?['EndDate']), equals(item()?['GovernanceStatus'], 'AnnualReviewNotified'), not(empty(item()?['LastNotificationDate'])), not(empty(json(if(empty(item()?['OwnersJSON']), '[]', item()?['OwnersJSON'])))), lessOrEquals(ticks(addDays(item()?['LastNotificationDate'], int(coalesce(outputs('Settings')?['GovernanceReminderDays'], '14')))), ticks(utcNow())))"
+                            },
+                            "runAfter": {
+                                "Filter_annual_review": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_escalate": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(equals(item()?['GroupType'], 'Team'), not(equals(item()?['ExcludeFromGovernance'], true)), empty(item()?['EndDate']), equals(item()?['GovernanceStatus'], 'AnnualReviewReminded'), not(empty(item()?['LastNotificationDate'])), lessOrEquals(ticks(addDays(item()?['LastNotificationDate'], int(coalesce(outputs('Settings')?['GovernanceReminderDays'], '14')))), ticks(utcNow())))"
+                            },
+                            "runAfter": {
+                                "Filter_review_reminder": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_ownerless": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(not(equals(item()?['ExcludeFromGovernance'], true)), not(equals(item()?['GovernanceStatus'], 'Deleted')), not(equals(item()?['GovernanceStatus'], 'Archived')), not(not(empty(json(if(empty(item()?['OwnersJSON']), '[]', item()?['OwnersJSON']))))))"
+                            },
+                            "runAfter": {
+                                "Filter_escalate": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "For_each_annual_review": {
+                            "type": "Foreach",
+                            "foreach": "@take(body('Filter_annual_review'), int(coalesce(outputs('Settings')?['GovernanceMaxNotificationsPerRun'], '25')))",
+                            "actions": {
+                                "Check_dry_run_annual_review": {
+                                    "type": "If",
+                                    "expression": "@equals(toLower(coalesce(outputs('Settings')?['GovernanceDryRun'], 'true')), 'true')",
+                                    "actions": {
+                                        "Log_dry_run_annual_review": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata",
+                                                    "Content-Type": "application/json;odata=nometadata"
+                                                },
+                                                "body": {
+                                                    "Title": "Tørrkjøring: annual-review (varsel)",
+                                                    "TeamObjectGUID": "@{items('For_each_annual_review')?['ObjectGUID']}",
+                                                    "TeamName": "@{items('For_each_annual_review')?['Title']}",
+                                                    "LogAction": "DryRun",
+                                                    "LogDetails": "GovernanceDryRun=true - ingenting er sendt eller endret. Ville utført: annual-review (varsel). Status: @{items('For_each_annual_review')?['GovernanceStatus']}, sluttdato: @{items('For_each_annual_review')?['EndDate']}.",
+                                                    "PerformedBy": "System"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Owners_annual_review": {
+                                                "type": "Compose",
+                                                "inputs": "@json(if(empty(items('For_each_annual_review')?['OwnersJSON']), '[]', items('For_each_annual_review')?['OwnersJSON']))",
+                                                "runAfter": {}
+                                            },
+                                            "Owner_names_annual_review": {
+                                                "type": "Select",
+                                                "inputs": {
+                                                    "from": "@outputs('Owners_annual_review')",
+                                                    "select": "@coalesce(item()?['displayName'], item()?['upn'])"
+                                                },
+                                                "runAfter": {
+                                                    "Owners_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Build_chat_members_annual_review": {
+                                                "type": "Select",
+                                                "inputs": {
+                                                    "from": "@outputs('Owners_annual_review')",
+                                                    "select": {
+                                                        "@@odata.type": "#microsoft.graph.aadUserConversationMember",
+                                                        "roles": [
+                                                            "owner"
+                                                        ],
+                                                        "user@odata.bind": "https://graph.microsoft.com/v1.0/users('@{item()?['id']}')"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Owner_names_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Create_chat_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "https://graph.microsoft.com/v1.0/chats",
+                                                    "authentication": {
+                                                        "audience": "https://graph.microsoft.com",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    },
+                                                    "headers": {
+                                                        "Content-Type": "application/json"
+                                                    },
+                                                    "body": {
+                                                        "chatType": "group",
+                                                        "topic": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'Årleg gjennomgang',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'Annual review','Årlig gjennomgang'))} - @{items('For_each_annual_review')?['Title']}",
+                                                        "members": "@union(body('Build_chat_members_annual_review'), outputs('Service_account_member'))"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Build_chat_members_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Chat_id_annual_review": {
+                                                "type": "Compose",
+                                                "inputs": "@body('Create_chat_annual_review')?['id']",
+                                                "runAfter": {
+                                                    "Create_chat_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Mark_notified_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_annual_review')?['ID']})",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata",
+                                                        "IF-MATCH": "*",
+                                                        "X-HTTP-Method": "MERGE"
+                                                    },
+                                                    "body": {
+                                                        "GovernanceStatus": "AnnualReviewNotified",
+                                                        "LastNotificationDate": "@{utcNow()}",
+                                                        "GovernanceChatId": "@{outputs('Chat_id_annual_review')}"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Chat_id_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Call_GovernanceNotify_annual_review": {
+                                                "type": "Workflow",
+                                                "inputs": {
+                                                    "host": {
+                                                        "triggerName": "manual",
+                                                        "workflow": {
+                                                            "id": "[resourceId('Microsoft.Logic/workflows', 'GovernanceNotify')]"
+                                                        }
+                                                    },
+                                                    "body": {
+                                                        "notificationType": "annual-review",
+                                                        "teamId": "@{items('For_each_annual_review')?['ObjectGUID']}",
+                                                        "teamName": "@{items('For_each_annual_review')?['Title']}",
+                                                        "itemId": "@{items('For_each_annual_review')?['ID']}",
+                                                        "chatId": "@{outputs('Chat_id_annual_review')}",
+                                                        "endDate": "@{items('For_each_annual_review')?['EndDate']}",
+                                                        "createdDate": "@{items('For_each_annual_review')?['GroupCreatedDateTime']}",
+                                                        "ownersDisplayNames": "@{join(body('Owner_names_annual_review'), ', ')}",
+                                                        "previousStatus": "@{items('For_each_annual_review')?['GovernanceStatus']}",
+                                                        "previousLastNotificationDate": "@{items('For_each_annual_review')?['LastNotificationDate']}",
+                                                        "language": "@{coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no')}",
+                                                        "guideUrl": "@{coalesce(outputs('Settings')?['GovernanceGuideUrl'], '')}",
+                                                        "deletionEnabled": "@equals(toLower(coalesce(outputs('Settings')?['GovernanceEnableDeletion'], 'false')), 'true')",
+                                                        "deleteAfterDays": "@int(coalesce(outputs('Settings')?['GovernanceDeleteAfterDays'], '90'))"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Mark_notified_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Årlig gjennomgang sendt",
+                                                        "TeamObjectGUID": "@{items('For_each_annual_review')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_annual_review')?['Title']}",
+                                                        "LogAction": "AnnualReviewNotification",
+                                                        "LogDetails": "Varsel til eierne (@{join(body('Owner_names_annual_review'), ', ')}) overlevert til GovernanceNotify for chat @{outputs('Chat_id_annual_review')}. Hvis kortet ikke kan postes, logges NotificationFailed og status settes tilbake.",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Call_GovernanceNotify_annual_review": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Revert_on_notify_failure_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_annual_review')?['ID']})",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata",
+                                                        "IF-MATCH": "*",
+                                                        "X-HTTP-Method": "MERGE"
+                                                    },
+                                                    "body": {
+                                                        "GovernanceStatus": "@{items('For_each_annual_review')?['GovernanceStatus']}",
+                                                        "LastNotificationDate": "@items('For_each_annual_review')?['LastNotificationDate']"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Call_GovernanceNotify_annual_review": [
+                                                        "Failed",
+                                                        "TimedOut"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_notify_failure_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Varsel kunne ikke sendes",
+                                                        "TeamObjectGUID": "@{items('For_each_annual_review')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_annual_review')?['Title']}",
+                                                        "LogAction": "NotificationFailed",
+                                                        "LogDetails": "GovernanceNotify kunne ikke startes. Status er satt tilbake, og neste kjøring prøver på nytt. Feil: @{string(actions('Call_GovernanceNotify_annual_review')?['outputs']?['body'])}",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Revert_on_notify_failure_annual_review": [
+                                                        "Succeeded",
+                                                        "Failed"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_chat_failure_annual_review": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Chat for varsel kunne ikke opprettes",
+                                                        "TeamObjectGUID": "@{items('For_each_annual_review')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_annual_review')?['Title']}",
+                                                        "LogAction": "NotificationFailed",
+                                                        "LogDetails": "Opprettelse av gruppechat feilet: @{string(actions('Create_chat_annual_review')?['outputs']?['body'])}. Ingenting er endret, og neste kjøring prøver på nytt.",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Create_chat_annual_review": [
+                                                        "Failed"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {}
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 5
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_ownerless": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "For_each_review_reminder": {
+                            "type": "Foreach",
+                            "foreach": "@take(body('Filter_review_reminder'), int(coalesce(outputs('Settings')?['GovernanceMaxNotificationsPerRun'], '25')))",
+                            "actions": {
+                                "Check_dry_run_review_reminder": {
+                                    "type": "If",
+                                    "expression": "@equals(toLower(coalesce(outputs('Settings')?['GovernanceDryRun'], 'true')), 'true')",
+                                    "actions": {
+                                        "Log_dry_run_review_reminder": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata",
+                                                    "Content-Type": "application/json;odata=nometadata"
+                                                },
+                                                "body": {
+                                                    "Title": "Tørrkjøring: annual-review-reminder (varsel)",
+                                                    "TeamObjectGUID": "@{items('For_each_review_reminder')?['ObjectGUID']}",
+                                                    "TeamName": "@{items('For_each_review_reminder')?['Title']}",
+                                                    "LogAction": "DryRun",
+                                                    "LogDetails": "GovernanceDryRun=true - ingenting er sendt eller endret. Ville utført: annual-review-reminder (varsel). Status: @{items('For_each_review_reminder')?['GovernanceStatus']}, sluttdato: @{items('For_each_review_reminder')?['EndDate']}.",
+                                                    "PerformedBy": "System"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Owners_review_reminder": {
+                                                "type": "Compose",
+                                                "inputs": "@json(if(empty(items('For_each_review_reminder')?['OwnersJSON']), '[]', items('For_each_review_reminder')?['OwnersJSON']))",
+                                                "runAfter": {}
+                                            },
+                                            "Owner_names_review_reminder": {
+                                                "type": "Select",
+                                                "inputs": {
+                                                    "from": "@outputs('Owners_review_reminder')",
+                                                    "select": "@coalesce(item()?['displayName'], item()?['upn'])"
+                                                },
+                                                "runAfter": {
+                                                    "Owners_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Check_new_chat_needed_review_reminder": {
+                                                "type": "If",
+                                                "expression": "@empty(coalesce(items('For_each_review_reminder')?['GovernanceChatId'], ''))",
+                                                "actions": {
+                                                    "Build_chat_members_review_reminder": {
+                                                        "type": "Select",
+                                                        "inputs": {
+                                                            "from": "@outputs('Owners_review_reminder')",
+                                                            "select": {
+                                                                "@@odata.type": "#microsoft.graph.aadUserConversationMember",
+                                                                "roles": [
+                                                                    "owner"
+                                                                ],
+                                                                "user@odata.bind": "https://graph.microsoft.com/v1.0/users('@{item()?['id']}')"
+                                                            }
+                                                        },
+                                                        "runAfter": {}
+                                                    },
+                                                    "Create_chat_review_reminder": {
+                                                        "type": "Http",
+                                                        "inputs": {
+                                                            "method": "POST",
+                                                            "uri": "https://graph.microsoft.com/v1.0/chats",
+                                                            "authentication": {
+                                                                "audience": "https://graph.microsoft.com",
+                                                                "identity": "[variables('uamiId')]",
+                                                                "type": "ManagedServiceIdentity"
+                                                            },
+                                                            "headers": {
+                                                                "Content-Type": "application/json"
+                                                            },
+                                                            "body": {
+                                                                "chatType": "group",
+                                                                "topic": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'Årleg gjennomgang',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'Annual review','Årlig gjennomgang'))} - @{items('For_each_review_reminder')?['Title']}",
+                                                                "members": "@union(body('Build_chat_members_review_reminder'), outputs('Service_account_member'))"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "Build_chat_members_review_reminder": [
+                                                                "Succeeded"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Owner_names_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Chat_id_review_reminder": {
+                                                "type": "Compose",
+                                                "inputs": "@if(empty(coalesce(items('For_each_review_reminder')?['GovernanceChatId'], '')), actions('Create_chat_review_reminder')?['outputs']?['body']?['id'], coalesce(items('For_each_review_reminder')?['GovernanceChatId'], ''))",
+                                                "runAfter": {
+                                                    "Check_new_chat_needed_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Mark_notified_review_reminder": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_review_reminder')?['ID']})",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata",
+                                                        "IF-MATCH": "*",
+                                                        "X-HTTP-Method": "MERGE"
+                                                    },
+                                                    "body": {
+                                                        "GovernanceStatus": "AnnualReviewReminded",
+                                                        "LastNotificationDate": "@{utcNow()}",
+                                                        "GovernanceChatId": "@{outputs('Chat_id_review_reminder')}"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Chat_id_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Call_GovernanceNotify_review_reminder": {
+                                                "type": "Workflow",
+                                                "inputs": {
+                                                    "host": {
+                                                        "triggerName": "manual",
+                                                        "workflow": {
+                                                            "id": "[resourceId('Microsoft.Logic/workflows', 'GovernanceNotify')]"
+                                                        }
+                                                    },
+                                                    "body": {
+                                                        "notificationType": "annual-review-reminder",
+                                                        "teamId": "@{items('For_each_review_reminder')?['ObjectGUID']}",
+                                                        "teamName": "@{items('For_each_review_reminder')?['Title']}",
+                                                        "itemId": "@{items('For_each_review_reminder')?['ID']}",
+                                                        "chatId": "@{outputs('Chat_id_review_reminder')}",
+                                                        "endDate": "@{items('For_each_review_reminder')?['EndDate']}",
+                                                        "createdDate": "@{items('For_each_review_reminder')?['GroupCreatedDateTime']}",
+                                                        "ownersDisplayNames": "@{join(body('Owner_names_review_reminder'), ', ')}",
+                                                        "previousStatus": "@{items('For_each_review_reminder')?['GovernanceStatus']}",
+                                                        "previousLastNotificationDate": "@{items('For_each_review_reminder')?['LastNotificationDate']}",
+                                                        "language": "@{coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no')}",
+                                                        "guideUrl": "@{coalesce(outputs('Settings')?['GovernanceGuideUrl'], '')}",
+                                                        "deletionEnabled": "@equals(toLower(coalesce(outputs('Settings')?['GovernanceEnableDeletion'], 'false')), 'true')",
+                                                        "deleteAfterDays": "@int(coalesce(outputs('Settings')?['GovernanceDeleteAfterDays'], '90'))"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Mark_notified_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_review_reminder": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Påminnelse om årlig gjennomgang sendt",
+                                                        "TeamObjectGUID": "@{items('For_each_review_reminder')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_review_reminder')?['Title']}",
+                                                        "LogAction": "AnnualReviewReminder",
+                                                        "LogDetails": "Varsel til eierne (@{join(body('Owner_names_review_reminder'), ', ')}) overlevert til GovernanceNotify for chat @{outputs('Chat_id_review_reminder')}. Hvis kortet ikke kan postes, logges NotificationFailed og status settes tilbake.",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Call_GovernanceNotify_review_reminder": [
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            },
+                                            "Revert_on_notify_failure_review_reminder": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_review_reminder')?['ID']})",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata",
+                                                        "IF-MATCH": "*",
+                                                        "X-HTTP-Method": "MERGE"
+                                                    },
+                                                    "body": {
+                                                        "GovernanceStatus": "@{items('For_each_review_reminder')?['GovernanceStatus']}",
+                                                        "LastNotificationDate": "@items('For_each_review_reminder')?['LastNotificationDate']"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Call_GovernanceNotify_review_reminder": [
+                                                        "Failed",
+                                                        "TimedOut"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_notify_failure_review_reminder": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Varsel kunne ikke sendes",
+                                                        "TeamObjectGUID": "@{items('For_each_review_reminder')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_review_reminder')?['Title']}",
+                                                        "LogAction": "NotificationFailed",
+                                                        "LogDetails": "GovernanceNotify kunne ikke startes. Status er satt tilbake, og neste kjøring prøver på nytt. Feil: @{string(actions('Call_GovernanceNotify_review_reminder')?['outputs']?['body'])}",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Revert_on_notify_failure_review_reminder": [
+                                                        "Succeeded",
+                                                        "Failed"
+                                                    ]
+                                                }
+                                            },
+                                            "Log_chat_failure_review_reminder": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                    "headers": {
+                                                        "Accept": "application/json;odata=nometadata",
+                                                        "Content-Type": "application/json;odata=nometadata"
+                                                    },
+                                                    "body": {
+                                                        "Title": "Chat for varsel kunne ikke opprettes",
+                                                        "TeamObjectGUID": "@{items('For_each_review_reminder')?['ObjectGUID']}",
+                                                        "TeamName": "@{items('For_each_review_reminder')?['Title']}",
+                                                        "LogAction": "NotificationFailed",
+                                                        "LogDetails": "Opprettelse av gruppechat feilet: @{string(actions('Create_chat_review_reminder')?['outputs']?['body'])}. Ingenting er endret, og neste kjøring prøver på nytt.",
+                                                        "PerformedBy": "System"
+                                                    },
+                                                    "authentication": {
+                                                        "audience": "[parameters('spoRootSiteUrl')]",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Check_new_chat_needed_review_reminder": [
+                                                        "Failed"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {}
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 5
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_annual_review": [
+                                    "Succeeded",
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "For_each_escalate": {
+                            "type": "Foreach",
+                            "foreach": "@take(body('Filter_escalate'), int(coalesce(outputs('Settings')?['GovernanceMaxNotificationsPerRun'], '25')))",
+                            "actions": {
+                                "Check_dry_run_escalate": {
+                                    "type": "If",
+                                    "expression": "@equals(toLower(coalesce(outputs('Settings')?['GovernanceDryRun'], 'true')), 'true')",
+                                    "actions": {
+                                        "Log_dry_run_escalate": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata",
+                                                    "Content-Type": "application/json;odata=nometadata"
+                                                },
+                                                "body": {
+                                                    "Title": "Tørrkjøring: arkivering",
+                                                    "TeamObjectGUID": "@{items('For_each_escalate')?['ObjectGUID']}",
+                                                    "TeamName": "@{items('For_each_escalate')?['Title']}",
+                                                    "LogAction": "DryRun",
+                                                    "LogDetails": "GovernanceDryRun=true - ingenting er sendt eller endret. Ville utført: arkivering. Status: @{items('For_each_escalate')?['GovernanceStatus']}, sluttdato: @{items('For_each_escalate')?['EndDate']}.",
+                                                    "PerformedBy": "System"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Archive_team_escalate": {
+                                                "type": "Http",
+                                                "inputs": {
+                                                    "method": "POST",
+                                                    "uri": "https://graph.microsoft.com/v1.0/teams/@{items('For_each_escalate')?['ObjectGUID']}/archive",
+                                                    "authentication": {
+                                                        "audience": "https://graph.microsoft.com",
+                                                        "identity": "[variables('uamiId')]",
+                                                        "type": "ManagedServiceIdentity"
+                                                    },
+                                                    "headers": {
+                                                        "Content-Type": "application/json"
+                                                    },
+                                                    "body": {}
+                                                },
+                                                "runAfter": {}
+                                            },
+                                            "Check_archive_result_escalate": {
+                                                "type": "If",
+                                                "expression": {
+                                                    "or": [
+                                                        {
+                                                            "equals": [
+                                                                "@outputs('Archive_team_escalate')['statusCode']",
+                                                                202
+                                                            ]
+                                                        },
+                                                        {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@outputs('Archive_team_escalate')['statusCode']",
+                                                                        400
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "contains": [
+                                                                        "@toLower(string(body('Archive_team_escalate')))",
+                                                                        "already archived"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "actions": {
+                                                    "Update_item_archived_escalate": {
+                                                        "type": "Http",
+                                                        "inputs": {
+                                                            "method": "POST",
+                                                            "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_escalate')?['ID']})",
+                                                            "headers": {
+                                                                "Accept": "application/json;odata=nometadata",
+                                                                "Content-Type": "application/json;odata=nometadata",
+                                                                "IF-MATCH": "*",
+                                                                "X-HTTP-Method": "MERGE"
+                                                            },
+                                                            "body": {
+                                                                "GovernanceStatus": "Archived",
+                                                                "ArchivedDate": "@{utcNow()}",
+                                                                "LastNotificationDate": null
+                                                            },
+                                                            "authentication": {
+                                                                "audience": "[parameters('spoRootSiteUrl')]",
+                                                                "identity": "[variables('uamiId')]",
+                                                                "type": "ManagedServiceIdentity"
+                                                            }
+                                                        },
+                                                        "runAfter": {}
+                                                    },
+                                                    "Log_archived_escalate": {
+                                                        "type": "Http",
+                                                        "inputs": {
+                                                            "method": "POST",
+                                                            "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                            "headers": {
+                                                                "Accept": "application/json;odata=nometadata",
+                                                                "Content-Type": "application/json;odata=nometadata"
+                                                            },
+                                                            "body": {
+                                                                "Title": "Team arkivert - ingen svar på årlig gjennomgang",
+                                                                "TeamObjectGUID": "@{items('For_each_escalate')?['ObjectGUID']}",
+                                                                "TeamName": "@{items('For_each_escalate')?['Title']}",
+                                                                "LogAction": "TeamArchived",
+                                                                "LogDetails": "Teamet er arkivert automatisk av governance-prosessen.",
+                                                                "PerformedBy": "System"
+                                                            },
+                                                            "authentication": {
+                                                                "audience": "[parameters('spoRootSiteUrl')]",
+                                                                "identity": "[variables('uamiId')]",
+                                                                "type": "ManagedServiceIdentity"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "Update_item_archived_escalate": [
+                                                                "Succeeded"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "Check_chat_exists_escalate": {
+                                                        "type": "If",
+                                                        "expression": "@not(empty(coalesce(items('For_each_escalate')?['GovernanceChatId'], '')))",
+                                                        "actions": {
+                                                            "Card_archived_escalate": {
+                                                                "type": "Compose",
+                                                                "inputs": {
+                                                                    "type": "AdaptiveCard",
+                                                                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                                                    "version": "1.4",
+                                                                    "body": [
+                                                                        {
+                                                                            "type": "Container",
+                                                                            "style": "default",
+                                                                            "items": [
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'📁 Teamet er arkivert',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'📁 Team archived','📁 Teamet er arkivert'))}",
+                                                                                    "weight": "Bolder",
+                                                                                    "size": "Large",
+                                                                                    "wrap": true
+                                                                                }
+                                                                            ]
+                                                                        },
+                                                                        {
+                                                                            "type": "FactSet",
+                                                                            "facts": [
+                                                                                {
+                                                                                    "title": "Team:",
+                                                                                    "value": "@{items('For_each_escalate')?['Title']}"
+                                                                                },
+                                                                                {
+                                                                                    "title": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'Arkivert:',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'Archived:','Arkivert:'))}",
+                                                                                    "value": "@{formatDateTime(utcNow(), 'dd.MM.yyyy')}"
+                                                                                }
+                                                                            ]
+                                                                        },
+                                                                        {
+                                                                            "type": "TextBlock",
+                                                                            "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'Teamet **',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'The team **','Teamet **'))}@{items('For_each_escalate')?['Title']}@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'** er arkivert (låst for endringar) fordi ingen svarte på den årlege gjennomgangen.',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'** has been archived (locked for changes) because nobody responded to the annual review.','** er arkivert (låst for endringer) fordi ingen svarte på den årlige gjennomgangen.'))}",
+                                                                            "wrap": true,
+                                                                            "spacing": "Medium"
+                                                                        },
+                                                                        {
+                                                                            "type": "TextBlock",
+                                                                            "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'Eigarane kan gjenopprette teamet sjølve dersom det trengst igjen.',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'The owners can restore the team themselves if it is needed again.','Eierne kan gjenopprette teamet selv hvis det trengs igjen.'))}",
+                                                                            "wrap": true,
+                                                                            "spacing": "Small"
+                                                                        },
+                                                                        {
+                                                                            "type": "Container",
+                                                                            "spacing": "Medium",
+                                                                            "items": [
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'📖 **Nyttige lenker**',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'📖 **Useful links**','📖 **Nyttige lenker**'))}",
+                                                                                    "wrap": true,
+                                                                                    "spacing": "Small"
+                                                                                },
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "wrap": true,
+                                                                                    "spacing": "None",
+                                                                                    "isVisible": "@not(empty(coalesce(outputs('Settings')?['GovernanceGuideUrl'], '')))",
+                                                                                    "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'• [Retningslinjer for Teams',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'• [Teams guidelines','• [Retningslinjer for Teams'))}](@{coalesce(outputs('Settings')?['GovernanceGuideUrl'], '')})"
+                                                                                },
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'• [Slik administrerer du eit team',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'• [How to manage a team','• [Slik administrerer du et team'))}](https://support.microsoft.com/office/manage-team-settings-and-permissions-in-microsoft-teams-ce053b04-1b8e-4796-baa8-90dc427b3acc)",
+                                                                                    "wrap": true,
+                                                                                    "spacing": "None"
+                                                                                },
+                                                                                {
+                                                                                    "type": "TextBlock",
+                                                                                    "text": "@{if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'nn-no'),'• [Slik arkiverer eller gjenopprettar du eit team',if(equals(coalesce(outputs('Settings')?['GovernanceLanguage'], 'nb-no'),'en-us'),'• [How to archive or restore a team','• [Slik arkiverer eller gjenoppretter du et team'))}](https://support.microsoft.com/office/archive-or-restore-a-team-dc161cfd-b328-440f-974b-5da5bd98b5a7)",
+                                                                                    "wrap": true,
+                                                                                    "spacing": "None"
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                "runAfter": {}
+                                                            },
+                                                            "Post_archive_card_escalate": {
+                                                                "type": "ApiConnection",
+                                                                "inputs": {
+                                                                    "host": {
+                                                                        "connection": {
+                                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                        }
+                                                                    },
+                                                                    "method": "post",
+                                                                    "path": "/v1.0/teams/conversation/adaptivecard/poster/Flow bot/location/@{encodeURIComponent('Group chat')}",
+                                                                    "body": {
+                                                                        "recipient": "@{items('For_each_escalate')?['GovernanceChatId']}",
+                                                                        "messageBody": "@{string(outputs('Card_archived_escalate'))}"
+                                                                    }
+                                                                },
+                                                                "runAfter": {
+                                                                    "Card_archived_escalate": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "Log_archived_escalate": [
+                                                                "Succeeded"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "else": {
+                                                    "actions": {
+                                                        "Check_team_already_deleted_escalate": {
+                                                            "type": "If",
+                                                            "expression": {
+                                                                "equals": [
+                                                                    "@outputs('Archive_team_escalate')['statusCode']",
+                                                                    404
+                                                                ]
+                                                            },
+                                                            "actions": {
+                                                                "Update_item_deleted_escalate": {
+                                                                    "type": "Http",
+                                                                    "inputs": {
+                                                                        "method": "POST",
+                                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_escalate')?['ID']})",
+                                                                        "headers": {
+                                                                            "Accept": "application/json;odata=nometadata",
+                                                                            "Content-Type": "application/json;odata=nometadata",
+                                                                            "IF-MATCH": "*",
+                                                                            "X-HTTP-Method": "MERGE"
+                                                                        },
+                                                                        "body": {
+                                                                            "GovernanceStatus": "Deleted"
+                                                                        },
+                                                                        "authentication": {
+                                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
+                                                                        }
+                                                                    },
+                                                                    "runAfter": {}
+                                                                },
+                                                                "Log_already_deleted_escalate": {
+                                                                    "type": "Http",
+                                                                    "inputs": {
+                                                                        "method": "POST",
+                                                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                                        "headers": {
+                                                                            "Accept": "application/json;odata=nometadata",
+                                                                            "Content-Type": "application/json;odata=nometadata"
+                                                                        },
+                                                                        "body": {
+                                                                            "Title": "Teamet var allerede slettet",
+                                                                            "TeamObjectGUID": "@{items('For_each_escalate')?['ObjectGUID']}",
+                                                                            "TeamName": "@{items('For_each_escalate')?['Title']}",
+                                                                            "LogAction": "TeamAlreadyDeleted",
+                                                                            "LogDetails": "Teamet skulle arkiveres, men finnes ikke lenger.",
+                                                                            "PerformedBy": "System"
+                                                                        },
+                                                                        "authentication": {
+                                                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                                                            "identity": "[variables('uamiId')]",
+                                                                            "type": "ManagedServiceIdentity"
+                                                                        }
+                                                                    },
+                                                                    "runAfter": {
+                                                                        "Update_item_deleted_escalate": [
+                                                                            "Succeeded"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            },
+                                                            "else": {
+                                                                "actions": {
+                                                                    "Log_archive_error_escalate": {
+                                                                        "type": "Http",
+                                                                        "inputs": {
+                                                                            "method": "POST",
+                                                                            "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                                                            "headers": {
+                                                                                "Accept": "application/json;odata=nometadata",
+                                                                                "Content-Type": "application/json;odata=nometadata"
+                                                                            },
+                                                                            "body": {
+                                                                                "Title": "Arkivering feilet",
+                                                                                "TeamObjectGUID": "@{items('For_each_escalate')?['ObjectGUID']}",
+                                                                                "TeamName": "@{items('For_each_escalate')?['Title']}",
+                                                                                "LogAction": "ArchiveError",
+                                                                                "LogDetails": "Status @{outputs('Archive_team_escalate')['statusCode']}: @{string(body('Archive_team_escalate'))}",
+                                                                                "PerformedBy": "System"
+                                                                            },
+                                                                            "authentication": {
+                                                                                "audience": "[parameters('spoRootSiteUrl')]",
+                                                                                "identity": "[variables('uamiId')]",
+                                                                                "type": "ManagedServiceIdentity"
+                                                                            }
+                                                                        },
+                                                                        "runAfter": {}
+                                                                    }
+                                                                }
+                                                            },
+                                                            "runAfter": {}
+                                                        }
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Archive_team_escalate": [
+                                                        "Succeeded",
+                                                        "Failed"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {}
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 5
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_review_reminder": [
+                                    "Succeeded",
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        },
+                        "Check_ownerless_report": {
+                            "type": "If",
+                            "expression": "@and(not(empty(coalesce(outputs('Settings')?['GovernanceITEmail'], ''))), equals(dayOfWeek(convertFromUtc(utcNow(), 'W. Europe Standard Time')), 1), greater(length(body('Filter_ownerless')), 0))",
+                            "actions": {
+                                "Select_ownerless_names": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_ownerless')",
+                                        "select": "@{item()?['Title']}"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Send_ownerless_email": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['office365']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/v2/Mail",
+                                        "body": {
+                                            "To": "@{coalesce(outputs('Settings')?['GovernanceITEmail'], '')}",
+                                            "Subject": "Teams governance - @{length(body('Filter_ownerless'))} team uten eiere",
+                                            "Body": "<p>Følgende <strong>@{length(body('Filter_ownerless'))}</strong> team har ingen eiere og må følges opp manuelt. De får verken varsler eller årlig gjennomgang før de har fått en eier.</p><ul><li>@{join(body('Select_ownerless_names'), '</li><li>')}</li></ul><p><a href=\"@{parameters('SiteUrl')}/Lists/TeamsGovernance/NoOwners.aspx\">Vis team uten eiere</a></p>",
+                                            "Importance": "Normal"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Select_ownerless_names": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Log_ownerless_email": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Rapport om team uten eiere sendt",
+                                            "TeamObjectGUID": "",
+                                            "TeamName": "Team uten eiere",
+                                            "LogAction": "OwnerlessReport",
+                                            "LogDetails": "@{length(body('Filter_ownerless'))} team uten eiere rapportert til @{coalesce(outputs('Settings')?['GovernanceITEmail'], '')}.",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Send_ownerless_email": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_escalate": [
+                                    "Succeeded",
+                                    "Failed",
+                                    "TimedOut"
+                                ]
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "teams": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-teams')]",
+                                "connectionName": "bestillingsportalen-teams",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/teams')]"
+                            },
+                            "office365": {
+                                "connectionId": "[concat('/subscriptions/',parameters('subscriptionId'),'/resourceGroups/',parameters('resourceGroupName'),'/providers/Microsoft.Web/connections/bestillingsportalen-o365')]",
+                                "connectionName": "bestillingsportalen-o365",
+                                "id": "[concat('/subscriptions/',parameters('subscriptionId'),'/providers/Microsoft.Web/locations/',parameters('location'),'/managedApis/office365')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
