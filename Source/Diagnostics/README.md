@@ -12,6 +12,7 @@ Importer dem manuelt i Automation-kontoen når du trenger dem, og slett dem ette
 |--|--|
 | [`Test-RunbookRuntime.ps1`](Test-RunbookRuntime.ps1) | Skriver ut PowerShell-versjon, modulversjoner og managed identity-status fra inne i et Automation-jobb. Bruk denne når du er i tvil om hva runbookene faktisk kjører på — se advarselen under. |
 | [`Test-AppOnlySensitivityLabel.ps1`](Test-AppOnlySensitivityLabel.ps1) | Avgjør om `Set-PnPTenantSite -SensitivityLabel` med managed identity faktisk setter container-merket på et gruppetilknyttet område, og om det propagerer til gruppens `assignedLabels`. Svaret avgjør om tjenestekontoen og Entra ID-appen kan fjernes — se [Sensitivitetsmerker](../../Sensitivity-labels.md). |
+| [`Test-GroupifyOptions.ps1`](Test-GroupifyOptions.ps1) | Avgjør om et STS#3-område kan kobles til en ny M365-gruppe (groupify) app-only (`-Mode AppOnly`, som runbook), og ellers hva som skjer når tjenestekontoen gjør det (`-Mode Delegated`, lokalt): gruppepolicy, admin-roller og om gruppen henger igjen i kontoens `createdObjects`/`ownedObjects` (250-grensen). Grunnlag for workarounden når Graph ignorerer `SPSiteLanguage` — se [bakgrunnsutredningen](../Scripts/provisioning-workaround/Bakgrunnsutredning-SPSiteLanguage.md). `-Mode Delegated` kan ikke kjøres som runbook. |
 
 ## ⚠️ Portalen viser runbookene som «PowerShell 5.1» — det er normalt
 
