@@ -496,6 +496,7 @@ foreach ($variant in $variants) {
             $createdSiteUrls.Add($r.GroupSiteUrl)
             Log "  Sletter gruppen permanent for å frigjøre aliaset" 'WARN'
             if (-not (Remove-GroupPermanently $r.GroupId)) { Log '  Gruppen ble ikke bekreftet slettet. Avbryter groupify.' 'ERR'; break }
+            $createdGroupIds.Remove($r.GroupId) | Out-Null
             if ($retries++ -lt $MaxDuplicateRetries) { continue }
         }
         break
@@ -566,6 +567,10 @@ if ($Mode -eq 'AppOnly') {
         Write-Output "UAVKLART  - $($result.Variant) opprettet gruppe $($result.GroupId), men området viste ikke GroupId"
         Write-Output "           innen $GroupifyWaitSeconds s. Sjekk området manuelt, og kjør gjerne med høyere -GroupifyWaitSeconds."
     }
+    elseif ($duplicates) {
+        Write-Output "DUPLIKAT  - app-only-kallet oppretter gruppen, men SharePoint laget et nytt område i $duplicates forsøk."
+        Write-Output '           Test groupify i SharePoint-grensesnittet for å se om feilen gjelder tenanten generelt.'
+    }
     else {
         Write-Output 'UTFALL B - groupify avvises app-only i alle varianter (se feilene over).'
         Write-Output '           Workarounden krever et delegert kall. Kjør -Mode Delegated for å teste tjenestekontoen.'
@@ -594,6 +599,11 @@ else {
                 Write-Output 'Tolkning: gruppen står fortsatt i ownedObjects selv om kontoen er fjernet som eier. Undersøk manuelt.'
             }
         }
+    }
+    elseif ($duplicates) {
+        Write-Output "Groupify som tjenestekonto oppretter gruppen, men kobler den ikke til området. SharePoint laget et nytt"
+        Write-Output "område i $duplicates av $($attempts.Count) forsøk (kjent duplikatfeil). Kontoen har altså lov til å opprette grupper."
+        Write-Output 'Test groupify i SharePoint-grensesnittet (Koble til ny Microsoft 365-gruppe) for å se om feilen gjelder tenanten generelt.'
     }
     else {
         Write-Output 'Groupify som tjenestekonto virket ikke (se feilene over). Sjekk gruppepolicyen og site admin-tilgangen.'
