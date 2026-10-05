@@ -103,10 +103,13 @@ function Get-ErrorText($ErrorRecord) {
     return "$($ex.GetType().Name): $($ex.Message)$code"
 }
 
-function Wait-Until([scriptblock] $Condition, [int] $TimeoutSeconds, [int] $IntervalSeconds = 15) {
-    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+function Wait-Until([scriptblock] $Condition, [int] $TimeoutSeconds, [int] $IntervalSeconds = 15, [string] $What) {
+    # Fremdrift skrives med Write-Host, som ikke havner i returverdien
+    $start = Get-Date
+    $end = $start.AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $end) {
         try { if (& $Condition) { return $true } } catch { }
+        if ($What) { Write-Host ("[{0:HH:mm:ss}] [WAIT]   {1} ({2}/{3} s)" -f (Get-Date), $What, [int] ((Get-Date) - $start).TotalSeconds, $TimeoutSeconds) }
         Start-Sleep -Seconds $IntervalSeconds
     }
     return $false
@@ -139,6 +142,11 @@ else {
     Log "Innlogget som $operatorUpn"
 }
 
+# Tilkoblingen for gruppeoppslag. I Delegated-modus byttes den til tjenestekontoen når den har
+# logget inn: innloggingen med -ForceAuthentication tømmer PnPs tokencache, og videre bruk av
+# $admin kan da kjøre som feil bruker eller vente på en ny innlogging.
+$ops = $admin
+
 $siteConnections = @{}
 function Connect-Site([string] $Url) {
     $key = $Url.TrimEnd('/').ToLowerInvariant()
@@ -160,15 +168,15 @@ function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
 }
 function Get-LiveGroup([string] $Identity) {
-    try { return Get-PnPMicrosoft365Group -Identity $Identity -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
+    try { return Get-PnPMicrosoft365Group -Identity $Identity -Connection $ops -ErrorAction SilentlyContinue } catch { return $null }
 }
 function Get-DeletedGroup([string] $GroupId) {
-    try { return Get-PnPDeletedMicrosoft365Group -Identity $GroupId -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
+    try { return Get-PnPDeletedMicrosoft365Group -Identity $GroupId -Connection $ops -ErrorAction SilentlyContinue } catch { return $null }
 }
 function Get-AliasGroup {
     # -Identity matcher også visningsnavn. Filtrer på eksakt mailNickname.
     try {
-        return Get-PnPMicrosoft365Group -Identity $Alias -Connection $admin -ErrorAction SilentlyContinue |
+        return Get-PnPMicrosoft365Group -Identity $Alias -Connection $ops -ErrorAction SilentlyContinue |
             Where-Object { $_.MailNickname -eq $Alias } | Select-Object -First 1
     } catch { return $null }
 }
@@ -184,9 +192,10 @@ function Get-GroupSiteUrl([string] $GroupId) {
     # Graph /groups/{id}/sites/root krever Sites.Read.All, som runbookens MI ikke har.
     # Fallback: søk etter områder med aliaset i URL-en og samme GroupId via admin-API.
     try {
-        $url = (Get-PnPMicrosoft365Group -Identity $GroupId -IncludeSiteUrl -Connection $admin).SiteUrl
+        $url = (Get-PnPMicrosoft365Group -Identity $GroupId -IncludeSiteUrl -Connection $ops).SiteUrl
         if ($url) { return $url }
     } catch { }
+    if ($ops -ne $admin) { return $null }
     try {
         $match = Get-PnPTenantSite -Filter "Url -like '$Alias'" -Connection $admin |
             Where-Object { $_.GroupId.Guid -eq $GroupId } | Select-Object -First 1
@@ -208,13 +217,13 @@ function Get-GraphAll([string] $Url, $Connection) {
 
 function Remove-GroupPermanently([string] $GroupId, [int] $TimeoutSeconds = 300) {
     if (-not $GroupId) { return $true }
-    return Wait-Until -TimeoutSeconds $TimeoutSeconds -Condition {
+    return Wait-Until -TimeoutSeconds $TimeoutSeconds -What "gruppe $GroupId permanent slettet" -Condition {
         if (Get-LiveGroup $GroupId) {
-            try { Remove-PnPMicrosoft365Group -Identity $GroupId -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
+            try { Remove-PnPMicrosoft365Group -Identity $GroupId -Connection $ops | Out-Null } catch { Write-Warning "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
             return $false
         }
         if (Get-DeletedGroup $GroupId) {
-            try { Remove-PnPDeletedMicrosoft365Group -Identity $GroupId -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPDeletedMicrosoft365Group: $(Get-ErrorText $_)" }
+            try { Remove-PnPDeletedMicrosoft365Group -Identity $GroupId -Connection $ops | Out-Null } catch { Write-Warning "Remove-PnPDeletedMicrosoft365Group: $(Get-ErrorText $_)" }
             return $false
         }
         Start-Sleep -Seconds 15
@@ -225,7 +234,7 @@ function Remove-GroupPermanently([string] $GroupId, [int] $TimeoutSeconds = 300)
 function Remove-SitePermanently([string] $Url, [int] $TimeoutSeconds = $CleanupTimeoutMinutes * 60) {
     # Gruppeområder kan ikke slettes via admin-API. De forsvinner asynkront etter at gruppen er
     # slettet (observert ca. 10 min), og tømmes da fra papirkurven.
-    return Wait-Until -TimeoutSeconds $TimeoutSeconds -Condition {
+    return Wait-Until -TimeoutSeconds $TimeoutSeconds -What "$Url permanent slettet" -Condition {
         $live = Get-LiveSite $Url
         if ($live) {
             $gid = if ($live.GroupId -and $live.GroupId.Guid -ne [guid]::Empty.Guid) { $live.GroupId.Guid } else { $null }
@@ -308,7 +317,7 @@ function Wait-GroupifyResult([bool] $CallThrew) {
         $siteGroup = try { Get-SiteGroupId $siteUrl } catch { $null }
         if (-not (Get-AliasGroup) -and -not $siteGroup) { return @{ Outcome = 'NoGroup' } }
     }
-    $linked = Wait-Until -TimeoutSeconds $GroupifyWaitSeconds -Condition { [bool] (Get-SiteGroupId $siteUrl) }
+    $linked = Wait-Until -TimeoutSeconds $GroupifyWaitSeconds -What 'Site.GroupId satt' -Condition { [bool] (Get-SiteGroupId $siteUrl) }
     if ($linked) { return @{ Outcome = 'Linked'; GroupId = (Get-SiteGroupId $siteUrl) } }
 
     $g = Get-AliasGroup
@@ -381,7 +390,7 @@ else {
 $createdSiteUrls.Add($siteUrl)
 Log 'Opprettet'
 
-$active = Wait-Until -TimeoutSeconds 300 -Condition { (Get-LiveSite $siteUrl).Status -eq 'Active' }
+$active = Wait-Until -TimeoutSeconds 300 -What 'området aktivt' -Condition { (Get-LiveSite $siteUrl).Status -eq 'Active' }
 if (-not $active) { throw "Området ble ikke aktivt innen 5 min. Rydd manuelt: $siteUrl" }
 
 if ($Mode -eq 'Delegated') {
@@ -402,15 +411,10 @@ $snapBefore = $null
 $policy = [ordered]@{}
 if ($Mode -eq 'Delegated') {
     Write-Section '2. Tjenestekontoen før groupify'
-    Log "Logg inn som tjenestekontoen ($ServiceAccountUpn). Velg kontoen i innloggingsvinduet."
-    $sa = Connect-PnPOnline -Url $siteUrl -ClientId $ClientId -Interactive -ForceAuthentication -ReturnConnection
-    $saMe = Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $sa) -Property CurrentUser -Connection $sa
-    $saLogin = ($saMe.LoginName -split '\|')[-1]
-    if ($saLogin -ine $ServiceAccountUpn) { throw "Innlogget som $saLogin, forventet $ServiceAccountUpn. Kjør på nytt (området $siteUrl må ryddes manuelt)." }
-    Log "Innlogget som $saLogin" 'OK'
-
+    # Policy og roller leses med din tilkobling før tjenestekontoen logger inn (se $ops over)
+    $saPath = 'v1.0/users/' + [uri]::EscapeDataString($ServiceAccountUpn)
     try {
-        $roles = Get-GraphAll 'v1.0/me/memberOf/microsoft.graph.directoryRole?$select=displayName' $sa
+        $roles = Get-GraphAll ($saPath + '/memberOf/microsoft.graph.directoryRole?$select=displayName') $admin
         $policy.AdminRoles = if ($roles.Count) { ($roles | ForEach-Object { $_.displayName }) -join ', ' } else { '(ingen)' }
     } catch { $policy.AdminRoles = "kunne ikke lese: $(Get-ErrorText $_)" }
     Log "Admin-roller på tjenestekontoen: $($policy.AdminRoles)"
@@ -430,17 +434,28 @@ if ($Mode -eq 'Delegated') {
     Log "Gruppeopprettelse for alle brukere: $($policy.EnableGroupCreation)"
     if ($policy.AllowedGroupId) {
         try {
-            $hit = Invoke-PnPGraphMethod -Url 'v1.0/me/checkMemberGroups' -Method Post -Content @{ groupIds = @($policy.AllowedGroupId) } -Connection $sa
+            $hit = Invoke-PnPGraphMethod -Url ($saPath + '/checkMemberGroups') -Method Post -Content @{ groupIds = @($policy.AllowedGroupId) } -Connection $admin
             $policy.MemberOfAllowedGroup = [bool] ($hit.value -contains $policy.AllowedGroupId)
         } catch { $policy.MemberOfAllowedGroup = "kunne ikke lese: $(Get-ErrorText $_)" }
         Log "Begrenset til gruppe $($policy.AllowedGroupId). Tjenestekontoen er medlem: $($policy.MemberOfAllowedGroup)"
     }
 
+    Log "Logg inn som tjenestekontoen ($ServiceAccountUpn). Velg kontoen i innloggingsvinduet."
+    $sa = Connect-PnPOnline -Url $siteUrl -ClientId $ClientId -Interactive -ForceAuthentication -ReturnConnection
+    $saMe = Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $sa) -Property CurrentUser -Connection $sa
+    $saLogin = ($saMe.LoginName -split '\|')[-1]
+    if ($saLogin -ine $ServiceAccountUpn) { throw "Innlogget som $saLogin, forventet $ServiceAccountUpn. Kjør på nytt (området $siteUrl må ryddes manuelt)." }
+    Log "Innlogget som $saLogin" 'OK'
+
+    # Herfra brukes bare tjenestekontoens tilkobling, frem til oppryddingen. Kontoen er site
+    # collection admin, så den kan også lese språk og GroupId på området.
+    $ops = $sa
+    $siteConnections[$siteUrl.TrimEnd('/').ToLowerInvariant()] = $sa
+
     $snapBefore = Get-ObjectSnapshot $sa
     Log "createdObjects: $($snapBefore.Created) (grupper: $($snapBefore.CreatedGroups))   ownedObjects: $($snapBefore.Owned) (grupper: $($snapBefore.OwnedGroups))"
     if ($snapBefore.Error) { Log $snapBefore.Error 'WARN' }
 }
-
 Log "Venter $GroupifyBufferSeconds s buffer før groupify"
 Start-Sleep -Seconds $GroupifyBufferSeconds
 
@@ -503,7 +518,7 @@ if ($result -and $result.Outcome -eq 'Linked') {
     Log "Språk etter groupify: $langAfter" $(if ($langAfter -eq $Lcid) { 'OK' } else { 'ERR' })
 
     $owners = @()
-    try { $owners = @(Get-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Connection $admin | ForEach-Object { $_.UserPrincipalName }) }
+    try { $owners = @(Get-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Connection $ops | ForEach-Object { $_.UserPrincipalName }) }
     catch { Log "Kunne ikke lese eiere: $(Get-ErrorText $_)" 'WARN' }
     Log "Gruppeeiere: $($owners -join ', ')"
 
@@ -516,9 +531,9 @@ if ($result -and $result.Outcome -eq 'Linked') {
         if ($saWasOwner) {
             Log "Fjerner $ServiceAccountUpn som gruppeeier"
             try {
-                Remove-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Users $ServiceAccountUpn -Connection $admin
-                $ownerRemoved = Wait-Until -TimeoutSeconds 120 -Condition {
-                    -not (Get-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Connection $admin | Where-Object { $_.UserPrincipalName -ieq $ServiceAccountUpn })
+                Remove-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Users $ServiceAccountUpn -Connection $ops
+                $ownerRemoved = Wait-Until -TimeoutSeconds 120 -What 'tjenestekontoen fjernet som eier' -Condition {
+                    -not (Get-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Connection $ops | Where-Object { $_.UserPrincipalName -ieq $ServiceAccountUpn })
                 }
             } catch { Log "Kunne ikke fjerne eier: $(Get-ErrorText $_)" 'WARN'; $ownerRemoved = $false }
             Log "Fjernet som eier: $ownerRemoved" $(if ($ownerRemoved) { 'OK' } else { 'WARN' })
@@ -589,6 +604,16 @@ else {
 # Opprydding
 # ---------------------------------------------------------------------------
 Write-Section 'Opprydding'
+if ($Cleanup -and $ops -ne $admin) {
+    # Sletting krever admin. Logg inn som deg selv igjen, siden $admin ikke kan brukes etter
+    # at tjenestekontoen har logget inn.
+    Log 'Logg inn som deg selv igjen for oppryddingen.'
+    $admin = Connect-PnPOnline -Url $AdminUrl -ClientId $ClientId -Interactive -ForceAuthentication -ReturnConnection
+    $me = Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $admin) -Property CurrentUser -Connection $admin
+    $who = ($me.LoginName -split '\|')[-1]
+    if ($who -ine $operatorUpn) { Log "Innlogget som $who, forventet $operatorUpn. Oppryddingen kan feile." 'WARN' }
+    $ops = $admin
+}
 foreach ($gid in ($createdGroupIds | Select-Object -Unique)) {
     if ($Cleanup) {
         Log "Sletter gruppe $gid permanent"
