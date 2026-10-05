@@ -131,6 +131,7 @@ Ikke vent på Microsoft. Rettelsen har vært «under utrulling» i fire uker ute
 
 | Dato | Hendelse |
 | --- | --- |
+| 5. okt 2026 | Test i egen tenant (`Source/Diagnostics/Test-GroupifyOptions.ps1`): groupify med managed identity avvises med 403 i alle varianter (`CreateGroupForSite` på området, `Add-PnPMicrosoft365GroupToSite` og `Tenant.CreateGroupForSite` i admin-CSOM). Workaround C krever delegert kall. |
 | 30. sep 2026 | Hjelpeskript med retry og STS#3-fallback klart for test. Denne utredningen. |
 | 29. sep 2026 | Retest i kundetenant: fortsatt 1033. Tilbake til Product Group. Siteswap-workaround har feilet hos en kunde. |
 | 22. sep 2026 | Retest: fortsatt 1033. Microsoft kan ikke verifisere utrulling per tenant. |

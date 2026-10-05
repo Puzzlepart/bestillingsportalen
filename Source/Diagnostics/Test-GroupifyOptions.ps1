@@ -339,6 +339,12 @@ function Get-ObjectSnapshot($Connection) {
 # Forhåndssjekk
 # ---------------------------------------------------------------------------
 Write-Section 'Forhåndssjekk'
+# Get-LiveSite svelger feil, så kontroller admin-tilgangen eksplisitt først. Ellers ser
+# manglende rettighet ut som «URL ledig», og feilen kommer først ved opprettelsen.
+try { Get-PnPTenantSite -Identity $tenantRoot -Connection $admin | Out-Null }
+catch {
+    throw "Ingen tilgang til SharePoint admin-API: $(Get-ErrorText $_). Kontoen må ha rollen SharePoint-administrator (aktivert, hvis dere bruker PIM)."
+}
 $preflight = @()
 if (Get-LiveSite $siteUrl)    { $preflight += "Området $siteUrl finnes allerede." }
 if (Get-DeletedSite $siteUrl) { $preflight += "Området $siteUrl ligger i SharePoint-papirkurven." }
@@ -361,21 +367,27 @@ $createdSiteUrls = [System.Collections.Generic.List[string]]::new()
 # 1. STS#3 med riktig språk
 # ---------------------------------------------------------------------------
 Write-Section '1. Oppretter STS#3-område'
-# I produksjon oppretter managed identity området med tjenestekontoen som eier, så kontoen
-# har tilgang til å gjøre groupify-kallet. Delegated-modus gjenskaper det.
-$siteOwner = if ($Mode -eq 'Delegated') { $ServiceAccountUpn } else { $Owner }
-New-PnPSite -Type TeamSiteWithoutMicrosoft365Group -Title $Title -Url $siteUrl -Lcid $Lcid `
-    -TimeZone $TimeZone -Owner $siteOwner -Wait -Connection $admin | Out-Null
+# Delegert oppretting med en annen eier enn innlogget bruker kan avvises, så i Delegated-modus
+# blir du eier, og tjenestekontoen legges til som site collection admin etterpå. Det tilsvarer
+# produksjon, der managed identity oppretter området og gir tjenestekontoen tilgang.
+if ($Mode -eq 'Delegated') {
+    New-PnPSite -Type TeamSiteWithoutMicrosoft365Group -Title $Title -Url $siteUrl -Lcid $Lcid `
+        -TimeZone $TimeZone -Wait -Connection $admin | Out-Null
+}
+else {
+    New-PnPSite -Type TeamSiteWithoutMicrosoft365Group -Title $Title -Url $siteUrl -Lcid $Lcid `
+        -TimeZone $TimeZone -Owner $Owner -Wait -Connection $admin | Out-Null
+}
 $createdSiteUrls.Add($siteUrl)
-Log "Opprettet med eier $siteOwner"
+Log 'Opprettet'
 
 $active = Wait-Until -TimeoutSeconds 300 -Condition { (Get-LiveSite $siteUrl).Status -eq 'Active' }
 if (-not $active) { throw "Området ble ikke aktivt innen 5 min. Rydd manuelt: $siteUrl" }
 
 if ($Mode -eq 'Delegated') {
-    # Du trenger tilgang til området for å lese språk og GroupId underveis
-    Set-PnPTenantSite -Identity $siteUrl -Owners @($operatorUpn) -Connection $admin
-    Log "$operatorUpn lagt til som site collection admin"
+    # Tjenestekontoen må ha tilgang til området for å kunne gjøre groupify-kallet
+    Set-PnPTenantSite -Identity $siteUrl -Owners @($ServiceAccountUpn) -Connection $admin
+    Log "$ServiceAccountUpn lagt til som site collection admin"
 }
 
 $langBefore = Get-SiteLanguage $siteUrl
