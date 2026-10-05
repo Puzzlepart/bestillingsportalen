@@ -70,7 +70,9 @@ Param(
     [Parameter(Mandatory = $false)] [int]    $GroupifyWaitSeconds = 180,
     [Parameter(Mandatory = $false)] [int]    $MaxDuplicateRetries = 2,
     [Parameter(Mandatory = $false)] [int]    $CleanupTimeoutMinutes = 20,
-    [Parameter(Mandatory = $false)] [switch] $Cleanup
+    [Parameter(Mandatory = $false)] [switch] $Cleanup,
+    # Send samme groupify-forespørsel som SharePoint-grensesnittet (uten Owners og KeepOldHomepage)
+    [Parameter(Mandatory = $false)] [switch] $MimicUi
 )
 
 $ErrorActionPreference = 'Stop'
@@ -260,18 +262,37 @@ function Remove-SitePermanently([string] $Url, [int] $TimeoutSeconds = $CleanupT
 # ---------------------------------------------------------------------------
 function Invoke-GroupifySiteRest($Connection) {
     # Samme kall som Logic App-en vil sende via "Send an HTTP request to SharePoint"
-    $body = @{
-        displayName    = $Title
-        alias          = $Alias
-        isPublic       = $false
-        optionalParams = @{
-            Description     = 'Opprettet av Test-GroupifyOptions.ps1'
-            Owners          = @($Owner)
-            CreationOptions = @('SharePointKeepOldHomepage')
+    if ($MimicUi) {
+        # Nøyaktig det SharePoint-grensesnittet sender (CreateGroup.aspx?mode=connectgroup):
+        # ingen Owners (den som kaller blir eier), og ingen SharePointKeepOldHomepage
+        $body = @{
+            displayName    = $Title
+            alias          = $Alias
+            isPublic       = $false
+            optionalParams = @{
+                Description     = ''
+                CreationOptions = @{ results = @('AllowFileSharingForGuestUsers') }
+                Classification  = ''
+            }
         }
+        $contentType = 'application/json;odata=verbose'
+    }
+    else {
+        $body = @{
+            displayName    = $Title
+            alias          = $Alias
+            isPublic       = $false
+            optionalParams = @{
+                Description     = 'Opprettet av Test-GroupifyOptions.ps1'
+                Owners          = @($Owner)
+                CreationOptions = @('SharePointKeepOldHomepage')
+            }
+        }
+        $contentType = 'application/json;odata=nometadata'
     }
     $resp = Invoke-PnPSPRestMethod -Method Post -Url "$siteUrl/_api/GroupSiteManager/CreateGroupForSite" `
-        -Content $body -ContentType 'application/json;odata=nometadata' -Connection $Connection
+        -Content $body -ContentType $contentType -Connection $Connection
+    if ($resp.d) { $resp = $resp.d.CreateGroupForSite }
     Write-Warning "CreateGroupForSite svarte: GroupId=$($resp.GroupId) SiteStatus=$($resp.SiteStatus)"
 }
 
@@ -463,7 +484,8 @@ Start-Sleep -Seconds $GroupifyBufferSeconds
 # 3. Groupify
 # ---------------------------------------------------------------------------
 Write-Section '3. Groupify'
-$variants = if ($Mode -eq 'AppOnly') { @('SiteRest', 'PnPCmdlet', 'TenantCsom') } else { @('SiteRest', 'PnPCmdlet') }
+$variants = if ($MimicUi) { @('SiteRest') } elseif ($Mode -eq 'AppOnly') { @('SiteRest', 'PnPCmdlet', 'TenantCsom') } else { @('SiteRest', 'PnPCmdlet') }
+if ($MimicUi) { Log 'MimicUi: sender samme forespørsel som SharePoint-grensesnittet' }
 $callConn = if ($Mode -eq 'AppOnly') { Connect-Site $siteUrl } else { $sa }
 $attempts = [System.Collections.Generic.List[object]]::new()
 $result = $null
@@ -525,6 +547,14 @@ if ($result -and $result.Outcome -eq 'Linked') {
 
     if ($Mode -eq 'Delegated') {
         $saWasOwner = [bool] ($owners | Where-Object { $_ -ieq $ServiceAccountUpn })
+        if (-not ($owners | Where-Object { $_ -ieq $Owner })) {
+            # Uten Owners i forespørselen (MimicUi) er tjenestekontoen eneste eier. Legg til den
+            # egentlige eieren, ellers kan ikke tjenestekontoen fjernes etterpå.
+            try {
+                Add-PnPMicrosoft365GroupOwner -Identity $result.GroupId -Users $Owner -Connection $ops
+                Log "La til $Owner som eier"
+            } catch { Log "Kunne ikke legge til $Owner som eier: $(Get-ErrorText $_)" 'WARN' }
+        }
         $snapAfterLink = Get-ObjectSnapshot $sa
         Log "createdObjects: $($snapAfterLink.Created) (grupper: $($snapAfterLink.CreatedGroups))   ownedObjects: $($snapAfterLink.Owned) (grupper: $($snapAfterLink.OwnedGroups))"
         Log "Gruppen i createdObjects: $($snapAfterLink.CreatedIds -contains $result.GroupId)   i ownedObjects: $($snapAfterLink.OwnedIds -contains $result.GroupId)"
