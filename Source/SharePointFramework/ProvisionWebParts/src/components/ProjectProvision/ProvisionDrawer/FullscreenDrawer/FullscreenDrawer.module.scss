@@ -9,6 +9,20 @@
   width: 100%;
 }
 
+// Teams: take the height left in the viewport-high container (below the
+// instance bar), so the body scrolls instead of the page.
+.fullscreenProviderTeams {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  .fullscreenContent {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 // ---- Header ----
 
 .header {
@@ -243,7 +257,12 @@
   margin-top: 16px;
 }
 
+// Sticky so the provision button stays in view when the page itself scrolls
+// (inline web part on a SharePoint page).
 .fieldsFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   justify-content: flex-end;
   gap: 12px;

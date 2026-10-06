@@ -8,7 +8,17 @@
   background: var(--colorNeutralBackground1);
 }
 
+// Teams: the app fills the viewport, so the form scrolls inside it and the
+// footer with the provision button stays visible.
+.containerTeams {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
 .instanceBar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
