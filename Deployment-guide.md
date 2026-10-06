@@ -210,6 +210,10 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 - Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
 - Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
 
+### Installasjonsmelding (`-SkipPingback`)
+
+Skriptet sender én installasjonsmelding til Prosjektportalen-teamet på slutten av kjøringen: adressen til bestillingsområdet, versjon, tidspunkt og navnene på parameterne som ble brukt, uten brukernavn eller parameterverdier. Vil dere ikke sende den, kjør med `-SkipPingback`. Se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md#35-installasjonsmelding).
+
 ### Kjøre uten Global Administrator (`-SkipAppRoles`)
 
 App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Administrator. Har ikke kontoen din den rollen i tenanten:

@@ -61,6 +61,11 @@
     delete an active group and its site. Those are irreversible, so -Force aborts with a
     message instead - re-run without it to decide.
 
+.PARAMETER SkipPingback
+    Do not send the deployment pingback to the Prosjektportalen team. The pingback contains
+    the URL of the requests site, the version, the start and end time and the names of the
+    parameters used - no user name and no parameter values.
+
 .EXAMPLE
     deploy.ps1
 
@@ -90,7 +95,8 @@ param
     [switch]$SkipSPFxDeploy,
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
-    [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
+    [switch]$Upgrade, # See Upgrade.md for details on using upgrade mode
+    [switch]$SkipPingback # Do not send the deployment pingback to the Prosjektportalen team - see the help
 )
 
 # -Force means "do not stop to ask me anything", not "answer yes to everything".
@@ -2545,34 +2551,29 @@ function ValidateAzureLocation {
     }
 }
 
-# Sends an anonymous deployment pingback to the shared PP365 install/deploy telemetry function.
-# Mirrors the Prosjektportalen installation pingback. Best-effort only — never fails the deployment.
-# Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
-# Reads script-scoped $deployVersion / $deployStartTime / $deployInvocationLine / $requestsSiteUrl / $deployUser / $global:appId.
+# Sends a deployment pingback to the shared PP365 install/deploy telemetry function, so the
+# Prosjektportalen team can see which versions are deployed. Best-effort only — never fails the
+# deployment. It leaves the customer's tenant, so it carries no user name and no parameter
+# values: InstallCommand lists only the parameter names (e.g. "deploy.ps1 -Force -Upgrade"),
+# which is enough to tell a full deploy from an upgrade. -SkipPingback turns it off.
+# Reads script-scoped $deployVersion / $deployStartTime / $deployParameterNames / $requestsSiteUrl.
 function SendDeployPingback {
+    if ($SkipPingback) {
+        Write-Host "Skipping deployment pingback (-SkipPingback)." -ForegroundColor Yellow
+        return
+    }
     Write-Host "Sending deployment pingback..." -ForegroundColor Yellow
 
     $deployEndTime = (Get-Date -Format o)
-
-    $deployCommand = if ($null -ne $deployInvocationLine -and $deployInvocationLine.Length -gt 2) {
-        $deployInvocationLine.Substring(2)
-    }
-    else {
-        $deployInvocationLine
-    }
 
     $deployEntry = @{
         Title            = "Bestillingsportalen $deployVersion"
         InstallStartTime = $deployStartTime
         InstallEndTime   = $deployEndTime
         InstallVersion   = $deployVersion
-        InstallCommand   = $deployCommand
+        InstallCommand   = (@("deploy.ps1") + @($deployParameterNames | ForEach-Object { "-$_" })) -join " "
         InstallChannel   = "Bestillingsportalen"  # Product indicator (distinguishes from PP365 in the shared telemetry store)
         InstallUrl       = $requestsSiteUrl
-    }
-
-    if (-not [string]::IsNullOrEmpty($deployUser)) {
-        $deployEntry.InstallUser = $deployUser
     }
 
     try {
@@ -2745,7 +2746,8 @@ Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
 
 # Capture start metadata for the deployment pingback (sent at the end of the run)
 $deployStartTime = (Get-Date -Format o)
-$deployInvocationLine = $MyInvocation.Line
+# Only the parameter names leave the tenant with the pingback; the values stay here.
+$deployParameterNames = @($PSBoundParameters.Keys | Sort-Object)
 $deployUser = $null
 
 if (-not $SkipVerifyModules) {
