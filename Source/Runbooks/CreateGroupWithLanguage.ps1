@@ -31,9 +31,11 @@
 [CmdletBinding()]
 Param
 (
-    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody)
+    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody). Untyped on
+    # purpose: Azure Automation turns a parameter value that is valid JSON into an object before the
+    # runbook starts, and a [string] parameter then got '@{description=...}' instead of the JSON.
     [Parameter (Mandatory = $true)]
-    [string] $groupBody,
+    $groupBody,
     # The requested site URL (SiteURL on the request). Its parent path is used for the candidates.
     [Parameter (Mandatory = $true)]
     [string] $siteUrl,
@@ -55,7 +57,9 @@ $tenantRoot = "https://$($siteUri.Host)"
 $adminUrl = "https://$($siteUri.Host.Split('.')[0])-admin.sharepoint.com"
 $sitesBase = $siteUrl.TrimEnd('/').Substring(0, $siteUrl.TrimEnd('/').LastIndexOf('/'))
 
-$body = $groupBody | ConvertFrom-Json -AsHashtable
+# A JSON string or the object Automation already parsed it into, as with $metadata in ConfigureSpace
+$groupBodyJson = if ($groupBody -is [string]) { $groupBody } else { $groupBody | ConvertTo-Json -Depth 10 -Compress }
+$body = $groupBodyJson | ConvertFrom-Json -AsHashtable
 $alias = [string] $body['mailNickname']
 if (-not $alias) { throw 'groupBody has no mailNickname.' }
 # Candidates get a 6 character suffix; keep the total within the 64 character mailNickname limit
