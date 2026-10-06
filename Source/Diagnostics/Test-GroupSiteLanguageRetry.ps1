@@ -212,13 +212,16 @@ function Remove-GroupSoft([string] $Id) {
 function Invoke-GroupSiteDelete([string] $Url) {
     # Det SharePoint selv bruker for «Slett område» på gruppeområder (også PnP Framework
     # SiteCollection.DeleteSiteAsync): sletter område og gruppe samlet.
-    Invoke-PnPSPRestMethod -Method Post -Url "$Url/_api/GroupSiteManager/Delete?siteUrl='$Url'" -Connection (Connect-Site $Url) | Out-Null
+    # Parameteren sendes i body: med siteUrl i spørrestrengen og tom body svarer SharePoint
+    # «Kan ikke håndtere dataene med plasseringen 0».
+    Invoke-PnPSPRestMethod -Method Post -Url "$Url/_api/GroupSiteManager/Delete" -Content @{ siteUrl = $Url } `
+        -ContentType 'application/json;odata=nometadata' -Connection (Connect-Site $Url) | Out-Null
 }
 
 function Remove-OrphanedGroupSite([string] $Url) {
     # Admin-API-et nekter å slette et område med GroupId («Dette området tilhører en Microsoft
     # 365-gruppe»), også når gruppen er slettet. Fjern koblingen først, slett deretter området.
-    # Brukes bare når gruppen er slettet.
+    # ClearGroupId krever at gruppen er slettet permanent, ikke bare ligger i papirkurven.
     $ctx = $admin.Context
     $tenant = [Microsoft.Online.SharePoint.TenantAdministration.Tenant]::new($ctx)
     $props = $tenant.GetSitePropertiesByUrl($Url, $false)
@@ -235,7 +238,8 @@ function Remove-OrphanedGroupSite([string] $Url) {
 function Remove-Candidate($Candidate) {
     # Slett område og gruppe med en gang. Prøver i rekkefølge, og lagrer hva som virket:
     #   1. GroupSiteManager/Delete (område + gruppe samlet)
-    #   2. Slett gruppen via Graph, fjern GroupId fra området og slett det via admin-API-et
+    #   2. Slett gruppen permanent via Graph (tar noen sekunder), fjern GroupId fra området og
+    #      slett det via admin-API-et
     try {
         Invoke-GroupSiteDelete $Candidate.SiteUrl
         $Candidate.SiteDelete = 'GroupSiteManager'
@@ -245,7 +249,7 @@ function Remove-Candidate($Candidate) {
     }
     catch { $gsmError = Get-ErrorText $_ }
 
-    $groupOk = Remove-GroupSoft $Candidate.GroupId
+    $groupOk = -not (Remove-GroupsPermanently @($Candidate.GroupId) 120).Count
     try {
         Remove-OrphanedGroupSite $Candidate.SiteUrl
         $Candidate.SiteDelete = "ClearGroupId (GroupSiteManager: $gsmError)"
