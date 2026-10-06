@@ -10,7 +10,7 @@ Prosjektportalens provisjonering validerer at området har samme språk som male
 
 Microsoft har bekreftet feilen i sp-dev-docs #10875 og i en supportsak SoftwareOne har eskalert til SharePoint Product Group. En rettelse ble merget 31. august 2026 med anslått tre ukers utrulling. Test i en kundetenant 29. september 2026 viste at rettelsen fortsatt ikke er aktiv; Microsoft kan ikke verifisere utrullingsstatus per tenant.
 
-Anbefaling: ikke vent på Microsoft. Bruk et administratorkjørt hjelpeskript som oppretter området, verifiserer språk og retryer, med STS#3 + groupify som fallback. Behold rotsiden urørt. Berørte kunder bør i tillegg åpne egen Microsoft-sak fra sin tenant.
+Anbefaling: ikke vent på Microsoft. Feilen er tilfeldig per opprettelse (ca. 28 % riktig språk i test), så opprett flere kandidater samtidig, behold den som fikk riktig språk og slett resten. Det gjøres av hjelpeskriptet `New-PPSiteWithLanguageRetry.ps1`, og av Bestillingsportalen når innstillingen er slått på. Groupify (workaround C) er testet og forkastet. Behold rotsiden urørt. Berørte kunder bør i tillegg åpne egen Microsoft-sak fra sin tenant.
 
 ## Symptomer i Prosjektportalen og ROS-portalen
 
@@ -101,7 +101,7 @@ Ingen av workaroundene er rene. Tabellen oppsummerer; detaljer under.
 
 **C. STS#3 + groupify.** Microsoft supports anbefalte workaround. `POST /_api/SPSiteManager/create` med `WebTemplate: STS#3` og `Lcid: 1044` respekterer språk. Deretter `POST <site>/_api/GroupSiteManager/CreateGroupForSite` ([Microsoft: Connect to a Microsoft 365 group](https://learn.microsoft.com/en-us/sharepoint/dev/transform/modernize-connect-to-office365-group)), som krever delegert tilgang. SoftwareOnes testing (juli 2026) viste at `CreateGroupForSite` av og til returnerer suksess og gyldig GroupId, men oppretter et nytt område med nummerert URL i stedet for å koble gruppen til det eksisterende. `SiteStatus = 2` er ikke tilstrekkelig beredskapssignal; Microsoft bekreftet at det ikke finnes noe dokumentert alternativ. En norsk leverandør har publisert en fungerende Logic App-flyt i #10875: buffer på noen minutter etter opprettelse, ensure + site admin for tjenestekontoen, groupify med `SharePointKeepOldHomepage`, verifisering av `Site.GroupId`, og ved duplikat: slett gruppe via Graph, tøm Entra-papirkurv, vent til 404, retry.
 
-**D. Retry-skript.** SoftwareOnes hjelpeskript `New-PPSiteWithLanguageRetry.ps1` (PnP PowerShell) kombinerer D og C: N direkte forsøk med permanent opprydding, deretter fallback til STS#3 + groupify med duplikathåndtering, alt innenfor en tidsramme satt av administrator. Kjøres av administrator før PP-provisjoneringen. Testes i egen tenant før bruk hos kunde.
+**D. Retry-skript.** Test i oktober 2026 viste at feilen er tilfeldig per opprettelse, så D fungerer også i tenanter som ikke er rettet. Hjelpeskriptet `New-PPSiteWithLanguageRetry.ps1` oppretter flere kandidater samtidig (aliaset + `alias-xxxxx`), beholder første treff og sletter resten permanent. Det gir et vanlig gruppeområde, ofte med suffiks i URL og alias. `-RequireExactAlias` gir nøyaktig URL, men må vente 10–30+ min på at URL-en frigjøres etter hver bom. Kjøres lokalt eller som runbook. Groupify (C) er forkastet: app-only gir 403, som tjenestekonto uten admin-rolle blir det duplikatområde hver gang, og som admin er det ustabilt.
 
 ## Anbefaling og plan videre
 
@@ -116,10 +116,10 @@ Ikke vent på Microsoft. Rettelsen har vært «under utrulling» i fire uker ute
 
 **For SoftwareOne og andre kunder**
 
-- Test hjelpeskriptet i egen tenant før det tas ut til kunder. Mål: tid per forsøk, andel som treffer i fase 1, og om fase 2 gir duplikater.
+- Mål treffraten i flere tenanter med `Source/Diagnostics/Test-GroupSiteLanguageRetry.ps1` før antall parallelle forsøk settes som standard.
 - Vurder om Prosjektportalens installasjonsskript skal få innebygd språkverifisering etter opprettelse, med tydelig feilmelding som peker på denne saken, uavhengig av Microsoft-rettelsen.
 - Følg opp supportsaken. Be eksplisitt om: bekreftelse på at rettelsen gjenoppretter `SPSiteLanguage`-atferden, og en metode for å verifisere utrulling.
-- Følg #10875 for meldinger om at rettelsen er aktiv i norske tenanter. Første tegn er at fase 1 i skriptet begynner å treffe konsekvent.
+- Følg #10875 for meldinger om at rettelsen er aktiv i norske tenanter. Første tegn er at treffraten i testskriptet nærmer seg 100 %.
 - Når rettelsen er bekreftet: legg bort hjelpeskriptet, behold det i repoet for neste gang.
 
 **Åpne spørsmål**
