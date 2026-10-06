@@ -140,6 +140,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Godkjenningsflyt](./Approval-flow.md)
 - [Sensitivitetsmerker](./Sensitivity-labels.md) og [Oppbevaringsmerker](./Retention-labels.md)
 - [Regionale innstillinger](./Regional-settings.md)
+- [Språk på gruppeområder](./Group-site-language.md) – valgfri workaround når Microsoft ignorerer bestilt språk
 
 **Referanse**
 

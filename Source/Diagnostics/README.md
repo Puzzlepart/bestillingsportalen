@@ -3,7 +3,7 @@
 Engangsskript for å måle eller verifisere oppførsel i en konkret tenant. De er
 **ikke** en del av installasjonen: `deploy.ps1` laster kun opp runbookene som er
 navngitt i `DeployLocalRunbooks` (`ConfigureSpace`, `GetSiteTemplates`,
-`AddGuestToSite`) pluss `CustomerSpecific`, så ingenting i denne mappen deployes
+`AddGuestToSite`, `CreateGroupWithLanguage`) pluss `CustomerSpecific`, så ingenting i denne mappen deployes
 automatisk.
 
 Importer dem manuelt i Automation-kontoen når du trenger dem, og slett dem etterpå.
@@ -12,6 +12,9 @@ Importer dem manuelt i Automation-kontoen når du trenger dem, og slett dem ette
 |--|--|
 | [`Test-RunbookRuntime.ps1`](Test-RunbookRuntime.ps1) | Skriver ut PowerShell-versjon, modulversjoner og managed identity-status fra inne i et Automation-jobb. Bruk denne når du er i tvil om hva runbookene faktisk kjører på — se advarselen under. |
 | [`Test-AppOnlySensitivityLabel.ps1`](Test-AppOnlySensitivityLabel.ps1) | Avgjør om `Set-PnPTenantSite -SensitivityLabel` med managed identity faktisk setter container-merket på et gruppetilknyttet område, og om det propagerer til gruppens `assignedLabels`. Svaret avgjør om tjenestekontoen og Entra ID-appen kan fjernes — se [Sensitivitetsmerker](../../Sensitivity-labels.md). |
+| [`Test-GroupifyOptions.ps1`](Test-GroupifyOptions.ps1) | Avgjør om et STS#3-område kan kobles til en ny M365-gruppe (groupify) app-only (`-Mode AppOnly`, som runbook), og ellers hva som skjer når tjenestekontoen gjør det (`-Mode Delegated`, lokalt): gruppepolicy, admin-roller og om gruppen henger igjen i kontoens `createdObjects`/`ownedObjects` (250-grensen). Grunnlag for workarounden når Graph ignorerer `SPSiteLanguage` — se [bakgrunnsutredningen](../Scripts/provisioning-workaround/Bakgrunnsutredning-SPSiteLanguage.md). `-Mode Delegated` kan ikke kjøres som runbook. Resultat (okt. 2026): groupify krever admin og er ustabil, så workarounden er forkastet. |
+| [`Test-GroupSiteLanguageRetry.ps1`](Test-GroupSiteLanguageRetry.ps1) | Oppretter gruppeområder som `ProcessProvisionRequest` gjør i dag (app-only `POST /groups` med `SPSiteLanguage`), sjekker språket, sletter feil og prøver igjen, ett om gangen eller flere parallelt (`-BatchSize`). Viser treffraten (er feilen tilfeldig eller fast i tenanten?), tid til området er klart, og med `-RetrySameAlias` hvor lenge URL-en er sperret etter sletting. Kjøres som runbook (managed identity, som i produksjon) eller lokalt. Sletter alt den oppretter uten å vente; `-PurgeDeleted` tømmer også papirkurvene. |
+| [`Invoke-DiagnosticRunbook.ps1`](Invoke-DiagnosticRunbook.ps1) | Hjelpeskript (kjøres lokalt med Az PowerShell): laster opp et diagnoseskript som runbook på `bestillingsportalen-ps74`, publiserer, starter jobben med parametre og skriver ut output. Bruker samme REST-kall som `deploy.ps1`, så runtime environmentet beholdes. |
 
 ## ⚠️ Portalen viser runbookene som «PowerShell 5.1» — det er normalt
 

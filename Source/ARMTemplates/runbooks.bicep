@@ -105,3 +105,22 @@ resource addGuestToSiteRunbook 'Microsoft.Automation/automationAccounts/runbooks
     pnpPowerShellPackage
   ]
 }
+
+// Creates the M365 group for a request with several candidates and keeps the one whose site got
+// the requested language (workaround for Graph ignoring SPSiteLanguage). Only called by
+// ProcessProvisionRequest when the EnableGroupLanguageRetry setting is true.
+resource createGroupWithLanguageRunbook 'Microsoft.Automation/automationAccounts/runbooks@2024-10-23' = {
+  parent: automationAccount
+  name: 'CreateGroupWithLanguage'
+  location: location
+  properties: {
+    logVerbose: true
+    logProgress: true
+    runbookType: 'PowerShell'
+    runtimeEnvironment: runtimeEnvironment.name
+    draft: {}
+  }
+  dependsOn: [
+    pnpPowerShellPackage
+  ]
+}

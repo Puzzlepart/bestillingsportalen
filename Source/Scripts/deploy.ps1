@@ -2183,9 +2183,9 @@ function VerifyRunbookRuntimeEnvironment {
         return $value
     }
 
-    # The three repo-owned runbooks: deploy recreates these, so a mismatch is fixable.
+    # The repo-owned runbooks: deploy recreates these, so a mismatch is fixable.
     $wrong = @()
-    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite')) {
+    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite', 'CreateGroupWithLanguage')) {
         $actual = Get-RunbookRuntime $runbookName
         if ($actual -eq $runtimeEnvironmentName) {
             Write-Host "  $runbookName : $actual" -ForegroundColor Green
@@ -2235,7 +2235,7 @@ function DeployLocalRunbooks {
     # This keeps the deployed content in sync with the repo on every run: portal-side
     # edits are overwritten on deploy/upgrade - customisations belong in the repo.
     $runbookApiBase = "https://management.azure.com/subscriptions/$($parameters.subscriptionId.Value)/resourceGroups/$($parameters.resourceGroupName.Value)/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks"
-    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite')) {
+    foreach ($runbookName in @('ConfigureSpace', 'GetSiteTemplates', 'AddGuestToSite', 'CreateGroupWithLanguage')) {
         $runbookScript = Join-Path $packageRootPath "Runbooks/$runbookName.ps1"
         if (-not (Test-Path $runbookScript)) {
             RecordDeployStatus -Component "Runbook content: $runbookName" -Status 'FAILED' -Detail "Source file not found: $runbookScript"
