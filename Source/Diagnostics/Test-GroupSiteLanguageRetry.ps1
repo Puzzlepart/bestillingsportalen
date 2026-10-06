@@ -40,6 +40,8 @@
 # Eksempler:
 #   .\Test-GroupSiteLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com -BatchSize 3
 #   .\Test-GroupSiteLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com -RetrySameAlias -MaxRounds 2
+#   # Rydd rester etter tidligere kjøringer med aliaset LangTest01 (gruppe og område slettes permanent)
+#   .\Test-GroupSiteLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com -Alias LangTest01 -CleanupOnly
 
 [CmdletBinding()]
 Param(
@@ -60,6 +62,9 @@ Param(
     [Parameter(Mandatory = $false)] [switch] $KeepWinner,
     # Tøm slettede grupper og områder fra papirkurvene til slutt (venter ca. 10 min på områdene)
     [Parameter(Mandatory = $false)] [switch] $PurgeDeleted,
+    # Opprett ingenting. Slett permanent grupper og områder fra tidligere kjøringer med -Alias:
+    # bare URL-er som er nøyaktig <alias> eller <alias>-xxxxx, og grupper skriptet har merket.
+    [Parameter(Mandatory = $false)] [switch] $CleanupOnly,
     # Tving managed identity. Ellers oppdages Azure Automation automatisk.
     [Parameter(Mandatory = $false)] [switch] $ManagedIdentity,
     [Parameter(Mandatory = $false)] [string] $ClientId = 'da6c31a6-b557-4ac3-9994-7315da06ea3a'
@@ -74,6 +79,8 @@ if (-not $Alias) { $Alias = "diag-lang-$stamp" }
 if (-not $Title) { $Title = "Diagnose språk $stamp" }
 $AdminUrl = $AdminUrl.TrimEnd('/')
 $tenantRoot = $AdminUrl -replace '-admin\.sharepoint\.com', '.sharepoint.com'
+if ($CleanupOnly -and -not $PSBoundParameters.ContainsKey('Alias')) { throw '-CleanupOnly krever -Alias.' }
+$marker = 'Opprettet av Test-GroupSiteLanguageRetry.ps1'
 if ($RetrySameAlias -and $BatchSize -ne 1) { throw '-RetrySameAlias kan bare brukes med -BatchSize 1.' }
 if ($BatchSize -lt 1 -or $BatchSize -gt 10) { throw '-BatchSize må være mellom 1 og 10.' }
 
@@ -191,6 +198,19 @@ function Remove-GroupSoft([string] $Id) {
     catch { Write-Warning "Remove-PnPMicrosoft365Group ($Id): $(Get-ErrorText $_)"; return $false }
 }
 
+function Remove-Candidate($Candidate) {
+    # Slett gruppen, og be SharePoint slette området med en gang i stedet for å vente på at det
+    # skjer asynkront (observert 10+ min). Om SharePoint godtar det rett etter gruppeslettingen,
+    # er ikke dokumentert, så svaret lagres på kandidaten.
+    $groupOk = Remove-GroupSoft $Candidate.GroupId
+    try {
+        Remove-PnPTenantSite -Url $Candidate.SiteUrl -Force -Connection $admin | Out-Null
+        $Candidate.SiteDelete = 'OK'
+    }
+    catch { $Candidate.SiteDelete = Get-ErrorText $_ }
+    return $groupOk
+}
+
 function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
     # Gruppeområder forsvinner asynkront etter at gruppen er slettet (observert ca. 10 min) og
     # tømmes da fra papirkurven. Alle URL-er polles samtidig. Returnerer URL-ene som ikke ble borte.
@@ -223,6 +243,54 @@ function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
         }
     }
     return , @($remaining)
+}
+
+# ---------------------------------------------------------------------------
+# Kun opprydding (-CleanupOnly)
+# ---------------------------------------------------------------------------
+if ($CleanupOnly) {
+    Write-Section "Opprydding av rester for '$Alias'"
+    $pattern = '^' + [regex]::Escape($Alias) + '(-[0-9a-f]{5})?$'
+    $ids = [System.Collections.Generic.List[string]]::new()
+    try {
+        $q = "v1.0/groups?`$filter=startswith(mailNickname,'$Alias')&`$select=id,mailNickname,description&`$top=999"
+        (Invoke-PnPGraphMethod -Url $q -Method Get -Connection $admin).value |
+            Where-Object { $_.mailNickname -match $pattern -and $_.description -eq $marker } |
+            ForEach-Object { $ids.Add($_.id); Log "Aktiv gruppe: $($_.mailNickname) ($($_.id))" }
+    } catch { Log "Kunne ikke lese grupper: $(Get-ErrorText $_)" 'WARN' }
+    try {
+        Get-PnPDeletedMicrosoft365Group -Connection $admin |
+            Where-Object { $_.MailNickname -match $pattern -and $_.Description -eq $marker } |
+            ForEach-Object { if (-not $ids.Contains($_.Id)) { $ids.Add($_.Id) }; Log "Slettet gruppe: $($_.MailNickname) ($($_.Id))" }
+    } catch { Log "Kunne ikke lese slettede grupper: $(Get-ErrorText $_)" 'WARN' }
+
+    foreach ($id in $ids) {
+        if (Remove-GroupPermanently $id) { Log "Gruppe $id slettet permanent" 'OK' } else { Log "Gruppe $id ble ikke bekreftet slettet" 'ERR' }
+    }
+
+    # Områder: bare nøyaktig <alias> eller <alias>-xxxxx, og aldri et område med en annens aktive gruppe
+    $urls = [System.Collections.Generic.List[string]]::new()
+    $matchUrl = { param($u) (($u.TrimEnd('/') -split '/')[-1]) -match $pattern }
+    try {
+        foreach ($site in (Get-PnPTenantSite -Filter "Url -like '$Alias'" -Connection $admin | Where-Object { & $matchUrl $_.Url })) {
+            $gid = if ($site.GroupId -and $site.GroupId.Guid -ne [guid]::Empty.Guid) { $site.GroupId.Guid } else { $null }
+            if ($gid -and -not $ids.Contains($gid) -and (Get-LiveGroup $gid)) { Log "Hopper over $($site.Url): tilhører en aktiv gruppe skriptet ikke har opprettet" 'WARN'; continue }
+            $urls.Add($site.Url); Log "Aktivt område: $($site.Url)"
+        }
+    } catch { Log "Kunne ikke lese områder: $(Get-ErrorText $_)" 'WARN' }
+    try {
+        Get-PnPTenantDeletedSite -Connection $admin | Where-Object { & $matchUrl $_.Url } |
+            ForEach-Object { if (-not $urls.Contains($_.Url)) { $urls.Add($_.Url) }; Log "Område i papirkurven: $($_.Url)" }
+    } catch { Log "Kunne ikke lese papirkurven: $(Get-ErrorText $_)" 'WARN' }
+
+    $left = @()
+    if ($urls.Count) {
+        Log "Sletter $($urls.Count) område(r) permanent (opptil $CleanupTimeoutMinutes min)"
+        $left = Remove-SitesPermanently $urls.ToArray() ($CleanupTimeoutMinutes * 60)
+    }
+    foreach ($u in $left) { Log "Ikke ryddet ferdig: $u. Kjør -CleanupOnly på nytt senere." 'WARN' }
+    Log "Ferdig: $($ids.Count) gruppe(r), $($urls.Count - $left.Count) av $($urls.Count) område(r) slettet permanent." $(if ($left.Count) { 'WARN' } else { 'OK' })
+    return
 }
 
 # ---------------------------------------------------------------------------
@@ -283,14 +351,14 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
         if ($a -ne $Alias -and (Test-AliasInUse $a)) { $a = New-SuffixAlias }
         $batch += [pscustomobject]@{
             Round = $round; Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null
-            ReadySeconds = $null; TenantLcid = $null; WebLanguage = $null; Outcome = 'Pending'; Error = $null
+            ReadySeconds = $null; TenantLcid = $null; WebLanguage = $null; Outcome = 'Pending'; Error = $null; SiteDelete = $null
         }
     }
 
     # Opprett alle i runden. Samme body som ProcessProvisionRequest (Set_MembersRequestBody_variable).
     foreach ($c in $batch) {
         $body = @{
-            description         = 'Opprettet av Test-GroupSiteLanguageRetry.ps1'
+            description         = $marker
             displayName         = "$Title ($($c.Alias))"
             groupTypes          = @('Unified')
             creationOptions     = @("SPSiteLanguage:$Lcid")
@@ -354,7 +422,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
 
     # Slett alt annet i runden, uten å vente
     foreach ($c in ($batch | Where-Object { $_ -ne $winner -and $_.GroupId })) {
-        if (Remove-GroupSoft $c.GroupId) { Log "Slettet $($c.Alias)" } else { Log "Kunne ikke slette $($c.Alias) ($($c.GroupId))" 'ERR' }
+        $ok = Remove-Candidate $c
+        Log "Slettet $($c.Alias): gruppe $(if ($ok) { 'OK' } else { 'FEILET' }), område $($c.SiteDelete)" $(if ($ok -and $c.SiteDelete -eq 'OK') { 'INFO' } else { 'WARN' })
         $deletedGroups.Add($c.GroupId)
         $sitesToPurge.Add($c.SiteUrl)
     }
@@ -366,7 +435,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
 Write-Section 'Opprydding'
 if ($winner -and -not $KeepWinner) {
     Log "Sletter treffet $($winner.SiteUrl) også (bruk -KeepWinner for å beholde det)"
-    Remove-GroupSoft $winner.GroupId | Out-Null
+    $ok = Remove-Candidate $winner
+    Log "  Gruppe $(if ($ok) { 'OK' } else { 'FEILET' }), område $($winner.SiteDelete)"
     $deletedGroups.Add($winner.GroupId)
     $sitesToPurge.Add($winner.SiteUrl)
 }
@@ -391,7 +461,7 @@ foreach ($u in $leftovers) {
 # Resultat
 # ---------------------------------------------------------------------------
 Write-Section 'RESULTAT'
-$candidates | Format-Table Round, Alias, Outcome, ReadySeconds, TenantLcid, WebLanguage, GroupId, Error -AutoSize -Wrap | Out-String -Width 250 | Write-Output
+$candidates | Format-Table Round, Alias, Outcome, ReadySeconds, TenantLcid, WebLanguage, SiteDelete, GroupId, Error -AutoSize -Wrap | Out-String -Width 250 | Write-Output
 
 $measured = @($candidates | Where-Object { $_.Outcome -in @('Hit', 'Miss') })
 $hitCount = @($measured | Where-Object Outcome -eq 'Hit').Count
