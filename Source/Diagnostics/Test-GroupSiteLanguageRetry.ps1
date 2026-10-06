@@ -160,21 +160,56 @@ function Get-LiveSite([string] $Url) {
 function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
 }
-function Get-LiveGroup([string] $Id) {
-    try { return Get-PnPMicrosoft365Group -Identity $Id -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
+function New-AdminConnection {
+    if ($useMi) { return Connect-PnPOnline -Url $AdminUrl -ManagedIdentity -ReturnConnection }
+    return Connect-PnPOnline -Url $AdminUrl -ClientId $ClientId -Interactive -PersistLogin -ReturnConnection
 }
-function Get-DeletedGroup([string] $Id) {
-    try { return Get-PnPDeletedMicrosoft365Group -Identity $Id -Connection $admin -ErrorAction SilentlyContinue } catch { return $null }
+function Test-ConnectionContext($Connection) {
+    try { return [bool] (Get-PnPContext -Connection $Connection) } catch { return $false }
+}
+function Repair-AdminConnection {
+    # I runbook mistet admin-tilkoblingen SharePoint-konteksten underveis («The provided connection
+    # through -Connection holds no SharePoint context»), og PnP-kall på den feilet deretter.
+    if (-not (Test-ConnectionContext $script:admin)) {
+        Write-Warning 'Admin-tilkoblingen har mistet SharePoint-konteksten. Kobler til på nytt.'
+        $script:admin = New-AdminConnection
+    }
+}
+function Get-GraphConnection {
+    # Egen tilkobling for Graph-kall, så de ikke deler skjebne med admin-tilkoblingen
+    if (-not $script:graph -or -not (Test-ConnectionContext $script:graph)) { $script:graph = New-AdminConnection }
+    return $script:graph
+}
+function Invoke-Graph([string] $Method, [string] $Url, $Content) {
+    $p = @{ Url = $Url; Method = $Method; Connection = (Get-GraphConnection) }
+    if ($null -ne $Content) { $p.Content = $Content }
+    return Invoke-PnPGraphMethod @p
+}
+function Test-NotFound($ErrorRecord) {
+    return (Get-ErrorText $ErrorRecord) -match 'NotFound|\b404\b|does not exist|ResourceNotFound'
+}
+
+function Get-GroupState([string] $Id) {
+    # Live, Deleted (i Entra-papirkurven), Gone eller Error. Feil tolkes aldri som «borte».
+    try { Invoke-Graph Get ('v1.0/groups/' + $Id + '?$select=id') | Out-Null; return 'Live' }
+    catch { if (-not (Test-NotFound $_)) { return 'Error' } }
+    try { Invoke-Graph Get ('v1.0/directory/deletedItems/' + $Id + '?$select=id') | Out-Null; return 'Deleted' }
+    catch { if (-not (Test-NotFound $_)) { return 'Error' } }
+    return 'Gone'
+}
+function Get-LiveGroup([string] $Id) { return (Get-GroupState $Id) -eq 'Live' }
+function Get-DeletedGroups {
+    # Slettede M365-grupper i Entra-papirkurven (id, mailNickname, description)
+    try { return @((Invoke-Graph Get 'v1.0/directory/deletedItems/microsoft.graph.group?$select=id,mailNickname,description&$top=999').value) }
+    catch { Write-Warning "Kunne ikke lese slettede grupper: $(Get-ErrorText $_)"; return @() }
 }
 function Test-AliasInUse([string] $A) {
     if ((Get-LiveSite (Get-SiteUrl $A)) -or (Get-DeletedSite (Get-SiteUrl $A))) { return $true }
     try {
-        $hit = Invoke-PnPGraphMethod -Url ("v1.0/groups?`$filter=mailNickname eq '$A'&`$select=id") -Method Get -Connection $admin
+        $hit = Invoke-Graph Get ("v1.0/groups?`$filter=mailNickname eq '$A'&`$select=id")
         if ($hit.value) { return $true }
     } catch { }
-    try {
-        if (Get-PnPDeletedMicrosoft365Group -Connection $admin | Where-Object { $_.MailNickname -eq $A }) { return $true }
-    } catch { }
+    if (Get-DeletedGroups | Where-Object { $_.mailNickname -eq $A }) { return $true }
     return $false
 }
 function Get-SiteLcid($Site) {
@@ -187,26 +222,42 @@ function Get-WebLanguage([string] $Url) {
     try { return [int] (Get-PnPWeb -Includes Language -Connection (Connect-Site $Url)).Language } catch { return $null }
 }
 
-function Remove-GroupPermanently([string] $Id, [int] $TimeoutSeconds = 300) {
-    if (-not $Id) { return $true }
-    return Wait-Until -TimeoutSeconds $TimeoutSeconds -What "gruppe $Id permanent slettet" -Condition {
-        if (Get-LiveGroup $Id) {
-            try { Remove-PnPMicrosoft365Group -Identity $Id -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
-            return $false
-        }
-        if (Get-DeletedGroup $Id) {
-            try { Remove-PnPDeletedMicrosoft365Group -Identity $Id -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPDeletedMicrosoft365Group: $(Get-ErrorText $_)" }
-            return $false
-        }
-        Start-Sleep -Seconds 10
-        return (-not (Get-LiveGroup $Id)) -and (-not (Get-DeletedGroup $Id))
+function Remove-GroupSoft([string] $Id) {
+    # Myk sletting via Graph: ett kall, ingen venting
+    try { Invoke-Graph Delete ('v1.0/groups/' + $Id) | Out-Null; return $true }
+    catch {
+        if (Test-NotFound $_) { return $true }
+        Write-Warning "Sletting av gruppe $Id : $(Get-ErrorText $_)"; return $false
     }
 }
 
-function Remove-GroupSoft([string] $Id) {
-    # Myk sletting: ett kall, ingen venting. Området følger etter asynkront.
-    try { Remove-PnPMicrosoft365Group -Identity $Id -Connection $admin | Out-Null; return $true }
-    catch { Write-Warning "Remove-PnPMicrosoft365Group ($Id): $(Get-ErrorText $_)"; return $false }
+function Remove-GroupsPermanently([string[]] $Ids, [int] $TimeoutSeconds = 300) {
+    # Myk-slett aktive grupper og tøm dem fra Entra-papirkurven via Graph. Alle polles samtidig.
+    # Returnerer id-ene som ikke ble bekreftet borte.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $Ids | Where-Object { $_ } | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        foreach ($id in @($remaining)) {
+            switch (Get-GroupState $id) {
+                'Live'    { Remove-GroupSoft $id | Out-Null }
+                'Deleted' {
+                    try { Invoke-Graph Delete ('v1.0/directory/deletedItems/' + $id) | Out-Null }
+                    catch { if (-not (Test-NotFound $_)) { Write-Warning "Permanent sletting av gruppe $id : $(Get-ErrorText $_)" } }
+                }
+                'Gone'    {
+                    $remaining.Remove($id) | Out-Null
+                    Write-Host ("[{0:HH:mm:ss}] [OK]     gruppe {1} er slettet permanent" -f (Get-Date), $id)
+                }
+                default   { }
+            }
+        }
+        if ($remaining.Count) {
+            Write-Host ("[{0:HH:mm:ss}] [WAIT]   venter på at {1} gruppe(r) forsvinner" -f (Get-Date), $remaining.Count)
+            Start-Sleep -Seconds 5
+        }
+    }
+    return , @($remaining)
 }
 
 function Invoke-GroupSiteDelete([string] $Url) {
@@ -218,20 +269,12 @@ function Invoke-GroupSiteDelete([string] $Url) {
         -ContentType 'application/json;odata=nometadata' -Connection (Connect-Site $Url) | Out-Null
 }
 
-function Get-AdminContext {
-    # CSOM-konteksten til admin-tilkoblingen. Den var tom (null) i runbook med managed identity,
-    # så hent den via Get-PnPContext, og koble til på nytt som siste utvei.
-    $ctx = $null
-    try { $ctx = Get-PnPContext -Connection $admin } catch { }
-    if (-not $ctx) { $ctx = $admin.Context }
-    if (-not $ctx) {
-        if (-not $script:csomConnection) {
-            $script:csomConnection = if ($useMi) { Connect-PnPOnline -Url $AdminUrl -ManagedIdentity -ReturnConnection }
-            else { Connect-PnPOnline -Url $AdminUrl -Interactive -Connection $admin -ReturnConnection }
-        }
-        try { $ctx = Get-PnPContext -Connection $script:csomConnection } catch { }
-        if (-not $ctx) { $ctx = $script:csomConnection.Context }
+function Get-CsomContext {
+    # Egen tilkobling for tenant-CSOM (ClearGroupId og RemoveSite), uavhengig av admin-tilkoblingen
+    if (-not $script:csomConnection -or -not (Test-ConnectionContext $script:csomConnection)) {
+        $script:csomConnection = New-AdminConnection
     }
+    $ctx = Get-PnPContext -Connection $script:csomConnection
     if (-not $ctx) { throw 'Fant ingen CSOM-kontekst for admin-tilkoblingen.' }
     return $ctx
 }
@@ -240,7 +283,7 @@ function Remove-OrphanedGroupSite([string] $Url) {
     # Admin-API-et nekter å slette et område med GroupId («Dette området tilhører en Microsoft
     # 365-gruppe»), også når gruppen er slettet. Fjern koblingen først, slett deretter området.
     # ClearGroupId krever at gruppen er slettet permanent, ikke bare ligger i papirkurven.
-    $ctx = Get-AdminContext
+    $ctx = Get-CsomContext
     $tenant = [Microsoft.Online.SharePoint.TenantAdministration.Tenant]::new($ctx)
     $props = $tenant.GetSitePropertiesByUrl($Url, $false)
     $ctx.Load($props)
@@ -250,7 +293,9 @@ function Remove-OrphanedGroupSite([string] $Url) {
         $props.Update() | Out-Null
         $ctx.ExecuteQuery()
     }
-    Remove-PnPTenantSite -Url $Url -Force -Connection $admin | Out-Null
+    $op = $tenant.RemoveSite($Url)
+    $ctx.Load($op)
+    $ctx.ExecuteQuery()
 }
 
 function Remove-Candidates($List) {
@@ -258,7 +303,7 @@ function Remove-Candidates($List) {
     #   1. GroupSiteManager/Delete (område + gruppe samlet). Bare delegert: app-only gir 403 fra
     #      katalogtjenesten, så det hoppes over med managed identity.
     #   2. Slett gruppene permanent via Graph, alle samtidig (tar noen sekunder), fjern GroupId fra
-    #      områdene og slett dem via admin-API-et.
+    #      områdene og slett dem via tenant-CSOM.
     $List = @($List | Where-Object GroupId)
     $rest = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $List) {
@@ -283,30 +328,6 @@ function Remove-Candidates($List) {
     }
 }
 
-function Remove-GroupsPermanently([string[]] $Ids, [int] $TimeoutSeconds = 300) {
-    # Myk-slett aktive grupper og tøm dem fra Entra-papirkurven. Alle polles samtidig.
-    # Returnerer id-ene som ikke ble bekreftet borte.
-    $remaining = [System.Collections.Generic.List[string]]::new()
-    $Ids | Where-Object { $_ } | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
-    $end = (Get-Date).AddSeconds($TimeoutSeconds)
-    while ($remaining.Count -and (Get-Date) -lt $end) {
-        foreach ($id in @($remaining)) {
-            if (Get-LiveGroup $id) { Remove-GroupSoft $id | Out-Null; continue }
-            if (Get-DeletedGroup $id) {
-                try { Remove-PnPDeletedMicrosoft365Group -Identity $id -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPDeletedMicrosoft365Group ($id): $(Get-ErrorText $_)" }
-                continue
-            }
-            $remaining.Remove($id) | Out-Null
-            Write-Host ("[{0:HH:mm:ss}] [OK]     gruppe {1} er slettet permanent" -f (Get-Date), $id)
-        }
-        if ($remaining.Count) {
-            Write-Host ("[{0:HH:mm:ss}] [WAIT]   venter på at {1} gruppe(r) forsvinner" -f (Get-Date), $remaining.Count)
-            Start-Sleep -Seconds 10
-        }
-    }
-    return , @($remaining)
-}
-
 function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
     # Gruppeområder slettes ikke pålitelig av SharePoint når gruppen slettes like etter at den ble
     # opprettet: områdene ble stående aktive i 15+ min med GroupId til en gruppe som ikke finnes.
@@ -321,12 +342,13 @@ function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
     }
     $end = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($remaining.Count -and (Get-Date) -lt $end) {
+        Repair-AdminConnection
         foreach ($u in @($remaining)) {
             $live = Get-LiveSite $u
             if ($live) {
                 $gid = if ($live.GroupId -and $live.GroupId.Guid -ne [guid]::Empty.Guid) { $live.GroupId.Guid } else { $null }
                 if ($gid -and (Get-LiveGroup $gid)) {
-                    try { Remove-PnPMicrosoft365Group -Identity $gid -Connection $admin | Out-Null } catch { & $note $u "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
+                    if (-not (Remove-GroupSoft $gid)) { & $note $u "Sletting av gruppe $gid feilet" }
                 }
                 else {
                     # Uten gruppe, eller gruppen er slettet: slett området selv (til papirkurven)
@@ -360,15 +382,13 @@ if ($CleanupOnly) {
     $ids = [System.Collections.Generic.List[string]]::new()
     try {
         $q = "v1.0/groups?`$filter=startswith(mailNickname,'$Alias')&`$select=id,mailNickname,description&`$top=999"
-        (Invoke-PnPGraphMethod -Url $q -Method Get -Connection $admin).value |
+        (Invoke-Graph Get $q).value |
             Where-Object { $_.mailNickname -match $pattern -and $_.description -eq $marker } |
             ForEach-Object { $ids.Add($_.id); Log "Aktiv gruppe: $($_.mailNickname) ($($_.id))" }
     } catch { Log "Kunne ikke lese grupper: $(Get-ErrorText $_)" 'WARN' }
-    try {
-        Get-PnPDeletedMicrosoft365Group -Connection $admin |
-            Where-Object { $_.MailNickname -match $pattern -and $_.Description -eq $marker } |
-            ForEach-Object { if (-not $ids.Contains($_.Id)) { $ids.Add($_.Id) }; Log "Slettet gruppe: $($_.MailNickname) ($($_.Id))" }
-    } catch { Log "Kunne ikke lese slettede grupper: $(Get-ErrorText $_)" 'WARN' }
+    Get-DeletedGroups |
+        Where-Object { $_.mailNickname -match $pattern -and $_.description -eq $marker } |
+        ForEach-Object { if (-not $ids.Contains($_.id)) { $ids.Add($_.id) }; Log "Slettet gruppe: $($_.mailNickname) ($($_.id))" }
 
     if ($ids.Count) {
         Log "Sletter $($ids.Count) gruppe(r) permanent"
@@ -376,6 +396,7 @@ if ($CleanupOnly) {
         foreach ($id in $leftGroups) { Log "Gruppe $id ble ikke bekreftet slettet permanent" 'ERR' }
     }
 
+    Repair-AdminConnection
     # Områder: bare nøyaktig <alias> eller <alias>-xxxxx, og aldri et område med en annens aktive gruppe
     $urls = [System.Collections.Generic.List[string]]::new()
     $matchUrl = { param($u) (($u.TrimEnd('/') -split '/')[-1]) -match $pattern }
@@ -405,7 +426,7 @@ if ($CleanupOnly) {
 # Forberedelser
 # ---------------------------------------------------------------------------
 Write-Section 'Forberedelser'
-$ownerId = (Invoke-PnPGraphMethod -Url ('v1.0/users/' + [uri]::EscapeDataString($Owner) + '?$select=id') -Method Get -Connection $admin).id
+$ownerId = (Invoke-Graph Get ('v1.0/users/' + [uri]::EscapeDataString($Owner) + '?$select=id')).id
 if (-not $ownerId) { throw "Fant ikke brukeren $Owner." }
 Log "Eier        : $Owner ($ownerId)"
 Log "Bestilt LCID: $Lcid"
@@ -434,6 +455,7 @@ $urlReleaseSeconds = [System.Collections.Generic.List[int]]::new()
 
 for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $deadline; $round++) {
     Write-Section "Runde $round av $MaxRounds"
+    Repair-AdminConnection
 
     if ($RetrySameAlias -and $round -gt 1) {
         # Den slettede gruppens område holder URL-en til SharePoint har flyttet det til papirkurven
@@ -442,7 +464,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
         $releaseStart = Get-Date
         # En myk-slettet gruppe holder på aliaset, så den må tømmes fra Entra-papirkurven først
         $prev = $candidates | Where-Object { $_.Alias -eq $Alias -and $_.GroupId } | Select-Object -Last 1
-        if ($prev -and -not (Remove-GroupPermanently $prev.GroupId)) { Log "Gruppen $($prev.GroupId) ble ikke slettet permanent. Avbryter." 'ERR'; break }
+        if ($prev -and (Remove-GroupsPermanently @($prev.GroupId)).Count) { Log "Gruppen $($prev.GroupId) ble ikke slettet permanent. Avbryter." 'ERR'; break }
         $deletedGroups.Remove($prev.GroupId) | Out-Null
         $left = Remove-SitesPermanently @($plainUrl) ($UrlReleaseTimeoutMinutes * 60)
         if ($left.Count -or (Test-AliasInUse $Alias)) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min. Avbryter." 'ERR'; break }
@@ -477,7 +499,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
             'owners@odata.bind' = @("https://graph.microsoft.com/v1.0/users/$ownerId")
         }
         try {
-            $g = Invoke-PnPGraphMethod -Url 'v1.0/groups' -Method Post -Content $body -Connection $admin
+            $g = Invoke-Graph Post 'v1.0/groups' $body
             $c.GroupId = $g.id
             $c.Created = Get-Date
             Log "Opprettet gruppe $($c.Alias) ($($g.id))"
@@ -545,6 +567,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
 # Opprydding
 # ---------------------------------------------------------------------------
 Write-Section 'Opprydding'
+Repair-AdminConnection
 if ($winner -and -not $KeepWinner) {
     Log "Sletter treffet $($winner.SiteUrl) også (bruk -KeepWinner for å beholde det)"
     Remove-Candidates @($winner)
