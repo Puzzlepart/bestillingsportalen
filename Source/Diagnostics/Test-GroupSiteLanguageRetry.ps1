@@ -123,8 +123,19 @@ if ($useMi) {
     $admin = Connect-PnPOnline -Url $AdminUrl -ManagedIdentity -ReturnConnection
 }
 else {
-    $admin = Connect-PnPOnline -Url $AdminUrl -ClientId $ClientId -Interactive -ReturnConnection
-    $me = Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $admin) -Property CurrentUser -Connection $admin
+    # Gjenbruk en tilkobling til samme admin-URL hvis sesjonen har en (fra Connect-PnPOnline eller
+    # en tidligere kjøring). Ellers logg inn med -PersistLogin, så PnP husker innloggingen også
+    # mellom sesjoner. Fjern den lagrede innloggingen med Disconnect-PnPOnline -ClearPersistedLogin.
+    $admin = $null
+    try { $admin = Get-PnPConnection -ErrorAction SilentlyContinue } catch { }
+    if ($admin -and $admin.Url.TrimEnd('/') -ieq $AdminUrl) {
+        Log 'Bruker eksisterende PnP-tilkobling'
+    }
+    else {
+        Connect-PnPOnline -Url $AdminUrl -ClientId $ClientId -Interactive -PersistLogin
+        $admin = Get-PnPConnection
+    }
+    $me =Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $admin) -Property CurrentUser -Connection $admin
     $operatorUpn = ($me.LoginName -split '\|')[-1]
     Log "Innlogget som $operatorUpn"
     if (-not $Owner) { $Owner = $operatorUpn }
