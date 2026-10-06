@@ -3,7 +3,7 @@
 Engangsskript for å måle eller verifisere oppførsel i en konkret tenant. De er
 **ikke** en del av installasjonen: `deploy.ps1` laster kun opp runbookene som er
 navngitt i `DeployLocalRunbooks` (`ConfigureSpace`, `GetSiteTemplates`,
-`AddGuestToSite`) pluss `CustomerSpecific`, så ingenting i denne mappen deployes
+`AddGuestToSite`, `CreateGroupWithLanguage`) pluss `CustomerSpecific`, så ingenting i denne mappen deployes
 automatisk.
 
 Importer dem manuelt i Automation-kontoen når du trenger dem, og slett dem etterpå.

@@ -57,7 +57,7 @@ Bruk oppgraderingsmodus når du vil:
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
-   - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
+   - De repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`, `CreateGroupWithLanguage`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
    - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
    - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (organisasjonens eget innhold — tilpasninger legges der)
 
