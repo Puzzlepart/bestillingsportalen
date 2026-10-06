@@ -327,6 +327,7 @@ export const FullscreenDrawer: FC<IFullscreenDrawerProps> = (props) => {
           theme={customLightTheme}
           className={mergeClasses(
             styles.fullscreenProvider,
+            context.props.isTeamsContext && styles.fullscreenProviderTeams,
             context.props.isTeamsContext ? 'teams-mode' : 'sp-mode'
           )}>
           {content}
