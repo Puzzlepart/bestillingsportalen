@@ -2,6 +2,7 @@ import {
   Button,
   FluentProvider,
   IdPrefixProvider,
+  mergeClasses,
   Menu,
   MenuButtonProps,
   MenuItem,
@@ -97,7 +98,11 @@ export const ProjectProvision: FC<IProjectProvisionProps> = (props) => {
       <IdPrefixProvider value={fluentProviderId}>
         <FluentProvider
           theme={customLightTheme}
-          className={props.renderMode === 'inline' ? styles.containerInline : styles.container}>
+          className={
+            props.renderMode === 'inline'
+              ? mergeClasses(styles.containerInline, props.isTeamsContext && styles.containerTeams)
+              : styles.container
+          }>
           {props.isTeamsContext &&
             props.provisionInstances?.length > 1 &&
             props.onSwitchInstance && (
