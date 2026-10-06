@@ -54,16 +54,17 @@ $runbookUrl = "$accountUrl/runbooks/$RunbookName"
 Write-Host "Automation-konto: $AutomationAccountName ($ResourceGroupName, $($ctx.Subscription.Name))" -ForegroundColor Cyan
 Write-Host "Runbook        : $RunbookName" -ForegroundColor Cyan
 
-function Get-ArmHeaders([string] $ContentType = 'application/json') {
-    # Az.Accounts 5.x returnerer tokenet som SecureString
+function Get-ArmHeaders {
+    # Az.Accounts 5.x returnerer tokenet som SecureString. Content-Type settes med -ContentType:
+    # i -Headers overstyres den til application/octet-stream når body er bytes.
     $t = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/' -AsSecureString).Token
     $plain = [System.Net.NetworkCredential]::new('', $t).Password
-    return @{ Authorization = "Bearer $plain"; 'Content-Type' = $ContentType }
+    return @{ Authorization = "Bearer $plain" }
 }
 function Invoke-Arm([string] $Method, [string] $Url, $Body, [string] $ContentType = 'application/json', [int] $MaxAttempts = 4) {
     # ARM svarer av og til GatewayTimeout når Automation er treg. Kallene her er idempotente,
     # så forbigående feil (408, 429, 5xx) prøves på nytt.
-    $req = @{ Method = $Method; Uri = $Url; Headers = (Get-ArmHeaders $ContentType) }
+    $req = @{ Method = $Method; Uri = $Url; Headers = (Get-ArmHeaders); ContentType = "$ContentType; charset=utf-8" }
     if ($null -ne $Body) {
         $req.Body = if ($Body -is [string]) { [Text.Encoding]::UTF8.GetBytes($Body) } else { [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 6)) }
     }
@@ -74,7 +75,7 @@ function Invoke-Arm([string] $Method, [string] $Url, $Body, [string] $ContentTyp
             if ($i -ge $MaxAttempts -or -not ($code -in 408, 429 -or $code -ge 500)) { throw }
             Write-Host "  $Method feilet med $code, prøver igjen om $(10 * $i) s ($i/$MaxAttempts)" -ForegroundColor DarkYellow
             Start-Sleep -Seconds (10 * $i)
-            $req.Headers = Get-ArmHeaders $ContentType
+            $req.Headers = Get-ArmHeaders
         }
     }
 }
@@ -124,19 +125,13 @@ if (-not $SkipUpload) {
 # ---------------------------------------------------------------------------
 # Start jobben
 # ---------------------------------------------------------------------------
-# Jobbparametre sendes som tekst. Brytere og bool som 'true'/'false'.
-$jobParams = @{}
-foreach ($k in $Parameters.Keys) {
-    $v = $Parameters[$k]
-    $jobParams[$k] = if ($v -is [bool] -or $v -is [switch]) { ([bool] $v).ToString().ToLowerInvariant() } else { "$v" }
-}
-$jobId = [guid]::NewGuid().ToString()
-$jobUrl = "$accountUrl/jobs/$jobId"
-Invoke-Arm Put "$jobUrl`?$jobApi" @{ properties = @{ runbook = @{ name = $RunbookName }; parameters = $jobParams } } | Out-Null
-Write-Host "Jobb startet: $jobId" -ForegroundColor Green
+$job = Start-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName `
+    -Name $RunbookName -Parameters $Parameters
+$jobUrl = "$accountUrl/jobs/$($job.JobId)"
+Write-Host "Jobb startet: $($job.JobId)" -ForegroundColor Green
 
 if ($NoWait) {
-    Write-Host "Følg jobben i portalen: Automation-kontoen > Jobs > $jobId"
+    Write-Host "Følg jobben i portalen: Automation-kontoen > Jobs > $($job.JobId)"
     return
 }
 
@@ -145,19 +140,17 @@ if ($NoWait) {
 # ---------------------------------------------------------------------------
 $end = (Get-Date).AddMinutes($TimeoutMinutes)
 $status = $null
-$job = $null
 while ((Get-Date) -lt $end) {
-    $job = Invoke-Arm Get "$jobUrl`?$jobApi"
-    if ($job.properties.status -ne $status) { $status = $job.properties.status; Write-Host ("[{0:HH:mm:ss}] Status: {1}" -f (Get-Date), $status) }
+    $job = Get-AzAutomationJob -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Id $job.JobId
+    if ($job.Status -ne $status) { $status = $job.Status; Write-Host ("[{0:HH:mm:ss}] Status: {1}" -f (Get-Date), $status) }
     if ($status -in @('Completed', 'Failed', 'Stopped', 'Suspended')) { break }
     Start-Sleep -Seconds 10
 }
-
 Write-Host ''
 Write-Host '=== Output ===' -ForegroundColor Cyan
 Invoke-RestMethod -Method Get -Uri "$jobUrl/output?$jobApi" -Headers (Get-ArmHeaders)
 
 if ($status -ne 'Completed') {
-    if ($job.properties.exception) { Write-Host "Feil: $($job.properties.exception)" -ForegroundColor Red }
+    if ($job.Exception) { Write-Host "Feil: $($job.Exception)" -ForegroundColor Red }
     Write-Host "Jobben endte med status '$status'. Se Error-strømmen i portalen for detaljer." -ForegroundColor Red
 }
