@@ -218,11 +218,29 @@ function Invoke-GroupSiteDelete([string] $Url) {
         -ContentType 'application/json;odata=nometadata' -Connection (Connect-Site $Url) | Out-Null
 }
 
+function Get-AdminContext {
+    # CSOM-konteksten til admin-tilkoblingen. Den var tom (null) i runbook med managed identity,
+    # så hent den via Get-PnPContext, og koble til på nytt som siste utvei.
+    $ctx = $null
+    try { $ctx = Get-PnPContext -Connection $admin } catch { }
+    if (-not $ctx) { $ctx = $admin.Context }
+    if (-not $ctx) {
+        if (-not $script:csomConnection) {
+            $script:csomConnection = if ($useMi) { Connect-PnPOnline -Url $AdminUrl -ManagedIdentity -ReturnConnection }
+            else { Connect-PnPOnline -Url $AdminUrl -Interactive -Connection $admin -ReturnConnection }
+        }
+        try { $ctx = Get-PnPContext -Connection $script:csomConnection } catch { }
+        if (-not $ctx) { $ctx = $script:csomConnection.Context }
+    }
+    if (-not $ctx) { throw 'Fant ingen CSOM-kontekst for admin-tilkoblingen.' }
+    return $ctx
+}
+
 function Remove-OrphanedGroupSite([string] $Url) {
     # Admin-API-et nekter å slette et område med GroupId («Dette området tilhører en Microsoft
     # 365-gruppe»), også når gruppen er slettet. Fjern koblingen først, slett deretter området.
     # ClearGroupId krever at gruppen er slettet permanent, ikke bare ligger i papirkurven.
-    $ctx = $admin.Context
+    $ctx = Get-AdminContext
     $tenant = [Microsoft.Online.SharePoint.TenantAdministration.Tenant]::new($ctx)
     $props = $tenant.GetSitePropertiesByUrl($Url, $false)
     $ctx.Load($props)
@@ -235,27 +253,34 @@ function Remove-OrphanedGroupSite([string] $Url) {
     Remove-PnPTenantSite -Url $Url -Force -Connection $admin | Out-Null
 }
 
-function Remove-Candidate($Candidate) {
-    # Slett område og gruppe med en gang. Prøver i rekkefølge, og lagrer hva som virket:
-    #   1. GroupSiteManager/Delete (område + gruppe samlet)
-    #   2. Slett gruppen permanent via Graph (tar noen sekunder), fjern GroupId fra området og
-    #      slett det via admin-API-et
-    try {
-        Invoke-GroupSiteDelete $Candidate.SiteUrl
-        $Candidate.SiteDelete = 'GroupSiteManager'
-        # Sikre at gruppen også er borte, i tilfelle SharePoint bare slettet området
-        if (Get-LiveGroup $Candidate.GroupId) { return Remove-GroupSoft $Candidate.GroupId }
-        return $true
+function Remove-Candidates($List) {
+    # Slett område og gruppe for alle kandidatene med en gang, og lagre hva som virket i SiteDelete:
+    #   1. GroupSiteManager/Delete (område + gruppe samlet). Bare delegert: app-only gir 403 fra
+    #      katalogtjenesten, så det hoppes over med managed identity.
+    #   2. Slett gruppene permanent via Graph, alle samtidig (tar noen sekunder), fjern GroupId fra
+    #      områdene og slett dem via admin-API-et.
+    $List = @($List | Where-Object GroupId)
+    $rest = [System.Collections.Generic.List[object]]::new()
+    foreach ($c in $List) {
+        if ($useMi) { $c.SiteDelete = 'GroupSiteManager hoppet over (app-only)'; $rest.Add($c); continue }
+        try {
+            Invoke-GroupSiteDelete $c.SiteUrl
+            $c.SiteDelete = 'OK: GroupSiteManager'
+            if (Get-LiveGroup $c.GroupId) { Remove-GroupSoft $c.GroupId | Out-Null }
+        }
+        catch { $c.SiteDelete = "GroupSiteManager: $(Get-ErrorText $_)"; $rest.Add($c) }
     }
-    catch { $gsmError = Get-ErrorText $_ }
+    if (-not $rest.Count) { return }
 
-    $groupOk = -not (Remove-GroupsPermanently @($Candidate.GroupId) 120).Count
-    try {
-        Remove-OrphanedGroupSite $Candidate.SiteUrl
-        $Candidate.SiteDelete = "ClearGroupId (GroupSiteManager: $gsmError)"
+    $notPurged = Remove-GroupsPermanently @($rest | ForEach-Object GroupId) 180
+    foreach ($c in $rest) {
+        if ($notPurged -contains $c.GroupId) { $c.SiteDelete = "FEILET: gruppen ble ikke slettet permanent | $($c.SiteDelete)"; continue }
+        try {
+            Remove-OrphanedGroupSite $c.SiteUrl
+            $c.SiteDelete = "OK: ClearGroupId | $($c.SiteDelete)"
+        }
+        catch { $c.SiteDelete = "FEILET: ClearGroupId: $(Get-ErrorText $_) | $($c.SiteDelete)" }
     }
-    catch { $Candidate.SiteDelete = "FEILET: GroupSiteManager: $gsmError | ClearGroupId: $(Get-ErrorText $_)" }
-    return $groupOk
 }
 
 function Remove-GroupsPermanently([string[]] $Ids, [int] $TimeoutSeconds = 300) {
@@ -504,11 +529,15 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
     if ($winner) { Log "Treff: $($winner.SiteUrl)" 'OK' }
 
     # Slett alt annet i runden, uten å vente
-    foreach ($c in ($batch | Where-Object { $_ -ne $winner -and $_.GroupId })) {
-        $ok = Remove-Candidate $c
-        Log "Slettet $($c.Alias): gruppe $(if ($ok) { 'OK' } else { 'FEILET' }), område $($c.SiteDelete)" $(if ($ok -and $c.SiteDelete -eq 'OK') { 'INFO' } else { 'WARN' })
-        $deletedGroups.Add($c.GroupId)
-        $sitesToPurge.Add($c.SiteUrl)
+    $losers = @($batch | Where-Object { $_ -ne $winner -and $_.GroupId })
+    if ($losers) {
+        Log "Sletter $($losers.Count) bom"
+        Remove-Candidates $losers
+        foreach ($c in $losers) {
+            Log "  $($c.Alias): $($c.SiteDelete)" $(if ($c.SiteDelete -like 'OK*') { 'INFO' } else { 'WARN' })
+            $deletedGroups.Add($c.GroupId)
+            $sitesToPurge.Add($c.SiteUrl)
+        }
     }
 }
 
@@ -518,8 +547,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
 Write-Section 'Opprydding'
 if ($winner -and -not $KeepWinner) {
     Log "Sletter treffet $($winner.SiteUrl) også (bruk -KeepWinner for å beholde det)"
-    $ok = Remove-Candidate $winner
-    Log "  Gruppe $(if ($ok) { 'OK' } else { 'FEILET' }), område $($winner.SiteDelete)"
+    Remove-Candidates @($winner)
+    Log "  $($winner.SiteDelete)" $(if ($winner.SiteDelete -like 'OK*') { 'INFO' } else { 'WARN' })
     $deletedGroups.Add($winner.GroupId)
     $sitesToPurge.Add($winner.SiteUrl)
 }
