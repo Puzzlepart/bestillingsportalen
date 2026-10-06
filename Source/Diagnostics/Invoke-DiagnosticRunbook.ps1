@@ -60,12 +60,23 @@ function Get-ArmHeaders([string] $ContentType = 'application/json') {
     $plain = [System.Net.NetworkCredential]::new('', $t).Password
     return @{ Authorization = "Bearer $plain"; 'Content-Type' = $ContentType }
 }
-function Invoke-Arm([string] $Method, [string] $Url, $Body, [string] $ContentType = 'application/json') {
+function Invoke-Arm([string] $Method, [string] $Url, $Body, [string] $ContentType = 'application/json', [int] $MaxAttempts = 4) {
+    # ARM svarer av og til GatewayTimeout når Automation er treg. Kallene her er idempotente,
+    # så forbigående feil (408, 429, 5xx) prøves på nytt.
     $req = @{ Method = $Method; Uri = $Url; Headers = (Get-ArmHeaders $ContentType) }
     if ($null -ne $Body) {
         $req.Body = if ($Body -is [string]) { [Text.Encoding]::UTF8.GetBytes($Body) } else { [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 6)) }
     }
-    return Invoke-RestMethod @req
+    for ($i = 1; ; $i++) {
+        try { return Invoke-RestMethod @req }
+        catch {
+            $code = [int] $_.Exception.Response.StatusCode
+            if ($i -ge $MaxAttempts -or -not ($code -in 408, 429 -or $code -ge 500)) { throw }
+            Write-Host "  $Method feilet med $code, prøver igjen om $(10 * $i) s ($i/$MaxAttempts)" -ForegroundColor DarkYellow
+            Start-Sleep -Seconds (10 * $i)
+            $req.Headers = Get-ArmHeaders $ContentType
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -83,8 +94,19 @@ if (-not $SkipUpload) {
         } | Out-Null
     }
 
-    Write-Host 'Laster opp innhold og publiserer' -ForegroundColor Yellow
-    Invoke-Arm Put "$runbookUrl/draft/content?$api" ([IO.File]::ReadAllText($ScriptPath)) 'text/powershell' | Out-Null
+    Write-Host 'Laster opp innhold' -ForegroundColor Yellow
+    $content = [IO.File]::ReadAllText($ScriptPath)
+    $norm = { param($t) ("$t" -replace "`r`n", "`n").Trim() }
+    try { Invoke-Arm Put "$runbookUrl/draft/content?$api" $content 'text/powershell' | Out-Null }
+    catch {
+        # Etter en timeout kan opplastingen likevel ha gått gjennom. Sjekk utkastet før vi gir opp.
+        Start-Sleep -Seconds 10
+        $draft = $null
+        try { $draft = Invoke-RestMethod -Method Get -Uri "$runbookUrl/draft/content?$api" -Headers (Get-ArmHeaders) } catch { }
+        if ((& $norm $draft) -ne (& $norm $content)) { throw }
+        Write-Host '  Utkastet har riktig innhold likevel' -ForegroundColor DarkYellow
+    }
+    Write-Host 'Publiserer' -ForegroundColor Yellow
     Invoke-Arm Post "$runbookUrl/publish?$api" $null | Out-Null
 
     # Publisering er asynkron. Vent til runbooken er publisert før jobben startes.
