@@ -23,8 +23,11 @@
 #   -BatchSize N                  N forsøk samtidig per runde: aliaset + N-1 med suffiks. Første
 #                                 treff beholdes (aliaset uten suffiks foretrekkes), resten slettes.
 #
-# Alt skriptet oppretter, slettes permanent (gruppe og område) når det er ferdig, unntatt et treff
-# med -KeepWinner. Skriptet sletter aldri noe det ikke selv har opprettet.
+# Bom slettes med en gang, uten å vente: gruppen havner i Entra-papirkurven (30 dager) og området
+# i SharePoint-papirkurven (93 dager). Med suffiks på aliaset sperrer de ingenting. Bare med
+# -RetrySameAlias må gruppen slettes permanent og URL-en frigjøres før neste forsøk. Treffet slettes
+# også til slutt, unntatt med -KeepWinner. -PurgeDeleted tømmer papirkurvene for det skriptet har
+# slettet. Skriptet sletter aldri noe det ikke selv har opprettet.
 #
 # Kjøring:
 #   Runbook (som i produksjon): importer som PowerShell 7.4-runbook i runtime environmentet
@@ -55,6 +58,8 @@ Param(
     [Parameter(Mandatory = $false)] [int]    $CleanupTimeoutMinutes = 20,
     [Parameter(Mandatory = $false)] [switch] $RetrySameAlias,
     [Parameter(Mandatory = $false)] [switch] $KeepWinner,
+    # Tøm slettede grupper og områder fra papirkurvene til slutt (venter ca. 10 min på områdene)
+    [Parameter(Mandatory = $false)] [switch] $PurgeDeleted,
     # Tving managed identity. Ellers oppdages Azure Automation automatisk.
     [Parameter(Mandatory = $false)] [switch] $ManagedIdentity,
     [Parameter(Mandatory = $false)] [string] $ClientId = 'da6c31a6-b557-4ac3-9994-7315da06ea3a'
@@ -180,6 +185,12 @@ function Remove-GroupPermanently([string] $Id, [int] $TimeoutSeconds = 300) {
     }
 }
 
+function Remove-GroupSoft([string] $Id) {
+    # Myk sletting: ett kall, ingen venting. Området følger etter asynkront.
+    try { Remove-PnPMicrosoft365Group -Identity $Id -Connection $admin | Out-Null; return $true }
+    catch { Write-Warning "Remove-PnPMicrosoft365Group ($Id): $(Get-ErrorText $_)"; return $false }
+}
+
 function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
     # Gruppeområder forsvinner asynkront etter at gruppen er slettet (observert ca. 10 min) og
     # tømmes da fra papirkurven. Alle URL-er polles samtidig. Returnerer URL-ene som ikke ble borte.
@@ -241,6 +252,7 @@ Log "Alias '$Alias' er ledig." 'OK'
 # ---------------------------------------------------------------------------
 $candidates = [System.Collections.Generic.List[object]]::new()
 $sitesToPurge = [System.Collections.Generic.List[string]]::new()
+$deletedGroups = [System.Collections.Generic.List[string]]::new()
 $winner = $null
 $urlReleaseSeconds = [System.Collections.Generic.List[int]]::new()
 
@@ -252,6 +264,10 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
         $plainUrl = Get-SiteUrl $Alias
         Log "Venter på at $plainUrl og aliaset frigjøres"
         $releaseStart = Get-Date
+        # En myk-slettet gruppe holder på aliaset, så den må tømmes fra Entra-papirkurven først
+        $prev = $candidates | Where-Object { $_.Alias -eq $Alias -and $_.GroupId } | Select-Object -Last 1
+        if ($prev -and -not (Remove-GroupPermanently $prev.GroupId)) { Log "Gruppen $($prev.GroupId) ble ikke slettet permanent. Avbryter." 'ERR'; break }
+        $deletedGroups.Remove($prev.GroupId) | Out-Null
         $left = Remove-SitesPermanently @($plainUrl) ($UrlReleaseTimeoutMinutes * 60)
         if ($left.Count -or (Test-AliasInUse $Alias)) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min. Avbryter." 'ERR'; break }
         $secs = [int] ((Get-Date) - $releaseStart).TotalSeconds
@@ -336,10 +352,10 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
     if (-not $winner) { $winner = $hits | Select-Object -First 1 }
     if ($winner) { Log "Treff: $($winner.SiteUrl)" 'OK' }
 
-    # Slett alt annet i runden. Gruppen slettes permanent nå (frigjør aliaset), områdene ryddes til slutt.
+    # Slett alt annet i runden, uten å vente
     foreach ($c in ($batch | Where-Object { $_ -ne $winner -and $_.GroupId })) {
-        Log "Sletter $($c.Alias)"
-        if (-not (Remove-GroupPermanently $c.GroupId)) { Log "  Gruppen $($c.GroupId) ble ikke bekreftet slettet." 'ERR' }
+        if (Remove-GroupSoft $c.GroupId) { Log "Slettet $($c.Alias)" } else { Log "Kunne ikke slette $($c.Alias) ($($c.GroupId))" 'ERR' }
+        $deletedGroups.Add($c.GroupId)
         $sitesToPurge.Add($c.SiteUrl)
     }
 }
@@ -350,11 +366,20 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner -and (Get-Date) -lt $de
 Write-Section 'Opprydding'
 if ($winner -and -not $KeepWinner) {
     Log "Sletter treffet $($winner.SiteUrl) også (bruk -KeepWinner for å beholde det)"
-    Remove-GroupPermanently $winner.GroupId | Out-Null
+    Remove-GroupSoft $winner.GroupId | Out-Null
+    $deletedGroups.Add($winner.GroupId)
     $sitesToPurge.Add($winner.SiteUrl)
 }
 $leftovers = @()
-if ($sitesToPurge.Count) {
+if (-not $PurgeDeleted) {
+    Log "$($deletedGroups.Count) gruppe(r) er slettet og ligger i papirkurvene (grupper 30 dager, områder 93 dager). Bruk -PurgeDeleted for å tømme dem."
+}
+else {
+    foreach ($id in ($deletedGroups | Select-Object -Unique)) {
+        if (-not (Remove-GroupPermanently $id)) { Log "Gruppen $id ble ikke bekreftet slettet permanent." 'ERR' }
+    }
+}
+if ($PurgeDeleted -and $sitesToPurge.Count) {
     Log "Venter på at $($sitesToPurge.Count) område(r) forsvinner og tømmer dem fra papirkurven (opptil $CleanupTimeoutMinutes min)"
     $leftovers = Remove-SitesPermanently $sitesToPurge.ToArray() ($CleanupTimeoutMinutes * 60)
 }
@@ -380,7 +405,7 @@ if ($readyTimes.Count) {
 if ($urlReleaseSeconds.Count) {
     Write-Output "URL sperret etter sletting: $(($urlReleaseSeconds | ForEach-Object { "$_ s" }) -join ', ')."
 }
-Write-Output "Total tid: $elapsed min. Ikke ryddet: $($leftovers.Count)."
+Write-Output "Total tid: $elapsed min.$(if ($PurgeDeleted) { " Ikke ryddet: $($leftovers.Count)." })"
 Write-Output ''
 if ($measured.Count -eq 0) {
     Write-Output 'UAVKLART - ingen områder ble klare til å måles. Se feilene over.'
