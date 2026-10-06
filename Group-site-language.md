@@ -31,7 +31,7 @@ Radene opprettes av installasjonen. Mangler de i en eksisterende installasjon, k
 
 ## Hva skjer når den er på
 
-`ProcessProvisionRequest` kaller runbooken `CreateGroupWithLanguage` i stedet for sin egen `POST /groups`. Runbooken får nøyaktig den samme gruppe-bodyen. Per runde:
+`ProcessProvisionRequest` kaller runbooken `CreateGroupWithLanguage` i stedet for sin egen `POST /groups`. Runbooken får nøyaktig den samme gruppe-bodyen, base64-kodet. Azure Automation tolker parameterverdier som er gyldig JSON før runbooken starter, og runbooken fikk da `@{description=...}` i stedet for JSON. Per runde:
 
 1. Oppretter kandidatene: den første med bestilt alias, resten med `alias-xxxxx` (5 tegn fra en GUID). Kandidatene opprettes uten medlemmer.
 2. Venter til områdene finnes (ca. 20 sekunder) og leser språket via SharePoints admin-API.

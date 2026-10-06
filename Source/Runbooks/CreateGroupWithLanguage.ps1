@@ -8,7 +8,7 @@
 #
 # Called by ProcessProvisionRequest instead of its own POST /groups when the
 # 'EnableGroupLanguageRetry' setting is true. The logic app passes the exact group body it would
-# otherwise have posted. Per round:
+# otherwise have posted, base64 encoded (see the groupBody parameter). Per round:
 #   1. Creates $batchSize groups: the first with the requested alias, the rest with alias-xxxxx
 #      (5 characters from a GUID). Candidates are created without members, so members do not get
 #      a welcome mail from every candidate; members are added to the winner afterwards.
@@ -31,9 +31,11 @@
 [CmdletBinding()]
 Param
 (
-    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody). Untyped on
-    # purpose: Azure Automation turns a parameter value that is valid JSON into an object before the
-    # runbook starts, and a [string] parameter then got '@{description=...}' instead of the JSON.
+    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody), base64
+    # encoded. Azure Automation parses a parameter value that is valid JSON before the runbook
+    # starts, and the runbook then got '@{description=...}' instead of the JSON. Base64 is never
+    # valid JSON, so it arrives untouched like any other plain string. Plain JSON and an already
+    # parsed object are also accepted, for manual runs.
     [Parameter (Mandatory = $true)]
     $groupBody,
     # The requested site URL (SiteURL on the request). Its parent path is used for the candidates.
@@ -57,8 +59,18 @@ $tenantRoot = "https://$($siteUri.Host)"
 $adminUrl = "https://$($siteUri.Host.Split('.')[0])-admin.sharepoint.com"
 $sitesBase = $siteUrl.TrimEnd('/').Substring(0, $siteUrl.TrimEnd('/').LastIndexOf('/'))
 
-# A JSON string or the object Automation already parsed it into, as with $metadata in ConfigureSpace
-$groupBodyJson = if ($groupBody -is [string]) { $groupBody } else { $groupBody | ConvertTo-Json -Depth 10 -Compress }
+if ($groupBody -isnot [string]) {
+    $groupBodyJson = $groupBody | ConvertTo-Json -Depth 10 -Compress
+}
+elseif ($groupBody.TrimStart().StartsWith('{')) {
+    $groupBodyJson = $groupBody
+}
+elseif ($groupBody.TrimStart().StartsWith('@{')) {
+    throw "groupBody arrived as PowerShell object text ($($groupBody.Substring(0, [Math]::Min(40, $groupBody.Length)))...): Azure Automation parsed the JSON before the runbook started. Pass groupBody base64 encoded, as ProcessProvisionRequest does from this version on."
+}
+else {
+    $groupBodyJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($groupBody.Trim()))
+}
 $body = $groupBodyJson | ConvertFrom-Json -AsHashtable
 $alias = [string] $body['mailNickname']
 if (-not $alias) { throw 'groupBody has no mailNickname.' }
