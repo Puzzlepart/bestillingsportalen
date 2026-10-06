@@ -209,16 +209,48 @@ function Remove-GroupSoft([string] $Id) {
     catch { Write-Warning "Remove-PnPMicrosoft365Group ($Id): $(Get-ErrorText $_)"; return $false }
 }
 
+function Invoke-GroupSiteDelete([string] $Url) {
+    # Det SharePoint selv bruker for «Slett område» på gruppeområder (også PnP Framework
+    # SiteCollection.DeleteSiteAsync): sletter område og gruppe samlet.
+    Invoke-PnPSPRestMethod -Method Post -Url "$Url/_api/GroupSiteManager/Delete?siteUrl='$Url'" -Connection (Connect-Site $Url) | Out-Null
+}
+
+function Remove-OrphanedGroupSite([string] $Url) {
+    # Admin-API-et nekter å slette et område med GroupId («Dette området tilhører en Microsoft
+    # 365-gruppe»), også når gruppen er slettet. Fjern koblingen først, slett deretter området.
+    # Brukes bare når gruppen er slettet.
+    $ctx = $admin.Context
+    $tenant = [Microsoft.Online.SharePoint.TenantAdministration.Tenant]::new($ctx)
+    $props = $tenant.GetSitePropertiesByUrl($Url, $false)
+    $ctx.Load($props)
+    $ctx.ExecuteQuery()
+    if ($props.GroupId -ne [guid]::Empty) {
+        $props.ClearGroupId = $true
+        $props.Update() | Out-Null
+        $ctx.ExecuteQuery()
+    }
+    Remove-PnPTenantSite -Url $Url -Force -Connection $admin | Out-Null
+}
+
 function Remove-Candidate($Candidate) {
-    # Slett gruppen, og be SharePoint slette området med en gang i stedet for å vente på at det
-    # skjer asynkront (observert 10+ min). Om SharePoint godtar det rett etter gruppeslettingen,
-    # er ikke dokumentert, så svaret lagres på kandidaten.
+    # Slett område og gruppe med en gang. Prøver i rekkefølge, og lagrer hva som virket:
+    #   1. GroupSiteManager/Delete (område + gruppe samlet)
+    #   2. Slett gruppen via Graph, fjern GroupId fra området og slett det via admin-API-et
+    try {
+        Invoke-GroupSiteDelete $Candidate.SiteUrl
+        $Candidate.SiteDelete = 'GroupSiteManager'
+        # Sikre at gruppen også er borte, i tilfelle SharePoint bare slettet området
+        if (Get-LiveGroup $Candidate.GroupId) { return Remove-GroupSoft $Candidate.GroupId }
+        return $true
+    }
+    catch { $gsmError = Get-ErrorText $_ }
+
     $groupOk = Remove-GroupSoft $Candidate.GroupId
     try {
-        Remove-PnPTenantSite -Url $Candidate.SiteUrl -Force -Connection $admin | Out-Null
-        $Candidate.SiteDelete = 'OK'
+        Remove-OrphanedGroupSite $Candidate.SiteUrl
+        $Candidate.SiteDelete = "ClearGroupId (GroupSiteManager: $gsmError)"
     }
-    catch { $Candidate.SiteDelete = Get-ErrorText $_ }
+    catch { $Candidate.SiteDelete = "FEILET: GroupSiteManager: $gsmError | ClearGroupId: $(Get-ErrorText $_)" }
     return $groupOk
 }
 
@@ -269,7 +301,9 @@ function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
                 }
                 else {
                     # Uten gruppe, eller gruppen er slettet: slett området selv (til papirkurven)
-                    try { Remove-PnPTenantSite -Url $u -Force -Connection $admin | Out-Null } catch { & $note $u "Remove-PnPTenantSite: $(Get-ErrorText $_)" }
+                    try {
+                        if ($gid) { Remove-OrphanedGroupSite $u } else { Remove-PnPTenantSite -Url $u -Force -Connection $admin | Out-Null }
+                    } catch { & $note $u "Sletting av området: $(Get-ErrorText $_)" }
                 }
                 continue
             }
