@@ -222,27 +222,59 @@ function Remove-Candidate($Candidate) {
     return $groupOk
 }
 
+function Remove-GroupsPermanently([string[]] $Ids, [int] $TimeoutSeconds = 300) {
+    # Myk-slett aktive grupper og tøm dem fra Entra-papirkurven. Alle polles samtidig.
+    # Returnerer id-ene som ikke ble bekreftet borte.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $Ids | Where-Object { $_ } | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        foreach ($id in @($remaining)) {
+            if (Get-LiveGroup $id) { Remove-GroupSoft $id | Out-Null; continue }
+            if (Get-DeletedGroup $id) {
+                try { Remove-PnPDeletedMicrosoft365Group -Identity $id -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPDeletedMicrosoft365Group ($id): $(Get-ErrorText $_)" }
+                continue
+            }
+            $remaining.Remove($id) | Out-Null
+            Write-Host ("[{0:HH:mm:ss}] [OK]     gruppe {1} er slettet permanent" -f (Get-Date), $id)
+        }
+        if ($remaining.Count) {
+            Write-Host ("[{0:HH:mm:ss}] [WAIT]   venter på at {1} gruppe(r) forsvinner" -f (Get-Date), $remaining.Count)
+            Start-Sleep -Seconds 10
+        }
+    }
+    return , @($remaining)
+}
+
 function Remove-SitesPermanently([string[]] $Urls, [int] $TimeoutSeconds) {
-    # Gruppeområder forsvinner asynkront etter at gruppen er slettet (observert ca. 10 min) og
-    # tømmes da fra papirkurven. Alle URL-er polles samtidig. Returnerer URL-ene som ikke ble borte.
+    # Gruppeområder slettes ikke pålitelig av SharePoint når gruppen slettes like etter at den ble
+    # opprettet: områdene ble stående aktive i 15+ min med GroupId til en gruppe som ikke finnes.
+    # Er gruppen borte, slettes området derfor eksplisitt, og deretter tømmes papirkurven.
+    # Alle URL-er polles samtidig. Returnerer URL-ene som ikke ble borte.
     $remaining = [System.Collections.Generic.List[string]]::new()
     $Urls | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $lastError = @{}
+    $note = {
+        param($u, $msg)
+        if ($lastError[$u] -ne $msg) { Write-Warning "$u : $msg"; $lastError[$u] = $msg }
+    }
     $end = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($remaining.Count -and (Get-Date) -lt $end) {
         foreach ($u in @($remaining)) {
             $live = Get-LiveSite $u
             if ($live) {
                 $gid = if ($live.GroupId -and $live.GroupId.Guid -ne [guid]::Empty.Guid) { $live.GroupId.Guid } else { $null }
-                if (-not $gid) {
-                    try { Remove-PnPTenantSite -Url $u -Force -SkipRecycleBin -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPTenantSite: $(Get-ErrorText $_)" }
+                if ($gid -and (Get-LiveGroup $gid)) {
+                    try { Remove-PnPMicrosoft365Group -Identity $gid -Connection $admin | Out-Null } catch { & $note $u "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
                 }
-                elseif (Get-LiveGroup $gid) {
-                    try { Remove-PnPMicrosoft365Group -Identity $gid -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPMicrosoft365Group: $(Get-ErrorText $_)" }
+                else {
+                    # Uten gruppe, eller gruppen er slettet: slett området selv (til papirkurven)
+                    try { Remove-PnPTenantSite -Url $u -Force -Connection $admin | Out-Null } catch { & $note $u "Remove-PnPTenantSite: $(Get-ErrorText $_)" }
                 }
                 continue
             }
             if (Get-DeletedSite $u) {
-                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection $admin | Out-Null } catch { Write-Warning "Remove-PnPTenantDeletedSite: $(Get-ErrorText $_)" }
+                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection $admin | Out-Null } catch { & $note $u "Remove-PnPTenantDeletedSite: $(Get-ErrorText $_)" }
                 continue
             }
             $remaining.Remove($u) | Out-Null
@@ -275,8 +307,10 @@ if ($CleanupOnly) {
             ForEach-Object { if (-not $ids.Contains($_.Id)) { $ids.Add($_.Id) }; Log "Slettet gruppe: $($_.MailNickname) ($($_.Id))" }
     } catch { Log "Kunne ikke lese slettede grupper: $(Get-ErrorText $_)" 'WARN' }
 
-    foreach ($id in $ids) {
-        if (Remove-GroupPermanently $id) { Log "Gruppe $id slettet permanent" 'OK' } else { Log "Gruppe $id ble ikke bekreftet slettet" 'ERR' }
+    if ($ids.Count) {
+        Log "Sletter $($ids.Count) gruppe(r) permanent"
+        $leftGroups = Remove-GroupsPermanently $ids.ToArray()
+        foreach ($id in $leftGroups) { Log "Gruppe $id ble ikke bekreftet slettet permanent" 'ERR' }
     }
 
     # Områder: bare nøyaktig <alias> eller <alias>-xxxxx, og aldri et område med en annens aktive gruppe
@@ -456,9 +490,8 @@ if (-not $PurgeDeleted) {
     Log "$($deletedGroups.Count) gruppe(r) er slettet og ligger i papirkurvene (grupper 30 dager, områder 93 dager). Bruk -PurgeDeleted for å tømme dem."
 }
 else {
-    foreach ($id in ($deletedGroups | Select-Object -Unique)) {
-        if (-not (Remove-GroupPermanently $id)) { Log "Gruppen $id ble ikke bekreftet slettet permanent." 'ERR' }
-    }
+    $leftGroups = Remove-GroupsPermanently $deletedGroups.ToArray()
+    foreach ($id in $leftGroups) { Log "Gruppen $id ble ikke bekreftet slettet permanent." 'ERR' }
 }
 if ($PurgeDeleted -and $sitesToPurge.Count) {
     Log "Venter på at $($sitesToPurge.Count) område(r) forsvinner og tømmer dem fra papirkurven (opptil $CleanupTimeoutMinutes min)"
