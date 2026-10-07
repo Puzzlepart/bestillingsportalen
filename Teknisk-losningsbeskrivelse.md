@@ -140,6 +140,10 @@ Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullfør
 - Execution Policy satt til `Unrestricted` under installasjonen.
 - Brannmur/proxy må tillate utgående tilkobling for Azure CLI (`az login`) og PowerShell-modulene mot Azure/Microsoft 365.
 
+### 3.5 Installasjonsmelding
+
+På slutten av hver kjøring sender `deploy.ps1` én installasjonsmelding til Prosjektportalen-teamet, slik at teamet ser hvilke versjoner som er i bruk. Meldingen inneholder adressen til bestillingsområdet, versjon, start- og sluttidspunkt og navnene på parameterne som ble brukt (for eksempel `deploy.ps1 -Upgrade`). Den inneholder ingen brukernavn og ingen parameterverdier. Kjør med `-SkipPingback` for å la være å sende den. Dette er det eneste installasjonen sender ut av tenanten.
+
 ## 4. Tilganger for løsningen i drift
 
 ### 4.1 User-assigned managed identity (Logic Apps)
