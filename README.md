@@ -17,7 +17,7 @@ Bestillingsportalen er en Azure-basert løsning som gir et styrt alternativ til 
 - **Organisasjoner** som vil la ansatte opprette samarbeidsområder selv, men med godkjenning, navnekonvensjoner og standardoppsett – uten å åpne fri gruppeopprettelse i tenanten.
 - **Bestillere** møter løsningen som en app i Teams eller en webdel i SharePoint, og ser status på egne bestillinger i et dashbord.
 - **Godkjennere** behandler bestillinger i en Teams-kanal via Approvals.
-- **Administratorer** installerer løsningen med et PowerShell-skript i egen Azure-subscription og Microsoft 365-tenant, og konfigurerer den gjennom SharePoint-lister. Ingenting kjører utenfor din egen tenant.
+- **Administratorer** installerer løsningen med et PowerShell-skript i egen Azure-subscription og Microsoft 365-tenant, og konfigurerer den gjennom SharePoint-lister. Ingenting kjører utenfor din egen tenant. Installasjonsskriptet sender én installasjonsmelding til Prosjektportalen-teamet med adressen til bestillingsområdet, versjon og tidspunkt, uten brukernavn og parameterverdier; `-SkipPingback` slår den av.
 
 ## Funksjonalitet
 

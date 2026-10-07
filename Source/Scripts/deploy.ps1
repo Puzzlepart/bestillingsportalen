@@ -61,6 +61,11 @@
     delete an active group and its site. Those are irreversible, so -Force aborts with a
     message instead - re-run without it to decide.
 
+.PARAMETER SkipPingback
+    Do not send the deployment pingback to the Prosjektportalen team. The pingback contains
+    the URL of the requests site, the version, the start and end time and the names of the
+    parameters used - no user name and no parameter values.
+
 .EXAMPLE
     deploy.ps1
 
@@ -90,7 +95,8 @@ param
     [switch]$SkipSPFxDeploy,
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
-    [switch]$Upgrade  # See Upgrade.md for details on using upgrade mode
+    [switch]$Upgrade, # See Upgrade.md for details on using upgrade mode
+    [switch]$SkipPingback # Do not send the deployment pingback to the Prosjektportalen team - see the help
 )
 
 # -Force means "do not stop to ask me anything", not "answer yes to everything".
@@ -1584,15 +1590,6 @@ function CheckSpoAdminAccess {
     RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, but the tenant admin API returned: $script:spoAdminAccessError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
 }
 
-# Tenants that enforce "MFA for Azure" refuse management-plane WRITES from a session that
-# authenticated with a password alone - reads work fine, so nothing shows until the first
-# deployment. That lands at azureresources.bicep, after the whole SharePoint part has run:
-# AADSTS50076 from the CLI, or RequestDisallowedByAzure from ARM. Re-running is safe (every
-# step is idempotent), but it is a wasted half-run, so read the claim up front.
-#
-# WARNING and not MISSING on purpose: enforcement depends on the tenant's policy, and a
-# password-only session was seen completing a full deployment earlier the same day. Blocking
-# would stop runs that work.
 # Decodes the payload of a JWT. Callers read single claims out of it - the token itself
 # is never logged.
 function ReadJwtClaims {
@@ -1602,21 +1599,155 @@ function ReadJwtClaims {
     return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload.Replace('-', '+').Replace('_', '/'))) | ConvertFrom-Json
 }
 
-function CheckAzureWriteMfa {
+# Tenants that enforce "MFA for Azure" refuse resource WRITES from a session that
+# authenticated with a password alone. Reads work, and so do deployments that hold only
+# Microsoft.Resources types, so nothing shows until the first real deployment - in -Upgrade
+# that is runbooks.bicep, after the whole SharePoint part has run, and every Azure step after
+# it fails the same way: AADSTS50076, with an 'az login --claims-challenge' command from the
+# CLI. Re-running is safe (every step is idempotent), but it is a wasted half-run.
+#
+# The amr claim alone cannot tell whether the tenant enforces it - a password-only session
+# has completed full deployments in tenants that do not. So ask ARM instead: VALIDATE a
+# template holding one user-assigned managed identity. Validation runs the same MFA check as
+# a real write and creates nothing. It needs a real resource type: an empty template, or one
+# with only Microsoft.Resources/tags, validates fine from a password-only session. Verified
+# against puzzlepart 06.10.2026, where this probe and runbooks.bicep both got the challenge.
+#
+# Result: Allowed, MfaRequired (Challenge = the base64 claims challenge the CLI printed),
+# NoResourceGroup (validation needs one - a fresh install probes again after creating it),
+# or Inconclusive (another validation error, e.g. an unregistered provider, masks the check).
+function TestAzureWriteMfa {
+    $probe = [pscustomobject]@{ Result = 'Inconclusive'; Challenge = $null; Error = $null; SignedInAgain = $false }
+
+    $resourceGroup = $parameters.resourceGroupName.Value.Replace(" ", "")
+    $resourceGroupLocation = az group show --name $resourceGroup --subscription $parameters.subscriptionId.Value --query location --output tsv 2>$null
+    if ([string]::IsNullOrWhiteSpace($resourceGroupLocation)) {
+        $probe.Result = 'NoResourceGroup'
+        return $probe
+    }
+
+    $probeTemplatePath = Join-Path ([System.IO.Path]::GetTempPath()) "bp-mfa-probe.json"
+    @{
+        '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+        contentVersion = '1.0.0.0'
+        resources      = @(@{ type = 'Microsoft.ManagedIdentity/userAssignedIdentities'; apiVersion = '2023-01-31'; name = 'bp-mfa-probe'; location = $resourceGroupLocation })
+    } | ConvertTo-Json -Depth 4 | Set-Content $probeTemplatePath
+
+    # stderr is captured rather than shown: it carries the claims challenge.
+    $output = @(az deployment group validate --resource-group $resourceGroup --subscription $parameters.subscriptionId.Value --name 'bp-mfa-probe' --template-file $probeTemplatePath --output none 2>&1 | ForEach-Object { "$_" }) -join "`n"
+    $exitCode = $LASTEXITCODE
+    Remove-Item $probeTemplatePath -ErrorAction SilentlyContinue
+
+    if ($exitCode -eq 0) {
+        $probe.Result = 'Allowed'
+    }
+    elseif ($output -match '--claims-challenge "([^"]+)"') {
+        $probe.Result = 'MfaRequired'
+        $probe.Challenge = $Matches[1]
+    }
+    elseif ($output -match 'AADSTS50076|AADSTS50079|RequestDisallowedByAzure') {
+        # Older CLI versions print no login command - the error codes still identify it.
+        $probe.Result = 'MfaRequired'
+    }
+    else {
+        $probe.Error = "$($output -split "`n" | Where-Object { $_ -match '^ERROR' } | Select-Object -First 1)".Trim()
+    }
+    return $probe
+}
+
+# The commands that satisfy the tenant's MFA requirement, as the CLI itself prints them -
+# except that the logout names the account, so it is plain which session goes: only that
+# account is signed out, the CLI sessions for other tenants stay. The claims challenge is
+# the essential part: it carries the authentication context the tenant demands (acrs), and a
+# plain 'az login' - even with --scope - just hands back the same password-only token.
+function GetAzureMfaLoginCommands([string]$Challenge, [string]$CliUser) {
+    $logout = if ($CliUser) { "az logout --username $CliUser" } else { "az logout" }
+    return "$logout ; az login --tenant $($parameters.tenantId.Value) --scope https://management.core.windows.net//.default --claims-challenge `"$Challenge`""
+}
+
+# Runs the write probe and, when the tenant demands MFA that the Azure CLI session lacks,
+# offers to sign the CLI in again with the challenge - right after the sign-ins, while it
+# costs nothing, instead of at the first deployment. Throws when that sign-in fails: the
+# account is signed out of the CLI by then, so nothing after it can work.
+function ConfirmAzureWriteMfa {
+    $probe = TestAzureWriteMfa
+    if ($probe.Result -ne 'MfaRequired' -or [string]::IsNullOrEmpty($probe.Challenge)) {
+        return $probe
+    }
+
+    $cliUser = az account show --query user.name --output tsv 2>$null
+    Write-Host "This tenant requires MFA for Azure deployments, and the Azure CLI session ($cliUser) signed in without it - every Azure deployment would be refused." -ForegroundColor Yellow
+    $signInAgain = if ($SkipConfirmation) { 'y' } else { Read-Host "Sign in to the Azure CLI again with MFA? ( y = sign out $cliUser and sign in again / n = skip )" }
+    if ($signInAgain -ne 'y') {
+        return $probe
+    }
+
+    Write-Host "Launching Azure CLI sign-in with MFA..." -ForegroundColor Yellow
+    if ($cliUser) { az logout --username $cliUser 2>$null } else { az logout 2>$null }
+    az login --tenant $parameters.tenantId.Value --scope 'https://management.core.windows.net//.default' --claims-challenge $probe.Challenge --only-show-errors | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "The Azure CLI sign-in with MFA failed or was cancelled, and $cliUser is signed out of the Azure CLI now. Re-run the script to sign in again."
+    }
+    az account set --subscription $parameters.subscriptionId.Value
+
+    $probe = TestAzureWriteMfa
+    $probe.SignedInAgain = $true
+    if ($probe.Result -eq 'Allowed') {
+        Write-Host "Signed in again - the Azure CLI session now satisfies the tenant's MFA requirement." -ForegroundColor Green
+    }
+    return $probe
+}
+
+# The authentication methods (amr claim) of the Azure CLI's ARM token as text, or '' when
+# the token cannot be read. Only the claim is read out of the token, and the token itself is
+# never logged.
+function GetAzureCliAuthMethods {
     try {
         $armToken = az account get-access-token --resource https://management.azure.com --query accessToken --output tsv 2>$null
-        if ([string]::IsNullOrWhiteSpace($armToken)) { throw "no ARM token from the Azure CLI" }
-
-        $methods = @((ReadJwtClaims $armToken).amr)
-
-        if ($methods -contains 'mfa') {
-            RecordPreflightCheck -Name "MFA on the Azure session" -Status OK -Detail "amr: $($methods -join ', ')"
-            return
-        }
-        RecordPreflightCheck -Name "MFA on the Azure session" -Status WARNING -Detail "The Azure CLI session authenticated without MFA (amr: $($methods -join ', ')) - a tenant that enforces MFA for Azure will refuse the deployments" -Fix "If a deployment fails with AADSTS50076 or RequestDisallowedByAzure, the CLI prints an 'az login' command with a --claims-challenge argument: run 'az logout' and then THAT command, verbatim. The challenge carries the Conditional Access authentication context the tenant demands (acrs), and -Scope alone does not satisfy it - a plain re-login just hands back the same password-only token. Note that az logout clears the cached CLI sessions for every tenant on the machine."
+        if ([string]::IsNullOrWhiteSpace($armToken)) { return '' }
+        return (@((ReadJwtClaims $armToken).amr) -join ', ')
     }
     catch {
-        RecordPreflightCheck -Name "MFA on the Azure session" -Status UNKNOWN -Detail "Could not read the Azure CLI token to check for an MFA claim - a deployment failing with AADSTS50076 means it was missing"
+        return ''
+    }
+}
+
+# Reports the result of the write probe taken right after the Azure CLI sign-in. MISSING
+# only when ARM itself refused the probe - without its verdict, a session lacking MFA is a
+# WARNING, since whether that blocks depends on the tenant's policy.
+function CheckAzureWriteMfa {
+    $checkName = "MFA on the Azure session"
+    $probe = $script:azureWriteProbe
+    $authMethods = GetAzureCliAuthMethods
+    $amrText = if ($authMethods) { "amr: $authMethods" } else { "amr unreadable" }
+
+    if ($probe.Result -eq 'Allowed') {
+        $prefix = if ($probe.SignedInAgain) { "Signed in again with MFA - " } else { "" }
+        RecordPreflightCheck -Name $checkName -Status OK -Detail "${prefix}test deployment validated ($amrText)"
+        return
+    }
+
+    if ($probe.Result -eq 'MfaRequired') {
+        $cliUser = az account show --query user.name --output tsv 2>$null
+        $fix = if ($probe.Challenge) {
+            "Sign the Azure CLI in again with the tenant's claims challenge, then re-run: $(GetAzureMfaLoginCommands $probe.Challenge $cliUser)"
+        }
+        else {
+            "Update the Azure CLI (az upgrade) and re-run - it then answers the tenant's MFA challenge with an 'az login --claims-challenge' command the script can run for you"
+        }
+        RecordPreflightCheck -Name $checkName -Status MISSING -Detail "The tenant requires MFA for Azure deployments, and the Azure CLI session signed in without it ($amrText) - every deployment would fail with AADSTS50076" -Fix $fix
+        return
+    }
+
+    $why = if ($probe.Result -eq 'NoResourceGroup') { "the resource group does not exist yet - checked again right after it is created" } else { "the test deployment did not validate: $($probe.Error)" }
+    if (($authMethods -split ', ') -contains 'mfa') {
+        RecordPreflightCheck -Name $checkName -Status OK -Detail "$amrText ($why)"
+    }
+    elseif ($authMethods) {
+        RecordPreflightCheck -Name $checkName -Status WARNING -Detail "The Azure CLI session authenticated without MFA ($amrText) - a tenant that enforces MFA for Azure will refuse the deployments ($why)" -Fix "If a deployment fails with AADSTS50076, the CLI prints an 'az logout' and an 'az login --claims-challenge' command: run both, verbatim, and re-run. A plain 'az login' does not help - it hands back the same password-only token."
+    }
+    else {
+        RecordPreflightCheck -Name $checkName -Status UNKNOWN -Detail "Could not read the Azure CLI token to check for an MFA claim ($why) - a deployment failing with AADSTS50076 means it was missing"
     }
 }
 
@@ -2545,34 +2676,29 @@ function ValidateAzureLocation {
     }
 }
 
-# Sends an anonymous deployment pingback to the shared PP365 install/deploy telemetry function.
-# Mirrors the Prosjektportalen installation pingback. Best-effort only — never fails the deployment.
-# Full deploy vs upgrade is distinguishable from InstallCommand (the invocation line, e.g. "deploy.ps1 -Upgrade").
-# Reads script-scoped $deployVersion / $deployStartTime / $deployInvocationLine / $requestsSiteUrl / $deployUser / $global:appId.
+# Sends a deployment pingback to the shared PP365 install/deploy telemetry function, so the
+# Prosjektportalen team can see which versions are deployed. Best-effort only — never fails the
+# deployment. It leaves the customer's tenant, so it carries no user name and no parameter
+# values: InstallCommand lists only the parameter names (e.g. "deploy.ps1 -Force -Upgrade"),
+# which is enough to tell a full deploy from an upgrade. -SkipPingback turns it off.
+# Reads script-scoped $deployVersion / $deployStartTime / $deployParameterNames / $requestsSiteUrl.
 function SendDeployPingback {
+    if ($SkipPingback) {
+        Write-Host "Skipping deployment pingback (-SkipPingback)." -ForegroundColor Yellow
+        return
+    }
     Write-Host "Sending deployment pingback..." -ForegroundColor Yellow
 
     $deployEndTime = (Get-Date -Format o)
-
-    $deployCommand = if ($null -ne $deployInvocationLine -and $deployInvocationLine.Length -gt 2) {
-        $deployInvocationLine.Substring(2)
-    }
-    else {
-        $deployInvocationLine
-    }
 
     $deployEntry = @{
         Title            = "Bestillingsportalen $deployVersion"
         InstallStartTime = $deployStartTime
         InstallEndTime   = $deployEndTime
         InstallVersion   = $deployVersion
-        InstallCommand   = $deployCommand
+        InstallCommand   = (@("deploy.ps1") + @($deployParameterNames | ForEach-Object { "-$_" })) -join " "
         InstallChannel   = "Bestillingsportalen"  # Product indicator (distinguishes from PP365 in the shared telemetry store)
         InstallUrl       = $requestsSiteUrl
-    }
-
-    if (-not [string]::IsNullOrEmpty($deployUser)) {
-        $deployEntry.InstallUser = $deployUser
     }
 
     try {
@@ -2745,7 +2871,8 @@ Write-Host "###  DEPLOYMENT SCRIPT STARTED ###" -ForegroundColor Magenta
 
 # Capture start metadata for the deployment pingback (sent at the end of the run)
 $deployStartTime = (Get-Date -Format o)
-$deployInvocationLine = $MyInvocation.Line
+# Only the parameter names leave the tenant with the pingback; the values stay here.
+$deployParameterNames = @($PSBoundParameters.Keys | Sort-Object)
 $deployUser = $null
 
 if (-not $SkipVerifyModules) {
@@ -2905,6 +3032,11 @@ Write-Host "Connected to Azure" -ForegroundColor Green
 
 # Change the subscription
 az account set --subscription $parameters.subscriptionId.Value
+
+# Signed in is not the same as allowed to deploy: a tenant that enforces MFA for Azure
+# refuses writes from a password-only session. Probed here, so the fix is one more sign-in
+# now rather than a failed Azure half of the run - see TestAzureWriteMfa.
+$script:azureWriteProbe = ConfirmAzureWriteMfa
 
 # Capture the signed-in user (used for the deployment pingback and for granting the
 # installing user site collection admin). Deliberately AFTER 'az account set': read
@@ -3137,6 +3269,17 @@ if (-not $SkipCreateResourceGroup) {
 else {
     Write-Host "Skipping resource group creation" -ForegroundColor Yellow
     RecordDeployStatus -Component "Resource group" -Status 'SKIPPED'
+}
+
+# The MFA probe validates against the resource group, so on a fresh install it could not
+# run before the pre-flight checklist - run it now, ahead of the first deployment.
+if ($script:azureWriteProbe.Result -eq 'NoResourceGroup') {
+    $script:azureWriteProbe = ConfirmAzureWriteMfa
+    if ($script:azureWriteProbe.Result -eq 'MfaRequired') {
+        $signInHint = if ($script:azureWriteProbe.Challenge) { "Run: $(GetAzureMfaLoginCommands $script:azureWriteProbe.Challenge (az account show --query user.name --output tsv 2>$null))" } else { "Update the Azure CLI (az upgrade) and re-run." }
+        RecordDeployStatus -Component "Azure deployments" -Status 'FAILED' -Detail "The tenant requires MFA for Azure deployments, and the Azure CLI session signed in without it"
+        throw "The tenant requires MFA for Azure deployments, and the Azure CLI session signed in without it. $signInHint - then re-run the script (completed steps are updated idempotently)."
+    }
 }
 
 Write-Host "Deploying Azure resources" -ForegroundColor Yellow

@@ -183,6 +183,8 @@ Neste steg er å kjøre deploy-skriptet.
 
 Skriptet bruker tre verktøy som hver har sin pålogging (Az PowerShell, Azure CLI og PnP PowerShell), men **eksisterende sesjoner gjenbrukes**: finner skriptet en cachet sesjon som matcher tenant/subscription i `parameters.json`, blir du spurt om å gjenbruke den (`y`) i stedet for å logge inn på nytt — ved gjentatte kjøringer slipper du dermed MFA-rundene. Svar `n` for å tvinge frisk innlogging (f.eks. med en annen konto).
 
+En gjenbrukt Azure CLI-sesjon kan være logget inn med bare passord. Tenanter som krever MFA for Azure avviser da alle deployments, mens lesing fortsatt virker. Skriptet sjekker dette rett etter innloggingen ved å validere en test-deployment mot ressursgruppen (ingenting opprettes). Krever tenanten MFA, blir du spurt om å logge inn på nytt (`y`): skriptet logger ut den ene kontoen og åpner en MFA-innlogging med tenantens claims challenge. Svarer du `n`, stopper sjekklisten kjøringen med kommandoene du kan kjøre selv. Ved nyinstallasjon finnes ikke ressursgruppen ennå, så sjekken kjøres rett etter at den er opprettet.
+
 1. Åpne et PowerShell 7-vindu som administrator.
 2. Gå til `Scripts`-mappen.
 3. Kjør deploy-skriptet i PowerShell-vinduet – ```.\deploy.ps1```. Ligger parametrene i en annen fil enn `parameters.json`, angi den med `-ParametersPath`: ```.\deploy.ps1 -ParametersPath .\parameters-contoso.json```. Skriptet må uansett kjøres fra `Scripts`-mappen, og stopper umiddelbart med forslag til hvilke parameterfiler som finnes hvis stien er feil.
@@ -209,6 +211,10 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 - Vises **«DEPLOYMENT COMPLETED SUCCESSFULLY»**: gå videre til neste steg.
 - Vises **«DEPLOYMENT COMPLETED WITH ERRORS»** (exit-kode 1): se hvilke komponenter som feilet i oppsummeringen, rett årsaken og kjør skriptet på nytt. Vær særlig oppmerksom på `App roles`-linjene — feiler disse vil Logic Apps få 401/403 ved kjøring selv om alt annet ser vellykket ut.
+
+### Installasjonsmelding (`-SkipPingback`)
+
+Skriptet sender én installasjonsmelding til Prosjektportalen-teamet på slutten av kjøringen: adressen til bestillingsområdet, versjon, tidspunkt og navnene på parameterne som ble brukt, uten brukernavn eller parameterverdier. Vil dere ikke sende den, kjør med `-SkipPingback`. Se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md#35-installasjonsmelding).
 
 ### Kjøre uten Global Administrator (`-SkipAppRoles`)
 
