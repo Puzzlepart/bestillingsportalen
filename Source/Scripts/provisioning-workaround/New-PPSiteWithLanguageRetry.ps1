@@ -109,6 +109,12 @@ function Get-ErrorText($ErrorRecord) {
     while ($ex.InnerException) { $ex = $ex.InnerException }
     return "$($ex.GetType().Name): $($ex.Message)"
 }
+function Show-Progress([string] $Status, [int] $Percent = -1) {
+    # Fremdriftslinje mens skriptet venter. Bare interaktivt: i Azure Automation blir det støy i jobbloggen.
+    if ($useMi) { return }
+    if ($Status) { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Status $Status -PercentComplete $Percent }
+    else { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Completed }
+}
 function Get-SiteUrl([string] $A) { return "$tenantRoot/$ManagedPath/$A" }
 function New-SuffixAlias { return "$Alias-$(([guid]::NewGuid().ToString('N')).Substring(0, 5))" }
 
@@ -231,6 +237,7 @@ function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
     $script:sitesToPurge.Clear()
     $end = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($remaining.Count -and (Get-Date) -lt $end) {
+        Show-Progress "Tømmer papirkurven ($($remaining.Count) område(r) igjen)"
         Repair-AdminConnection
         foreach ($u in @($remaining)) {
             if (Get-LiveSite $u) { continue }
@@ -291,7 +298,10 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $end = (Get-Date).AddMinutes($UrlReleaseTimeoutMinutes)
         # Bommen fra forrige runde holder på URL-en i papirkurven til den er tømt
         Clear-CandidateRecycleBin ([int] ($end - (Get-Date)).TotalSeconds) | Out-Null
-        while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) { Start-Sleep -Seconds 30 }
+        while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) {
+            Show-Progress "Venter på at $(Get-SiteUrl $Alias) frigjøres ($([int] ($end - (Get-Date)).TotalMinutes) min igjen)"
+            Start-Sleep -Seconds 30
+        }
         if (Test-AliasInUse $Alias) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min." 'ERR'; break }
     }
 
@@ -302,6 +312,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending' }
     }
 
+    Show-Progress "Runde $round/$($MaxRounds): oppretter $($batch.Count) kandidat(er)"
+    $roundStart = Get-Date
     foreach ($c in $batch) {
         $body = @{
             description         = $Description
@@ -325,7 +337,10 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     if (-not ($batch | Where-Object GroupId)) { Log "Ingen kandidater ble opprettet i runde $round. Avbryter." 'ERR'; break }
 
     $waitEnd = (Get-Date).AddMinutes($SiteReadyTimeoutMinutes)
+    $created = @($batch | Where-Object GroupId).Count
     while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending')) {
+        $ready = @($batch | Where-Object { $_.Outcome -in 'Hit', 'Miss' }).Count
+        Show-Progress "Runde $round/$($MaxRounds): venter på områdene ($ready av $created klare, $([int] ((Get-Date) - $roundStart).TotalSeconds) s)" ([int] (100 * $ready / $created))
         Start-Sleep -Seconds 10
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
             $s = Get-LiveSite $c.SiteUrl
@@ -344,6 +359,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     $losers = @($batch | Where-Object { $_ -ne $winner -and $_.GroupId })
     $errs = @()
     if ($losers) {
+        Show-Progress "Runde $round/$($MaxRounds): sletter $($losers.Count) kandidat(er)"
         $errs = Remove-Candidates $losers
         $cleanupErrors += $errs
     }
@@ -363,6 +379,7 @@ if ($purgeCount) {
     Log "Tømte $(if ($notPurged) { "$($purgeCount - $notPurged.Count) av " })$purgeCount område(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
     $cleanupErrors += @($notPurged | ForEach-Object { "$($_): ikke tømt fra papirkurven" })
 }
+Show-Progress
 foreach ($e in $cleanupErrors) { Log "Ikke ryddet: $e" 'WARN' }
 $elapsed = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
@@ -379,6 +396,7 @@ Log "Ferdig: $($winner.SiteUrl) ($attempts forsøk, $elapsed min)" 'OK'
 # ---------------------------------------------------------------------------
 $exitCode = 0
 if ($memberIds) {
+    Show-Progress "Legger til $($memberIds.Count) medlem(mer)"
     # Graph tar maks 20 per PATCH
     for ($i = 0; $i -lt $memberIds.Count; $i += 20) {
         $chunk = $memberIds[$i..([Math]::Min($i + 19, $memberIds.Count - 1))]
@@ -393,6 +411,7 @@ if ($memberIds) {
 $teamOk = $null
 if ($CreateTeam) {
     $teamOk = $false
+    Show-Progress 'Oppretter Teams-team'
     for ($i = 1; $i -le 4 -and -not $teamOk; $i++) {
         try { Invoke-Graph Put ('v1.0/groups/' + $winner.GroupId + '/team') @{} | Out-Null; $teamOk = $true }
         catch { Log "Teams-team, forsøk $i : $(Get-ErrorText $_)" 'WARN'; Start-Sleep -Seconds (15 * $i) }
@@ -412,6 +431,7 @@ if ($HubUrl) {
     catch { Log "Hubtilknytning feilet: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2 }
 }
 
+Show-Progress
 [pscustomobject]@{
     SiteUrl       = $winner.SiteUrl
     Alias         = $winner.Alias
