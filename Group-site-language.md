@@ -53,7 +53,7 @@ Får ingen kandidat riktig språk etter `GroupLanguageRetryMaxRounds` runder, sl
 
 Feiler det å legge medlemmene til på gruppen som ble beholdt, slettes også den, inkludert fra papirkurven, så aliaset er ledig når bestillingen sendes på nytt.
 
-Detaljer om hver runde står i jobbloggen til `CreateGroupWithLanguage` i Automation-kontoen (Jobs).
+Detaljer om hver runde står i jobbloggen til `CreateGroupWithLanguage` i Automation-kontoen (Jobs). Runbooken logger én linje per steg. Trenger du mer ved feilsøking, slå på «Log verbose records» under runbookens «Logging and tracing». Neste deploy slår det av igjen.
 
 ## Tillatelser
 
