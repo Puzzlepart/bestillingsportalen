@@ -18,6 +18,9 @@
 #      site and the site removed via tenant CSOM. The admin API refuses to delete group sites
 #      directly, and GroupSiteManager/Delete returns 403 for app-only.
 #   4. No hit starts a new round, up to $maxRounds.
+# When the rounds are done, the deleted candidate sites are also purged from the tenant recycle
+# bin. They never had any content, and a site in the recycle bin keeps its URL for 93 days, which
+# would block the requested alias for later requests.
 #
 # If the root site already has the requested language, the bug cannot change the outcome, so only
 # one candidate is created.
@@ -202,10 +205,31 @@ function Remove-Candidates($List) {
     $notPurged = Remove-GroupsPermanently @($List | ForEach-Object GroupId)
     foreach ($c in $List) {
         if ($notPurged -contains $c.GroupId) { $errors += "$($c.Alias): group not confirmed permanently deleted"; continue }
-        if (-not (Get-LiveSite $c.SiteUrl)) { continue }
-        try { Remove-OrphanedGroupSite $c.SiteUrl } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
+        if (-not (Get-LiveSite $c.SiteUrl)) { $script:sitesToPurge.Add($c.SiteUrl); continue }
+        try { Remove-OrphanedGroupSite $c.SiteUrl; $script:sitesToPurge.Add($c.SiteUrl) } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
     }
     return , $errors
+}
+function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
+    # Purges the sites Remove-Candidates deleted from the tenant recycle bin. RemoveSite moves a site
+    # there asynchronously, so a site that is still live is waited for. All sites are polled at once,
+    # so sites from earlier rounds are usually already there. Returns the URLs not confirmed gone.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $script:sitesToPurge | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $script:sitesToPurge.Clear()
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        foreach ($u in @($remaining)) {
+            if (Get-LiveSite $u) { continue }
+            if (Get-DeletedSite $u) {
+                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection (Get-AdminConnection) | Out-Null } catch { }
+                if (Get-DeletedSite $u) { continue }
+            }
+            $remaining.Remove($u) | Out-Null
+        }
+        if ($remaining.Count) { Start-Sleep -Seconds 10 }
+    }
+    return , @($remaining)
 }
 
 # ---------------------------------------------------------------------------
@@ -225,6 +249,7 @@ $attempts = 0
 $hits = 0
 $cleanupErrors = @()
 $allCreated = [System.Collections.Generic.List[object]]::new()
+$script:sitesToPurge = [System.Collections.Generic.List[string]]::new()
 
 try {
     for ($round = 1; $round -le $rounds -and -not $winner; $round++) {
@@ -276,9 +301,16 @@ catch {
     $err = Get-ErrorText $_
     $left = @($allCreated | Where-Object { $_ -ne $winner })
     if ($left) { Remove-Candidates $left | Out-Null }
+    Clear-CandidateRecycleBin | Out-Null
     throw "Group creation failed: $err"
 }
 
+$purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
+if ($purgeCount) {
+    $notPurged = Clear-CandidateRecycleBin
+    Log "Purged $($purgeCount - $notPurged.Count) of $purgeCount deleted candidate site(s) from the recycle bin"
+    $cleanupErrors += @($notPurged | ForEach-Object { "$($_): not purged from the recycle bin" })
+}
 foreach ($e in $cleanupErrors) { Log "Not cleaned up: $e" }
 $minutes = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
@@ -304,6 +336,7 @@ try {
 catch {
     $err = Get-ErrorText $_
     $errs = Remove-Candidates @($winner)
+    Clear-CandidateRecycleBin | Out-Null
     throw "Adding members to $($winner.SiteUrl) failed: $err. $(if ($errs) { "The group could not be deleted: $($errs -join '; ')" } else { 'The group was deleted.' })"
 }
 $result = [ordered]@{
