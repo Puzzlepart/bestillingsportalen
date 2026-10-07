@@ -16,10 +16,12 @@
          gruppen slettes og tømmes fra Entra-papirkurven, deretter fjernes GroupId fra området
          (ClearGroupId) og området slettes. Admin-API-et nekter å slette gruppeområder direkte.
       4. Ingen treff gir ny runde, opp til -MaxRounds
+    Når rundene er ferdige, tømmes de slettede områdene også fra SharePoints papirkurv. De har
+    aldri hatt innhold, og et område i papirkurven holder på URL-en i 93 dager.
 
     Resultatet er et vanlig gruppeområde (GROUP#0), ofte med suffiks i URL og alias.
     Med -RequireExactAlias brukes bare aliaset uten suffiks: ett forsøk om gangen, og etter hver
-    bom venter skriptet til URL-en er frigjort (observert 10-30+ min).
+    bom tømmes området fra papirkurven og skriptet venter til URL-en er frigjort (observert 10-30+ min).
 
     Medlemmer legges til først når treffet er valgt, så de ikke får e-post fra hver kandidat.
     Med -CreateTeam opprettes Teams-team, og med -HubUrl knyttes området til en hub.
@@ -213,10 +215,32 @@ function Remove-Candidates($List) {
     $notPurged = Remove-GroupsPermanently @($List | ForEach-Object GroupId)
     foreach ($c in $List) {
         if ($notPurged -contains $c.GroupId) { $errors += "$($c.Alias): gruppen ble ikke slettet permanent"; continue }
-        if (-not (Get-LiveSite $c.SiteUrl)) { continue }
-        try { Remove-OrphanedGroupSite $c.SiteUrl } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
+        if (-not (Get-LiveSite $c.SiteUrl)) { $script:sitesToPurge.Add($c.SiteUrl); continue }
+        try { Remove-OrphanedGroupSite $c.SiteUrl; $script:sitesToPurge.Add($c.SiteUrl) } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
     }
     return , $errors
+}
+function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
+    # Tømmer områdene Remove-Candidates har slettet fra SharePoints papirkurv. RemoveSite flytter
+    # området dit asynkront, så et område som fortsatt er aktivt ventes på. Alle polles samtidig.
+    # Returnerer URL-ene som ikke ble bekreftet borte.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $script:sitesToPurge | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $script:sitesToPurge.Clear()
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        Repair-AdminConnection
+        foreach ($u in @($remaining)) {
+            if (Get-LiveSite $u) { continue }
+            if (Get-DeletedSite $u) {
+                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection $script:admin | Out-Null } catch { }
+                if (Get-DeletedSite $u) { continue }
+            }
+            $remaining.Remove($u) | Out-Null
+        }
+        if ($remaining.Count) { Start-Sleep -Seconds 10 }
+    }
+    return , @($remaining)
 }
 function Resolve-UserIds([string[]] $Upns) {
     return @($Upns | Where-Object { $_ } | ForEach-Object {
@@ -255,6 +279,7 @@ $winner = $null
 $attempts = 0
 $hits = 0
 $cleanupErrors = @()
+$script:sitesToPurge = [System.Collections.Generic.List[string]]::new()
 
 for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     Repair-AdminConnection
@@ -262,6 +287,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     if ($RequireExactAlias -and $round -gt 1) {
         Log "Venter på at $(Get-SiteUrl $Alias) frigjøres (kan ta 10-30+ min)"
         $end = (Get-Date).AddMinutes($UrlReleaseTimeoutMinutes)
+        # Bommen fra forrige runde holder på URL-en i papirkurven til den er tømt
+        Clear-CandidateRecycleBin ([int] ($end - (Get-Date)).TotalSeconds) | Out-Null
         while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) { Start-Sleep -Seconds 30 }
         if (Test-AliasInUse $Alias) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min." 'ERR'; break }
     }
@@ -320,6 +347,12 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     }
 }
 
+$purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
+if ($purgeCount) {
+    $notPurged = Clear-CandidateRecycleBin
+    Log "Tømte $($purgeCount - $notPurged.Count) av $purgeCount slettede kandidatområde(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
+    $cleanupErrors += @($notPurged | ForEach-Object { "$($_): ikke tømt fra papirkurven" })
+}
 foreach ($e in $cleanupErrors) { Log "Ikke ryddet: $e" 'WARN' }
 $elapsed = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
