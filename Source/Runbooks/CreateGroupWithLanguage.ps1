@@ -46,7 +46,7 @@ Param
     [string] $siteUrl,
     [Parameter (Mandatory = $true)]
     [string] $lcid,
-    [string] $batchSize = '3',
+    [string] $batchSize = '5',
     [string] $maxRounds = '3'
 )
 

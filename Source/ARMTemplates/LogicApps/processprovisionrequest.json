@@ -2420,7 +2420,7 @@
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "GroupLanguageRetryParallel",
-                                                                "value": "@if(empty(items('For_each_setting')?['Value']), 3, int(items('For_each_setting')?['Value']))"
+                                                                "value": "@if(empty(items('For_each_setting')?['Value']), 5, int(items('For_each_setting')?['Value']))"
                                                             }
                                                         }
                                                     }
@@ -2660,7 +2660,7 @@
                                     {
                                         "name": "GroupLanguageRetryParallel",
                                         "type": "integer",
-                                        "value": 3
+                                        "value": 5
                                     }
                                 ]
                             }

@@ -40,8 +40,8 @@
 .PARAMETER Description       Beskrivelse på gruppen. Standard: tittelen
 .PARAMETER IsPublic          Offentlig gruppe. Standard: privat
 .PARAMETER ManagedPath       Administrert bane for gruppeområder. Standard: sites
-.PARAMETER BatchSize         Antall kandidater per runde. Standard 3
-.PARAMETER MaxRounds         Maks antall runder. Standard 5
+.PARAMETER BatchSize         Antall kandidater per runde. Standard 5
+.PARAMETER MaxRounds         Maks antall runder. Standard 3
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
 .PARAMETER HubUrl            Knytt området til denne huben
@@ -79,8 +79,8 @@ param(
     [string]   $Description = '',
     [switch]   $IsPublic,
     [string]   $ManagedPath = 'sites',
-    [int]      $BatchSize = 3,
-    [int]      $MaxRounds = 5,
+    [int]      $BatchSize = 5,
+    [int]      $MaxRounds = 3,
     [switch]   $RequireExactAlias,
     [switch]   $CreateTeam,
     [string]   $HubUrl,

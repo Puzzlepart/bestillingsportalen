@@ -22,10 +22,10 @@ Rediger radene i listen **Provisioning Request Settings** på bestillingsområde
 | Innstilling | Standard | Betydning |
 |--|--|--|
 | `EnableGroupLanguageRetry` | `false` | `true` slår på workaround-en |
-| `GroupLanguageRetryParallel` | `3` | Antall kandidater som opprettes samtidig per runde (1–10) |
+| `GroupLanguageRetryParallel` | `5` | Antall kandidater som opprettes samtidig per runde (1–10) |
 | `GroupLanguageRetryMaxRounds` | `3` | Maks antall runder før bestillingen feiler |
 
-Med ca. 28 % treff gir 3 kandidater per runde minst ett treff i omtrent 3 av 4 runder, og 3 runder gir treff i over 95 % av bestillingene. Hver runde tar under ett minutt. Øk `GroupLanguageRetryParallel` hvis bestillinger feiler fordi ingen kandidat traff.
+Med ca. 28 % treff gir 5 kandidater per runde minst ett treff i omtrent 4 av 5 runder, og 3 runder gir treff i over 99 % av bestillingene. Hver runde tar under ett minutt. Øk `GroupLanguageRetryParallel` hvis bestillinger feiler fordi ingen kandidat traff.
 
 Radene opprettes av installasjonen. Mangler de i en eksisterende installasjon, kjør `deploy.ps1 -Upgrade` og svar ja på malspørsmålet, eller opprett radene manuelt.
 
