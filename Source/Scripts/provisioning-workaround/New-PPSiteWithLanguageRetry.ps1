@@ -253,7 +253,6 @@ function Resolve-UserIds([string[]] $Upns) {
 # ---------------------------------------------------------------------------
 # Forberedelser
 # ---------------------------------------------------------------------------
-Log "Kobler til $AdminUrl ($(if ($useMi) { 'managed identity' } else { 'interaktiv' }))"
 $script:admin = New-AdminConnection
 if (-not $Owners) {
     if ($useMi) { throw '-Owners er påkrevd med managed identity.' }
@@ -262,17 +261,18 @@ if (-not $Owners) {
 }
 $ownerIds = Resolve-UserIds $Owners
 $memberIds = Resolve-UserIds $Members
-Log "Eiere: $($Owners -join ', ')$(if ($Members) { ". Medlemmer: $($Members -join ', ')" })"
 
 $rootLcid = $null
 try { $rootLcid = Get-SiteLcid (Get-LiveSite $tenantRoot) } catch { }
 if ($rootLcid -eq $Lcid -and $BatchSize -gt 1) {
     # Feilen gir området rotområdets språk. Er det likt det bestilte, treffer første forsøk.
-    Log "Rotområdet har samme språk ($Lcid). Oppretter bare én kandidat per runde."
     $BatchSize = 1
 }
 
 if (Test-AliasInUse $Alias) { throw "Aliaset '$Alias' eller $(Get-SiteUrl $Alias) er i bruk (aktivt eller i papirkurv)." }
+Log ("{0}, språk {1}: opptil {2} runde(r) à {3}{4}. Eiere: {5}{6}" -f $Alias, $Lcid, $MaxRounds, $BatchSize,
+    $(if ($rootLcid -eq $Lcid) { ' (rotområdet har samme språk)' }), ($Owners -join ', '),
+    $(if ($Members) { ". Medlemmer: $($Members -join ', ')" }))
 
 # ---------------------------------------------------------------------------
 # Runder
@@ -302,7 +302,6 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending' }
     }
 
-    Log "Runde $round av $($MaxRounds): oppretter $($batch.Count) kandidat(er)"
     foreach ($c in $batch) {
         $body = @{
             description         = $Description
@@ -320,7 +319,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
             $c.Created = Get-Date
             $attempts++
         }
-        catch { $c.Outcome = 'CreateFailed'; Log "  Opprettelse av $($c.Alias) feilet: $(Get-ErrorText $_)" 'WARN' }
+        catch { $c.Outcome = 'CreateFailed'; Log "Opprettelse av $($c.Alias) feilet: $(Get-ErrorText $_)" 'WARN' }
     }
     # Feiler alle opprettelsene, er feilen systematisk og nye runder hjelper ikke
     if (-not ($batch | Where-Object GroupId)) { Log "Ingen kandidater ble opprettet i runde $round. Avbryter." 'ERR'; break }
@@ -336,7 +335,6 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         }
     }
     foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) { $c.Outcome = 'NoSite' }
-    foreach ($c in $batch) { Log ("  {0,-40} {1,-6} språk {2}" -f $c.Alias, $c.Outcome, $c.Lcid) $(if ($c.Outcome -eq 'Hit') { 'OK' } else { 'INFO' }) }
 
     $roundHits = @($batch | Where-Object Outcome -eq 'Hit')
     $hits += $roundHits.Count
@@ -344,17 +342,25 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     if (-not $winner) { $winner = $roundHits | Select-Object -First 1 }
 
     $losers = @($batch | Where-Object { $_ -ne $winner -and $_.GroupId })
+    $errs = @()
     if ($losers) {
         $errs = Remove-Candidates $losers
         $cleanupErrors += $errs
-        Log "  Slettet $($losers.Count) kandidat(er)$(if ($errs) { " ($($errs.Count) feil)" })" $(if ($errs) { 'WARN' } else { 'INFO' })
     }
+    # Én linje per runde, for eksempel «Runde 1/3: ingen treff, 5 bom (1044), slettet 5»
+    $label = @{ Miss = 'bom'; NoSite = 'uten område'; CreateFailed = 'ikke opprettet' }
+    $rest = @($batch | Where-Object Outcome -ne 'Hit' | Group-Object Outcome, Lcid | ForEach-Object {
+            $o = $_.Group[0]; "$($_.Count) $($label[$o.Outcome])$(if ($o.Lcid) { " ($($o.Lcid))" })" })
+    $line = "Runde $round/$($MaxRounds): " + $(if ($winner) { "treff $($winner.Alias)$(if ($roundHits.Count -gt 1) { " (+$($roundHits.Count - 1) treff slettet)" })" } else { 'ingen treff' })
+    if ($rest) { $line += ', ' + ($rest -join ', ') }
+    if ($losers) { $line += ", slettet $($losers.Count)$(if ($errs) { " ($($errs.Count) feil)" })" }
+    Log $line $(if ($errs) { 'WARN' } elseif ($winner) { 'OK' } else { 'INFO' })
 }
 
 $purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
 if ($purgeCount) {
     $notPurged = Clear-CandidateRecycleBin
-    Log "Tømte $($purgeCount - $notPurged.Count) av $purgeCount slettede kandidatområde(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
+    Log "Tømte $(if ($notPurged) { "$($purgeCount - $notPurged.Count) av " })$purgeCount område(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
     $cleanupErrors += @($notPurged | ForEach-Object { "$($_): ikke tømt fra papirkurven" })
 }
 foreach ($e in $cleanupErrors) { Log "Ikke ryddet: $e" 'WARN' }
@@ -366,7 +372,7 @@ if (-not $winner) {
     throw "Ingen kandidat fikk språk $Lcid etter $attempts forsøk."
 }
 
-Log "Treff: $($winner.SiteUrl) ($attempts forsøk, $hits treff, $elapsed min)" 'OK'
+Log "Ferdig: $($winner.SiteUrl) ($attempts forsøk, $elapsed min)" 'OK'
 
 # ---------------------------------------------------------------------------
 # Etterarbeid: medlemmer, team og hub
