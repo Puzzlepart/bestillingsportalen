@@ -51,6 +51,8 @@ Deretter fortsetter provisjoneringen som vanlig (Teams, mal, `ConfigureSpace` os
 
 Får ingen kandidat riktig språk etter `GroupLanguageRetryMaxRounds` runder, sletter runbooken alle kandidatene, og bestillingen får status **Space Creation Failed** med årsaken i `StatusReason`. Bestill på nytt, eller øk antall kandidater eller runder.
 
+Feiler det å legge medlemmene til på gruppen som ble beholdt, slettes også den, så aliaset er ledig når bestillingen sendes på nytt.
+
 Detaljer om hver runde står i jobbloggen til `CreateGroupWithLanguage` i Automation-kontoen (Jobs).
 
 ## Tillatelser

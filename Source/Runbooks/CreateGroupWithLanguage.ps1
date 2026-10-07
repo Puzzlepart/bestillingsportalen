@@ -287,14 +287,25 @@ if (-not $winner) {
 }
 Log "Kept $($winner.SiteUrl) after $attempts attempt(s), $hits hit(s), $minutes min"
 
-# Members are added after the winner is chosen. Graph accepts at most 20 per PATCH.
-for ($i = 0; $i -lt $members.Count; $i += 20) {
-    $chunk = $members[$i..([Math]::Min($i + 19, $members.Count - 1))]
-    Invoke-Graph Patch ('v1.0/groups/' + $winner.GroupId) @{ 'members@odata.bind' = @($chunk) } | Out-Null
-}
-if ($members) { Log "Added $($members.Count) member(s)" }
+# Members are added after the winner is chosen. Graph accepts at most 20 per PATCH. A failure from
+# here on also deletes the kept group: the job fails either way, and a group left behind blocks the
+# alias when the request is ordered again.
+try {
+    for ($i = 0; $i -lt $members.Count; $i += 20) {
+        $chunk = $members[$i..([Math]::Min($i + 19, $members.Count - 1))]
+        # [string[]] because Where-Object above wraps the strings in PSObject, and Invoke-PnPGraphMethod
+        # serializes those (System.Text.Json) as objects: "Expected string(s) for ODataBind values"
+        Invoke-Graph Patch ('v1.0/groups/' + $winner.GroupId) @{ 'members@odata.bind' = [string[]] $chunk } | Out-Null
+    }
+    if ($members) { Log "Added $($members.Count) member(s)" }
 
-$group = Invoke-Graph Get ('v1.0/groups/' + $winner.GroupId)
+    $group = Invoke-Graph Get ('v1.0/groups/' + $winner.GroupId)
+}
+catch {
+    $err = Get-ErrorText $_
+    $errs = Remove-Candidates @($winner)
+    throw "Adding members to $($winner.SiteUrl) failed: $err. $(if ($errs) { "The group could not be deleted: $($errs -join '; ')" } else { 'The group was deleted.' })"
+}
 $result = [ordered]@{
     groupId  = $winner.GroupId
     alias    = $winner.Alias
