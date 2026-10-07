@@ -206,11 +206,26 @@ function Remove-Candidates($List) {
     $errors = @()
     if (-not $List) { return , $errors }
     $notPurged = Remove-GroupsPermanently @($List | ForEach-Object GroupId)
+    $pending = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $List) {
         if ($notPurged -contains $c.GroupId) { $errors += "$($c.Alias): group not confirmed permanently deleted"; continue }
-        if (-not (Get-LiveSite $c.SiteUrl)) { $script:sitesToPurge.Add($c.SiteUrl); continue }
-        try { Remove-OrphanedGroupSite $c.SiteUrl; $script:sitesToPurge.Add($c.SiteUrl) } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
+        $pending.Add($c)
     }
+    # SharePoint can still see a group as soft-deleted for a while after Graph reports it gone, and
+    # ClearGroupId then fails ("the group is in {0} state"). Failed sites are retried for up to 2 min.
+    $lastError = @{}
+    for ($attempt = 1; $pending.Count -and $attempt -le 12; $attempt++) {
+        if ($attempt -gt 1) { Start-Sleep -Seconds 10 }
+        foreach ($c in @($pending)) {
+            try {
+                if (Get-LiveSite $c.SiteUrl) { Remove-OrphanedGroupSite $c.SiteUrl }
+                $script:sitesToPurge.Add($c.SiteUrl)
+                $pending.Remove($c) | Out-Null
+            }
+            catch { $lastError[$c.Alias] = Get-ErrorText $_ }
+        }
+    }
+    foreach ($c in $pending) { $errors += "$($c.Alias): $($lastError[$c.Alias])" }
     return , $errors
 }
 function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
