@@ -75,6 +75,9 @@ else {
     $groupBodyJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($groupBody.Trim()))
 }
 $body = $groupBodyJson | ConvertFrom-Json -AsHashtable
+# Graph rejects an empty description ("Invalid value specified for property 'description'"), so an
+# empty one falls back to the display name
+if ([string]::IsNullOrWhiteSpace([string] $body['description'])) { $body['description'] = [string] $body['displayName'] }
 $alias = [string] $body['mailNickname']
 if (-not $alias) { throw 'groupBody has no mailNickname.' }
 # Candidates get a 6 character suffix; keep the total within the 64 character mailNickname limit

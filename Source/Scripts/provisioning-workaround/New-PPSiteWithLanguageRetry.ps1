@@ -37,7 +37,7 @@
 .PARAMETER Lcid              Ønsket språk. 1044 = norsk bokmål
 .PARAMETER Owners            Eiere (UPN). Påkrevd med managed identity, ellers innlogget bruker
 .PARAMETER Members           Medlemmer (UPN), legges til etter at treffet er valgt
-.PARAMETER Description       Beskrivelse på gruppen
+.PARAMETER Description       Beskrivelse på gruppen. Standard: tittelen
 .PARAMETER IsPublic          Offentlig gruppe. Standard: privat
 .PARAMETER ManagedPath       Administrert bane for gruppeområder. Standard: sites
 .PARAMETER BatchSize         Antall kandidater per runde. Standard 3
@@ -96,6 +96,8 @@ $AdminUrl = $AdminUrl.TrimEnd('/')
 $tenantRoot = $AdminUrl -replace '-admin\.sharepoint\.com', '.sharepoint.com'
 if ($RequireExactAlias) { $BatchSize = 1 }
 if ($BatchSize -lt 1 -or $BatchSize -gt 10) { throw '-BatchSize må være mellom 1 og 10.' }
+# Graph avviser tom description («Invalid value specified for property 'description'»), så tittelen brukes
+if ([string]::IsNullOrWhiteSpace($Description)) { $Description = $Title }
 if ($Alias.Length -gt 58) { throw '-Alias kan være maks 58 tegn (plass til suffikset -xxxxx innenfor grensen på 64).' }
 $useMi = $ManagedIdentity -or [bool] ($env:AUTOMATION_ASSET_ACCOUNTID -or $PSPrivateMetadata.JobId)
 
@@ -303,6 +305,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     Log "Runde $round av $($MaxRounds): oppretter $($batch.Count) kandidat(er)"
     foreach ($c in $batch) {
         $body = @{
+            description         = $Description
             displayName         = $Title
             groupTypes          = @('Unified')
             creationOptions     = @("SPSiteLanguage:$Lcid")
@@ -312,8 +315,6 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
             visibility          = $(if ($IsPublic) { 'Public' } else { 'Private' })
             'owners@odata.bind' = @($ownerIds | ForEach-Object { "https://graph.microsoft.com/v1.0/users/$_" })
         }
-        # Graph avviser tom description («Invalid value specified for property 'description'»)
-        if ($Description) { $body.description = $Description }
         try {
             $c.GroupId = (Invoke-Graph Post 'v1.0/groups' $body).id
             $c.Created = Get-Date
