@@ -303,7 +303,6 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     Log "Runde $round av $($MaxRounds): oppretter $($batch.Count) kandidat(er)"
     foreach ($c in $batch) {
         $body = @{
-            description         = $Description
             displayName         = $Title
             groupTypes          = @('Unified')
             creationOptions     = @("SPSiteLanguage:$Lcid")
@@ -313,6 +312,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
             visibility          = $(if ($IsPublic) { 'Public' } else { 'Private' })
             'owners@odata.bind' = @($ownerIds | ForEach-Object { "https://graph.microsoft.com/v1.0/users/$_" })
         }
+        # Graph avviser tom description («Invalid value specified for property 'description'»)
+        if ($Description) { $body.description = $Description }
         try {
             $c.GroupId = (Invoke-Graph Post 'v1.0/groups' $body).id
             $c.Created = Get-Date
@@ -320,6 +321,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         }
         catch { $c.Outcome = 'CreateFailed'; Log "  Opprettelse av $($c.Alias) feilet: $(Get-ErrorText $_)" 'WARN' }
     }
+    # Feiler alle opprettelsene, er feilen systematisk og nye runder hjelper ikke
+    if (-not ($batch | Where-Object GroupId)) { Log "Ingen kandidater ble opprettet i runde $round. Avbryter." 'ERR'; break }
 
     $waitEnd = (Get-Date).AddMinutes($SiteReadyTimeoutMinutes)
     while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending')) {
