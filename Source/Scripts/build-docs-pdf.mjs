@@ -55,6 +55,7 @@ const ORDER = [
   'Approval-flow.md',
   'Regional-settings.md',
   'Group-site-language.md',
+  'Restrict-site-creation.md',
   'Error-handling.md',
   'CHANGELOG.md',
   'CONTRIBUTING.md',
