@@ -16,10 +16,12 @@
          gruppen slettes og tømmes fra Entra-papirkurven, deretter fjernes GroupId fra området
          (ClearGroupId) og området slettes. Admin-API-et nekter å slette gruppeområder direkte.
       4. Ingen treff gir ny runde, opp til -MaxRounds
+    Når rundene er ferdige, tømmes de slettede områdene også fra SharePoints papirkurv. De har
+    aldri hatt innhold, og et område i papirkurven holder på URL-en i 93 dager.
 
     Resultatet er et vanlig gruppeområde (GROUP#0), ofte med suffiks i URL og alias.
     Med -RequireExactAlias brukes bare aliaset uten suffiks: ett forsøk om gangen, og etter hver
-    bom venter skriptet til URL-en er frigjort (observert 10-30+ min).
+    bom tømmes området fra papirkurven og skriptet venter til URL-en er frigjort (observert 10-30+ min).
 
     Medlemmer legges til først når treffet er valgt, så de ikke får e-post fra hver kandidat.
     Med -CreateTeam opprettes Teams-team, og med -HubUrl knyttes området til en hub.
@@ -35,11 +37,11 @@
 .PARAMETER Lcid              Ønsket språk. 1044 = norsk bokmål
 .PARAMETER Owners            Eiere (UPN). Påkrevd med managed identity, ellers innlogget bruker
 .PARAMETER Members           Medlemmer (UPN), legges til etter at treffet er valgt
-.PARAMETER Description       Beskrivelse på gruppen
+.PARAMETER Description       Beskrivelse på gruppen. Standard: tittelen
 .PARAMETER IsPublic          Offentlig gruppe. Standard: privat
 .PARAMETER ManagedPath       Administrert bane for gruppeområder. Standard: sites
-.PARAMETER BatchSize         Antall kandidater per runde. Standard 3
-.PARAMETER MaxRounds         Maks antall runder. Standard 5
+.PARAMETER BatchSize         Antall kandidater per runde. Standard 5
+.PARAMETER MaxRounds         Maks antall runder. Standard 3
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
 .PARAMETER HubUrl            Knytt området til denne huben
@@ -77,8 +79,8 @@ param(
     [string]   $Description = '',
     [switch]   $IsPublic,
     [string]   $ManagedPath = 'sites',
-    [int]      $BatchSize = 3,
-    [int]      $MaxRounds = 5,
+    [int]      $BatchSize = 5,
+    [int]      $MaxRounds = 3,
     [switch]   $RequireExactAlias,
     [switch]   $CreateTeam,
     [string]   $HubUrl,
@@ -94,6 +96,8 @@ $AdminUrl = $AdminUrl.TrimEnd('/')
 $tenantRoot = $AdminUrl -replace '-admin\.sharepoint\.com', '.sharepoint.com'
 if ($RequireExactAlias) { $BatchSize = 1 }
 if ($BatchSize -lt 1 -or $BatchSize -gt 10) { throw '-BatchSize må være mellom 1 og 10.' }
+# Graph avviser tom description («Invalid value specified for property 'description'»), så tittelen brukes
+if ([string]::IsNullOrWhiteSpace($Description)) { $Description = $Title }
 if ($Alias.Length -gt 58) { throw '-Alias kan være maks 58 tegn (plass til suffikset -xxxxx innenfor grensen på 64).' }
 $useMi = $ManagedIdentity -or [bool] ($env:AUTOMATION_ASSET_ACCOUNTID -or $PSPrivateMetadata.JobId)
 
@@ -104,6 +108,12 @@ function Get-ErrorText($ErrorRecord) {
     $ex = $ErrorRecord.Exception
     while ($ex.InnerException) { $ex = $ex.InnerException }
     return "$($ex.GetType().Name): $($ex.Message)"
+}
+function Show-Progress([string] $Status, [int] $Percent = -1) {
+    # Fremdriftslinje mens skriptet venter. Bare interaktivt: i Azure Automation blir det støy i jobbloggen.
+    if ($useMi) { return }
+    if ($Status) { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Status $Status -PercentComplete $Percent }
+    else { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Completed }
 }
 function Get-SiteUrl([string] $A) { return "$tenantRoot/$ManagedPath/$A" }
 function New-SuffixAlias { return "$Alias-$(([guid]::NewGuid().ToString('N')).Substring(0, 5))" }
@@ -211,12 +221,53 @@ function Remove-Candidates($List) {
     $errors = @()
     if (-not $List) { return , $errors }
     $notPurged = Remove-GroupsPermanently @($List | ForEach-Object GroupId)
+    $pending = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $List) {
         if ($notPurged -contains $c.GroupId) { $errors += "$($c.Alias): gruppen ble ikke slettet permanent"; continue }
-        if (-not (Get-LiveSite $c.SiteUrl)) { continue }
-        try { Remove-OrphanedGroupSite $c.SiteUrl } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
+        $pending.Add($c)
     }
+    # SharePoint kan se gruppen som myk-slettet en stund etter at Graph melder den borte, og
+    # ClearGroupId feiler da («gruppen er i {0}-tilstand»). Områder som feiler, prøves igjen i opptil 2 min.
+    $lastError = @{}
+    for ($attempt = 1; $pending.Count -and $attempt -le 12; $attempt++) {
+        if ($attempt -gt 1) {
+            Show-Progress "Venter på at SharePoint registrerer slettingen av $($pending.Count) gruppe(r)"
+            Start-Sleep -Seconds 10
+        }
+        foreach ($c in @($pending)) {
+            try {
+                if (Get-LiveSite $c.SiteUrl) { Remove-OrphanedGroupSite $c.SiteUrl }
+                $script:sitesToPurge.Add($c.SiteUrl)
+                $pending.Remove($c) | Out-Null
+            }
+            catch { $lastError[$c.Alias] = Get-ErrorText $_ }
+        }
+    }
+    foreach ($c in $pending) { $errors += "$($c.Alias): $($lastError[$c.Alias])" }
     return , $errors
+}
+function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
+    # Tømmer områdene Remove-Candidates har slettet fra SharePoints papirkurv. RemoveSite flytter
+    # området dit asynkront, så et område som fortsatt er aktivt ventes på. Alle polles samtidig.
+    # Returnerer URL-ene som ikke ble bekreftet borte.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $script:sitesToPurge | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $script:sitesToPurge.Clear()
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        Show-Progress "Tømmer papirkurven ($($remaining.Count) område(r) igjen)"
+        Repair-AdminConnection
+        foreach ($u in @($remaining)) {
+            if (Get-LiveSite $u) { continue }
+            if (Get-DeletedSite $u) {
+                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection $script:admin | Out-Null } catch { }
+                if (Get-DeletedSite $u) { continue }
+            }
+            $remaining.Remove($u) | Out-Null
+        }
+        if ($remaining.Count) { Start-Sleep -Seconds 10 }
+    }
+    return , @($remaining)
 }
 function Resolve-UserIds([string[]] $Upns) {
     return @($Upns | Where-Object { $_ } | ForEach-Object {
@@ -227,7 +278,6 @@ function Resolve-UserIds([string[]] $Upns) {
 # ---------------------------------------------------------------------------
 # Forberedelser
 # ---------------------------------------------------------------------------
-Log "Kobler til $AdminUrl ($(if ($useMi) { 'managed identity' } else { 'interaktiv' }))"
 $script:admin = New-AdminConnection
 if (-not $Owners) {
     if ($useMi) { throw '-Owners er påkrevd med managed identity.' }
@@ -236,17 +286,18 @@ if (-not $Owners) {
 }
 $ownerIds = Resolve-UserIds $Owners
 $memberIds = Resolve-UserIds $Members
-Log "Eiere: $($Owners -join ', ')$(if ($Members) { ". Medlemmer: $($Members -join ', ')" })"
 
 $rootLcid = $null
 try { $rootLcid = Get-SiteLcid (Get-LiveSite $tenantRoot) } catch { }
 if ($rootLcid -eq $Lcid -and $BatchSize -gt 1) {
     # Feilen gir området rotområdets språk. Er det likt det bestilte, treffer første forsøk.
-    Log "Rotområdet har samme språk ($Lcid). Oppretter bare én kandidat per runde."
     $BatchSize = 1
 }
 
 if (Test-AliasInUse $Alias) { throw "Aliaset '$Alias' eller $(Get-SiteUrl $Alias) er i bruk (aktivt eller i papirkurv)." }
+Log ("{0}, språk {1}: opptil {2} runde(r) à {3}{4}. Eiere: {5}{6}" -f $Alias, $Lcid, $MaxRounds, $BatchSize,
+    $(if ($rootLcid -eq $Lcid) { ' (rotområdet har samme språk)' }), ($Owners -join ', '),
+    $(if ($Members) { ". Medlemmer: $($Members -join ', ')" }))
 
 # ---------------------------------------------------------------------------
 # Runder
@@ -255,6 +306,7 @@ $winner = $null
 $attempts = 0
 $hits = 0
 $cleanupErrors = @()
+$script:sitesToPurge = [System.Collections.Generic.List[string]]::new()
 
 for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     Repair-AdminConnection
@@ -262,7 +314,12 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     if ($RequireExactAlias -and $round -gt 1) {
         Log "Venter på at $(Get-SiteUrl $Alias) frigjøres (kan ta 10-30+ min)"
         $end = (Get-Date).AddMinutes($UrlReleaseTimeoutMinutes)
-        while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) { Start-Sleep -Seconds 30 }
+        # Bommen fra forrige runde holder på URL-en i papirkurven til den er tømt
+        Clear-CandidateRecycleBin ([int] ($end - (Get-Date)).TotalSeconds) | Out-Null
+        while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) {
+            Show-Progress "Venter på at $(Get-SiteUrl $Alias) frigjøres ($([int] ($end - (Get-Date)).TotalMinutes) min igjen)"
+            Start-Sleep -Seconds 30
+        }
         if (Test-AliasInUse $Alias) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min." 'ERR'; break }
     }
 
@@ -273,7 +330,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending' }
     }
 
-    Log "Runde $round av $($MaxRounds): oppretter $($batch.Count) kandidat(er)"
+    Show-Progress "Runde $round/$($MaxRounds): oppretter $($batch.Count) kandidat(er)"
+    $roundStart = Get-Date
     foreach ($c in $batch) {
         $body = @{
             description         = $Description
@@ -291,11 +349,16 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
             $c.Created = Get-Date
             $attempts++
         }
-        catch { $c.Outcome = 'CreateFailed'; Log "  Opprettelse av $($c.Alias) feilet: $(Get-ErrorText $_)" 'WARN' }
+        catch { $c.Outcome = 'CreateFailed'; Log "Opprettelse av $($c.Alias) feilet: $(Get-ErrorText $_)" 'WARN' }
     }
+    # Feiler alle opprettelsene, er feilen systematisk og nye runder hjelper ikke
+    if (-not ($batch | Where-Object GroupId)) { Log "Ingen kandidater ble opprettet i runde $round. Avbryter." 'ERR'; break }
 
     $waitEnd = (Get-Date).AddMinutes($SiteReadyTimeoutMinutes)
+    $created = @($batch | Where-Object GroupId).Count
     while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending')) {
+        $ready = @($batch | Where-Object { $_.Outcome -in 'Hit', 'Miss' }).Count
+        Show-Progress "Runde $round/$($MaxRounds): venter på områdene ($ready av $created klare, $([int] ((Get-Date) - $roundStart).TotalSeconds) s)" ([int] (100 * $ready / $created))
         Start-Sleep -Seconds 10
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
             $s = Get-LiveSite $c.SiteUrl
@@ -305,7 +368,6 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         }
     }
     foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) { $c.Outcome = 'NoSite' }
-    foreach ($c in $batch) { Log ("  {0,-40} {1,-6} språk {2}" -f $c.Alias, $c.Outcome, $c.Lcid) $(if ($c.Outcome -eq 'Hit') { 'OK' } else { 'INFO' }) }
 
     $roundHits = @($batch | Where-Object Outcome -eq 'Hit')
     $hits += $roundHits.Count
@@ -313,13 +375,29 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     if (-not $winner) { $winner = $roundHits | Select-Object -First 1 }
 
     $losers = @($batch | Where-Object { $_ -ne $winner -and $_.GroupId })
+    $errs = @()
     if ($losers) {
+        Show-Progress "Runde $round/$($MaxRounds): sletter $($losers.Count) kandidat(er)"
         $errs = Remove-Candidates $losers
         $cleanupErrors += $errs
-        Log "  Slettet $($losers.Count) kandidat(er)$(if ($errs) { " ($($errs.Count) feil)" })" $(if ($errs) { 'WARN' } else { 'INFO' })
     }
+    # Én linje per runde, for eksempel «Runde 1/3: ingen treff, 5 bom (1044), slettet 5»
+    $label = @{ Miss = 'bom'; NoSite = 'uten område'; CreateFailed = 'ikke opprettet' }
+    $rest = @($batch | Where-Object Outcome -ne 'Hit' | Group-Object Outcome, Lcid | ForEach-Object {
+            $o = $_.Group[0]; "$($_.Count) $($label[$o.Outcome])$(if ($o.Lcid) { " ($($o.Lcid))" })" })
+    $line = "Runde $round/$($MaxRounds): " + $(if ($winner) { "treff $($winner.Alias)$(if ($roundHits.Count -gt 1) { " (+$($roundHits.Count - 1) treff slettet)" })" } else { 'ingen treff' })
+    if ($rest) { $line += ', ' + ($rest -join ', ') }
+    if ($losers) { $line += ", slettet $($losers.Count)$(if ($errs) { " ($($errs.Count) feil)" })" }
+    Log $line $(if ($errs) { 'WARN' } elseif ($winner) { 'OK' } else { 'INFO' })
 }
 
+$purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
+if ($purgeCount) {
+    $notPurged = Clear-CandidateRecycleBin
+    Log "Tømte $(if ($notPurged) { "$($purgeCount - $notPurged.Count) av " })$purgeCount område(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
+    $cleanupErrors += @($notPurged | ForEach-Object { "$($_): ikke tømt fra papirkurven" })
+}
+Show-Progress
 foreach ($e in $cleanupErrors) { Log "Ikke ryddet: $e" 'WARN' }
 $elapsed = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
@@ -329,13 +407,14 @@ if (-not $winner) {
     throw "Ingen kandidat fikk språk $Lcid etter $attempts forsøk."
 }
 
-Log "Treff: $($winner.SiteUrl) ($attempts forsøk, $hits treff, $elapsed min)" 'OK'
+Log "Ferdig: $($winner.SiteUrl) ($attempts forsøk, $elapsed min)" 'OK'
 
 # ---------------------------------------------------------------------------
 # Etterarbeid: medlemmer, team og hub
 # ---------------------------------------------------------------------------
 $exitCode = 0
 if ($memberIds) {
+    Show-Progress "Legger til $($memberIds.Count) medlem(mer)"
     # Graph tar maks 20 per PATCH
     for ($i = 0; $i -lt $memberIds.Count; $i += 20) {
         $chunk = $memberIds[$i..([Math]::Min($i + 19, $memberIds.Count - 1))]
@@ -350,6 +429,7 @@ if ($memberIds) {
 $teamOk = $null
 if ($CreateTeam) {
     $teamOk = $false
+    Show-Progress 'Oppretter Teams-team'
     for ($i = 1; $i -le 4 -and -not $teamOk; $i++) {
         try { Invoke-Graph Put ('v1.0/groups/' + $winner.GroupId + '/team') @{} | Out-Null; $teamOk = $true }
         catch { Log "Teams-team, forsøk $i : $(Get-ErrorText $_)" 'WARN'; Start-Sleep -Seconds (15 * $i) }
@@ -369,6 +449,7 @@ if ($HubUrl) {
     catch { Log "Hubtilknytning feilet: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2 }
 }
 
+Show-Progress
 [pscustomobject]@{
     SiteUrl       = $winner.SiteUrl
     Alias         = $winner.Alias

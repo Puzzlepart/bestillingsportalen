@@ -109,13 +109,16 @@ resource addGuestToSiteRunbook 'Microsoft.Automation/automationAccounts/runbooks
 // Creates the M365 group for a request with several candidates and keeps the one whose site got
 // the requested language (workaround for Graph ignoring SPSiteLanguage). Only called by
 // ProcessProvisionRequest when the EnableGroupLanguageRetry setting is true.
+// Verbose and progress logging are off: the runbook polls sites and groups, and every PnP call
+// then wrote several job log lines (hundreds per run). Its own output lines say what happened in
+// each round.
 resource createGroupWithLanguageRunbook 'Microsoft.Automation/automationAccounts/runbooks@2024-10-23' = {
   parent: automationAccount
   name: 'CreateGroupWithLanguage'
   location: location
   properties: {
-    logVerbose: true
-    logProgress: true
+    logVerbose: false
+    logProgress: false
     runbookType: 'PowerShell'
     runtimeEnvironment: runtimeEnvironment.name
     draft: {}

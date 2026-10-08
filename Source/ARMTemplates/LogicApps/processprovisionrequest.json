@@ -658,12 +658,12 @@
                                                 "Create_group_with_language_retry": {
                                                     "runAfter": {},
                                                     "type": "ApiConnection",
-                                                    "description": "Workaround for Graph ignoring SPSiteLanguage: the runbook creates several candidate groups and keeps the one whose site got the requested language. See Group-site-language.md.",
+                                                    "description": "Workaround for Graph ignoring SPSiteLanguage: the runbook creates several candidate groups and keeps the one whose site got the requested language. groupBody is base64 encoded because Azure Automation parses JSON parameter values before the runbook starts. See Group-site-language.md.",
                                                     "inputs": {
                                                         "body": {
                                                             "properties": {
                                                                 "parameters": {
-                                                                    "groupBody": "@variables('MembersRequestBody')",
+                                                                    "groupBody": "@base64(variables('MembersRequestBody'))",
                                                                     "siteUrl": "@triggerBody()?['SiteURL']",
                                                                     "lcid": "@{triggerBody()?['LCID']}",
                                                                     "batchSize": "@{variables('GroupLanguageRetryParallel')}",
@@ -2420,7 +2420,7 @@
                                                             "type": "SetVariable",
                                                             "inputs": {
                                                                 "name": "GroupLanguageRetryParallel",
-                                                                "value": "@if(empty(items('For_each_setting')?['Value']), 3, int(items('For_each_setting')?['Value']))"
+                                                                "value": "@if(empty(items('For_each_setting')?['Value']), 5, int(items('For_each_setting')?['Value']))"
                                                             }
                                                         }
                                                     }
@@ -2660,7 +2660,7 @@
                                     {
                                         "name": "GroupLanguageRetryParallel",
                                         "type": "integer",
-                                        "value": 3
+                                        "value": 5
                                     }
                                 ]
                             }

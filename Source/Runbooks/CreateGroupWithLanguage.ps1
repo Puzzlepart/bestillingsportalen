@@ -8,7 +8,7 @@
 #
 # Called by ProcessProvisionRequest instead of its own POST /groups when the
 # 'EnableGroupLanguageRetry' setting is true. The logic app passes the exact group body it would
-# otherwise have posted. Per round:
+# otherwise have posted, base64 encoded (see the groupBody parameter). Per round:
 #   1. Creates $batchSize groups: the first with the requested alias, the rest with alias-xxxxx
 #      (5 characters from a GUID). Candidates are created without members, so members do not get
 #      a welcome mail from every candidate; members are added to the winner afterwards.
@@ -18,6 +18,9 @@
 #      site and the site removed via tenant CSOM. The admin API refuses to delete group sites
 #      directly, and GroupSiteManager/Delete returns 403 for app-only.
 #   4. No hit starts a new round, up to $maxRounds.
+# When the rounds are done, the deleted candidate sites are also purged from the tenant recycle
+# bin. They never had any content, and a site in the recycle bin keeps its URL for 93 days, which
+# would block the requested alias for later requests.
 #
 # If the root site already has the requested language, the bug cannot change the outcome, so only
 # one candidate is created.
@@ -31,15 +34,19 @@
 [CmdletBinding()]
 Param
 (
-    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody)
+    # The JSON body the logic app would otherwise POST to /groups (MembersRequestBody), base64
+    # encoded. Azure Automation parses a parameter value that is valid JSON before the runbook
+    # starts, and the runbook then got '@{description=...}' instead of the JSON. Base64 is never
+    # valid JSON, so it arrives untouched like any other plain string. Plain JSON and an already
+    # parsed object are also accepted, for manual runs.
     [Parameter (Mandatory = $true)]
-    [string] $groupBody,
+    $groupBody,
     # The requested site URL (SiteURL on the request). Its parent path is used for the candidates.
     [Parameter (Mandatory = $true)]
     [string] $siteUrl,
     [Parameter (Mandatory = $true)]
     [string] $lcid,
-    [string] $batchSize = '3',
+    [string] $batchSize = '5',
     [string] $maxRounds = '3'
 )
 
@@ -55,7 +62,22 @@ $tenantRoot = "https://$($siteUri.Host)"
 $adminUrl = "https://$($siteUri.Host.Split('.')[0])-admin.sharepoint.com"
 $sitesBase = $siteUrl.TrimEnd('/').Substring(0, $siteUrl.TrimEnd('/').LastIndexOf('/'))
 
-$body = $groupBody | ConvertFrom-Json -AsHashtable
+if ($groupBody -isnot [string]) {
+    $groupBodyJson = $groupBody | ConvertTo-Json -Depth 10 -Compress
+}
+elseif ($groupBody.TrimStart().StartsWith('{')) {
+    $groupBodyJson = $groupBody
+}
+elseif ($groupBody.TrimStart().StartsWith('@{')) {
+    throw "groupBody arrived as PowerShell object text ($($groupBody.Substring(0, [Math]::Min(40, $groupBody.Length)))...): Azure Automation parsed the JSON before the runbook started. Pass groupBody base64 encoded, as ProcessProvisionRequest does from this version on."
+}
+else {
+    $groupBodyJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($groupBody.Trim()))
+}
+$body = $groupBodyJson | ConvertFrom-Json -AsHashtable
+# Graph rejects an empty description ("Invalid value specified for property 'description'"), so an
+# empty one falls back to the display name
+if ([string]::IsNullOrWhiteSpace([string] $body['description'])) { $body['description'] = [string] $body['displayName'] }
 $alias = [string] $body['mailNickname']
 if (-not $alias) { throw 'groupBody has no mailNickname.' }
 # Candidates get a 6 character suffix; keep the total within the 64 character mailNickname limit
@@ -184,12 +206,48 @@ function Remove-Candidates($List) {
     $errors = @()
     if (-not $List) { return , $errors }
     $notPurged = Remove-GroupsPermanently @($List | ForEach-Object GroupId)
+    $pending = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $List) {
         if ($notPurged -contains $c.GroupId) { $errors += "$($c.Alias): group not confirmed permanently deleted"; continue }
-        if (-not (Get-LiveSite $c.SiteUrl)) { continue }
-        try { Remove-OrphanedGroupSite $c.SiteUrl } catch { $errors += "$($c.Alias): $(Get-ErrorText $_)" }
+        $pending.Add($c)
     }
+    # SharePoint can still see a group as soft-deleted for a while after Graph reports it gone, and
+    # ClearGroupId then fails ("the group is in {0} state"). Failed sites are retried for up to 2 min.
+    $lastError = @{}
+    for ($attempt = 1; $pending.Count -and $attempt -le 12; $attempt++) {
+        if ($attempt -gt 1) { Start-Sleep -Seconds 10 }
+        foreach ($c in @($pending)) {
+            try {
+                if (Get-LiveSite $c.SiteUrl) { Remove-OrphanedGroupSite $c.SiteUrl }
+                $script:sitesToPurge.Add($c.SiteUrl)
+                $pending.Remove($c) | Out-Null
+            }
+            catch { $lastError[$c.Alias] = Get-ErrorText $_ }
+        }
+    }
+    foreach ($c in $pending) { $errors += "$($c.Alias): $($lastError[$c.Alias])" }
     return , $errors
+}
+function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
+    # Purges the sites Remove-Candidates deleted from the tenant recycle bin. RemoveSite moves a site
+    # there asynchronously, so a site that is still live is waited for. All sites are polled at once,
+    # so sites from earlier rounds are usually already there. Returns the URLs not confirmed gone.
+    $remaining = [System.Collections.Generic.List[string]]::new()
+    $script:sitesToPurge | Select-Object -Unique | ForEach-Object { $remaining.Add($_) }
+    $script:sitesToPurge.Clear()
+    $end = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($remaining.Count -and (Get-Date) -lt $end) {
+        foreach ($u in @($remaining)) {
+            if (Get-LiveSite $u) { continue }
+            if (Get-DeletedSite $u) {
+                try { Remove-PnPTenantDeletedSite -Identity $u -Force -Connection (Get-AdminConnection) | Out-Null } catch { }
+                if (Get-DeletedSite $u) { continue }
+            }
+            $remaining.Remove($u) | Out-Null
+        }
+        if ($remaining.Count) { Start-Sleep -Seconds 10 }
+    }
+    return , @($remaining)
 }
 
 # ---------------------------------------------------------------------------
@@ -209,6 +267,7 @@ $attempts = 0
 $hits = 0
 $cleanupErrors = @()
 $allCreated = [System.Collections.Generic.List[object]]::new()
+$script:sitesToPurge = [System.Collections.Generic.List[string]]::new()
 
 try {
     for ($round = 1; $round -le $rounds -and -not $winner; $round++) {
@@ -260,9 +319,16 @@ catch {
     $err = Get-ErrorText $_
     $left = @($allCreated | Where-Object { $_ -ne $winner })
     if ($left) { Remove-Candidates $left | Out-Null }
+    Clear-CandidateRecycleBin | Out-Null
     throw "Group creation failed: $err"
 }
 
+$purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
+if ($purgeCount) {
+    $notPurged = Clear-CandidateRecycleBin
+    Log "Purged $($purgeCount - $notPurged.Count) of $purgeCount deleted candidate site(s) from the recycle bin"
+    $cleanupErrors += @($notPurged | ForEach-Object { "$($_): not purged from the recycle bin" })
+}
 foreach ($e in $cleanupErrors) { Log "Not cleaned up: $e" }
 $minutes = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
@@ -271,14 +337,26 @@ if (-not $winner) {
 }
 Log "Kept $($winner.SiteUrl) after $attempts attempt(s), $hits hit(s), $minutes min"
 
-# Members are added after the winner is chosen. Graph accepts at most 20 per PATCH.
-for ($i = 0; $i -lt $members.Count; $i += 20) {
-    $chunk = $members[$i..([Math]::Min($i + 19, $members.Count - 1))]
-    Invoke-Graph Patch ('v1.0/groups/' + $winner.GroupId) @{ 'members@odata.bind' = @($chunk) } | Out-Null
-}
-if ($members) { Log "Added $($members.Count) member(s)" }
+# Members are added after the winner is chosen. Graph accepts at most 20 per PATCH. A failure from
+# here on also deletes the kept group: the job fails either way, and a group left behind blocks the
+# alias when the request is ordered again.
+try {
+    for ($i = 0; $i -lt $members.Count; $i += 20) {
+        $chunk = $members[$i..([Math]::Min($i + 19, $members.Count - 1))]
+        # [string[]] because Where-Object above wraps the strings in PSObject, and Invoke-PnPGraphMethod
+        # serializes those (System.Text.Json) as objects: "Expected string(s) for ODataBind values"
+        Invoke-Graph Patch ('v1.0/groups/' + $winner.GroupId) @{ 'members@odata.bind' = [string[]] $chunk } | Out-Null
+    }
+    if ($members) { Log "Added $($members.Count) member(s)" }
 
-$group = Invoke-Graph Get ('v1.0/groups/' + $winner.GroupId)
+    $group = Invoke-Graph Get ('v1.0/groups/' + $winner.GroupId)
+}
+catch {
+    $err = Get-ErrorText $_
+    $errs = Remove-Candidates @($winner)
+    Clear-CandidateRecycleBin | Out-Null
+    throw "Adding members to $($winner.SiteUrl) failed: $err. $(if ($errs) { "The group could not be deleted: $($errs -join '; ')" } else { 'The group was deleted.' })"
+}
 $result = [ordered]@{
     groupId  = $winner.GroupId
     alias    = $winner.Alias

@@ -343,7 +343,7 @@ Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Te
     </pnp:DataRow>
     <pnp:DataRow>
       <pnp:DataValue FieldName="Title">GroupLanguageRetryParallel</pnp:DataValue>
-      <pnp:DataValue FieldName="Value">3</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">5</pnp:DataValue>
       <pnp:DataValue FieldName="Description">Antall kandidater som opprettes samtidig per runde når EnableGroupLanguageRetry er true (1-10).</pnp:DataValue>
     </pnp:DataRow>
     <pnp:DataRow>
