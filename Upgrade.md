@@ -9,7 +9,7 @@ Oppgraderingsprosessen lar deg:
 - Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
 - Oppdatere Logic App-ene `ProcessProvisionRequest` og `ProcessGuestRequest` med de nyeste arbeidsflyt-forbedringene
 - Bygge og publisere SPFx-løsninger (f.eks. `InviteGuests`-webdelen) til tenant app-katalog
-- Registrere installasjonen i tenant-registeret `bp_ProvisionUrls` (storage entity) som webdelene og Teams-appen bruker til å finne området — eksisterende miljøer uten registeret får det opprettet ved første re-deploy; frem til da gjelder standard-URL-en `/sites/bestillingsportalen` som før
+- Registrere installasjonen i tenant-registeret `bp_ProvisionUrls` (storage entity) som webdelene og Teams-appen bruker til å finne området — eksisterende miljøer uten registeret får det opprettet ved første re-deploy; frem til da gjelder standard-URL-en `/sites/bestillingsportalen` som før. Skrivingen krever at NoScript er av på app-katalogen, så `deploy.ps1` slår det midlertidig av og på igjen etterpå. Feiler registreringen likevel, skriver skriptet ut en `WARNING` med kommandoene for manuell registrering
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
 

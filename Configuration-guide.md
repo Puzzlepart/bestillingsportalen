@@ -234,11 +234,17 @@ Webdelene og Teams-appen finner Bestillingsportalen-området via en tenant-omfat
 ]
 ```
 
-Registeret kan også administreres manuelt mot **tenant app-katalogen** (krever SharePoint-administrator):
+Registeret kan også administreres manuelt mot **tenant app-katalogen** (krever SharePoint-administrator). Lesing virker alltid, men `Set-PnPStorageEntity` gir `E_ACCESSDENIED` så lenge app-katalogen er et NoScript-område (`DenyAddAndCustomizePages = Enabled`, som er standard). Slå av NoScript mot admin-URL-en før skrivingen og på igjen etterpå. Endringen kan bruke opptil et minutt på å slå inn:
 
 ```powershell
 Get-PnPStorageEntity -Key bp_ProvisionUrls
+
+# Mot https://<tenant>-admin.sharepoint.com
+Set-PnPTenantSite -Url <app-katalogens URL> -NoScriptSite:$false
+# Mot app-katalogen
 Set-PnPStorageEntity -Key bp_ProvisionUrls -Value '[{"title":"Bestillingsportalen","url":"/sites/bestillingsportalen"}]'
+# Mot https://<tenant>-admin.sharepoint.com igjen
+Set-PnPTenantSite -Url <app-katalogens URL> -NoScriptSite:$true
 ```
 
 URL-oppløsningen er: på SharePoint-sider vinner property pane-verdien, med registerets standardinstans som fallback når feltet står tomt; i Teams vinner registeret. Verdien mellomlagres i `sessionStorage`, så endringer i registeret slår inn i en ny fane/økt. Gjeste-webdelen (`InviteGuests`) bruker samme register som fallback for `guestRequestSiteUrl`.

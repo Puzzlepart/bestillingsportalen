@@ -2734,8 +2734,17 @@ function SetSettingValue {
 # are never REMOVED here; decommissioned instances are cleaned up manually with
 # Set-PnPStorageEntity. Best effort: a failure is a WARNING with the manual command,
 # never fatal.
+#
+# The write is refused with E_ACCESSDENIED - even for a site collection admin on the
+# app catalog - while the app catalog is a NoScript site (DenyAddAndCustomizePages =
+# Enabled, the tenant default). NoScript is lifted for the write and restored in
+# finally, the same pattern as DisableNoScript/EnableNoScript in ConfigureSpace.ps1.
 function RegisterProvisionInstance {
     $componentName = "Instance registry (bp_ProvisionUrls)"
+    $adminUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
+    $appCatalogUrl = $null
+    $restoreNoScript = $false
+    $noScriptBlocked = $null
     try {
         Write-Host "Registering $requestsSiteUrl in tenant storage entity bp_ProvisionUrls..." -ForegroundColor Yellow
         $instanceTitle = if (IsValidParam($parameters.provisionInstanceTitle)) {
@@ -2746,10 +2755,25 @@ function RegisterProvisionInstance {
         }
 
         # The token is cached in-session, so these do not prompt again
-        ConnectPnP "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
+        ConnectPnP $adminUrl
         $appCatalogUrl = Get-PnPTenantAppCatalogUrl
         if ([string]::IsNullOrEmpty($appCatalogUrl)) {
             throw "Tenant app catalog not found - create one in the SharePoint admin center"
+        }
+
+        # Set-PnPTenantSite is a tenant-admin cmdlet, so toggle before leaving the admin
+        # connection. A refused toggle is not fatal on its own: the write is still tried,
+        # and the reason ends up in the WARNING if it is denied
+        if ((Get-PnPTenantSite -Url $appCatalogUrl -ErrorAction Stop).DenyAddAndCustomizePages -eq 'Enabled') {
+            try {
+                Set-PnPTenantSite -Url $appCatalogUrl -NoScriptSite:$false -ErrorAction Stop
+                $restoreNoScript = $true
+                Write-Host "NoScript temporarily disabled on the app catalog" -ForegroundColor Yellow
+            }
+            catch {
+                $noScriptBlocked = ($_.Exception.Message -split "`r?`n")[0]
+                Write-Host "[WARNING] Could not disable NoScript on the app catalog ($noScriptBlocked) - trying the write anyway" -ForegroundColor Yellow
+            }
         }
         ConnectPnP $appCatalogUrl
 
@@ -2780,15 +2804,50 @@ function RegisterProvisionInstance {
         # enumerates) so a single entry still serializes as a JSON array - passing the
         # array as an argument would double-wrap it
         $json = $instances | Select-Object title, url | ConvertTo-Json -Compress -AsArray
-        Set-PnPStorageEntity -Key "bp_ProvisionUrls" -Value $json -Description "Bestillingsportalen-instanser (JSON-array av {title, url}; foerste element er standard). Vedlikeholdes av deploy.ps1 - kan ogsaa redigeres manuelt." -ErrorAction Stop
+
+        # A freshly lifted NoScript takes a while to reach the site, so E_ACCESSDENIED is
+        # retried for up to a minute after the toggle
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                Set-PnPStorageEntity -Key "bp_ProvisionUrls" -Value $json -Description "Bestillingsportalen-instanser (JSON-array av {title, url}; foerste element er standard). Vedlikeholdes av deploy.ps1 - kan ogsaa redigeres manuelt." -ErrorAction Stop
+                break
+            }
+            catch {
+                if (-not $restoreNoScript -or $attempt -ge 6 -or $_.Exception.Message -notmatch 'E_ACCESSDENIED|0x80070005') { throw }
+                Write-Host "App catalog still refuses the write (NoScript change not propagated yet) - retrying in 10 seconds..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 10
+            }
+        }
         Write-Host "Registered instance '$instanceTitle' -> $requestsSiteUrl ($(@($instances).Count) instance(s) in the registry)" -ForegroundColor Green
         RecordDeployStatus -Component $componentName -Status 'OK' -Detail "$instanceTitle -> $requestsSiteUrl"
     }
     catch {
         $reason = ($_.Exception.Message -split "`r?`n")[0]
+        if ($noScriptBlocked) {
+            $reason += " - NoScript could not be disabled on the app catalog ($noScriptBlocked), so the tenant probably does not allow custom script"
+        }
+        $catalog = if ($appCatalogUrl) { $appCatalogUrl } else { "<app catalog URL>" }
+        $connectArgs = "-ClientId $($parameters.pnpAppId.Value) -Interactive"
+        $manualCommand = "Connect-PnPOnline $adminUrl $connectArgs; Set-PnPTenantSite -Url $catalog -NoScriptSite:`$false; Connect-PnPOnline $catalog $connectArgs; Set-PnPStorageEntity -Key bp_ProvisionUrls -Value $requestsSiteUrl; Connect-PnPOnline $adminUrl $connectArgs; Set-PnPTenantSite -Url $catalog -NoScriptSite:`$true"
         Write-Host "[WARNING] Failed to register the instance in bp_ProvisionUrls: $reason" -ForegroundColor Yellow
-        Write-Host "Set it manually against the tenant app catalog: Set-PnPStorageEntity -Key bp_ProvisionUrls -Value $requestsSiteUrl" -ForegroundColor Yellow
-        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Registry not updated ($reason). Set it manually against the tenant app catalog: Set-PnPStorageEntity -Key bp_ProvisionUrls -Value $requestsSiteUrl"
+        Write-Host "Set it manually against the tenant app catalog, with NoScript lifted for the write: $manualCommand" -ForegroundColor Yellow
+        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Registry not updated ($reason). Set it manually against the tenant app catalog, with NoScript lifted for the write: $manualCommand"
+    }
+    finally {
+        # Always restore NoScript, even if the write failed. Set-PnPTenantSite needs the
+        # admin connection, and the connection is on the app catalog by now
+        if ($restoreNoScript) {
+            try {
+                ConnectPnP $adminUrl
+                Set-PnPTenantSite -Url $appCatalogUrl -NoScriptSite:$true -ErrorAction Stop
+                Write-Host "NoScript re-enabled on the app catalog" -ForegroundColor Green
+            }
+            catch {
+                $reason = ($_.Exception.Message -split "`r?`n")[0]
+                Write-Host "[WARNING] Failed to re-enable NoScript on the app catalog: $reason" -ForegroundColor Yellow
+                RecordDeployStatus -Component "App catalog NoScript" -Status 'WARNING' -Detail "NoScript left disabled on $appCatalogUrl ($reason). Re-enable it against the admin URL: Set-PnPTenantSite -Url $appCatalogUrl -NoScriptSite:`$true"
+            }
+        }
     }
 }
 
