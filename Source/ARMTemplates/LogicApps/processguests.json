@@ -409,7 +409,6 @@
                             }
                         },
                         "Set_guest_sponsor": {
-                            "comments": "Records the requester as the guest's sponsor in Entra ID. Entra normally sets the inviter as sponsor automatically, but this solution invites app-only (managed identity), so without this the field stays empty. Best-effort by design: the whole scope is contained and Response runs regardless of its outcome, so a sponsor that cannot be set (Entra caps a guest at five sponsors, or the requester cannot be resolved) never fails an otherwise successful invitation.",
                             "runAfter": {
                                 "Check_if_Guest_exists": [
                                     "Succeeded"
@@ -492,7 +491,6 @@
                             }
                         },
                         "Response": {
-                            "comments": "Runs on Failed/TimedOut as well so a sponsor that could not be set still returns the invited guests. Deliberately NOT on Skipped: the scope is only skipped when Check_if_Guest_exists itself failed, and a failed invitation must fail the run so the caller marks the request Failed.",
                             "runAfter": {
                                 "Set_guest_sponsor": [
                                     "Succeeded",

@@ -58,7 +58,7 @@ Bruk oppgraderingsmodus når du vil:
    - Med `enableGovernance = true` i `parameters.json` også de fire Teams governance-appene (`GovernanceNotify`, `GovernanceSync`, `GovernanceEndDate`, `GovernanceAnnualReview`), og app-rollene `TeamSettings.ReadWrite.All` og `Chat.Create`. Slik legges modulen til i en eksisterende installasjon: sett parameteren og kjør `deploy.ps1 -Upgrade`. PnP-malen må anvendes (svar `y` på prompten) første gang, slik at listene `Teams Governance` og `Governance Log` opprettes. Se [Teams governance](./Teams-governance.md).
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
-   - De tre repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
+   - De repo-eide runbookene (`ConfigureSpace`, `GetSiteTemplates`, `AddGuestToSite`, `CreateGroupWithLanguage`) + PowerShell 7.4-runtime-miljøet opprettes/oppdateres
    - **Runbook-innholdet lastes opp direkte fra `Source/Runbooks/` og publiseres** — alltid i sync med repoet. Merk: endringer gjort direkte i Azure Portal overskrives ved hver deploy/upgrade; tilpasninger skal gjøres i repoet.
    - `CustomerSpecific` opprettes hvis den mangler, men **overskrives aldri** (organisasjonens eget innhold — tilpasninger legges der)
 

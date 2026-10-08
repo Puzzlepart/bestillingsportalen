@@ -55,6 +55,7 @@ const ORDER = [
   'Teams-governance.md',
   'Approval-flow.md',
   'Regional-settings.md',
+  'Group-site-language.md',
   'Error-handling.md',
   'CHANGELOG.md',
   'CONTRIBUTING.md',

@@ -394,5 +394,20 @@ Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Te
       <pnp:DataValue FieldName="Value">nb-no</pnp:DataValue>
       <pnp:DataValue FieldName="Description">Teams governance: språk i varselkortene: nb-no, nn-no eller en-us.</pnp:DataValue>
     </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">EnableGroupLanguageRetry</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Workaround for at Microsoft ignorerer bestilt språk på gruppeområder. Når true, opprettes flere kandidater samtidig for gruppebaserte områder, og den som fikk riktig språk beholdes. Området kan da få suffiks i URL og alias. Se Group-site-language.md.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GroupLanguageRetryParallel</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">5</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Antall kandidater som opprettes samtidig per runde når EnableGroupLanguageRetry er true (1-10).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GroupLanguageRetryMaxRounds</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">3</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Maks antall runder før bestillingen feiler når EnableGroupLanguageRetry er true.</pnp:DataValue>
+    </pnp:DataRow>
   </pnp:DataRows>
 </pnp:ListInstance>
