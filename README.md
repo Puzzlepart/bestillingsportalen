@@ -141,6 +141,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Sensitivitetsmerker](./Sensitivity-labels.md) og [Oppbevaringsmerker](./Retention-labels.md)
 - [Regionale innstillinger](./Regional-settings.md)
 - [Språk på gruppeområder](./Group-site-language.md) – valgfri workaround når Microsoft ignorerer bestilt språk
+- [Begrense opprettelse av områder](./Restrict-site-creation.md) – tenant-innstillinger som gjør Bestillingsportalen til eneste vei for nye områder, med roller og rettigheter
 
 **Referanse**
 

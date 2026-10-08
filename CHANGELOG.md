@@ -10,6 +10,10 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 - **Årsaken til en feilet bestilling vises i statusoversikten**: Har en bestilling status «Områdeopprettelse feilet», viser statusen innholdet i `StatusReason` som tooltip. Bestilleren kan dermed se hva som gikk galt uten å spørre en administrator.
 - **Forhåndssjekken varsler om Teams-appen må lastes opp manuelt**: Den nye sjekken «Teams app publish» leser PnP-tokenet og viser `WARNING` når PnP-appen mangler den delegerte tillatelsen `AppCatalog.ReadWrite.All`. Da hopper `deploy.ps1` over publiseringsforsøket, som uansett ville gitt 403, og viser bare instruksjonene for manuell opplasting. Feiler publiseringen av andre grunner, vises det som en advarsel og ikke som en rød feil.
 
+### Dokumentasjon
+
+- **Ny veiledning: [Begrense opprettelse av områder](./Restrict-site-creation.md)**: Beskriver innstillingene i Microsoft 365 som styrer hvem som kan opprette team, grupper og SharePoint-områder utenom Bestillingsportalen – begrensning av gruppeoppretting i Entra ID, «Brukere kan opprette SharePoint-områder», Restricted Site Creation og Teams-policyer for kanaler – med omfang, lisenskrav, om de påvirker Bestillingsportalen, en anbefalt fremgangsmåte og en rolletabell til bruk i opplæring. Kodesnuttene er eksempler, og Bestillingsportalen endrer ingen av innstillingene.
+
 ### Feilrettinger
 
 - **Installasjonsmeldingen til Prosjektportalen-teamet sender ikke lenger brukernavn eller kommandolinje**: `deploy.ps1` sendte UPN-en til den som installerte og hele kommandolinjen, selv om koden kalte meldingen anonym. Meldingen inneholder nå bare adressen til bestillingsområdet, versjon, tidspunkt og navnene på parameterne som ble brukt. Den nye parameteren `-SkipPingback` slår meldingen av. Se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md#35-installasjonsmelding).
