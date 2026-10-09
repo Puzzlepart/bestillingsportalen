@@ -257,6 +257,41 @@ Denne listen lagrer alle språk/lokaler (LCID) som SharePoint Online støtter og
 | Title | Single line of text | Navn på språket/lokalen. |
 | LCID | Number | Locale ID (f.eks. `1044` for norsk bokmål, `1033` for engelsk (USA)). |
 
+### Teams Governance
+
+Register over alle Microsoft 365-grupper og team med governance-status. Listen fylles og vedlikeholdes av `GovernanceSync` (daglig), og statusfeltene settes av governance-logikkappene. Brukes bare når Teams governance er installert og slått på, se [Teams governance](./Teams-governance.md).
+
+| Kolonnenavn | Type | Beskrivelse |
+|---|---|---|
+| Title | Single line of text | Visningsnavnet til gruppen/teamet. |
+| ObjectGUID | Text (unik, indeksert) | ID-en til Microsoft 365-gruppen. |
+| GroupType | Choice | `Team` eller `M365Group`. Bare `Team` får varsler og kan arkiveres. |
+| OwnersJSON | Note | JSON-liste over eiere som er brukere: `[{"upn","displayName","id"}]`. |
+| Visibility | Choice | `Public` eller `Private`. |
+| GroupCreatedDateTime | DateTime | Når gruppen ble opprettet. Utgangspunkt for første årlige gjennomgang. |
+| GroupDescription | Note | Beskrivelsen til gruppen. |
+| EndDate | DateTime | Sluttdato. Hentes fra bestillingens `ExpirationDate` når `EnableExpirationDate` er på, og kan forlenges av eierne. Tom = årlig gjennomgang. |
+| ExcludeFromGovernance | Yes/No | Unntar teamet fra alle governance-steg. |
+| GovernanceStatus | Choice | `Active`, `EndDateNotified`, `EndDateReminded`, `EndDateConfirmed`, `AnnualReviewNotified`, `AnnualReviewReminded`, `Archived`, `Deleted`. |
+| LastNotificationDate | DateTime | Når siste varsel ble sendt. |
+| LastAnnualReviewDate | DateTime | Når siste årlige gjennomgang ble fullført. |
+| ArchivedDate | DateTime | Når teamet ble arkivert. |
+| GovernanceChatId | Text | ID-en til gruppechatten der varslene postes. |
+| LastMessageId | Text | ID-en til siste besvarte kort. |
+
+### Governance Log
+
+Revisjonslogg over alt governance-modulen gjør.
+
+| Kolonnenavn | Type | Beskrivelse |
+|---|---|---|
+| Title | Single line of text | Kort beskrivelse av hendelsen. |
+| TeamObjectGUID | Text (indeksert) | ID-en til gruppen. |
+| TeamName | Text | Visningsnavnet til teamet da handlingen ble utført. |
+| LogAction | Choice | Type handling, f.eks. `EndDateNotification`, `EndDateExtended`, `UsageConfirmed`, `TeamArchived`, `TeamDeleted`, `NotificationFailed`, `DryRun`, `SyncCompleted`. |
+| LogDetails | Note | Detaljer, blant annet feilmeldinger fra Graph. |
+| PerformedBy | Text | `System` eller UPN-en til eieren som svarte på kortet. |
+
 ### PnP Templates
 
 Dette er et dokumentbibliotek (ikke en liste) som lagrer PnP-provisjoneringsmaler som kan anvendes under provisjonering. Se [PnP Templates](/PnP-templates.md) for mer informasjon.

@@ -5230,6 +5230,15 @@
                         },
                         "Store_expiration_date": {
                             "actions": {
+                                "Filter_GovernanceEnabled_setting": {
+                                    "runAfter": {},
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@body('Get_settings_items')?['value']",
+                                        "where": "@and(equals(item()?['Title'], 'GovernanceEnabled'), equals(toLower(trim(coalesce(item()?['Value'], ''))), 'true'))"
+                                    },
+                                    "description": "When Teams governance is enabled, ExpirationDate is the end date the orderer chose, and governance archives the team on it - so the Entra group expiration date must not overwrite it. See Teams-governance.md."
+                                },
                                 "Check_if_space_is_a_group_or_team": {
                                     "actions": {
                                         "Check_that_a_lifecycle_policy_exists": {
@@ -5465,31 +5474,45 @@
                                             }
                                         }
                                     },
-                                    "runAfter": {},
+                                    "runAfter": {
+                                        "Filter_GovernanceEnabled_setting": [
+                                            "Succeeded"
+                                        ]
+                                    },
                                     "expression": {
-                                        "or": [
+                                        "and": [
                                             {
-                                                "equals": [
-                                                    "@triggerBody()?['SpaceTypeInternal']",
-                                                    "Office 365 Group"
+                                                "or": [
+                                                    {
+                                                        "equals": [
+                                                            "@triggerBody()?['SpaceTypeInternal']",
+                                                            "Office 365 Group"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "equals": [
+                                                            "@triggerBody()?['Teamify']",
+                                                            "@true"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "equals": [
+                                                            "@triggerBody()?['SpaceTypeInternal']",
+                                                            "Microsoft Teams Team"
+                                                        ]
+                                                    }
                                                 ]
                                             },
                                             {
                                                 "equals": [
-                                                    "@triggerBody()?['Teamify']",
-                                                    "@true"
-                                                ]
-                                            },
-                                            {
-                                                "equals": [
-                                                    "@triggerBody()?['SpaceTypeInternal']",
-                                                    "Microsoft Teams Team"
+                                                    "@length(body('Filter_GovernanceEnabled_setting'))",
+                                                    0
                                                 ]
                                             }
                                         ]
                                     },
                                     "type": "If",
-                                    "description": "We only need to store the expiration date if the space type is a group/team."
+                                    "description": "We only need to store the expiration date if the space type is a group/team - and not when Teams governance is enabled (the orderer's end date is kept then)."
                                 }
                             },
                             "runAfter": {

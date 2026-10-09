@@ -28,6 +28,7 @@ Bestillingsportalen er en Azure-basert løsning som gir et styrt alternativ til 
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation (PnP PowerShell), inkludert hub-tilknytning, PnP-maler, sensitivitets- og oppbevaringsmerker.
 - Selvbetjent invitasjon av eksterne gjester via `InviteGuests`-webdelen (samme SPFx-pakke), som kan plasseres på et hvilket som helst SharePoint-område. Invitasjoner skrives til `Guest Requests`-listen og prosesseres av `ProcessGuestRequest` Logic App.
 - Støtte for flere installasjoner i samme tenant, med instansvelger i Teams-appen.
+- Valgfri **Teams governance**: varsel før sluttdato, årlig gjennomgang av team uten sluttdato, arkivering og valgfri sletting, med svar direkte fra adaptive kort i Teams. Installeres med `enableGovernance` og slås på i innstillingslisten – se [Teams governance](./Teams-governance.md).
 
 ### Gjesteinvitasjon
 

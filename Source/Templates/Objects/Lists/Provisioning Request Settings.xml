@@ -337,6 +337,64 @@ Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Te
       <pnp:DataValue FieldName="Description">Aktiver funksjonaliteten for intern kanal.</pnp:DataValue>
     </pnp:DataRow>
     <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceEnabled</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: slår på varsler, arkivering og (valgfritt) sletting. Krever at modulen er installert (enableGovernance i parameters.json). GovernanceSync fyller Teams Governance-listen uansett. Se Teams-governance.md.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceDryRun</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">true</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: tørrkjøring. Når true logges det bare hva som ville skjedd (LogAction DryRun) - ingen varsler sendes og ingenting arkiveres. Sett til false når loggen er kontrollert.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceScope</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">All</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: All = alle Microsoft 365-grupper i tenanten. Portal = bare grupper bestilt gjennom Bestillingsportalen.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceEnableDeletion</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: slett team med sluttdato automatisk GovernanceDeleteAfterDays dager etter arkivering. Team uten sluttdato slettes aldri automatisk.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceNotifyDaysBeforeEndDate</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">30</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: antall dager før sluttdato det første varselet sendes.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceReminderDays</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">14</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: antall dager uten svar før påminnelse sendes, og før teamet arkiveres etter påminnelsen. Selve kortet utløper etter 14 dager.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceDeleteAfterDays</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">90</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: antall dager etter arkivering før team med sluttdato slettes (bare når GovernanceEnableDeletion er true).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceAnnualReviewDays</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">365</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: antall dager mellom hver årlige gjennomgang av team uten sluttdato (regnet fra opprettelse eller siste gjennomgang).</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceMaxNotificationsPerRun</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">25</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: maks antall team per steg (varsel, påminnelse, arkivering, sletting) per daglig kjøring. Fordeler utrullingen over flere dager.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceITEmail</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: e-postadresse som får en ukentlig rapport (mandager) over team uten eiere. Tom = ingen rapport.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceGuideUrl</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: lenke til organisasjonens egne retningslinjer for Teams, vises i varselkortene. Tom = skjules.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">GovernanceLanguage</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">nb-no</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Teams governance: språk i varselkortene: nb-no, nn-no eller en-us.</pnp:DataValue>
+    </pnp:DataRow>
+    <pnp:DataRow>
       <pnp:DataValue FieldName="Title">EnableGroupLanguageRetry</pnp:DataValue>
       <pnp:DataValue FieldName="Value">false</pnp:DataValue>
       <pnp:DataValue FieldName="Description">Workaround for at Microsoft ignorerer bestilt språk på gruppeområder. Når true, opprettes flere kandidater samtidig for gruppebaserte områder, og den som fikk riktig språk beholdes. Området kan da få suffiks i URL og alias. Se Group-site-language.md.</pnp:DataValue>

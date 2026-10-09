@@ -37,7 +37,13 @@
 
 .PARAMETER UamiId
     Object (principal) id of the USER-ASSIGNED managed identity used by the logic
-    apps. Gets: 9 Graph roles + SharePoint Sites.FullControl.All.
+    apps. Gets: 9 Graph roles (11 with -IncludeGovernance) + SharePoint
+    Sites.FullControl.All.
+
+.PARAMETER IncludeGovernance
+    Handover mode: also give the user-assigned identity the Teams governance roles
+    (TeamSettings.ReadWrite.All, Chat.Create). deploy.ps1 adds this switch to the
+    printed command when enableGovernance is set. See Teams-governance.md.
 
 .PARAMETER TenantId
     Tenant to sign in to. Recommended in the handover scenario so the sign-in
@@ -64,7 +70,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string[]]$Scopes = @("Group.ReadWrite.All", "User.Read.All"),
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeSharePointSitesFullControl
+    [switch]$IncludeSharePointSitesFullControl,
+    [Parameter(Mandatory = $false)]
+    [switch]$IncludeGovernance
 )
 
 if (-not $AutomationIdentityId -and -not $UamiId -and -not $ManagedIdentityId) {
@@ -87,6 +95,10 @@ $uamiGraphRoles = @(
     "User.Invite.All",
     "User.ReadWrite.All"
 )
+# Optional Teams governance module (deploy.ps1: enableGovernance)
+if ($IncludeGovernance) {
+    $uamiGraphRoles += @("TeamSettings.ReadWrite.All", "Chat.Create")
+}
 
 try {
     # Application.Read.All to resolve the service principals, AppRoleAssignment for
