@@ -496,11 +496,12 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     }
     # Én linje per runde, for eksempel «Runde 1 av 3: ingen fikk riktig språk. 5 fikk English (1033). Slettet 5.»
     $rest = @($batch | Where-Object Outcome -ne 'Hit' | Group-Object Outcome, Lcid | ForEach-Object {
-            $o = $_.Group[0]
+            # $_ er switch-verdien inne i switch, så antallet hentes før
+            $o = $_.Group[0]; $n = $_.Count
             switch ($o.Outcome) {
-                'Miss' { "$($_.Count) fikk $(Get-LanguageName $o.Lcid)" }
-                'NoSite' { "$($_.Count) ble ikke klare i tide" }
-                'CreateFailed' { "$($_.Count) ble ikke opprettet" }
+                'Miss' { "$n fikk $(Get-LanguageName $o.Lcid)" }
+                'NoSite' { "$n ble ikke klare i tide" }
+                'CreateFailed' { "$n ble ikke opprettet" }
             } })
     $line = "Runde $round av $($MaxRounds): " + $(if ($winner) { "riktig språk på $($winner.SiteUrl)." } else { 'ingen fikk riktig språk.' })
     if ($rest) { $line += ' ' + ($rest -join ', ') + '.' }
