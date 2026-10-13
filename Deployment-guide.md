@@ -165,6 +165,8 @@ Beskrivelse av hver parameter:
 
 - `serviceAccountUPN` – UPN til tjenestekontoen som brukes i løsningen – brukes til å koble Logic App API connections. Tjenestekontoen skal være en standard Microsoft 365-bruker med SPO/Exchange/Teams-lisenser og seeded Power Automate (E- og F-lisenser fungerer begge, se forutsetningene). Se [Assign licenses to users](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/assign-licenses-to-users?view=o365-worldwide).
 
+- `enableGovernance` (**valgfritt**, standard `false`) – Installerer den valgfrie Teams governance-modulen: de fire Logic Appene `GovernanceNotify`, `GovernanceSync`, `GovernanceEndDate` og `GovernanceAnnualReview`, og app-rollene `TeamSettings.ReadWrite.All` og `Chat.Create` på managed identityen. Modulen installeres avslått og i tørrkjøringsmodus, og slås på med `GovernanceEnabled` i `Provisioning Request Settings`. Se [Teams governance](./Teams-governance.md) før du slår den på.
+
 - `isEdu` – Angir om tenanten er en Education-tenant. Hvis `true`, installeres Education Teams Templates. Disse hoppes over hvis `false` eller blank.
 
 > **Sensitivitetsmerker har ingen installasjonsparameter.** Alt som trengs settes opp uansett (`SyncLabels`, `IP Labels`-listen og app-tillatelsen), og merkingen bruker Automation-kontoens managed identity. Funksjonaliteten skrus på ved å sette `EnableSensitivityLabels` til `true` i `Provisioning Request Settings`-listen etter installasjon – se [Sensitivitetsmerker](./Sensitivity-labels.md).

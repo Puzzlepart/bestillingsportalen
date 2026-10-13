@@ -1,0 +1,78 @@
+<pnp:ListInstance Title="Governance Log" Description="Revisjonslogg over alle handlinger governance-modulen har utført (varsler, svar, arkivering, sletting)." DocumentTemplate="" OnQuickLaunch="false" TemplateType="100" Url="Lists/GovernanceLog" EnableVersioning="false" MinorVersionLimit="0" MaxVersionLimit="0" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/GovernanceLog/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/GovernanceLog/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/GovernanceLog/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{AB444CA4-0FB3-4D7C-9ABC-40BE57D7E703}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Log Entries" Url="{site}/Lists/GovernanceLog/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <OrderBy>
+          <FieldRef Name="Created" Ascending="FALSE" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="TeamName" />
+        <FieldRef Name="TeamObjectGUID" />
+        <FieldRef Name="LogAction" />
+        <FieldRef Name="LogDetails" />
+        <FieldRef Name="PerformedBy" />
+        <FieldRef Name="Created" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+    <View Name="{59990AF5-3387-4A09-8313-EF1ED6A189DF}" DefaultView="FALSE" MobileView="FALSE" MobileDefaultView="FALSE" Type="HTML" DisplayName="By Team" Url="{site}/Lists/GovernanceLog/ByTeam.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <OrderBy>
+          <FieldRef Name="TeamName" />
+          <FieldRef Name="Created" Ascending="FALSE" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="TeamName" />
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="LogAction" />
+        <FieldRef Name="LogDetails" />
+        <FieldRef Name="PerformedBy" />
+        <FieldRef Name="Created" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field DisplayName="Team ID" Description="ID-en til Microsoft 365-gruppen" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="TeamObjectGUID" Title="Team ID" Type="Text" ID="{df333e7e-6cde-4f82-aed1-63cb49a32c60}" StaticName="TeamObjectGUID" Indexed="TRUE" />
+    <Field DisplayName="Team Name" Description="Visningsnavnet til teamet da handlingen ble utført" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="TeamName" Title="Team Name" Type="Text" ID="{7d687ba5-c65a-4e36-b5da-fc5b551aec17}" StaticName="TeamName" />
+    <Field DisplayName="Action" Description="Type handling" FillInChoice="FALSE" Format="Dropdown" IsModern="TRUE" Name="LogAction" Title="Action" Type="Choice" ID="{b6dfb1d8-d2d7-4b5d-bcec-57d98fad2b70}" StaticName="LogAction">
+      <CHOICES>
+        <CHOICE>SyncCompleted</CHOICE>
+        <CHOICE>EndDateNotification</CHOICE>
+        <CHOICE>EndDateReminder</CHOICE>
+        <CHOICE>EndDateExtended</CHOICE>
+        <CHOICE>EndDateConfirmed</CHOICE>
+        <CHOICE>AnnualReviewNotification</CHOICE>
+        <CHOICE>AnnualReviewReminder</CHOICE>
+        <CHOICE>UsageConfirmed</CHOICE>
+        <CHOICE>TeamArchived</CHOICE>
+        <CHOICE>ExternalArchiveDetected</CHOICE>
+        <CHOICE>TeamRestored</CHOICE>
+        <CHOICE>TeamDeleted</CHOICE>
+        <CHOICE>TeamAlreadyDeleted</CHOICE>
+        <CHOICE>ArchiveError</CHOICE>
+        <CHOICE>DeleteError</CHOICE>
+        <CHOICE>NotificationFailed</CHOICE>
+        <CHOICE>NotificationExpired</CHOICE>
+        <CHOICE>ResponseError</CHOICE>
+        <CHOICE>OwnerlessReport</CHOICE>
+        <CHOICE>DryRun</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field DisplayName="Details" Description="Detaljer" AppendOnly="FALSE" Format="Dropdown" IsModern="TRUE" IsolateStyles="FALSE" Name="LogDetails" RichText="FALSE" RichTextMode="Compatible" Title="Details" Type="Note" NumLines="6" ID="{f93f98ab-00e6-4b98-a247-496bc4690cc6}" StaticName="LogDetails" Sortable="FALSE" />
+    <Field DisplayName="Performed By" Description="System eller UPN-en til brukeren som utløste handlingen" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="PerformedBy" Title="Performed By" Type="Text" ID="{0f5a2770-405a-41f9-9791-60df4114ddd4}" StaticName="PerformedBy">
+      <Default>System</Default>
+    </Field>
+  </pnp:Fields>
+</pnp:ListInstance>

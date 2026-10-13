@@ -8,6 +8,8 @@
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Requests.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Provisioning Types.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Guest Requests.xml" />
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Teams Governance.xml" />
+  <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Governance Log.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Retention Labels.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Site Templates.xml" />
   <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="Objects/Lists/Teams Templates.xml" />

@@ -1,0 +1,1314 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "subscriptionId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "uamiName": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "spoRootSiteUrl": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsSettingsListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "governanceLogListId": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "requestsListId": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "variables": {
+        "uamiId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('uamiName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Teams governance - daily sync of Microsoft 365 groups and Teams to the Teams Governance list",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "GovernanceSync",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('uamiId')]": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "SiteUrl": {
+                            "defaultValue": "[parameters('requestsSiteUrl')]",
+                            "type": "String"
+                        },
+                        "SettingsListId": {
+                            "defaultValue": "[parameters('requestsSettingsListId')]",
+                            "type": "String"
+                        },
+                        "GovernanceListId": {
+                            "defaultValue": "[parameters('governanceListId')]",
+                            "type": "String"
+                        },
+                        "GovernanceLogListId": {
+                            "defaultValue": "[parameters('governanceLogListId')]",
+                            "type": "String"
+                        },
+                        "RequestsListId": {
+                            "defaultValue": "[parameters('requestsListId')]",
+                            "type": "String"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "type": "Recurrence",
+                            "recurrence": {
+                                "frequency": "Day",
+                                "interval": 1,
+                                "schedule": {
+                                    "hours": [
+                                        "3"
+                                    ],
+                                    "minutes": [
+                                        0
+                                    ]
+                                },
+                                "timeZone": "W. Europe Standard Time"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Initialize_variables": {
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "Groups",
+                                        "type": "array",
+                                        "value": []
+                                    },
+                                    {
+                                        "name": "GroupsNextLink",
+                                        "type": "string",
+                                        "value": ""
+                                    },
+                                    {
+                                        "name": "Items",
+                                        "type": "array",
+                                        "value": []
+                                    },
+                                    {
+                                        "name": "ItemsNextLink",
+                                        "type": "string",
+                                        "value": ""
+                                    },
+                                    {
+                                        "name": "Requests",
+                                        "type": "array",
+                                        "value": []
+                                    },
+                                    {
+                                        "name": "RequestsNextLink",
+                                        "type": "string",
+                                        "value": ""
+                                    },
+                                    {
+                                        "name": "ArchivedTeamIds",
+                                        "type": "array",
+                                        "value": []
+                                    },
+                                    {
+                                        "name": "CheckedTeamIds",
+                                        "type": "array",
+                                        "value": []
+                                    }
+                                ]
+                            },
+                            "runAfter": {}
+                        },
+                        "Get_settings": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "GET",
+                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('SettingsListId')}')/items",
+                                "queries": {
+                                    "$select": "Title,Value",
+                                    "$top": "500",
+                                    "$filter": "startswith(Title,'Governance') or Title eq 'EnableExpirationDate'"
+                                },
+                                "headers": {
+                                    "Accept": "application/json;odata=nometadata"
+                                },
+                                "authentication": {
+                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_variables": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_settings_with_value": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Get_settings')?['value']",
+                                "where": "@not(empty(trim(coalesce(item()?['Value'], ''))))"
+                            },
+                            "runAfter": {
+                                "Get_settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_settings": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@body('Filter_settings_with_value')",
+                                "select": "@concat(substring(string(createArray(item()?['Title'])), 1, sub(length(string(createArray(item()?['Title']))), 2)), ':', substring(string(createArray(trim(item()?['Value']))), 1, sub(length(string(createArray(trim(item()?['Value'])))), 2)))"
+                            },
+                            "runAfter": {
+                                "Filter_settings_with_value": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Settings": {
+                            "type": "Compose",
+                            "inputs": "@json(concat('{', join(body('Select_settings'), ','), '}'))",
+                            "runAfter": {
+                                "Select_settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Scope_-_Get_all_groups": {
+                            "type": "Scope",
+                            "actions": {
+                                "Get_groups_page": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/v1.0/groups?$filter=groupTypes/any(c:c+eq+'Unified')&$select=id,displayName,createdDateTime,resourceProvisioningOptions,visibility,description&$expand=owners($select=id,userPrincipalName,displayName)&$top=999",
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Set_Groups": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "Groups",
+                                        "value": "@body('Get_groups_page')?['value']"
+                                    },
+                                    "runAfter": {
+                                        "Get_groups_page": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Set_GroupsNextLink": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "GroupsNextLink",
+                                        "value": "@{coalesce(body('Get_groups_page')?['@odata.nextLink'], '')}"
+                                    },
+                                    "runAfter": {
+                                        "Set_Groups": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Until_all_groups_pages": {
+                                    "type": "Until",
+                                    "expression": "@equals(variables('GroupsNextLink'), '')",
+                                    "limit": {
+                                        "count": 500,
+                                        "timeout": "PT2H"
+                                    },
+                                    "actions": {
+                                        "Get_next_groups_page": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "GET",
+                                                "uri": "@{variables('GroupsNextLink')}",
+                                                "authentication": {
+                                                    "audience": "https://graph.microsoft.com",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Union_groups": {
+                                            "type": "Compose",
+                                            "inputs": "@union(variables('Groups'), body('Get_next_groups_page')?['value'])",
+                                            "runAfter": {
+                                                "Get_next_groups_page": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_Groups": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "Groups",
+                                                "value": "@outputs('Union_groups')"
+                                            },
+                                            "runAfter": {
+                                                "Union_groups": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_GroupsNextLink": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "GroupsNextLink",
+                                                "value": "@{coalesce(body('Get_next_groups_page')?['@odata.nextLink'], '')}"
+                                            },
+                                            "runAfter": {
+                                                "Update_Groups": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Set_GroupsNextLink": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Settings": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Scope_-_Get_governance_items": {
+                            "type": "Scope",
+                            "actions": {
+                                "Get_items_page": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "GET",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items?$select=ID,Title,ObjectGUID,GroupType,OwnersJSON,Visibility,GroupDescription,GovernanceStatus&$top=5000",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Set_Items": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "Items",
+                                        "value": "@body('Get_items_page')?['value']"
+                                    },
+                                    "runAfter": {
+                                        "Get_items_page": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Set_ItemsNextLink": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "ItemsNextLink",
+                                        "value": "@{coalesce(body('Get_items_page')?['odata.nextLink'], '')}"
+                                    },
+                                    "runAfter": {
+                                        "Set_Items": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Until_all_items_pages": {
+                                    "type": "Until",
+                                    "expression": "@equals(variables('ItemsNextLink'), '')",
+                                    "limit": {
+                                        "count": 200,
+                                        "timeout": "PT2H"
+                                    },
+                                    "actions": {
+                                        "Get_next_items_page": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "GET",
+                                                "uri": "@{variables('ItemsNextLink')}",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Union_items": {
+                                            "type": "Compose",
+                                            "inputs": "@union(variables('Items'), body('Get_next_items_page')?['value'])",
+                                            "runAfter": {
+                                                "Get_next_items_page": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_Items": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "Items",
+                                                "value": "@outputs('Union_items')"
+                                            },
+                                            "runAfter": {
+                                                "Union_items": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_ItemsNextLink": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "ItemsNextLink",
+                                                "value": "@{coalesce(body('Get_next_items_page')?['odata.nextLink'], '')}"
+                                            },
+                                            "runAfter": {
+                                                "Update_Items": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Set_ItemsNextLink": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Scope_-_Get_all_groups": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Scope_-_Get_requests": {
+                            "type": "Scope",
+                            "actions": {
+                                "Get_requests_page": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "GET",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('RequestsListId')}')/items?$select=GroupId,ExpirationDate&$top=5000",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Set_Requests": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "Requests",
+                                        "value": "@body('Get_requests_page')?['value']"
+                                    },
+                                    "runAfter": {
+                                        "Get_requests_page": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Set_RequestsNextLink": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "RequestsNextLink",
+                                        "value": "@{coalesce(body('Get_requests_page')?['odata.nextLink'], '')}"
+                                    },
+                                    "runAfter": {
+                                        "Set_Requests": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Until_all_requests_pages": {
+                                    "type": "Until",
+                                    "expression": "@equals(variables('RequestsNextLink'), '')",
+                                    "limit": {
+                                        "count": 200,
+                                        "timeout": "PT2H"
+                                    },
+                                    "actions": {
+                                        "Get_next_requests_page": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "GET",
+                                                "uri": "@{variables('RequestsNextLink')}",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Union_requests": {
+                                            "type": "Compose",
+                                            "inputs": "@union(variables('Requests'), body('Get_next_requests_page')?['value'])",
+                                            "runAfter": {
+                                                "Get_next_requests_page": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_Requests": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "Requests",
+                                                "value": "@outputs('Union_requests')"
+                                            },
+                                            "runAfter": {
+                                                "Union_requests": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Update_RequestsNextLink": {
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "RequestsNextLink",
+                                                "value": "@{coalesce(body('Get_next_requests_page')?['odata.nextLink'], '')}"
+                                            },
+                                            "runAfter": {
+                                                "Update_Requests": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Set_RequestsNextLink": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Scope_-_Get_governance_items": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_requests_with_group": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Requests')",
+                                "where": "@not(empty(item()?['GroupId']))"
+                            },
+                            "runAfter": {
+                                "Scope_-_Get_requests": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_request_group_ids": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@body('Filter_requests_with_group')",
+                                "select": "@item()?['GroupId']"
+                            },
+                            "runAfter": {
+                                "Filter_requests_with_group": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_groups_in_scope": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Groups')",
+                                "where": "@or(not(equals(toLower(coalesce(outputs('Settings')?['GovernanceScope'], 'All')), 'portal')), contains(body('Select_request_group_ids'), item()?['id']))"
+                            },
+                            "runAfter": {
+                                "Select_request_group_ids": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_teams_in_scope": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Filter_groups_in_scope')",
+                                "where": "@contains(coalesce(item()?['resourceProvisioningOptions'], json('[]')), 'Team')"
+                            },
+                            "runAfter": {
+                                "Filter_groups_in_scope": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_team_ids": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@body('Filter_teams_in_scope')",
+                                "select": "@item()?['id']"
+                            },
+                            "runAfter": {
+                                "Filter_teams_in_scope": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "For_each_batch": {
+                            "type": "Foreach",
+                            "foreach": "@chunk(body('Select_team_ids'), 20)",
+                            "actions": {
+                                "Build_batch_requests": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@items('For_each_batch')",
+                                        "select": {
+                                            "id": "@{item()}",
+                                            "method": "GET",
+                                            "url": "/teams/@{item()}?$select=id,isArchived"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Send_batch_request": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "https://graph.microsoft.com/v1.0/$batch",
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        },
+                                        "headers": {
+                                            "Content-Type": "application/json"
+                                        },
+                                        "body": {
+                                            "requests": "@body('Build_batch_requests')"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Build_batch_requests": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Filter_answered": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@coalesce(body('Send_batch_request')?['responses'], json('[]'))",
+                                        "where": "@equals(item()?['status'], 200)"
+                                    },
+                                    "runAfter": {
+                                        "Send_batch_request": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Select_answered_ids": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_answered')",
+                                        "select": "@item()?['id']"
+                                    },
+                                    "runAfter": {
+                                        "Filter_answered": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Filter_archived_in_batch": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@body('Filter_answered')",
+                                        "where": "@equals(item()?['body']?['isArchived'], true)"
+                                    },
+                                    "runAfter": {
+                                        "Select_answered_ids": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Select_archived_ids": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_archived_in_batch')",
+                                        "select": "@item()?['id']"
+                                    },
+                                    "runAfter": {
+                                        "Filter_archived_in_batch": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Union_checked": {
+                                    "type": "Compose",
+                                    "inputs": "@union(variables('CheckedTeamIds'), body('Select_answered_ids'))",
+                                    "runAfter": {
+                                        "Select_archived_ids": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Update_CheckedTeamIds": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "CheckedTeamIds",
+                                        "value": "@outputs('Union_checked')"
+                                    },
+                                    "runAfter": {
+                                        "Union_checked": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Union_archived": {
+                                    "type": "Compose",
+                                    "inputs": "@union(variables('ArchivedTeamIds'), body('Select_archived_ids'))",
+                                    "runAfter": {
+                                        "Update_CheckedTeamIds": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Update_ArchivedTeamIds": {
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "ArchivedTeamIds",
+                                        "value": "@outputs('Union_archived')"
+                                    },
+                                    "runAfter": {
+                                        "Union_archived": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 1
+                                }
+                            },
+                            "runAfter": {
+                                "Select_team_ids": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_all_group_ids": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@variables('Groups')",
+                                "select": "@item()?['id']"
+                            },
+                            "runAfter": {
+                                "For_each_batch": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Select_item_guids": {
+                            "type": "Select",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "select": "@item()?['ObjectGUID']"
+                            },
+                            "runAfter": {
+                                "Select_all_group_ids": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_new_groups": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Filter_groups_in_scope')",
+                                "where": "@not(contains(body('Select_item_guids'), item()?['id']))"
+                            },
+                            "runAfter": {
+                                "Select_item_guids": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_existing_groups": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Filter_groups_in_scope')",
+                                "where": "@contains(body('Select_item_guids'), item()?['id'])"
+                            },
+                            "runAfter": {
+                                "Filter_new_groups": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "For_each_new_group": {
+                            "type": "Foreach",
+                            "foreach": "@body('Filter_new_groups')",
+                            "actions": {
+                                "Filter_user_owners_new": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@coalesce(items('For_each_new_group')?['owners'], json('[]'))",
+                                        "where": "@equals(item()?['@odata.type'], '#microsoft.graph.user')"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Select_owners_new": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_user_owners_new')",
+                                        "select": {
+                                            "upn": "@item()?['userPrincipalName']",
+                                            "displayName": "@item()?['displayName']",
+                                            "id": "@item()?['id']"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Filter_user_owners_new": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Lookup_request": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@body('Filter_requests_with_group')",
+                                        "where": "@equals(item()?['GroupId'], items('For_each_new_group')?['id'])"
+                                    },
+                                    "runAfter": {
+                                        "Select_owners_new": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Create_item": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "@{items('For_each_new_group')?['displayName']}",
+                                            "ObjectGUID": "@{items('For_each_new_group')?['id']}",
+                                            "GroupType": "@if(contains(coalesce(items('For_each_new_group')?['resourceProvisioningOptions'], json('[]')), 'Team'), 'Team', 'M365Group')",
+                                            "OwnersJSON": "@{string(body('Select_owners_new'))}",
+                                            "Visibility": "@{coalesce(items('For_each_new_group')?['visibility'], 'Private')}",
+                                            "GroupCreatedDateTime": "@{items('For_each_new_group')?['createdDateTime']}",
+                                            "GroupDescription": "@{coalesce(items('For_each_new_group')?['description'], '')}",
+                                            "EndDate": "@if(and(equals(toLower(coalesce(outputs('Settings')?['EnableExpirationDate'], 'false')), 'true'), greater(length(body('Lookup_request')), 0), not(empty(first(body('Lookup_request'))?['ExpirationDate']))), first(body('Lookup_request'))?['ExpirationDate'], null)",
+                                            "ExcludeFromGovernance": false,
+                                            "GovernanceStatus": "@{if(contains(variables('ArchivedTeamIds'), items('For_each_new_group')?['id']), 'Archived', 'Active')}",
+                                            "ArchivedDate": "@if(contains(variables('ArchivedTeamIds'), items('For_each_new_group')?['id']), utcNow(), null)"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Lookup_request": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 10
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_existing_groups": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "For_each_existing_group": {
+                            "type": "Foreach",
+                            "foreach": "@body('Filter_existing_groups')",
+                            "actions": {
+                                "Find_item_to_update": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@variables('Items')",
+                                        "where": "@equals(item()?['ObjectGUID'], items('For_each_existing_group')?['id'])"
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Filter_user_owners_existing": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@coalesce(items('For_each_existing_group')?['owners'], json('[]'))",
+                                        "where": "@equals(item()?['@odata.type'], '#microsoft.graph.user')"
+                                    },
+                                    "runAfter": {
+                                        "Find_item_to_update": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Select_owners_existing": {
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_user_owners_existing')",
+                                        "select": {
+                                            "upn": "@item()?['userPrincipalName']",
+                                            "displayName": "@item()?['displayName']",
+                                            "id": "@item()?['id']"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Filter_user_owners_existing": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                },
+                                "Check_changes": {
+                                    "type": "If",
+                                    "expression": {
+                                        "or": [
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@items('For_each_existing_group')?['displayName']",
+                                                        "@body('Find_item_to_update')[0]?['Title']"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@if(contains(coalesce(items('For_each_existing_group')?['resourceProvisioningOptions'], json('[]')), 'Team'), 'Team', 'M365Group')",
+                                                        "@body('Find_item_to_update')[0]?['GroupType']"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@string(body('Select_owners_existing'))",
+                                                        "@coalesce(body('Find_item_to_update')[0]?['OwnersJSON'], '')"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@coalesce(items('For_each_existing_group')?['visibility'], 'Private')",
+                                                        "@body('Find_item_to_update')[0]?['Visibility']"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@coalesce(items('For_each_existing_group')?['description'], '')",
+                                                        "@coalesce(body('Find_item_to_update')[0]?['GroupDescription'], '')"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "equals": [
+                                                    "@body('Find_item_to_update')[0]?['GovernanceStatus']",
+                                                    "Deleted"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Update_item": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{body('Find_item_to_update')[0]?['ID']})",
+                                                "headers": {
+                                                    "Accept": "application/json;odata=nometadata",
+                                                    "Content-Type": "application/json;odata=nometadata",
+                                                    "IF-MATCH": "*",
+                                                    "X-HTTP-Method": "MERGE"
+                                                },
+                                                "body": {
+                                                    "Title": "@{items('For_each_existing_group')?['displayName']}",
+                                                    "GroupType": "@if(contains(coalesce(items('For_each_existing_group')?['resourceProvisioningOptions'], json('[]')), 'Team'), 'Team', 'M365Group')",
+                                                    "OwnersJSON": "@{string(body('Select_owners_existing'))}",
+                                                    "Visibility": "@{coalesce(items('For_each_existing_group')?['visibility'], 'Private')}",
+                                                    "GroupDescription": "@{coalesce(items('For_each_existing_group')?['description'], '')}",
+                                                    "GovernanceStatus": "@{if(equals(body('Find_item_to_update')[0]?['GovernanceStatus'], 'Deleted'), 'Active', body('Find_item_to_update')[0]?['GovernanceStatus'])}"
+                                                },
+                                                "authentication": {
+                                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                                    "identity": "[variables('uamiId')]",
+                                                    "type": "ManagedServiceIdentity"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Select_owners_existing": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 10
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_new_group": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_deleted_groups": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(greater(length(variables('Groups')), 0), not(contains(body('Select_all_group_ids'), item()?['ObjectGUID'])), not(equals(item()?['GovernanceStatus'], 'Deleted')))"
+                            },
+                            "runAfter": {
+                                "For_each_existing_group": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            }
+                        },
+                        "For_each_deleted_group": {
+                            "type": "Foreach",
+                            "foreach": "@body('Filter_deleted_groups')",
+                            "actions": {
+                                "Mark_deleted": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_deleted_group')?['ID']})",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata",
+                                            "IF-MATCH": "*",
+                                            "X-HTTP-Method": "MERGE"
+                                        },
+                                        "body": {
+                                            "GovernanceStatus": "Deleted"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Log_deleted": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Gruppen finnes ikke lenger",
+                                            "TeamObjectGUID": "@{items('For_each_deleted_group')?['ObjectGUID']}",
+                                            "TeamName": "@{items('For_each_deleted_group')?['Title']}",
+                                            "LogAction": "TeamDeleted",
+                                            "LogDetails": "Gruppen ble ikke funnet i Microsoft Graph ved synkronisering og er markert som slettet.",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Mark_deleted": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 10
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_deleted_groups": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_externally_archived": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(contains(variables('ArchivedTeamIds'), item()?['ObjectGUID']), not(equals(item()?['GovernanceStatus'], 'Archived')), not(equals(item()?['GovernanceStatus'], 'Deleted')))"
+                            },
+                            "runAfter": {
+                                "For_each_deleted_group": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            }
+                        },
+                        "For_each_externally_archived": {
+                            "type": "Foreach",
+                            "foreach": "@body('Filter_externally_archived')",
+                            "actions": {
+                                "Mark_archived": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_externally_archived')?['ID']})",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata",
+                                            "IF-MATCH": "*",
+                                            "X-HTTP-Method": "MERGE"
+                                        },
+                                        "body": {
+                                            "GovernanceStatus": "Archived",
+                                            "ArchivedDate": "@{utcNow()}",
+                                            "LastNotificationDate": null
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Log_externally_archived": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Team arkivert utenfor governance",
+                                            "TeamObjectGUID": "@{items('For_each_externally_archived')?['ObjectGUID']}",
+                                            "TeamName": "@{items('For_each_externally_archived')?['Title']}",
+                                            "LogAction": "ExternalArchiveDetected",
+                                            "LogDetails": "Teamet er arkivert av en eier eller administrator. Statusen er oppdatert.",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Mark_archived": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 10
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_externally_archived": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Filter_restored": {
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@variables('Items')",
+                                "where": "@and(equals(item()?['GovernanceStatus'], 'Archived'), contains(variables('CheckedTeamIds'), item()?['ObjectGUID']), not(contains(variables('ArchivedTeamIds'), item()?['ObjectGUID'])))"
+                            },
+                            "runAfter": {
+                                "For_each_externally_archived": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            }
+                        },
+                        "For_each_restored": {
+                            "type": "Foreach",
+                            "foreach": "@body('Filter_restored')",
+                            "actions": {
+                                "Mark_restored": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceListId')}')/items(@{items('For_each_restored')?['ID']})",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata",
+                                            "IF-MATCH": "*",
+                                            "X-HTTP-Method": "MERGE"
+                                        },
+                                        "body": {
+                                            "GovernanceStatus": "Active",
+                                            "ArchivedDate": null,
+                                            "LastNotificationDate": null,
+                                            "LastAnnualReviewDate": "@{utcNow()}"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "Log_restored": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                        "headers": {
+                                            "Accept": "application/json;odata=nometadata",
+                                            "Content-Type": "application/json;odata=nometadata"
+                                        },
+                                        "body": {
+                                            "Title": "Team gjenopprettet fra arkiv",
+                                            "TeamObjectGUID": "@{items('For_each_restored')?['ObjectGUID']}",
+                                            "TeamName": "@{items('For_each_restored')?['Title']}",
+                                            "LogAction": "TeamRestored",
+                                            "LogDetails": "Teamet er ikke lenger arkivert i Teams. Statusen er satt til Active.",
+                                            "PerformedBy": "System"
+                                        },
+                                        "authentication": {
+                                            "audience": "[parameters('spoRootSiteUrl')]",
+                                            "identity": "[variables('uamiId')]",
+                                            "type": "ManagedServiceIdentity"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Mark_restored": [
+                                            "Succeeded"
+                                        ]
+                                    }
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 10
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_restored": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Log_sync_completed": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "uri": "@{parameters('SiteUrl')}/_api/web/lists(guid'@{parameters('GovernanceLogListId')}')/items",
+                                "headers": {
+                                    "Accept": "application/json;odata=nometadata",
+                                    "Content-Type": "application/json;odata=nometadata"
+                                },
+                                "body": {
+                                    "Title": "Synkronisering fullført",
+                                    "TeamObjectGUID": "",
+                                    "TeamName": "GovernanceSync",
+                                    "LogAction": "SyncCompleted",
+                                    "LogDetails": "Grupper i Graph: @{length(variables('Groups'))}. I omfang: @{length(body('Filter_groups_in_scope'))}. Nye: @{length(body('Filter_new_groups'))}. Kontrollert: @{length(body('Filter_existing_groups'))}. Markert slettet: @{length(body('Filter_deleted_groups'))}. Arkivert utenfor governance: @{length(body('Filter_externally_archived'))}. Gjenopprettet: @{length(body('Filter_restored'))}. Omfang: @{coalesce(outputs('Settings')?['GovernanceScope'], 'All')}.",
+                                    "PerformedBy": "System"
+                                },
+                                "authentication": {
+                                    "audience": "[parameters('spoRootSiteUrl')]",
+                                    "identity": "[variables('uamiId')]",
+                                    "type": "ManagedServiceIdentity"
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_restored": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {}
+                    }
+                }
+            }
+        }
+    ]
+}

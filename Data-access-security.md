@@ -36,6 +36,15 @@ App-roller tildelt den user-assigned managed identityen:
 | User.Invite.All | Application | Invitere gjestebrukere til organisasjonen | Brukes til å invitere gjestebrukere i Entra ID hvis forespurt. |
 | User.ReadWrite.All | Application | Lese og skrive til alle brukeres fulle profiler | Brukes til å oppdatere profilfelter (navn/selskap) på inviterte gjestebrukere, og til å registrere bestilleren som gjestens **sponsor** (`POST /users/{id}/sponsors/$ref`). Sponsor er ren dokumentasjon av hvem som er ansvarlig for gjesten — den gir ingen rettigheter i seg selv. |
 
+**Teams governance (bare når `enableGovernance` er satt):**
+
+| API Permission | Type | Beskrivelse | Årsak |
+|--|--|--|--|
+| TeamSettings.ReadWrite.All | Application | Lese og endre innstillinger for alle team | Brukes av governance-modulen til å arkivere team (`POST /teams/{id}/archive`) og lese arkivstatus (`GET /teams/{id}?$select=isArchived`, samlet i `$batch`). |
+| Chat.Create | Application | Opprette chatter | Brukes av governance-modulen til å opprette én gruppechat med teamets eiere (`POST /chats`), der varselkortene postes. Gir ikke lesetilgang til chatter. |
+
+Sletting av team (`DELETE /groups/{id}`, valgfritt) og lesing av grupper med eiere dekkes av `Group.ReadWrite.All`. Governance-listene leses og skrives via SharePoint REST med `Sites.FullControl.All`. Se [Teams governance](Teams-governance.md#tilganger).
+
 > **Funksjonsbundne tillatelser:** Tre av tillatelsene er kun i bruk av valgfri funksjonalitet: `User.Invite.All` + `User.ReadWrite.All` (gjesteinvitasjon), `Community.ReadWrite.All` (Viva Engage-fellesskap) og `InformationProtectionPolicy.Read.All` (sensitivitetsmerke-synkronisering). Bruker ikke organisasjonen disse funksjonene, kan tillatelsene fjernes manuelt fra managed identityen i Entra-portalen — men merk at de tilhørende Logic Apps da må deaktiveres (`SyncLabels` kjører f.eks. ukentlig og vil feile uten `InformationProtectionPolicy.Read.All`), og at `deploy.ps1` tildeler hele settet på nytt ved neste kjøring/oppgradering.
 
 #### SharePoint

@@ -1,0 +1,203 @@
+<pnp:ListInstance Title="Teams Governance" Description="Register over alle Microsoft 365-grupper og team med livssyklusstatus. Fylles av GovernanceSync-logikkappen - se Teams-governance.md." DocumentTemplate="" OnQuickLaunch="true" TemplateType="100" Url="Lists/TeamsGovernance" EnableVersioning="true" MinorVersionLimit="0" MaxVersionLimit="50" DraftVersionVisibility="0" TemplateFeatureID="00bfea71-de22-43b2-a848-c05709900100" EnableFolderCreation="false" DefaultDisplayFormUrl="{site}/Lists/TeamsGovernance/DispForm.aspx" DefaultEditFormUrl="{site}/Lists/TeamsGovernance/EditForm.aspx" DefaultNewFormUrl="{site}/Lists/TeamsGovernance/NewForm.aspx" ImageUrl="/_layouts/15/images/itgen.png?rev=47" IrmExpire="false" IrmReject="false" IsApplicationList="false" ValidationFormula="" ValidationMessage=""
+    xmlns:pnp="http://schemas.dev.office.com/PnP/2021/03/ProvisioningSchema">
+  <pnp:ContentTypeBindings>
+    <pnp:ContentTypeBinding ContentTypeID="0x01" Default="true" />
+  </pnp:ContentTypeBindings>
+  <pnp:Views>
+    <View Name="{FE0F170A-F5C8-43EC-ABFC-B9E21D1D42DD}" DefaultView="TRUE" MobileView="TRUE" MobileDefaultView="TRUE" Type="HTML" DisplayName="All Teams" Url="{site}/Lists/TeamsGovernance/AllItems.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <OrderBy>
+          <FieldRef Name="Title" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="ObjectGUID" />
+        <FieldRef Name="GroupType" />
+        <FieldRef Name="Visibility" />
+        <FieldRef Name="OwnersJSON" />
+        <FieldRef Name="GroupCreatedDateTime" />
+        <FieldRef Name="EndDate" />
+        <FieldRef Name="GovernanceStatus" />
+        <FieldRef Name="ExcludeFromGovernance" />
+        <FieldRef Name="LastNotificationDate" />
+        <FieldRef Name="LastAnnualReviewDate" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+    <View Name="{709CEA63-1DD1-47C0-B8A7-98C1AC085403}" DefaultView="FALSE" MobileView="FALSE" MobileDefaultView="FALSE" Type="HTML" DisplayName="Action Required" Url="{site}/Lists/TeamsGovernance/ActionRequired.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <Where>
+          <And>
+            <Neq>
+              <FieldRef Name="GovernanceStatus" />
+              <Value Type="Choice">Active</Value>
+            </Neq>
+            <And>
+              <Neq>
+                <FieldRef Name="GovernanceStatus" />
+                <Value Type="Choice">Deleted</Value>
+              </Neq>
+              <Eq>
+                <FieldRef Name="ExcludeFromGovernance" />
+                <Value Type="Boolean">0</Value>
+              </Eq>
+            </And>
+          </And>
+        </Where>
+        <OrderBy>
+          <FieldRef Name="GovernanceStatus" />
+          <FieldRef Name="LastNotificationDate" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="GovernanceStatus" />
+        <FieldRef Name="EndDate" />
+        <FieldRef Name="LastNotificationDate" />
+        <FieldRef Name="OwnersJSON" />
+        <FieldRef Name="ArchivedDate" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+    <View Name="{628A0A85-AFA6-41F7-96C2-D7C7C816DEDA}" DefaultView="FALSE" MobileView="FALSE" MobileDefaultView="FALSE" Type="HTML" DisplayName="Archived Teams" Url="{site}/Lists/TeamsGovernance/Archived.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <Where>
+          <Eq>
+            <FieldRef Name="GovernanceStatus" />
+            <Value Type="Choice">Archived</Value>
+          </Eq>
+        </Where>
+        <OrderBy>
+          <FieldRef Name="ArchivedDate" Ascending="FALSE" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="ObjectGUID" />
+        <FieldRef Name="OwnersJSON" />
+        <FieldRef Name="ArchivedDate" />
+        <FieldRef Name="EndDate" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+    <View Name="{3F4D816F-83B4-4A2C-A0CB-4D7F96110246}" DefaultView="FALSE" MobileView="FALSE" MobileDefaultView="FALSE" Type="HTML" DisplayName="Excluded Teams" Url="{site}/Lists/TeamsGovernance/Excluded.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <Where>
+          <Eq>
+            <FieldRef Name="ExcludeFromGovernance" />
+            <Value Type="Boolean">1</Value>
+          </Eq>
+        </Where>
+        <OrderBy>
+          <FieldRef Name="Title" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="ObjectGUID" />
+        <FieldRef Name="GroupType" />
+        <FieldRef Name="OwnersJSON" />
+        <FieldRef Name="EndDate" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+    <View Name="{1391D314-0618-4529-8D59-7A18E7865586}" DefaultView="FALSE" MobileView="FALSE" MobileDefaultView="FALSE" Type="HTML" DisplayName="Teams Without Owners" Url="{site}/Lists/TeamsGovernance/NoOwners.aspx" Level="1" BaseViewID="1" ContentTypeID="0x" ImageUrl="/_layouts/15/images/generic.png?rev=47">
+      <Query>
+        <Where>
+          <And>
+            <Eq>
+              <FieldRef Name="ExcludeFromGovernance" />
+              <Value Type="Boolean">0</Value>
+            </Eq>
+            <And>
+              <Neq>
+                <FieldRef Name="GovernanceStatus" />
+                <Value Type="Choice">Deleted</Value>
+              </Neq>
+              <And>
+                <Neq>
+                  <FieldRef Name="GovernanceStatus" />
+                  <Value Type="Choice">Archived</Value>
+                </Neq>
+                <Or>
+                  <IsNull>
+                    <FieldRef Name="OwnersJSON" />
+                  </IsNull>
+                  <Eq>
+                    <FieldRef Name="OwnersJSON" />
+                    <Value Type="Note">[]</Value>
+                  </Eq>
+                </Or>
+              </And>
+            </And>
+          </And>
+        </Where>
+        <OrderBy>
+          <FieldRef Name="Title" />
+        </OrderBy>
+      </Query>
+      <ViewFields>
+        <FieldRef Name="LinkTitle" />
+        <FieldRef Name="ObjectGUID" />
+        <FieldRef Name="GroupType" />
+        <FieldRef Name="Visibility" />
+        <FieldRef Name="GroupCreatedDateTime" />
+        <FieldRef Name="EndDate" />
+        <FieldRef Name="GovernanceStatus" />
+      </ViewFields>
+      <RowLimit Paged="TRUE">50</RowLimit>
+      <JSLink>clienttemplates.js</JSLink>
+      <CustomFormatter />
+    </View>
+  </pnp:Views>
+  <pnp:Fields>
+    <Field DisplayName="Object GUID" Description="ID-en til Microsoft 365-gruppen (unik nøkkel)" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="ObjectGUID" Title="Object GUID" Type="Text" ID="{38f13e85-016d-4e64-bd48-b1855a80f709}" StaticName="ObjectGUID" EnforceUniqueValues="TRUE" Indexed="TRUE" Required="TRUE" />
+    <Field DisplayName="Group Type" Description="Team eller Microsoft 365-gruppe uten team. Bare team omfattes av varsler og arkivering." FillInChoice="FALSE" Format="Dropdown" IsModern="TRUE" Name="GroupType" Title="Group Type" Type="Choice" ID="{3161ff42-552e-4c4b-b929-460729b0509f}" StaticName="GroupType">
+      <CHOICES>
+        <CHOICE>Team</CHOICE>
+        <CHOICE>M365Group</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field DisplayName="Owners" Description="JSON-liste over eiere (brukere) - vedlikeholdes av GovernanceSync" AppendOnly="FALSE" Format="Dropdown" IsModern="TRUE" IsolateStyles="FALSE" Name="OwnersJSON" RichText="FALSE" RichTextMode="Compatible" Title="Owners" Type="Note" NumLines="6" ID="{ffe90673-e30e-4018-a560-e1bc8c085f72}" StaticName="OwnersJSON" Sortable="FALSE" />
+    <Field DisplayName="Visibility" Description="Synlighet for gruppen" FillInChoice="FALSE" Format="Dropdown" IsModern="TRUE" Name="Visibility" Title="Visibility" Type="Choice" ID="{e60cbbab-6b4b-4523-9b95-5cfb2b81b836}" StaticName="Visibility">
+      <Default>Private</Default>
+      <CHOICES>
+        <CHOICE>Public</CHOICE>
+        <CHOICE>Private</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field DisplayName="Group Created" Description="Når gruppen ble opprettet" Format="DateOnly" IsModern="TRUE" Name="GroupCreatedDateTime" Title="Group Created" Type="DateTime" ID="{1e4648db-72c7-4c71-892f-939d7e2611e4}" StaticName="GroupCreatedDateTime" FriendlyDisplayFormat="Disabled" />
+    <Field DisplayName="Description" Description="Beskrivelse av gruppen/teamet" AppendOnly="FALSE" Format="Dropdown" IsModern="TRUE" IsolateStyles="FALSE" Name="GroupDescription" RichText="FALSE" RichTextMode="Compatible" Title="Description" Type="Note" NumLines="6" ID="{d6a0174a-3873-41b3-ac97-71601152b232}" StaticName="GroupDescription" Sortable="FALSE" />
+    <Field DisplayName="End Date" Description="Sluttdato for teamet. Hentes fra bestillingen (ExpirationDate) når EnableExpirationDate er på, og kan forlenges av eierne fra varselkortet." Format="DateOnly" IsModern="TRUE" Name="EndDate" Title="End Date" Type="DateTime" ID="{975fe691-60cd-4899-82dd-b172f3f16456}" StaticName="EndDate" FriendlyDisplayFormat="Disabled" />
+    <Field DisplayName="Exclude From Governance" Description="Unnta teamet fra governance (ingen varsler, arkivering eller sletting)" Format="Dropdown" IsModern="TRUE" Name="ExcludeFromGovernance" Title="Exclude From Governance" Type="Boolean" ID="{04a7afec-35f2-4d35-b08e-55abd76815b2}" StaticName="ExcludeFromGovernance">
+      <Default>0</Default>
+    </Field>
+    <Field DisplayName="Governance Status" Description="Nåværende governance-status - settes av logikkappene" FillInChoice="FALSE" Format="Dropdown" IsModern="TRUE" Name="GovernanceStatus" Title="Governance Status" Type="Choice" ID="{be40d974-a7bb-4a87-8cca-f6ed2d907c95}" StaticName="GovernanceStatus">
+      <Default>Active</Default>
+      <CHOICES>
+        <CHOICE>Active</CHOICE>
+        <CHOICE>EndDateNotified</CHOICE>
+        <CHOICE>EndDateReminded</CHOICE>
+        <CHOICE>EndDateConfirmed</CHOICE>
+        <CHOICE>AnnualReviewNotified</CHOICE>
+        <CHOICE>AnnualReviewReminded</CHOICE>
+        <CHOICE>Archived</CHOICE>
+        <CHOICE>Deleted</CHOICE>
+      </CHOICES>
+    </Field>
+    <Field DisplayName="Last Notification Date" Description="Når siste governance-varsel ble sendt" Format="DateOnly" IsModern="TRUE" Name="LastNotificationDate" Title="Last Notification Date" Type="DateTime" ID="{888614bd-b9be-4901-a9ef-4bfcaeecf289}" StaticName="LastNotificationDate" FriendlyDisplayFormat="Disabled" />
+    <Field DisplayName="Last Annual Review" Description="Når siste årlige gjennomgang ble fullført" Format="DateOnly" IsModern="TRUE" Name="LastAnnualReviewDate" Title="Last Annual Review" Type="DateTime" ID="{524153c2-4036-49a4-92e2-1b4a4496930b}" StaticName="LastAnnualReviewDate" FriendlyDisplayFormat="Disabled" />
+    <Field DisplayName="Archived Date" Description="Når teamet ble arkivert" Format="DateOnly" IsModern="TRUE" Name="ArchivedDate" Title="Archived Date" Type="DateTime" ID="{038a1338-3dbd-4591-9497-e657751d35df}" StaticName="ArchivedDate" FriendlyDisplayFormat="Disabled" />
+    <Field DisplayName="Governance Chat ID" Description="ID-en til Teams-chatten som brukes til governance-varsler" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="GovernanceChatId" Title="Governance Chat ID" Type="Text" ID="{4c18b96e-30fd-44de-83d4-6d99f65fb8c1}" StaticName="GovernanceChatId" />
+    <Field DisplayName="Last Message ID" Description="ID-en til siste kort som er besvart" Format="Dropdown" IsModern="TRUE" MaxLength="255" Name="LastMessageId" Title="Last Message ID" Type="Text" ID="{b1692afc-73ee-4cb4-ad27-5d8ddafd5d06}" StaticName="LastMessageId" />
+  </pnp:Fields>
+</pnp:ListInstance>

@@ -139,6 +139,8 @@ Detaljer om disse:
 - **SyncGroupSettings** – Henter gruppe-innstillinger (blokkerte ord og klassifiseringer) fra Entra ID og oppdaterer listeelementer i `Provisioning Request Settings`-listen.
 - **SyncLabels** – Henter alle sensitivitetsmerker fra Purview i tenanten og legger dem til i `IP Labels`-listen.
 
+> **Teams governance:** Er modulen installert (`enableGovernance`), kjør `GovernanceSync` manuelt én gang for å fylle `Teams Governance`-listen, og følg utrullingsstegene i [Teams governance](./Teams-governance.md#utrulling). `GovernanceEndDate` og `GovernanceAnnualReview` gjør ingenting før `GovernanceEnabled` er satt til `true`. `GovernanceNotify` skal aldri kjøres manuelt.
+
 > **MERK:** `ProcessGuestRequest` Logic App trigges automatisk når et nytt element legges til i `Guest Requests`-listen (1-min polling) og skal **ikke** kjøres manuelt. Den deployes som del av `deploy.ps1`.
 
 Slik kjører du dem «on demand»:
