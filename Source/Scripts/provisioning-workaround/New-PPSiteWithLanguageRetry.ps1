@@ -258,6 +258,7 @@ function Complete-SiteDesign([string] $Url, $Design) {
     }
 
     Log "Områdeutformingen ble ikke kjørt fra køen innen $SiteDesignQueueMinutes min. Kjører den direkte."
+    $script:designRanDirect = $true
     $c = Connect-Site $Url
     $siteId = "$((Get-PnPSite -Includes Id -Connection $c).Id)"
     $lastError = $null
@@ -279,13 +280,30 @@ function Complete-SiteDesign([string] $Url, $Design) {
     }
     throw "Direkte kjøring feilet 3 ganger. Siste feil: $lastError"
 }
-function Add-SetupWizardIfMissing([string] $Url) {
-    # Returnerer 'Exists' eller 'Added'. Kaster ved feil.
+function Get-SetupWizardActions($Connection) {
+    return @(Get-PnPCustomAction -Scope All -Connection $Connection | Where-Object { "$($_.ClientSideComponentId)" -eq $setupWizard.ClientSideComponentId })
+}
+function Set-SingleSetupWizard([string] $Url) {
+    # Sørger for nøyaktig én oppsettveiviser på området: legger den på hvis den mangler, og fjerner
+    # ekstra instanser. Dobbel kom når køen kjørte områdeutformingen samtidig med den direkte kjøringen.
+    # Returnerer en beskrivelse av hva som ble gjort. Kaster ved feil.
     $c = Connect-Site $Url
-    $existing = Get-PnPCustomAction -Scope All -Connection $c | Where-Object { "$($_.ClientSideComponentId)" -eq $setupWizard.ClientSideComponentId }
-    if ($existing) { return 'Exists' }
-    Add-PnPCustomAction @setupWizard -Connection $c | Out-Null
-    return 'Added'
+    $existing = Get-SetupWizardActions $c
+    if (-not $existing) {
+        Add-PnPCustomAction @setupWizard -Connection $c | Out-Null
+        $result = 'Oppsettveiviseren manglet og er lagt på'
+    }
+    elseif ($existing.Count -gt 1) {
+        # Behold den første (laveste Sequence), fjern resten
+        $extra = @($existing | Sort-Object Sequence | Select-Object -Skip 1)
+        foreach ($ca in $extra) { Remove-PnPCustomAction -Identity $ca.Id -Scope $ca.Scope -Force -Connection $c }
+        $result = "Oppsettveiviseren lå på $($existing.Count) ganger. Fjernet $($extra.Count)."
+    }
+    else { $result = 'Oppsettveiviseren er på plass' }
+
+    $count = (Get-SetupWizardActions $c).Count
+    if ($count -ne 1) { throw "Oppsettveiviseren ligger på $count gang(er) etter opprydding." }
+    return $result
 }
 function Get-GroupState([string] $Id) {
     # Live, Deleted (i Entra-papirkurven), Gone eller Error. Feil tolkes aldri som «borte».
@@ -657,11 +675,17 @@ $wizardOk = $null
 if ($isProjectHub -and $hubOk) {
     # Oppsettveiviseren skal komme med områdeutformingen. Sjekkes også når den ikke ble bekreftet ferdig.
     $wizardOk = $false
+    if ($script:designRanDirect) {
+        # Køoppgaven kan ha vært i gang da den ble fjernet, og da kjører utformingen to ganger.
+        # Vent litt, så en slik kjøring er ferdig før det sjekkes at veiviseren bare ligger på én gang.
+        Log 'Kontrollerer at områdeutformingen ikke også kjørte fra køen (30 s)'
+        Show-Progress 'Oppsettveiviser: venter 30 s'
+        Start-Sleep -Seconds 30
+    }
     Show-Progress 'Oppsettveiviser'
     try {
-        $r = Add-SetupWizardIfMissing $winner.SiteUrl
+        Log (Set-SingleSetupWizard $winner.SiteUrl) 'OK'
         $wizardOk = $true
-        Log $(if ($r -eq 'Added') { 'Oppsettveiviseren manglet og er lagt på' } else { 'Oppsettveiviseren er på plass' }) 'OK'
     }
     catch {
         Log "Kunne ikke sjekke eller legge på oppsettveiviseren: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2
