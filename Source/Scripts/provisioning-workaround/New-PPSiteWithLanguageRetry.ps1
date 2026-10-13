@@ -26,10 +26,16 @@
     Medlemmer legges til først når treffet er valgt, så de ikke får e-post fra hver kandidat.
     Med -CreateTeam opprettes Teams-team, og med -HubUrl knyttes området til en hub.
 
+    Har huben en tilknyttet områdeutforming, venter skriptet til den er ferdig. Er det
+    Prosjektportalens «Prosjektområde», sjekkes det at oppsettveiviseren er lagt på området, og
+    den legges på hvis den mangler. Til slutt får brukeren en oppsummering med neste steg.
+
     Kjøres lokalt (interaktiv innlogging) eller som runbook i Azure Automation (managed identity,
     oppdages automatisk). Skriptet sletter aldri noe det ikke selv har opprettet.
 
-    Exit-koder lokalt: 0 suksess, 1 ingen treff/feil, 2 område OK men medlemmer, hub eller team feilet.
+    Exit-koder lokalt: 0 suksess, 1 ingen treff/feil, 2 område OK men medlemmer, team, hub,
+    områdeutforming eller oppsettveiviser feilet. Lokalt skrives en oppsummering, i runbook et
+    resultatobjekt.
 
 .PARAMETER AdminUrl          https://<tenant>-admin.sharepoint.com. Kan utelates når -HubUrl er oppgitt
 .PARAMETER Title             Visningsnavn på gruppen
@@ -45,7 +51,8 @@
 .PARAMETER MaxRounds         Maks antall runder. Standard 3
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
-.PARAMETER HubUrl            Knytt området til denne huben
+.PARAMETER HubUrl            Knytt området til denne huben. Sjekkes før noe opprettes
+.PARAMETER SiteDesignTimeoutMinutes Hvor lenge skriptet venter på hubens områdeutforming. Standard 30
 .PARAMETER ManagedIdentity   Tving managed identity (oppdages ellers automatisk i Azure Automation)
 .PARAMETER ClientId          App-registrering for interaktiv innlogging. Standard: Prosjektportalens PnP-app
 
@@ -93,7 +100,8 @@ param(
     [switch]   $ManagedIdentity,
     [string]   $ClientId = 'da6c31a6-b557-4ac3-9994-7315da06ea3a',
     [int]      $SiteReadyTimeoutMinutes = 10,
-    [int]      $UrlReleaseTimeoutMinutes = 40
+    [int]      $UrlReleaseTimeoutMinutes = 40,
+    [int]      $SiteDesignTimeoutMinutes = 30
 )
 
 $ErrorActionPreference = 'Stop'
@@ -121,6 +129,18 @@ if (-not $Alias) {
 }
 if ($Alias.Length -gt 58) { throw '-Alias kan være maks 58 tegn (plass til suffikset -xxxxx innenfor grensen på 64).' }
 $useMi = $ManagedIdentity -or [bool] ($env:AUTOMATION_ASSET_ACCOUNTID -or $PSPrivateMetadata.JobId)
+if ($HubUrl) { $HubUrl = $HubUrl.TrimEnd('/') }
+
+# Prosjektportalens områdeutforming og oppsettveiviseren (Application Customizer) den skal legge på
+$projectSiteDesignTitle = 'Prosjektområde'
+$setupWizard = @{
+    Title                         = 'Oppsettveiviser'
+    Name                          = 'Oppsettveiviser'
+    Location                      = 'ClientSideExtension.ApplicationCustomizer'
+    ClientSideComponentId         = 'ce34553d-ab47-4107-8dd1-e980d953996d'
+    ClientSideComponentProperties = '{"termSetIds":{"GtProjectPhase":"abcfc9d9-a263-4abb-8234-be973c46258a","GtResourceRole":"54da9f47-c64e-4a26-80f3-4d3c3fa1b7b2"}}'
+    Scope                         = 'Web'
+}
 
 function Log([string] $Message, [string] $Level = 'INFO') {
     Write-Output ("[{0:HH:mm:ss}] [{1}] {2}" -f (Get-Date), $Level, $Message)
@@ -179,15 +199,49 @@ function Get-LiveSite([string] $Url) {
 function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection $script:admin -ErrorAction SilentlyContinue } catch { return $null }
 }
+function Connect-Site([string] $Url) {
+    if ($useMi) { return Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection }
+    return Connect-PnPOnline -Url $Url -Interactive -Connection $script:admin -ReturnConnection
+}
 function Get-WebLanguage([string] $Url) {
     # Områdets språk (Web.Language). LocaleId fra admin-API-et er de regionale innstillingene, og de
     # kan avvike fra språket (rotområde med engelsk språk og norske regionale innstillinger ga 1044).
-    try {
-        $c = if ($useMi) { Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection }
-        else { Connect-PnPOnline -Url $Url -Interactive -Connection $script:admin -ReturnConnection }
-        return [int] (Get-PnPWeb -Includes Language -Connection $c).Language
-    }
+    try { return [int] (Get-PnPWeb -Includes Language -Connection (Connect-Site $Url)).Language }
     catch { return $null }
+}
+function Wait-SiteDesign([string] $Url, $Design) {
+    # Venter til områdeutformingen har kjørt på området. Hubtilknytningen legger den i kø, og den er
+    # ferdig når kjøringen er registrert og ingen oppgave for den står i kø lenger.
+    # Returnerer feilede handlinger (tom liste ved suksess), eller $null ved tidsavbrudd.
+    $start = Get-Date
+    $end = $start.AddMinutes($SiteDesignTimeoutMinutes)
+    $errorsInRow = 0
+    while ((Get-Date) -lt $end) {
+        Show-Progress "Venter på områdeutformingen «$($Design.Title)» ($([int] ((Get-Date) - $start).TotalMinutes) min, kan ta opptil $SiteDesignTimeoutMinutes)"
+        Start-Sleep -Seconds 20
+        try {
+            Repair-AdminConnection
+            $run = Get-PnPSiteDesignRun -WebUrl $Url -SiteDesignId $Design.Id -Connection $script:admin | Select-Object -First 1
+            $queued = Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" }
+            $errorsInRow = 0
+        }
+        catch {
+            if (++$errorsInRow -ge 5) { throw }
+            continue
+        }
+        if (-not $run -or $queued) { continue }
+        $status = Get-PnPSiteDesignRunStatus -Run $run -Connection $script:admin
+        return , @($status | Where-Object { "$($_.OutcomeCode)" -in 'Failure', 'Exception', '1', '3' })
+    }
+    return $null
+}
+function Add-SetupWizardIfMissing([string] $Url) {
+    # Returnerer 'Exists' eller 'Added'. Kaster ved feil.
+    $c = Connect-Site $Url
+    $existing = Get-PnPCustomAction -Scope All -Connection $c | Where-Object { "$($_.ClientSideComponentId)" -eq $setupWizard.ClientSideComponentId }
+    if ($existing) { return 'Exists' }
+    Add-PnPCustomAction @setupWizard -Connection $c | Out-Null
+    return 'Added'
 }
 function Get-GroupState([string] $Id) {
     # Live, Deleted (i Entra-papirkurven), Gone eller Error. Feil tolkes aldri som «borte».
@@ -311,6 +365,22 @@ if (-not $Owners) {
 }
 $ownerIds = Resolve-UserIds $Owners
 $memberIds = Resolve-UserIds $Members
+
+# Sjekk huben før noe opprettes, så en feil adresse ikke oppdages først til slutt
+$hubDesign = $null
+$isProjectHub = $false
+if ($HubUrl) {
+    $hub = $null
+    try { $hub = Get-PnPHubSite -Identity $HubUrl -Connection $script:admin } catch { }
+    if (-not $hub) { throw "$HubUrl er ikke en hub (eller finnes ikke). Sjekk adressen." }
+    if ($hub.SiteDesignId -and "$($hub.SiteDesignId)" -ne "$([guid]::Empty)") {
+        try { $hubDesign = Get-PnPSiteDesign -Identity $hub.SiteDesignId -Connection $script:admin } catch { }
+    }
+    $isProjectHub = [bool] ($hubDesign -and $hubDesign.Title -eq $projectSiteDesignTitle)
+    Log ("Hub: {0}{1}" -f $HubUrl, $(if ($isProjectHub) { ' (Prosjektportalen, områdeutformingen «Prosjektområde» legges på)' }
+            elseif ($hubDesign) { " (områdeutformingen «$($hubDesign.Title)» legges på)" }
+            else { ' (ingen områdeutforming)' }))
+}
 
 $rootLcid = Get-WebLanguage $tenantRoot
 if ($rootLcid -eq $Lcid -and $BatchSize -gt 1) {
@@ -436,9 +506,11 @@ if (-not $winner) {
 Log "Ferdig: $($winner.SiteUrl) ($attempts forsøk, $elapsed min)" 'OK'
 
 # ---------------------------------------------------------------------------
-# Etterarbeid: medlemmer, team og hub
+# Etterarbeid: medlemmer, team, hub, områdeutforming og oppsettveiviser
 # ---------------------------------------------------------------------------
 $exitCode = 0
+# Det som ikke gikk, i klartekst til oppsummeringen
+$problems = [System.Collections.Generic.List[string]]::new()
 if ($memberIds) {
     Show-Progress "Legger til $($memberIds.Count) medlem(mer)"
     # Graph tar maks 20 per PATCH
@@ -449,7 +521,8 @@ if ($memberIds) {
         }
         catch { Log "Kunne ikke legge til medlemmer: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2 }
     }
-    Log "La til $($memberIds.Count) medlem(mer)"
+    if ($exitCode) { $problems.Add('Medlemmer ble ikke lagt til. Legg dem til selv under Medlemmer på området eller i Teams.') }
+    else { Log "La til $($memberIds.Count) medlem(mer)" }
 }
 
 $teamOk = $null
@@ -460,7 +533,8 @@ if ($CreateTeam) {
         try { Invoke-Graph Put ('v1.0/groups/' + $winner.GroupId + '/team') @{} | Out-Null; $teamOk = $true }
         catch { Log "Teams-team, forsøk $i : $(Get-ErrorText $_)" 'WARN'; Start-Sleep -Seconds (15 * $i) }
     }
-    if ($teamOk) { Log 'Teams-team opprettet' 'OK' } else { $exitCode = 2 }
+    if ($teamOk) { Log 'Teams-team opprettet' 'OK' }
+    else { $exitCode = 2; $problems.Add('Teams-teamet ble ikke opprettet. Det kan opprettes fra området eller fra Teams.') }
 }
 
 $hubOk = $null
@@ -468,24 +542,93 @@ if ($HubUrl) {
     $hubOk = $false
     try {
         Repair-AdminConnection
-        Add-PnPHubSiteAssociation -Site $winner.SiteUrl -HubSite $HubUrl.TrimEnd('/') -Connection $script:admin
+        Add-PnPHubSiteAssociation -Site $winner.SiteUrl -HubSite $HubUrl -Connection $script:admin
         $hubOk = $true
         Log "Knyttet til hub $HubUrl" 'OK'
     }
-    catch { Log "Hubtilknytning feilet: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2 }
+    catch {
+        Log "Hubtilknytning feilet: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2
+        $problems.Add("Området ble ikke knyttet til huben $HubUrl.")
+    }
+}
+
+$designOk = $null
+if ($hubOk -and $hubDesign) {
+    $designOk = $false
+    try {
+        $failed = Wait-SiteDesign $winner.SiteUrl $hubDesign
+        if ($null -eq $failed) {
+            Log "Områdeutformingen «$($hubDesign.Title)» var ikke ferdig etter $SiteDesignTimeoutMinutes min" 'WARN'
+            $problems.Add("Områdeutformingen «$($hubDesign.Title)» var ikke ferdig etter $SiteDesignTimeoutMinutes minutter. Vent litt og sjekk området.")
+        }
+        elseif ($failed.Count) {
+            foreach ($f in $failed) { Log "Områdeutforming, handling feilet: $($f.ActionTitle): $($f.OutcomeText)" 'WARN' }
+            $problems.Add("Områdeutformingen «$($hubDesign.Title)» ble kjørt, men $($failed.Count) handling(er) feilet.")
+        }
+        else { $designOk = $true; Log "Områdeutformingen «$($hubDesign.Title)» er ferdig" 'OK' }
+    }
+    catch {
+        Log "Kunne ikke følge med på områdeutformingen: $(Get-ErrorText $_)" 'WARN'
+        $problems.Add("Fikk ikke sjekket om områdeutformingen «$($hubDesign.Title)» ble ferdig.")
+    }
+    if (-not $designOk) { $exitCode = 2 }
+}
+
+$wizardOk = $null
+if ($isProjectHub -and $hubOk) {
+    # Oppsettveiviseren skal komme med områdeutformingen. Sjekkes også når den ikke ble bekreftet ferdig.
+    $wizardOk = $false
+    Show-Progress 'Sjekker oppsettveiviseren'
+    try {
+        $r = Add-SetupWizardIfMissing $winner.SiteUrl
+        $wizardOk = $true
+        Log $(if ($r -eq 'Added') { 'Oppsettveiviseren manglet og er lagt på' } else { 'Oppsettveiviseren er på plass' }) 'OK'
+    }
+    catch {
+        Log "Kunne ikke sjekke eller legge på oppsettveiviseren: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2
+        $problems.Add('Oppsettveiviseren er ikke lagt på området. Be en administrator legge den på.')
+    }
 }
 
 Show-Progress
-[pscustomobject]@{
-    SiteUrl       = $winner.SiteUrl
-    Alias         = $winner.Alias
-    GroupId       = $winner.GroupId
-    Language      = $winner.Lcid
-    Attempts      = $attempts
-    Hits          = $hits
-    TeamCreated   = $teamOk
-    HubAssociated = $hubOk
-    CleanupErrors = $cleanupErrors
-    Minutes       = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
+$result = [pscustomobject]@{
+    SiteUrl            = $winner.SiteUrl
+    Alias              = $winner.Alias
+    GroupId            = $winner.GroupId
+    Language           = $winner.Lcid
+    Attempts           = $attempts
+    Hits               = $hits
+    TeamCreated        = $teamOk
+    HubAssociated      = $hubOk
+    SiteDesignApplied  = $designOk
+    SetupWizardPresent = $wizardOk
+    CleanupErrors      = $cleanupErrors
+    Minutes            = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 }
-if (-not $useMi -and $exitCode) { exit $exitCode }
+if ($useMi) { $result; return }
+
+# Oppsummering for den som kjører skriptet
+$line = '=' * 72
+$ready = $isProjectHub -and $designOk -and $wizardOk
+Write-Host ''
+Write-Host $line -ForegroundColor Cyan
+Write-Host "  Området er opprettet: $($winner.SiteUrl)" -ForegroundColor Green
+Write-Host "  Språk: $($winner.Lcid)$(if ($teamOk) { '   Teams-team: ja' })$(if ($hubOk) { "   Hub: $HubUrl" })"
+if ($problems.Count) {
+    Write-Host ''
+    Write-Host '  Dette gikk ikke:' -ForegroundColor Yellow
+    foreach ($p in $problems) { Write-Host "  - $p" -ForegroundColor Yellow }
+}
+Write-Host ''
+if ($ready) {
+    Write-Host '  Området er klart til å legge på prosjektmal.' -ForegroundColor Green
+    Write-Host '  Åpne adressen over i nettleseren, så starter oppsettveiviseren der du velger mal.'
+}
+elseif ($isProjectHub) {
+    Write-Host '  Området er ikke klart for prosjektmal ennå. Se punktene over.' -ForegroundColor Yellow
+}
+else {
+    Write-Host '  Området er klart til bruk.' -ForegroundColor Green
+}
+Write-Host $line -ForegroundColor Cyan
+if ($exitCode) { exit $exitCode }
