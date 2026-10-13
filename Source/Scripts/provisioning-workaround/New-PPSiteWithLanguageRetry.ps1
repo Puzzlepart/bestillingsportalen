@@ -228,22 +228,38 @@ function Wait-SiteDesign([string] $Url, $Design) {
     $start = Get-Date
     $end = $start.AddMinutes($SiteDesignTimeoutMinutes)
     $errorsInRow = 0
+    $lastError = $null
+    $state = 'ikke sjekket ennå'
     $nextNotice = $start.AddMinutes(5)
     while ((Get-Date) -lt $end) {
         $minutes = [int] ((Get-Date) - $start).TotalMinutes
         Show-Progress "Områdeutforming: $minutes min (maks $SiteDesignTimeoutMinutes)"
-        # En vanlig logglinje innimellom, så det synes at skriptet lever også uten fremdriftslinjen
-        if ((Get-Date) -ge $nextNotice) { Log "Områdeutformingen kjører fortsatt ($minutes min)"; $nextNotice = $nextNotice.AddMinutes(5) }
+        # En vanlig logglinje innimellom, så det synes at skriptet lever også uten fremdriftslinjen,
+        # med det skriptet ser, så det går an å feilsøke hvis den aldri blir registrert som ferdig
+        if ((Get-Date) -ge $nextNotice) {
+            Log "Områdeutformingen er ikke registrert som ferdig ennå ($minutes min). $state$(if ($lastError) { ". Siste feil: $lastError" })"
+            $nextNotice = $nextNotice.AddMinutes(5)
+        }
         Start-Sleep -Seconds 20
         try {
             Repair-AdminConnection
-            $run = Get-PnPSiteDesignRun -WebUrl $Url -SiteDesignId $Design.Id -Connection $script:admin | Select-Object -First 1
-            $queued = Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" }
+            $runs = @(Get-PnPSiteDesignRun -WebUrl $Url -Connection $script:admin)
+            $tasks = @(Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin)
             $errorsInRow = 0
         }
         catch {
+            $lastError = Get-ErrorText $_
             if (++$errorsInRow -ge 5) { throw }
             continue
+        }
+        $run = $runs | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" } | Select-Object -First 1
+        $queued = @($tasks | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" })
+        $state = "Kjøringer: $(if ($runs) { ($runs | ForEach-Object { "«$($_.SiteDesignTitle)» ($($_.SiteDesignID))" }) -join ', ' } else { 'ingen' }). I kø: $($tasks.Count)"
+        if (-not $run -and $runs -and -not $tasks) {
+            # Kjøringen kan være registrert med en annen id enn hubens SiteDesignId. Er det kjørt
+            # noe på området og ingenting står i kø, er utformingen ferdig.
+            $run = $runs | Sort-Object StartTime -Descending | Select-Object -First 1
+            Log "Fant ingen kjøring med hubens områdeutforming ($($Design.Id)), bruker «$($run.SiteDesignTitle)» ($($run.SiteDesignID))" 'WARN'
         }
         if (-not $run -or $queued) { continue }
         $status = Get-PnPSiteDesignRunStatus -Run $run -Connection $script:admin
