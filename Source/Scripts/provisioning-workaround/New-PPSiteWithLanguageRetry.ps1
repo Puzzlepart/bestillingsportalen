@@ -27,7 +27,9 @@
     Eierne legges også inn som medlemmer, som i Bestillingsportalen.
     Med -CreateTeam opprettes Teams-team, og med -HubUrl knyttes området til en hub.
 
-    Har huben en tilknyttet områdeutforming, venter skriptet til den er ferdig. Er det
+    Har huben en tilknyttet områdeutforming, venter skriptet inntil -SiteDesignQueueMinutes på at
+    SharePoints kø kjører den. Står den fortsatt i kø, fjernes køoppgaven for området og
+    utformingen kjøres direkte (køen kan henge i timevis, direkte kjøring tar sekunder). Er det
     Prosjektportalens «Prosjektområde», sjekkes det at oppsettveiviseren er lagt på området, og
     den legges på hvis den mangler. Til slutt får brukeren en oppsummering med neste steg.
 
@@ -53,7 +55,8 @@
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
 .PARAMETER HubUrl            Knytt området til denne huben. Sjekkes før noe opprettes
-.PARAMETER SiteDesignTimeoutMinutes Hvor lenge skriptet venter på hubens områdeutforming. Standard 30
+.PARAMETER SiteDesignQueueMinutes Hvor lenge skriptet venter på at SharePoints kø kjører hubens områdeutforming,
+                             før den kjøres direkte. Standard 2
 .PARAMETER ManagedIdentity   Tving managed identity (oppdages ellers automatisk i Azure Automation)
 .PARAMETER ClientId          App-registrering for interaktiv innlogging. Standard: Prosjektportalens PnP-app
 
@@ -102,7 +105,7 @@ param(
     [string]   $ClientId = 'da6c31a6-b557-4ac3-9994-7315da06ea3a',
     [int]      $SiteReadyTimeoutMinutes = 10,
     [int]      $UrlReleaseTimeoutMinutes = 40,
-    [int]      $SiteDesignTimeoutMinutes = 30
+    [int]      $SiteDesignQueueMinutes = 2
 )
 
 $ErrorActionPreference = 'Stop'
@@ -221,51 +224,53 @@ function Get-WebLanguage([string] $Url) {
     try { return [int] (Get-PnPWeb -Includes Language -Connection (Connect-Site $Url)).Language }
     catch { return $null }
 }
-function Wait-SiteDesign([string] $Url, $Design) {
-    # Venter til områdeutformingen har kjørt på området. Hubtilknytningen legger den i kø, og den er
-    # ferdig når kjøringen er registrert og ingen oppgave for den står i kø lenger.
-    # Returnerer feilede handlinger (tom liste ved suksess), eller $null ved tidsavbrudd.
-    $start = Get-Date
-    $end = $start.AddMinutes($SiteDesignTimeoutMinutes)
-    $errorsInRow = 0
-    $lastError = $null
-    $state = 'ikke sjekket ennå'
-    $nextNotice = $start.AddMinutes(5)
+function Test-ActionFailed($Result) {
+    # SiteScriptActionOutcome: Success 0, Failure 1, NoOp 2, Exception 3
+    return "$($Result.OutcomeCode)" -in 'Failure', 'Exception', '1', '3'
+}
+function Complete-SiteDesign([string] $Url, $Design) {
+    # Hubtilknytningen legger områdeutformingen i SharePoints kø. Køen kan bli hengende i timevis
+    # (observert hos kunde), mens den samme utformingen kjørt direkte er ferdig på sekunder. Derfor
+    # ventes det kort på køen, og står den fortsatt der, fjernes køoppgaven for dette området og
+    # utformingen kjøres direkte, med nye forsøk.
+    # Returnerer feilede handlinger (tom liste ved suksess). Kaster når alle forsøk feilet.
+    $end = (Get-Date).AddMinutes($SiteDesignQueueMinutes)
     while ((Get-Date) -lt $end) {
-        $minutes = [int] ((Get-Date) - $start).TotalMinutes
-        Show-Progress "Områdeutforming: $minutes min (maks $SiteDesignTimeoutMinutes)"
-        # En vanlig logglinje innimellom, så det synes at skriptet lever også uten fremdriftslinjen,
-        # med det skriptet ser, så det går an å feilsøke hvis den aldri blir registrert som ferdig
-        if ((Get-Date) -ge $nextNotice) {
-            Log "Områdeutformingen er ikke registrert som ferdig ennå ($minutes min). $state$(if ($lastError) { ". Siste feil: $lastError" })"
-            $nextNotice = $nextNotice.AddMinutes(5)
-        }
-        Start-Sleep -Seconds 20
+        Show-Progress "Områdeutforming: venter på køen ($([int] ($end - (Get-Date)).TotalSeconds) s)"
+        Start-Sleep -Seconds 15
         try {
             Repair-AdminConnection
-            $runs = @(Get-PnPSiteDesignRun -WebUrl $Url -Connection $script:admin)
-            $tasks = @(Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin)
-            $errorsInRow = 0
+            $run = Get-PnPSiteDesignRun -WebUrl $Url -Connection $script:admin | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" } | Select-Object -First 1
+            $queued = Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" }
+        }
+        catch { continue }
+        if ($run -and -not $queued) {
+            Log 'Områdeutformingen ble kjørt fra køen'
+            return , @(Get-PnPSiteDesignRunStatus -Run $run -Connection $script:admin | Where-Object { Test-ActionFailed $_ })
+        }
+    }
+
+    Log "Områdeutformingen ble ikke kjørt fra køen innen $SiteDesignQueueMinutes min. Kjører den direkte."
+    $c = Connect-Site $Url
+    $siteId = "$((Get-PnPSite -Includes Id -Connection $c).Id)"
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Show-Progress "Områdeutforming: forsøk $attempt av 3"
+        try {
+            # Fjern køoppgaven først, ellers kan den kjøre i tillegg senere. Bare oppgaver for dette området.
+            Repair-AdminConnection
+            Get-PnPSiteDesignTask -WebUrl $Url -Connection $script:admin |
+                Where-Object { "$($_.SiteID)" -eq $siteId -and "$($_.SiteDesignID)" -eq "$($Design.Id)" } |
+                ForEach-Object { Remove-PnPSiteDesignTask -Identity $_.ID -Force -Connection $script:admin }
+            $results = Invoke-PnPSiteDesign -Identity $Design.Id -WebUrl $Url -Connection $c
+            return , @($results | Where-Object { Test-ActionFailed $_ })
         }
         catch {
             $lastError = Get-ErrorText $_
-            if (++$errorsInRow -ge 5) { throw }
-            continue
+            if ($attempt -lt 3) { Log "Direkte kjøring feilet (forsøk $attempt av 3): $lastError. Prøver igjen om $(15 * $attempt) s."; Start-Sleep -Seconds (15 * $attempt) }
         }
-        $run = $runs | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" } | Select-Object -First 1
-        $queued = @($tasks | Where-Object { "$($_.SiteDesignID)" -eq "$($Design.Id)" })
-        $state = "Kjøringer: $(if ($runs) { ($runs | ForEach-Object { "«$($_.SiteDesignTitle)» ($($_.SiteDesignID))" }) -join ', ' } else { 'ingen' }). I kø: $($tasks.Count)"
-        if (-not $run -and $runs -and -not $tasks) {
-            # Kjøringen kan være registrert med en annen id enn hubens SiteDesignId. Er det kjørt
-            # noe på området og ingenting står i kø, er utformingen ferdig.
-            $run = $runs | Sort-Object StartTime -Descending | Select-Object -First 1
-            Log "Fant ingen kjøring med hubens områdeutforming ($($Design.Id)), bruker «$($run.SiteDesignTitle)» ($($run.SiteDesignID))" 'WARN'
-        }
-        if (-not $run -or $queued) { continue }
-        $status = Get-PnPSiteDesignRunStatus -Run $run -Connection $script:admin
-        return , @($status | Where-Object { "$($_.OutcomeCode)" -in 'Failure', 'Exception', '1', '3' })
     }
-    return $null
+    throw "Direkte kjøring feilet 3 ganger. Siste feil: $lastError"
 }
 function Add-SetupWizardIfMissing([string] $Url) {
     # Returnerer 'Exists' eller 'Added'. Kaster ved feil.
@@ -611,22 +616,18 @@ if ($HubUrl) {
 $designOk = $null
 if ($hubOk -and $hubDesign) {
     $designOk = $false
-    Log "Venter på at områdeutformingen «$($hubDesign.Title)» blir ferdig (tar ofte 5-15 min)"
+    Log "Legger på områdeutformingen «$($hubDesign.Title)» (tar vanligvis 1-3 min)"
     try {
-        $failed = Wait-SiteDesign $winner.SiteUrl $hubDesign
-        if ($null -eq $failed) {
-            Log "Områdeutformingen «$($hubDesign.Title)» var ikke ferdig etter $SiteDesignTimeoutMinutes min" 'WARN'
-            $problems.Add("Områdeutformingen «$($hubDesign.Title)» var ikke ferdig etter $SiteDesignTimeoutMinutes minutter. Vent litt og sjekk området.")
-        }
-        elseif ($failed.Count) {
+        $failed = Complete-SiteDesign $winner.SiteUrl $hubDesign
+        if ($failed.Count) {
             foreach ($f in $failed) { Log "Områdeutforming, handling feilet: $($f.ActionTitle): $($f.OutcomeText)" 'WARN' }
             $problems.Add("Områdeutformingen «$($hubDesign.Title)» ble kjørt, men $($failed.Count) handling(er) feilet.")
         }
         else { $designOk = $true; Log "Områdeutformingen «$($hubDesign.Title)» er ferdig" 'OK' }
     }
     catch {
-        Log "Kunne ikke følge med på områdeutformingen: $(Get-ErrorText $_)" 'WARN'
-        $problems.Add("Fikk ikke sjekket om områdeutformingen «$($hubDesign.Title)» ble ferdig.")
+        Log "Områdeutformingen ble ikke lagt på: $(Get-ErrorText $_)" 'WARN'
+        $problems.Add("Områdeutformingen «$($hubDesign.Title)» ble ikke lagt på. Kjør skriptet på nytt eller be en administrator legge den på.")
     }
     if (-not $designOk) { $exitCode = 2 }
 }
