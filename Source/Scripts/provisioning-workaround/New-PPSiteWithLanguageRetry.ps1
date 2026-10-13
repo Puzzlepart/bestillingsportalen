@@ -163,9 +163,10 @@ function Get-ErrorText($ErrorRecord) {
 }
 function Show-Progress([string] $Status, [int] $Percent = -1) {
     # Fremdriftslinje mens skriptet venter. Bare interaktivt: i Azure Automation blir det støy i jobbloggen.
+    # PowerShell 7 viser aktivitet og status på én linje og kutter resten, så begge holdes korte.
     if ($useMi) { return }
-    if ($Status) { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Status $Status -PercentComplete $Percent }
-    else { Write-Progress -Activity "Oppretter $Alias med språk $Lcid" -Completed }
+    if ($Status) { Write-Progress -Activity 'Status' -Status $Status -PercentComplete $Percent }
+    else { Write-Progress -Activity 'Status' -Completed }
 }
 function Get-SiteUrl([string] $A) { return "$tenantRoot/$ManagedPath/$A" }
 function New-SuffixAlias { return "$Alias-$(([guid]::NewGuid().ToString('N')).Substring(0, 5))" }
@@ -227,8 +228,12 @@ function Wait-SiteDesign([string] $Url, $Design) {
     $start = Get-Date
     $end = $start.AddMinutes($SiteDesignTimeoutMinutes)
     $errorsInRow = 0
+    $nextNotice = $start.AddMinutes(5)
     while ((Get-Date) -lt $end) {
-        Show-Progress "Venter på områdeutformingen «$($Design.Title)» ($([int] ((Get-Date) - $start).TotalMinutes) min, kan ta opptil $SiteDesignTimeoutMinutes)"
+        $minutes = [int] ((Get-Date) - $start).TotalMinutes
+        Show-Progress "Områdeutforming: $minutes min (maks $SiteDesignTimeoutMinutes)"
+        # En vanlig logglinje innimellom, så det synes at skriptet lever også uten fremdriftslinjen
+        if ((Get-Date) -ge $nextNotice) { Log "Områdeutformingen kjører fortsatt ($minutes min)"; $nextNotice = $nextNotice.AddMinutes(5) }
         Start-Sleep -Seconds 20
         try {
             Repair-AdminConnection
@@ -321,7 +326,7 @@ function Remove-Candidates($List) {
     $lastError = @{}
     for ($attempt = 1; $pending.Count -and $attempt -le 12; $attempt++) {
         if ($attempt -gt 1) {
-            Show-Progress "Venter på at SharePoint registrerer slettingen av $($pending.Count) gruppe(r)"
+            Show-Progress "Venter på SharePoint ($($pending.Count) slettet)"
             Start-Sleep -Seconds 10
         }
         foreach ($c in @($pending)) {
@@ -345,7 +350,7 @@ function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
     $script:sitesToPurge.Clear()
     $end = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($remaining.Count -and (Get-Date) -lt $end) {
-        Show-Progress "Tømmer papirkurven ($($remaining.Count) område(r) igjen)"
+        Show-Progress "Papirkurv: $($remaining.Count) igjen"
         Repair-AdminConnection
         foreach ($u in @($remaining)) {
             if (Get-LiveSite $u) { continue }
@@ -427,7 +432,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         # Bommen fra forrige runde holder på URL-en i papirkurven til den er tømt
         Clear-CandidateRecycleBin ([int] ($end - (Get-Date)).TotalSeconds) | Out-Null
         while ((Test-AliasInUse $Alias) -and (Get-Date) -lt $end) {
-            Show-Progress "Venter på at $(Get-SiteUrl $Alias) frigjøres ($([int] ($end - (Get-Date)).TotalMinutes) min igjen)"
+            Show-Progress "Venter på adressen ($([int] ($end - (Get-Date)).TotalMinutes) min igjen)"
             Start-Sleep -Seconds 30
         }
         if (Test-AliasInUse $Alias) { Log "URL-en ble ikke frigjort innen $UrlReleaseTimeoutMinutes min." 'ERR'; break }
@@ -441,7 +446,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     }
 
     Log "Runde $round av $($MaxRounds): oppretter $(if ($batch.Count -gt 1) { "$($batch.Count) områder" } else { 'området' }) og sjekker språket (tar vanligvis 1-2 min)"
-    Show-Progress "Runde $round/$($MaxRounds): oppretter $($batch.Count) område(r)"
+    Show-Progress "Runde $round/$($MaxRounds): oppretter"
     $roundStart = Get-Date
     foreach ($c in $batch) {
         $body = @{
@@ -469,7 +474,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     $created = @($batch | Where-Object GroupId).Count
     while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending')) {
         $ready = @($batch | Where-Object { $_.Outcome -in 'Hit', 'Miss' }).Count
-        Show-Progress "Runde $round/$($MaxRounds): venter på områdene ($ready av $created klare, $([int] ((Get-Date) - $roundStart).TotalSeconds) s)" ([int] (100 * $ready / $created))
+        Show-Progress "Runde $round/$($MaxRounds): $ready av $created klare ($([int] ((Get-Date) - $roundStart).TotalSeconds) s)" ([int] (100 * $ready / $created))
         Start-Sleep -Seconds 10
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
             $s = Get-LiveSite $c.SiteUrl
@@ -490,7 +495,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     $losers = @($batch | Where-Object { $_ -ne $winner -and $_.GroupId })
     $errs = @()
     if ($losers) {
-        Show-Progress "Runde $round/$($MaxRounds): sletter $($losers.Count) kandidat(er)"
+        Show-Progress "Runde $round/$($MaxRounds): sletter $($losers.Count)"
         $errs = Remove-Candidates $losers
         $cleanupErrors += $errs
     }
@@ -538,7 +543,7 @@ $exitCode = 0
 # Det som ikke gikk, i klartekst til oppsummeringen
 $problems = [System.Collections.Generic.List[string]]::new()
 if ($memberIds) {
-    Show-Progress "Legger til $($memberIds.Count) medlem(mer)"
+    Show-Progress 'Medlemmer'
     # Én og én, så en bruker som allerede er medlem ikke stopper resten
     $memberFailures = 0
     foreach ($id in $memberIds) {
@@ -559,7 +564,7 @@ $teamOk = $null
 if ($CreateTeam) {
     $teamOk = $false
     Log 'Oppretter Teams-team'
-    Show-Progress 'Oppretter Teams-team'
+    Show-Progress 'Teams-team'
     for ($i = 1; $i -le 4 -and -not $teamOk; $i++) {
         try { Invoke-Graph Put ('v1.0/groups/' + $winner.GroupId + '/team') @{} | Out-Null; $teamOk = $true }
         catch {
@@ -614,7 +619,7 @@ $wizardOk = $null
 if ($isProjectHub -and $hubOk) {
     # Oppsettveiviseren skal komme med områdeutformingen. Sjekkes også når den ikke ble bekreftet ferdig.
     $wizardOk = $false
-    Show-Progress 'Sjekker oppsettveiviseren'
+    Show-Progress 'Oppsettveiviser'
     try {
         $r = Add-SetupWizardIfMissing $winner.SiteUrl
         $wizardOk = $true
