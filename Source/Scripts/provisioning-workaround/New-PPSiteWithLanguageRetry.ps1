@@ -55,6 +55,7 @@
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
 .PARAMETER HubUrl            Knytt området til denne huben. Sjekkes før noe opprettes
+.PARAMETER SiteReadyTimeoutMinutes Hvor lenge en runde venter på at områdene blir klare. Standard 2
 .PARAMETER SiteDesignQueueMinutes Hvor lenge skriptet venter på at SharePoints kø kjører hubens områdeutforming,
                              før den kjøres direkte. Standard 2
 .PARAMETER ManagedIdentity   Tving managed identity (oppdages ellers automatisk i Azure Automation)
@@ -103,7 +104,7 @@ param(
     [string]   $HubUrl,
     [switch]   $ManagedIdentity,
     [string]   $ClientId = 'da6c31a6-b557-4ac3-9994-7315da06ea3a',
-    [int]      $SiteReadyTimeoutMinutes = 10,
+    [int]      $SiteReadyTimeoutMinutes = 2,
     [int]      $UrlReleaseTimeoutMinutes = 40,
     [int]      $SiteDesignQueueMinutes = 2
 )
@@ -499,7 +500,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
 
     $waitEnd = (Get-Date).AddMinutes($SiteReadyTimeoutMinutes)
     $created = @($batch | Where-Object GroupId).Count
-    $nextNotice = (Get-Date).AddSeconds(90)
+    $nextNotice = (Get-Date).AddSeconds(60)
     # Har ett område fått riktig språk, er det ingen grunn til å vente på resten
     while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending') -and -not ($batch | Where-Object Outcome -eq 'Hit')) {
         $ready = @($batch | Where-Object { $_.Outcome -in 'Hit', 'Miss' }).Count
@@ -508,7 +509,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
             # Si hva som holder igjen, så det ikke ser ut som skriptet har hengt seg opp
             $waiting = @($batch | Where-Object Outcome -eq 'Pending' | ForEach-Object { "$($_.Alias): $($_.Waiting)" })
             Log "Venter fortsatt på $($waiting.Count) av $($created) (maks $SiteReadyTimeoutMinutes min): $($waiting -join '; ')"
-            $nextNotice = (Get-Date).AddMinutes(2)
+            $nextNotice = (Get-Date).AddSeconds(60)
         }
         Start-Sleep -Seconds 10
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
