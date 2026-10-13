@@ -33,7 +33,8 @@
 
 .PARAMETER AdminUrl          https://<tenant>-admin.sharepoint.com
 .PARAMETER Title             Visningsnavn på gruppen
-.PARAMETER Alias             Ønsket alias (mailNickname og /sites/<Alias>)
+.PARAMETER Alias             Ønsket alias (mailNickname og /sites/<Alias>). Standard: laget fra tittelen,
+                             små bokstaver, æøå til ae/o/a, bindestrek for mellomrom og maks 32 tegn
 .PARAMETER Lcid              Ønsket språk. 1044 = norsk bokmål
 .PARAMETER Owners            Eiere (UPN). Påkrevd med managed identity, ellers innlogget bruker
 .PARAMETER Members           Medlemmer (UPN), legges til etter at treffet er valgt
@@ -51,6 +52,10 @@
 .EXAMPLE
     .\New-PPSiteWithLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com `
         -Title "Prosjekt X" -Alias "prosjekt-x" -Owners "ola@contoso.com"
+
+.EXAMPLE
+    # Aliaset lages fra tittelen: prosjekt-ost-fase-2
+    .\New-PPSiteWithLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com -Title "Prosjekt Øst – fase 2"
 
 .EXAMPLE
     .\New-PPSiteWithLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com `
@@ -72,7 +77,7 @@
 param(
     [Parameter(Mandatory)] [string] $AdminUrl,
     [Parameter(Mandatory)] [string] $Title,
-    [Parameter(Mandatory)] [string] $Alias,
+    [string]   $Alias,
     [int]      $Lcid = 1044,
     [string[]] $Owners,
     [string[]] $Members,
@@ -98,6 +103,14 @@ if ($RequireExactAlias) { $BatchSize = 1 }
 if ($BatchSize -lt 1 -or $BatchSize -gt 10) { throw '-BatchSize må være mellom 1 og 10.' }
 # Graph avviser tom description («Invalid value specified for property 'description'»), så tittelen brukes
 if ([string]::IsNullOrWhiteSpace($Description)) { $Description = $Title }
+if (-not $Alias) {
+    # «Prosjekt Øst – fase 2» blir prosjekt-ost-fase-2
+    $a = $Title.ToLowerInvariant().Replace('æ', 'ae').Replace('ø', 'o').Replace('å', 'a').Normalize([Text.NormalizationForm]::FormD)
+    $a = ($a -replace '\p{Mn}', '' -replace '[^a-z0-9]+', '-').Trim('-')
+    if ($a.Length -gt 32) { $a = $a.Substring(0, 32).TrimEnd('-') }
+    if (-not $a) { throw "Kunne ikke lage alias fra tittelen '$Title'. Oppgi -Alias." }
+    $Alias = $a
+}
 if ($Alias.Length -gt 58) { throw '-Alias kan være maks 58 tegn (plass til suffikset -xxxxx innenfor grensen på 64).' }
 $useMi = $ManagedIdentity -or [bool] ($env:AUTOMATION_ASSET_ACCOUNTID -or $PSPrivateMetadata.JobId)
 
