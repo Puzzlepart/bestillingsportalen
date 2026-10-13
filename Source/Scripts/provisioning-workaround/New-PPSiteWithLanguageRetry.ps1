@@ -31,7 +31,7 @@
 
     Exit-koder lokalt: 0 suksess, 1 ingen treff/feil, 2 område OK men medlemmer, hub eller team feilet.
 
-.PARAMETER AdminUrl          https://<tenant>-admin.sharepoint.com
+.PARAMETER AdminUrl          https://<tenant>-admin.sharepoint.com. Kan utelates når -HubUrl er oppgitt
 .PARAMETER Title             Visningsnavn på gruppen
 .PARAMETER Alias             Ønsket alias (mailNickname og /sites/<Alias>). Standard: laget fra tittelen,
                              små bokstaver, æøå til ae/o/a, bindestrek for mellomrom og maks 32 tegn
@@ -58,7 +58,8 @@
     .\New-PPSiteWithLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com -Title "Prosjekt Øst – fase 2"
 
 .EXAMPLE
-    .\New-PPSiteWithLanguageRetry.ps1 -AdminUrl https://contoso-admin.sharepoint.com `
+    # -AdminUrl utledes fra -HubUrl
+    .\New-PPSiteWithLanguageRetry.ps1 `
         -Title "Prosjekt X" -Alias "prosjekt-x" -Owners "ola@contoso.com" -Members "kari@contoso.com" `
         -BatchSize 5 -CreateTeam -HubUrl https://contoso.sharepoint.com/sites/prosjekthub
 
@@ -75,7 +76,7 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)] [string] $AdminUrl,
+    [string]   $AdminUrl,
     [Parameter(Mandatory)] [string] $Title,
     [string]   $Alias,
     [int]      $Lcid = 1044,
@@ -97,6 +98,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $startTime = Get-Date
+if (-not $AdminUrl) {
+    # https://contoso.sharepoint.com/sites/hub gir https://contoso-admin.sharepoint.com
+    if (-not $HubUrl) { throw 'Oppgi -AdminUrl, eller -HubUrl så adminadressen kan utledes fra den.' }
+    $hubHost = ([Uri] $HubUrl).Host
+    if ($hubHost -notmatch '^([^.]+)\.sharepoint\.com$') { throw "Kan ikke utlede adminadressen fra $HubUrl. Oppgi -AdminUrl." }
+    $AdminUrl = "https://$($Matches[1])-admin.sharepoint.com"
+}
 $AdminUrl = $AdminUrl.TrimEnd('/')
 $tenantRoot = $AdminUrl -replace '-admin\.sharepoint\.com', '.sharepoint.com'
 if ($RequireExactAlias) { $BatchSize = 1 }
