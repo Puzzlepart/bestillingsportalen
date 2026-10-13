@@ -147,11 +147,11 @@ function Get-LiveSite([string] $Url) {
 function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection (Get-AdminConnection) -ErrorAction SilentlyContinue } catch { return $null }
 }
-function Get-SiteLcid($Site) {
-    # The PnP model (SPOSite) exposes SiteProperties.Lcid as LocaleId
-    $v = if ($Site.PSObject.Properties['LocaleId']) { $Site.LocaleId } else { $Site.Lcid }
-    if ($null -eq $v) { return $null }
-    return [int] $v
+function Get-WebLanguage([string] $Url) {
+    # The site language (Web.Language). LocaleId from the tenant admin API is the regional settings,
+    # which can differ from the language (a root site in English with Norwegian regional settings gave 1044).
+    try { return [int] (Get-PnPWeb -Includes Language -Connection (Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection)).Language }
+    catch { return $null }
 }
 function Get-GroupState([string] $Id) {
     # Live, Deleted (in the Entra recycle bin), Gone or Error. An error is never taken as "gone".
@@ -255,7 +255,7 @@ function Clear-CandidateRecycleBin([int] $TimeoutSeconds = 180) {
 # ---------------------------------------------------------------------------
 Log "Requested alias '$alias', LCID $requestedLcid, up to $rounds round(s) of $batch candidate(s)"
 
-$rootLcid = Get-SiteLcid (Get-LiveSite $tenantRoot)
+$rootLcid = Get-WebLanguage $tenantRoot
 if ($rootLcid -eq $requestedLcid -and $batch -gt 1) {
     Log "Root site has the requested language ($requestedLcid) - the bug cannot change the outcome, creating one candidate per round"
     $batch = 1
@@ -294,7 +294,9 @@ try {
             foreach ($c in ($candidates | Where-Object Outcome -eq 'Pending')) {
                 $s = Get-LiveSite $c.SiteUrl
                 if (-not $s -or $s.Status -ne 'Active' -or $s.GroupId.Guid -ne $c.GroupId) { continue }
-                $c.Lcid = Get-SiteLcid $s
+                # Web not ready yet: try the candidate again on the next pass
+                $c.Lcid = Get-WebLanguage $c.SiteUrl
+                if ($null -eq $c.Lcid) { continue }
                 $c.Outcome = if ($c.Lcid -eq $requestedLcid) { 'Hit' } else { 'Miss' }
             }
         }
