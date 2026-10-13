@@ -49,7 +49,7 @@
 .PARAMETER IsPublic          Offentlig gruppe. Standard: privat
 .PARAMETER ManagedPath       Administrert bane for gruppeområder. Standard: sites
 .PARAMETER BatchSize         Antall kandidater per runde. Standard 5
-.PARAMETER MaxRounds         Maks antall runder. Standard 3
+.PARAMETER MaxRounds         Maks antall runder. Standard 5
 .PARAMETER RequireExactAlias Bruk bare aliaset uten suffiks, og vent på at URL-en frigjøres mellom forsøk
 .PARAMETER CreateTeam        Opprett Teams-team på gruppen
 .PARAMETER HubUrl            Knytt området til denne huben. Sjekkes før noe opprettes
@@ -94,7 +94,7 @@ param(
     [switch]   $IsPublic,
     [string]   $ManagedPath = 'sites',
     [int]      $BatchSize = 5,
-    [int]      $MaxRounds = 3,
+    [int]      $MaxRounds = 5,
     [switch]   $RequireExactAlias,
     [switch]   $CreateTeam,
     [string]   $HubUrl,
@@ -522,7 +522,7 @@ $elapsed = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 if (-not $winner) {
     Log "Ingen av de $attempts områdene fikk språk $(Get-LanguageName $Lcid) ($elapsed min). Rotområdet har $(Get-LanguageName $rootLcid)." 'ERR'
     if (-not $useMi) {
-        Write-Host 'Ingenting er beholdt. Prøv igjen litt senere, eventuelt med flere runder (-MaxRounds 5).' -ForegroundColor Yellow
+        Write-Host 'Ingenting er beholdt. Prøv igjen litt senere, eventuelt med flere runder (-MaxRounds 8).' -ForegroundColor Yellow
         exit 1
     }
     throw "Ingen kandidat fikk språk $Lcid etter $attempts forsøk."
