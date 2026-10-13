@@ -158,11 +158,15 @@ function Get-LiveSite([string] $Url) {
 function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection $script:admin -ErrorAction SilentlyContinue } catch { return $null }
 }
-function Get-SiteLcid($Site) {
-    # PnP-modellen (SPOSite) kaller SiteProperties.Lcid for LocaleId
-    $v = if ($Site.PSObject.Properties['LocaleId']) { $Site.LocaleId } else { $Site.Lcid }
-    if ($null -eq $v) { return $null }
-    return [int] $v
+function Get-WebLanguage([string] $Url) {
+    # Områdets språk (Web.Language). LocaleId fra admin-API-et er de regionale innstillingene, og de
+    # kan avvike fra språket (rotområde med engelsk språk og norske regionale innstillinger ga 1044).
+    try {
+        $c = if ($useMi) { Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection }
+        else { Connect-PnPOnline -Url $Url -Interactive -Connection $script:admin -ReturnConnection }
+        return [int] (Get-PnPWeb -Includes Language -Connection $c).Language
+    }
+    catch { return $null }
 }
 function Get-GroupState([string] $Id) {
     # Live, Deleted (i Entra-papirkurven), Gone eller Error. Feil tolkes aldri som «borte».
@@ -287,8 +291,7 @@ if (-not $Owners) {
 $ownerIds = Resolve-UserIds $Owners
 $memberIds = Resolve-UserIds $Members
 
-$rootLcid = $null
-try { $rootLcid = Get-SiteLcid (Get-LiveSite $tenantRoot) } catch { }
+$rootLcid = Get-WebLanguage $tenantRoot
 if ($rootLcid -eq $Lcid -and $BatchSize -gt 1) {
     # Feilen gir området rotområdets språk. Er det likt det bestilte, treffer første forsøk.
     $BatchSize = 1
@@ -363,7 +366,9 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
             $s = Get-LiveSite $c.SiteUrl
             if (-not $s -or $s.Status -ne 'Active' -or $s.GroupId.Guid -ne $c.GroupId) { continue }
-            $c.Lcid = Get-SiteLcid $s
+            # Er weben ikke klar ennå, prøves kandidaten igjen ved neste runde i løkken
+            $c.Lcid = Get-WebLanguage $c.SiteUrl
+            if ($null -eq $c.Lcid) { continue }
             $c.Outcome = if ($c.Lcid -eq $Lcid) { 'Hit' } else { 'Miss' }
         }
     }
