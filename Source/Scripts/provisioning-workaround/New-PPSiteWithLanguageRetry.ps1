@@ -214,9 +214,15 @@ function Get-LiveSite([string] $Url) {
 function Get-DeletedSite([string] $Url) {
     try { return Get-PnPTenantDeletedSite -Identity $Url -Connection $script:admin -ErrorAction SilentlyContinue } catch { return $null }
 }
+$script:siteConnections = @{}
 function Connect-Site([string] $Url) {
-    if ($useMi) { return Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection }
-    return Connect-PnPOnline -Url $Url -Interactive -Connection $script:admin -ReturnConnection
+    # Gjenbrukes, så språksjekken hvert 10. sekund ikke kobler til på nytt hver gang
+    $key = $Url.TrimEnd('/').ToLowerInvariant()
+    if (-not $script:siteConnections.ContainsKey($key)) {
+        $script:siteConnections[$key] = if ($useMi) { Connect-PnPOnline -Url $Url -ManagedIdentity -ReturnConnection }
+        else { Connect-PnPOnline -Url $Url -Interactive -Connection $script:admin -ReturnConnection }
+    }
+    return $script:siteConnections[$key]
 }
 function Get-WebLanguage([string] $Url) {
     # Områdets språk (Web.Language). LocaleId fra admin-API-et er de regionale innstillingene, og de
@@ -463,7 +469,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
     for ($i = 1; $i -le $BatchSize; $i++) {
         $a = if (($round -eq 1 -and $i -eq 1) -or $RequireExactAlias) { $Alias } else { New-SuffixAlias }
         while ($a -ne $Alias -and (Test-AliasInUse $a)) { $a = New-SuffixAlias }
-        $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending' }
+        $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending'; Waiting = 'området finnes ikke ennå' }
     }
 
     Log "Runde $round av $($MaxRounds): oppretter $(if ($batch.Count -gt 1) { "$($batch.Count) områder" } else { 'området' }) og sjekker språket (tar vanligvis 1-2 min)"
@@ -493,20 +499,33 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
 
     $waitEnd = (Get-Date).AddMinutes($SiteReadyTimeoutMinutes)
     $created = @($batch | Where-Object GroupId).Count
-    while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending')) {
+    $nextNotice = (Get-Date).AddSeconds(90)
+    # Har ett område fått riktig språk, er det ingen grunn til å vente på resten
+    while ((Get-Date) -lt $waitEnd -and ($batch | Where-Object Outcome -eq 'Pending') -and -not ($batch | Where-Object Outcome -eq 'Hit')) {
         $ready = @($batch | Where-Object { $_.Outcome -in 'Hit', 'Miss' }).Count
         Show-Progress "Runde $round/$($MaxRounds): $ready av $created klare ($([int] ((Get-Date) - $roundStart).TotalSeconds) s)" ([int] (100 * $ready / $created))
+        if ((Get-Date) -ge $nextNotice) {
+            # Si hva som holder igjen, så det ikke ser ut som skriptet har hengt seg opp
+            $waiting = @($batch | Where-Object Outcome -eq 'Pending' | ForEach-Object { "$($_.Alias): $($_.Waiting)" })
+            Log "Venter fortsatt på $($waiting.Count) av $($created) (maks $SiteReadyTimeoutMinutes min): $($waiting -join '; ')"
+            $nextNotice = (Get-Date).AddMinutes(2)
+        }
         Start-Sleep -Seconds 10
         foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
             $s = Get-LiveSite $c.SiteUrl
-            if (-not $s -or $s.Status -ne 'Active' -or $s.GroupId.Guid -ne $c.GroupId) { continue }
+            if (-not $s) { $c.Waiting = 'området finnes ikke ennå'; continue }
+            if ($s.Status -ne 'Active') { $c.Waiting = "området opprettes (status $($s.Status))"; continue }
+            if ($s.GroupId.Guid -ne $c.GroupId) { $c.Waiting = 'området er ikke koblet til gruppen ennå'; continue }
             # Er weben ikke klar ennå, prøves kandidaten igjen ved neste runde i løkken
-            $c.Lcid = Get-WebLanguage $c.SiteUrl
-            if ($null -eq $c.Lcid) { continue }
+            try { $c.Lcid = [int] (Get-PnPWeb -Includes Language -Connection (Connect-Site $c.SiteUrl)).Language }
+            catch { $c.Waiting = "språket kan ikke leses ennå ($(Get-ErrorText $_))"; continue }
             $c.Outcome = if ($c.Lcid -eq $Lcid) { 'Hit' } else { 'Miss' }
         }
     }
-    foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) { $c.Outcome = 'NoSite' }
+    foreach ($c in ($batch | Where-Object Outcome -eq 'Pending')) {
+        # Etter et treff er ventende kandidater bare overflødige, ellers ble de ikke klare i tide
+        $c.Outcome = if ($batch | Where-Object Outcome -eq 'Hit') { 'Skipped' } else { 'NoSite' }
+    }
 
     $roundHits = @($batch | Where-Object Outcome -eq 'Hit')
     $hits += $roundHits.Count
@@ -528,6 +547,7 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
                 'Miss' { "$n fikk $(Get-LanguageName $o.Lcid)" }
                 'NoSite' { "$n ble ikke klare i tide" }
                 'CreateFailed' { "$n ble ikke opprettet" }
+                'Skipped' { "$n var ikke klare ennå" }
             } })
     $line = "Runde $round av $($MaxRounds): " + $(if ($winner) { "riktig språk på $($winner.SiteUrl)." } else { 'ingen fikk riktig språk.' })
     if ($rest) { $line += ' ' + ($rest -join ', ') + '.' }
