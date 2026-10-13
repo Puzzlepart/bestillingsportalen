@@ -24,6 +24,7 @@
     bom tømmes området fra papirkurven og skriptet venter til URL-en er frigjort (observert 10-30+ min).
 
     Medlemmer legges til først når treffet er valgt, så de ikke får e-post fra hver kandidat.
+    Eierne legges også inn som medlemmer, som i Bestillingsportalen.
     Med -CreateTeam opprettes Teams-team, og med -HubUrl knyttes området til en hub.
 
     Har huben en tilknyttet områdeutforming, venter skriptet til den er ferdig. Er det
@@ -143,7 +144,17 @@ $setupWizard = @{
 }
 
 function Log([string] $Message, [string] $Level = 'INFO') {
-    Write-Output ("[{0:HH:mm:ss}] [{1}] {2}" -f (Get-Date), $Level, $Message)
+    # I runbook går loggen til jobbutdataene. Interaktivt får nivåene farge, så det er lett å se hva som gikk.
+    if ($useMi) { Write-Output ("[{0:HH:mm:ss}] [{1}] {2}" -f (Get-Date), $Level, $Message); return }
+    $color = @{ OK = 'Green'; WARN = 'Yellow'; ERR = 'Red' }[$Level]
+    $text = "[{0:HH:mm:ss}] {1}" -f (Get-Date), $Message
+    if ($color) { Write-Host $text -ForegroundColor $color } else { Write-Host $text }
+}
+function Get-LanguageName([int] $Id) {
+    # 1044 blir «norsk bokmål (1044)»
+    if (-not $Id) { return 'ukjent' }
+    try { return "$(([Globalization.CultureInfo]::GetCultureInfo($Id)).NativeName -replace '\s*\(.*\)$', '') ($Id)" }
+    catch { return "$Id" }
 }
 function Get-ErrorText($ErrorRecord) {
     $ex = $ErrorRecord.Exception
@@ -357,14 +368,18 @@ function Resolve-UserIds([string[]] $Upns) {
 # ---------------------------------------------------------------------------
 # Forberedelser
 # ---------------------------------------------------------------------------
+if ($useMi -and -not $Owners) { throw '-Owners er påkrevd med managed identity.' }
+Log "Kobler til $AdminUrl$(if (-not $useMi) { '. Logg inn i nettleservinduet hvis det åpnes.' })"
 $script:admin = New-AdminConnection
 if (-not $Owners) {
-    if ($useMi) { throw '-Owners er påkrevd med managed identity.' }
     $me = Get-PnPProperty -ClientObject (Get-PnPWeb -Connection $script:admin) -Property CurrentUser -Connection $script:admin
     $Owners = @(($me.LoginName -split '\|')[-1])
 }
+Log "Sjekker eiere, medlemmer og adresse"
 $ownerIds = Resolve-UserIds $Owners
-$memberIds = Resolve-UserIds $Members
+# Eierne legges også inn som medlemmer, som i Bestillingsportalen: en eier som ikke er medlem,
+# mangler i medlemslisten i Teams og i SharePoint-gruppen for medlemmer
+$memberIds = @(@($ownerIds) + @(Resolve-UserIds $Members) | Select-Object -Unique)
 
 # Sjekk huben før noe opprettes, så en feil adresse ikke oppdages først til slutt
 $hubDesign = $null
@@ -377,9 +392,9 @@ if ($HubUrl) {
         try { $hubDesign = Get-PnPSiteDesign -Identity $hub.SiteDesignId -Connection $script:admin } catch { }
     }
     $isProjectHub = [bool] ($hubDesign -and $hubDesign.Title -eq $projectSiteDesignTitle)
-    Log ("Hub: {0}{1}" -f $HubUrl, $(if ($isProjectHub) { ' (Prosjektportalen, områdeutformingen «Prosjektområde» legges på)' }
-            elseif ($hubDesign) { " (områdeutformingen «$($hubDesign.Title)» legges på)" }
-            else { ' (ingen områdeutforming)' }))
+    Log $(if ($isProjectHub) { "Huben $HubUrl er en Prosjektportalen-hub. Området får områdeutformingen «Prosjektområde» og oppsettveiviseren." }
+        elseif ($hubDesign) { "Huben $HubUrl legger områdeutformingen «$($hubDesign.Title)» på området." }
+        else { "Huben $HubUrl har ingen områdeutforming." })
 }
 
 $rootLcid = Get-WebLanguage $tenantRoot
@@ -388,10 +403,11 @@ if ($rootLcid -eq $Lcid -and $BatchSize -gt 1) {
     $BatchSize = 1
 }
 
-if (Test-AliasInUse $Alias) { throw "Aliaset '$Alias' eller $(Get-SiteUrl $Alias) er i bruk (aktivt eller i papirkurv)." }
-Log ("{0}, språk {1}: opptil {2} runde(r) à {3}{4}. Eiere: {5}{6}" -f $Alias, $Lcid, $MaxRounds, $BatchSize,
-    $(if ($rootLcid -eq $Lcid) { ' (rotområdet har samme språk)' }), ($Owners -join ', '),
-    $(if ($Members) { ". Medlemmer: $($Members -join ', ')" }))
+if (Test-AliasInUse $Alias) { throw "Adressen $(Get-SiteUrl $Alias) (alias '$Alias') er i bruk eller ligger i papirkurven. Velg et annet -Alias eller en annen tittel." }
+Log "Oppretter «$Title» på $(Get-SiteUrl $Alias) med språk $(Get-LanguageName $Lcid)"
+Log "Eiere: $($Owners -join ', ')$(if ($Members) { ". Medlemmer: $($Members -join ', ')" })"
+Log ("Microsoft gir ofte nye områder feil språk. Skriptet oppretter derfor {0} om gangen, beholder ett med riktig språk og sletter resten (opptil {1} runder)." -f
+    $(if ($BatchSize -gt 1) { "$BatchSize områder" } else { 'ett område' }), $MaxRounds)
 
 # ---------------------------------------------------------------------------
 # Runder
@@ -424,7 +440,8 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $batch += [pscustomobject]@{ Alias = $a; SiteUrl = (Get-SiteUrl $a); GroupId = $null; Created = $null; Lcid = $null; Outcome = 'Pending' }
     }
 
-    Show-Progress "Runde $round/$($MaxRounds): oppretter $($batch.Count) kandidat(er)"
+    Log "Runde $round av $($MaxRounds): oppretter $(if ($batch.Count -gt 1) { "$($batch.Count) områder" } else { 'området' }) og sjekker språket (tar vanligvis 1-2 min)"
+    Show-Progress "Runde $round/$($MaxRounds): oppretter $($batch.Count) område(r)"
     $roundStart = Get-Date
     foreach ($c in $batch) {
         $body = @{
@@ -477,18 +494,23 @@ for ($round = 1; $round -le $MaxRounds -and -not $winner; $round++) {
         $errs = Remove-Candidates $losers
         $cleanupErrors += $errs
     }
-    # Én linje per runde, for eksempel «Runde 1/3: ingen treff, 5 bom (1044), slettet 5»
-    $label = @{ Miss = 'bom'; NoSite = 'uten område'; CreateFailed = 'ikke opprettet' }
+    # Én linje per runde, for eksempel «Runde 1 av 3: ingen fikk riktig språk. 5 fikk English (1033). Slettet 5.»
     $rest = @($batch | Where-Object Outcome -ne 'Hit' | Group-Object Outcome, Lcid | ForEach-Object {
-            $o = $_.Group[0]; "$($_.Count) $($label[$o.Outcome])$(if ($o.Lcid) { " ($($o.Lcid))" })" })
-    $line = "Runde $round/$($MaxRounds): " + $(if ($winner) { "treff $($winner.Alias)$(if ($roundHits.Count -gt 1) { " (+$($roundHits.Count - 1) treff slettet)" })" } else { 'ingen treff' })
-    if ($rest) { $line += ', ' + ($rest -join ', ') }
-    if ($losers) { $line += ", slettet $($losers.Count)$(if ($errs) { " ($($errs.Count) feil)" })" }
+            $o = $_.Group[0]
+            switch ($o.Outcome) {
+                'Miss' { "$($_.Count) fikk $(Get-LanguageName $o.Lcid)" }
+                'NoSite' { "$($_.Count) ble ikke klare i tide" }
+                'CreateFailed' { "$($_.Count) ble ikke opprettet" }
+            } })
+    $line = "Runde $round av $($MaxRounds): " + $(if ($winner) { "riktig språk på $($winner.SiteUrl)." } else { 'ingen fikk riktig språk.' })
+    if ($rest) { $line += ' ' + ($rest -join ', ') + '.' }
+    if ($losers) { $line += " Slettet $($losers.Count)$(if ($errs) { ", $($errs.Count) kunne ikke slettes" })." }
     Log $line $(if ($errs) { 'WARN' } elseif ($winner) { 'OK' } else { 'INFO' })
 }
 
 $purgeCount = @($script:sitesToPurge | Select-Object -Unique).Count
 if ($purgeCount) {
+    Log "Tømmer de slettede områdene fra papirkurven, så adressene blir ledige igjen"
     $notPurged = Clear-CandidateRecycleBin
     Log "Tømte $(if ($notPurged) { "$($purgeCount - $notPurged.Count) av " })$purgeCount område(r) fra papirkurven" $(if ($notPurged) { 'WARN' } else { 'INFO' })
     $cleanupErrors += @($notPurged | ForEach-Object { "$($_): ikke tømt fra papirkurven" })
@@ -498,12 +520,15 @@ foreach ($e in $cleanupErrors) { Log "Ikke ryddet: $e" 'WARN' }
 $elapsed = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 
 if (-not $winner) {
-    Log "Ingen kandidat fikk språk $Lcid etter $attempts forsøk ($elapsed min). Rotområdet har $rootLcid." 'ERR'
-    if (-not $useMi) { exit 1 }
+    Log "Ingen av de $attempts områdene fikk språk $(Get-LanguageName $Lcid) ($elapsed min). Rotområdet har $(Get-LanguageName $rootLcid)." 'ERR'
+    if (-not $useMi) {
+        Write-Host 'Ingenting er beholdt. Prøv igjen litt senere, eventuelt med flere runder (-MaxRounds 5).' -ForegroundColor Yellow
+        exit 1
+    }
     throw "Ingen kandidat fikk språk $Lcid etter $attempts forsøk."
 }
 
-Log "Ferdig: $($winner.SiteUrl) ($attempts forsøk, $elapsed min)" 'OK'
+Log "Området har riktig språk etter $attempts forsøk ($elapsed min). Gjør ferdig oppsettet." 'OK'
 
 # ---------------------------------------------------------------------------
 # Etterarbeid: medlemmer, team, hub, områdeutforming og oppsettveiviser
@@ -513,25 +538,34 @@ $exitCode = 0
 $problems = [System.Collections.Generic.List[string]]::new()
 if ($memberIds) {
     Show-Progress "Legger til $($memberIds.Count) medlem(mer)"
-    # Graph tar maks 20 per PATCH
-    for ($i = 0; $i -lt $memberIds.Count; $i += 20) {
-        $chunk = $memberIds[$i..([Math]::Min($i + 19, $memberIds.Count - 1))]
-        try {
-            Invoke-Graph Patch ('v1.0/groups/' + $winner.GroupId) @{ 'members@odata.bind' = @($chunk | ForEach-Object { "https://graph.microsoft.com/v1.0/directoryObjects/$_" }) } | Out-Null
+    # Én og én, så en bruker som allerede er medlem ikke stopper resten
+    $memberFailures = 0
+    foreach ($id in $memberIds) {
+        try { Invoke-Graph Post ('v1.0/groups/' + $winner.GroupId + '/members/$ref') @{ '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$id" } | Out-Null }
+        catch {
+            if ((Get-ErrorText $_) -match 'already exist') { continue }
+            Log "Kunne ikke legge til medlem $id : $(Get-ErrorText $_)" 'WARN'; $memberFailures++
         }
-        catch { Log "Kunne ikke legge til medlemmer: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2 }
     }
-    if ($exitCode) { $problems.Add('Medlemmer ble ikke lagt til. Legg dem til selv under Medlemmer på området eller i Teams.') }
-    else { Log "La til $($memberIds.Count) medlem(mer)" }
+    if ($memberFailures) {
+        $exitCode = 2
+        $problems.Add("$memberFailures medlem(mer) ble ikke lagt til. Legg dem til selv under Medlemmer på området eller i Teams.")
+    }
+    else { Log "Eiere og medlemmer er lagt inn som medlemmer av gruppen ($($memberIds.Count))" 'OK' }
 }
 
 $teamOk = $null
 if ($CreateTeam) {
     $teamOk = $false
+    Log 'Oppretter Teams-team'
     Show-Progress 'Oppretter Teams-team'
     for ($i = 1; $i -le 4 -and -not $teamOk; $i++) {
         try { Invoke-Graph Put ('v1.0/groups/' + $winner.GroupId + '/team') @{} | Out-Null; $teamOk = $true }
-        catch { Log "Teams-team, forsøk $i : $(Get-ErrorText $_)" 'WARN'; Start-Sleep -Seconds (15 * $i) }
+        catch {
+            # Gruppen er ofte ikke klar for Teams de første minuttene, så de første feilene er forventet
+            if ($i -lt 4) { Log "Teams er ikke klar for gruppen ennå (forsøk $i av 4). Prøver igjen om $(15 * $i) s."; Start-Sleep -Seconds (15 * $i) }
+            else { Log "Teams-teamet kunne ikke opprettes: $(Get-ErrorText $_)" 'WARN' }
+        }
     }
     if ($teamOk) { Log 'Teams-team opprettet' 'OK' }
     else { $exitCode = 2; $problems.Add('Teams-teamet ble ikke opprettet. Det kan opprettes fra området eller fra Teams.') }
@@ -544,7 +578,7 @@ if ($HubUrl) {
         Repair-AdminConnection
         Add-PnPHubSiteAssociation -Site $winner.SiteUrl -HubSite $HubUrl -Connection $script:admin
         $hubOk = $true
-        Log "Knyttet til hub $HubUrl" 'OK'
+        Log "Området er knyttet til huben" 'OK'
     }
     catch {
         Log "Hubtilknytning feilet: $(Get-ErrorText $_)" 'WARN'; $exitCode = 2
@@ -555,6 +589,7 @@ if ($HubUrl) {
 $designOk = $null
 if ($hubOk -and $hubDesign) {
     $designOk = $false
+    Log "Venter på at områdeutformingen «$($hubDesign.Title)» blir ferdig (tar ofte 5-15 min)"
     try {
         $failed = Wait-SiteDesign $winner.SiteUrl $hubDesign
         if ($null -eq $failed) {
@@ -613,7 +648,7 @@ $ready = $isProjectHub -and $designOk -and $wizardOk
 Write-Host ''
 Write-Host $line -ForegroundColor Cyan
 Write-Host "  Området er opprettet: $($winner.SiteUrl)" -ForegroundColor Green
-Write-Host "  Språk: $($winner.Lcid)$(if ($teamOk) { '   Teams-team: ja' })$(if ($hubOk) { "   Hub: $HubUrl" })"
+Write-Host "  Språk: $(Get-LanguageName $winner.Lcid)$(if ($teamOk) { '   Teams-team: ja' })$(if ($hubOk) { "   Hub: $HubUrl" })"
 if ($problems.Count) {
     Write-Host ''
     Write-Host '  Dette gikk ikke:' -ForegroundColor Yellow
