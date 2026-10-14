@@ -227,7 +227,7 @@ App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Admin
    ./AssignPermissionsToManagedIdentity.ps1 -TenantId <tenantId> -AutomationIdentityId <objectId> -UamiId <objectId>
    ```
 
-3. GA-en trenger PowerShell 7+ og Microsoft.Graph-modulen (`Install-Module Microsoft.Graph.Applications`), logger inn interaktivt, og godkjenner scopene `AppRoleAssignment.ReadWrite.All` + `Application.Read.All`. Rollelistene er innbakt i skriptet og dokumentert i [Datatilgang og sikkerhet](Data-access-security.md).
+3. GA-en trenger PowerShell 7+ og Microsoft.Graph-modulen (`Install-Module Microsoft.Graph.Applications`), logger inn interaktivt, og godkjenner scopene `AppRoleAssignment.ReadWrite.All` + `Application.Read.All`. Rollelistene er innbakt i skriptet og dokumentert i [Datatilgang og sikkerhet](Data-access-security.md). Før noe tildeles, viser skriptet hvilken konto og tenant Graph-sesjonen bruker og hvilke identiteter som får roller, og spør om det skal fortsette. Svarer GA-en `s`, logges sesjonen ut og inn igjen. Det trengs fordi `Connect-MgGraph` gjenbruker en cachet innlogging uten å spørre. Er sesjonen logget inn i en annen tenant enn `-TenantId`, stopper skriptet. `-Force` hopper over spørsmålet.
 4. **Frem til kommandoen er kjørt får Logic Apps 401/403** — bestillinger kan ikke behandles. Nye app-roller kan bruke noen minutter på å propagere, og managed identity-tokens caches i opptil ~24 timer.
 
 Kommandoen er idempotent — eksisterende roller hoppes over, så den kan trygt kjøres på nytt, også etter en oppgradering som legger til nye roller.
