@@ -51,6 +51,11 @@
 
 .PARAMETER IncludeSharePointSitesFullControl
     Repair mode: also assign SharePoint Sites.FullControl.All.
+
+.PARAMETER Force
+    Skip the confirmation prompt. The signed-in account, tenant and target
+    identities are still printed, and a sign-in to a tenant other than -TenantId
+    still stops the script.
 #>
 param(
     [Parameter(Mandatory = $false)]
@@ -64,7 +69,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string[]]$Scopes = @("Group.ReadWrite.All", "User.Read.All"),
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeSharePointSitesFullControl
+    [switch]$IncludeSharePointSitesFullControl,
+    [Parameter(Mandatory = $false)]
+    [switch]$Force
 )
 
 if (-not $AutomationIdentityId -and -not $UamiId -and -not $ManagedIdentityId) {
@@ -88,19 +95,88 @@ $uamiGraphRoles = @(
     "User.ReadWrite.All"
 )
 
-try {
-    # Application.Read.All to resolve the service principals, AppRoleAssignment for
-    # the grants themselves. Nothing else - earlier versions over-asked
-    # (RoleManagement/Application.ReadWrite/DelegatedPermissionGrant), which made the
-    # consent prompt look far more dramatic than the operation is.
-    $connectParams = @{ Scopes = @("AppRoleAssignment.ReadWrite.All", "Application.Read.All") }
-    if ($TenantId) { $connectParams.TenantId = $TenantId }
-    Connect-MgGraph @connectParams
+$targets = @()
+if ($AutomationIdentityId) {
+    $targets += [pscustomobject]@{ Id = $AutomationIdentityId; Label = "Automation account system-assigned identity"; GraphRoles = $automationGraphRoles; IncludeSpo = $true }
 }
-catch {
-    Write-Host "Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
-    exit 1
+if ($UamiId) {
+    $targets += [pscustomobject]@{ Id = $UamiId; Label = "Logic apps user-assigned identity"; GraphRoles = $uamiGraphRoles; IncludeSpo = $true }
 }
+if ($ManagedIdentityId) {
+    $targets += [pscustomobject]@{ Id = $ManagedIdentityId; Label = "Managed identity (repair mode)"; GraphRoles = $Scopes; IncludeSpo = $IncludeSharePointSitesFullControl.IsPresent }
+}
+
+function Connect-Graph {
+    try {
+        # Application.Read.All to resolve the service principals, AppRoleAssignment for
+        # the grants themselves. Nothing else - earlier versions over-asked
+        # (RoleManagement/Application.ReadWrite/DelegatedPermissionGrant), which made the
+        # consent prompt look far more dramatic than the operation is.
+        $connectParams = @{ Scopes = @("AppRoleAssignment.ReadWrite.All", "Application.Read.All") }
+        if ($TenantId) { $connectParams.TenantId = $TenantId }
+        Connect-MgGraph @connectParams
+    }
+    catch {
+        Write-Host "Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Connect-MgGraph silently reuses a cached session - in practice the admin's run went
+# straight through as whichever account was signed in last, with nothing on screen
+# saying who that was. Show the account, the tenant and what is about to change, and
+# ask before writing anything. 's' signs out and back in, for when the cached account
+# is the wrong one.
+function Confirm-Session {
+    while ($true) {
+        $context = Get-MgContext
+        $tenantName = $null
+        try {
+            # Best effort: reading the organization needs User.Read, which the session
+            # normally has but this script does not ask for
+            $tenantName = (Invoke-MgGraphRequest -Method GET -Uri 'v1.0/organization?$select=displayName' -ErrorAction Stop).value[0].displayName
+        }
+        catch {}
+        $tenantMismatch = $TenantId -and ($context.TenantId -ne $TenantId)
+
+        Write-Host ""
+        Write-Host "Microsoft Graph session" -ForegroundColor Cyan
+        Write-Host "  Signed in as : $($context.Account)"
+        Write-Host "  Tenant       : $(if ($tenantName) { "$tenantName " })($($context.TenantId))" -ForegroundColor $(if ($tenantMismatch) { 'Red' } else { 'Gray' })
+        Write-Host ""
+        Write-Host "App roles to assign" -ForegroundColor Cyan
+        foreach ($target in $targets) {
+            $name = try { (Get-MgServicePrincipal -ServicePrincipalId $target.Id -ErrorAction Stop).DisplayName } catch { "NOT FOUND in this tenant" }
+            $roles = "$(@($target.GraphRoles).Count) Graph role(s)$(if ($target.IncludeSpo) { ' + SharePoint Sites.FullControl.All' })"
+            Write-Host "  $($target.Label): $name ($($target.Id)) - $roles"
+        }
+        Write-Host ""
+
+        if ($tenantMismatch) {
+            Write-Host "The session is signed in to tenant $($context.TenantId), not $TenantId." -ForegroundColor Red
+            if ($Force) { exit 1 }
+            $answer = Read-Host "s = sign in as a different account, n = cancel"
+        }
+        elseif ($Force) {
+            return
+        }
+        else {
+            $answer = Read-Host "Continue? (y = yes, s = sign in as a different account, n = cancel)"
+            if ($answer -eq 'y') { return }
+        }
+
+        if ($answer -eq 's') {
+            Disconnect-MgGraph | Out-Null
+            Connect-Graph
+            continue
+        }
+        Write-Host "Cancelled - nothing has been assigned." -ForegroundColor Yellow
+        exit 0
+    }
+}
+
+Connect-Graph
+Confirm-Session
 
 try {
     $GraphServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'"
@@ -190,14 +266,8 @@ function Grant-RoleSet {
     }
 }
 
-if ($AutomationIdentityId) {
-    Grant-RoleSet -PrincipalId $AutomationIdentityId -Label "Automation account system-assigned identity" -GraphRoles $automationGraphRoles -IncludeSpoFullControl $true
-}
-if ($UamiId) {
-    Grant-RoleSet -PrincipalId $UamiId -Label "Logic apps user-assigned identity" -GraphRoles $uamiGraphRoles -IncludeSpoFullControl $true
-}
-if ($ManagedIdentityId) {
-    Grant-RoleSet -PrincipalId $ManagedIdentityId -Label "Managed identity (repair mode)" -GraphRoles $Scopes -IncludeSpoFullControl $IncludeSharePointSitesFullControl.IsPresent
+foreach ($target in $targets) {
+    Grant-RoleSet -PrincipalId $target.Id -Label $target.Label -GraphRoles $target.GraphRoles -IncludeSpoFullControl $target.IncludeSpo
 }
 
 if ($script:assignmentFailed) {
