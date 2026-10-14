@@ -15,7 +15,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 
 **Kontoen som kjører installasjonen:**
 
-- [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen
+- [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen. **Mangler du Azure-tilgang ennå, kan SharePoint-delen installeres først med `-SharePointOnly`** (se [Installere SharePoint-delen først](#installere-sharepoint-delen-først--sharepointonly))
 - [ ] SharePoint Administrator (Teams- og Power Platform-administrator trengs også, for stegene i [Konfigurasjonsveiledningen](./Configuration-guide.md))
 - [ ] Kan tildele app-roller til managed identities: Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator — **mangler du dette, bruk `-SkipAppRoles`** (se noten under detaljene)
 
@@ -25,7 +25,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 - [ ] **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic`, `Microsoft.Web` — registrering krever rettigheter på *abonnementsnivå*, se detaljene. ([Om resource providers – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types))
 - [ ] Power Automate (seeded licenses) aktivert og utrullet i organisasjonen
 - [ ] Tenant app-katalog opprettet i SharePoint Admin Center
-- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online, Teams og seeded Power Automate (E- og F-lisenser fungerer begge — se detaljene)
+- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online, Teams og seeded Power Automate (E- og F-lisenser fungerer begge — se detaljene). Med `-SharePointOnly` kan den vente til den fulle kjøringen
 - [ ] PnP app registration i tenanten (Prosjektportalen sin kan gjenbrukes — se «PnP PowerShell App Registration»)
 
 Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1 -Preflight`** (etter Steg 2), så kjøres alle sjekkene — tjenestekonto med lisens, område-alias, RBAC-rettigheter, resource providers, GA-rettigheter for app-roller, app-katalog, Teams-app-publisering og Node.js — og resultatet vises som en **PRE-DEPLOYMENT CHECKLIST** med `OK`/`MISSING`/`WARNING` per punkt og konkret løsning for hver mangel, uten at noe deployes. Alle sjekkene kjøres uansett i starten av en vanlig kjøring, og **alle** resultater vises samlet før noe opprettes — du får hele mangellisten i én kjøring, ikke én vegg per forsøk.
@@ -215,6 +215,35 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 ### Installasjonsmelding (`-SkipPingback`)
 
 Skriptet sender én installasjonsmelding til Prosjektportalen-teamet på slutten av kjøringen: adressen til bestillingsområdet, versjon, tidspunkt og navnene på parameterne som ble brukt, uten brukernavn eller parameterverdier. Vil dere ikke sende den, kjør med `-SkipPingback`. Se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md#35-installasjonsmelding).
+
+### Installere SharePoint-delen først (`-SharePointOnly`)
+
+Har du SharePoint Administrator, men ennå ikke tilgang til Azure-abonnementet eller Global Administrator, kan du installere SharePoint-delen først:
+
+```powershell
+./deploy.ps1 -SharePointOnly
+```
+
+Kjøringen oppretter bestillingsområdet med PnP-malen og bildene, publiserer SPFx-pakkene til app-katalogen og registrerer området i `bp_ProvisionUrls`. Den logger ikke inn med Az PowerShell, leser ikke abonnementet og deployer ingenting i Azure. Pre-flight hopper over Azure-sjekkene (MFA, maler, RBAC, resource providers og app-roller), og `subscriptionId`, `region` og `resourceGroupName` trenger ikke være fylt ut i parameterfilen. Az-modulen trenger heller ikke være installert.
+
+Dette trengs fortsatt:
+
+- **PnP-appen (`pnpAppId`).** Den krever admin consent, så du kan ikke registrere den med bare SharePoint Administrator. Har tenanten Prosjektportalen, kan den appen gjenbrukes. Se [PnP PowerShell App Registration](#pnp-powershell-app-registration).
+- **Azure CLI, logget inn på tenantnivå.** Skriptet logger inn med `--allow-no-subscriptions` og bruker CLI-en mot Graph, blant annet til å se etter grupper og brukere som allerede har aliaset.
+- **App-katalogen** må finnes, som ved en vanlig installasjon.
+
+**Tjenestekontoen kan vente.** Er `serviceAccountUPN` tom, eller finnes ikke kontoen ennå, viser pre-flight `WARNING` i stedet for `MISSING`, og området installeres uten den. Den fulle kjøringen krever kontoen og gjør den til eier og medlem av Microsoft 365-gruppen og områdeadministrator, også på et område som finnes fra før. Ikke gi kontoen samme navn som områdets alias, for gruppen har allerede den adressen.
+
+`GenerateParameters.ps1` fungerer også uten abonnement og uten tjenestekonto. Da blir `subscriptionId` og `serviceAccountUPN` stående tomme, og neste steg viser kommandoen med `-SharePointOnly`.
+
+Bestillinger kan ikke behandles før Azure-delen er på plass, så kjøringen stempler ikke versjonen i innstillingslisten. Konfigurasjonslistene (områdemaler, huber og Teams-maler) kan likevel fylles ut i mellomtiden.
+
+Når du har fått Owner på abonnementet:
+
+1. Fyll inn `subscriptionId`, og sjekk `region` og `resourceGroupName`, i parameterfilen. Har du ventet med tjenestekontoen, oppretter du den nå og fyller inn `serviceAccountUPN`.
+2. Kjør `./deploy.ps1` uten `-SharePointOnly`, med `-SkipAppRoles` hvis du fortsatt mangler Global Administrator. Området gjenkjennes som eksisterende. Svar `n` på spørsmålet om PnP-malen, så hentes bare liste-ID-ene, og kjøringen fortsetter med Azure-ressursene.
+
+`-SharePointOnly` kan ikke kombineres med `-Upgrade`, fordi en oppgradering deployer runbooks og Logic Apps i Azure.
 
 ### Kjøre uten Global Administrator (`-SkipAppRoles`)
 
