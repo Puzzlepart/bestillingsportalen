@@ -321,6 +321,12 @@ Bestillingsportalen skal også være tilgjengelig som personlig app i Teams. Som
 
 Steget trengs ved førstegangsinstallasjon og ved oppgraderinger som gir ny appversjon. Ikke bruk `Sync to Teams`-knappen i SharePoint-appkatalogen — den er upålitelig (deaktivert eller «Failed to sync» i mange tenanter), og zip-opplastingen gjør nøyaktig det samme.
 
+**Hopp over Teams-appen** hvis organisasjonen ikke bruker den, eller forvalter den selv i Teams admin center. SPFx-pakkene bygges og publiseres som vanlig, men zip-fila lages ikke, ingenting publiseres til Teams-appkatalogen, og påminnelsen om manuell opplasting uteblir:
+
+```powershell
+./deploy.ps1 -SkipTeamsApp
+```
+
 ## Videre: Konfigurasjonsveiledningen
 
 Den skriptede delen av installasjonen er nå ferdig. Resten — godkjenningsoppsett, import og aktivering av flyten, deling med brukerne, støtte-Logic Apps, aktivering av maler/huber, administratorgruppe og en verifiserende testbestilling — gjøres uten Azure-tilganger og er beskrevet i **[Konfigurasjonsveiledningen](./Configuration-guide.md)**.
