@@ -47,6 +47,13 @@
     ids filled in) to hand to a Global Administrator. The logic apps get 401/403
     at runtime until that command has been run.
 
+.PARAMETER SkipTeamsApp
+    Do not package or publish the Bestillingsportalen Teams app. The SPFx packages are
+    still built and published to the tenant app catalog - only the Teams app zip and the
+    publish to the Teams app catalog are skipped, along with the reminder to upload it
+    manually. Use this when the organisation does not use the Teams app, or manages it in
+    the Teams admin center itself. Implied by -SkipSPFxDeploy.
+
 .PARAMETER SharePointOnly
     Install ONLY the SharePoint part: the requests site with the PnP template and
     assets, the SPFx packages and the tenant instance registry (bp_ProvisionUrls).
@@ -114,6 +121,7 @@ param
     [switch]$Preflight, # Run only the pre-deployment checks, print the checklist, exit - see the help
     [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
+    [switch]$SkipTeamsApp, # Do not package or publish the Teams app - see the help
     [switch]$SharePointOnly, # SharePoint site + SPFx + registry only, no Azure sign-in - see the help
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
@@ -1862,6 +1870,10 @@ function CheckTeamsAppPublish {
         RecordPreflightCheck -Name "Teams app publish" -Status SKIPPED -Detail "-SkipSPFxDeploy"
         return
     }
+    if ($SkipTeamsApp) {
+        RecordPreflightCheck -Name "Teams app publish" -Status SKIPPED -Detail "-SkipTeamsApp"
+        return
+    }
     try {
         $scopes = @("$((ReadJwtClaims (Get-PnPAccessToken)).scp)" -split ' ')
         $script:teamsAppPublishScope = [bool]($scopes | Where-Object { $_ -in @('AppCatalog.ReadWrite.All', 'Directory.ReadWrite.All') })
@@ -2046,6 +2058,8 @@ function ConfirmDeployment {
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
     WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
+    $teamsAppPlan = if ($script:teamsAppPublishScope -eq $false) { "Package only - upload manually in the Teams admin center afterwards" } else { "Package + publish to the Teams app catalog" }
+    WritePlanLine "Teams app" $teamsAppPlan ($SkipSPFxDeploy -or $SkipTeamsApp)
 
     Write-Host ""
     Write-Host "############################################################" -ForegroundColor Magenta
@@ -2598,6 +2612,11 @@ function PublishTeamsApp {
     if (-not (Test-Path $manifestPath)) { return }
 
     $componentName = "Teams app: $($Solution.Name)"
+    if ($SkipTeamsApp) {
+        Write-Host "Skipping the Teams app (-SkipTeamsApp)" -ForegroundColor DarkGray
+        RecordDeployStatus -Component $componentName -Status 'SKIPPED' -Detail "-SkipTeamsApp: not packaged or published"
+        return
+    }
     $zipPath = Join-Path $Solution.FullName "sharepoint/solution/bestillingsportalen-teams-app.zip"
     try {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
