@@ -136,7 +136,9 @@ if ($cachedForTarget.Count -gt 0) {
 
 if ($null -eq $account) {
     Write-Host "Signing in to tenant '$Tenant' - a browser window will open; pick the account you will run the installation with..." -ForegroundColor Yellow
-    az login --tenant $targetTenantId --only-show-errors | Out-Null
+    # --allow-no-subscriptions: an account with no Azure access yet (SharePoint
+    # administrator only) can still generate the file for deploy.ps1 -SharePointOnly
+    az login --tenant $targetTenantId --allow-no-subscriptions --only-show-errors | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "az login against tenant '$Tenant' ($targetTenantId) failed - see the error above. Aborting." -ForegroundColor Red
         exit 1
@@ -153,13 +155,16 @@ if ($null -eq $account -or $account.tenantId -ne $targetTenantId) {
 
 Write-Host "Signed in as $($account.user.name) in tenant $($account.tenantId)" -ForegroundColor Green
 
-# Only offer subscriptions that belong to the target tenant
-$subscriptions = @(az account list --query "[?state=='Enabled' && tenantId=='$($account.tenantId)']" --output json | ConvertFrom-Json)
-if ($subscriptions.Count -eq 0) {
-    Write-Host "No enabled subscriptions found in tenant $($account.tenantId) for $($account.user.name)." -ForegroundColor Red
-    exit 1
+# Only offer subscriptions that belong to the target tenant. A tenant-level account
+# (az login --allow-no-subscriptions) is listed with the tenant id as its id - it is
+# not a subscription, so it is left out.
+$subscriptions = @(az account list --query "[?state=='Enabled' && tenantId=='$($account.tenantId)' && id!=tenantId]" --output json | ConvertFrom-Json)
+$noSubscription = $subscriptions.Count -eq 0
+if ($noSubscription) {
+    Write-Host "No enabled subscriptions found in tenant $($account.tenantId) for $($account.user.name)." -ForegroundColor Yellow
+    Write-Host "Continuing without one: subscriptionId is left blank, which is enough for deploy.ps1 -SharePointOnly. Fill it in (or re-run this script) once you have Azure access, before the full deployment." -ForegroundColor Yellow
 }
-if ($subscriptions.Count -gt 1) {
+elseif ($subscriptions.Count -gt 1) {
     Write-Host ""
     Write-Host "Subscriptions available in this tenant (signed in as $($account.user.name)):" -ForegroundColor Yellow
     for ($i = 0; $i -lt $subscriptions.Count; $i++) {
@@ -179,7 +184,9 @@ elseif ($subscriptions[0].id -ne $account.id) {
     $account = az account show | ConvertFrom-Json
 }
 
-Write-Host "Using subscription '$($account.name)' ($($account.id)) in tenant $($account.tenantId) as $($account.user.name)" -ForegroundColor Green
+if (-not $noSubscription) {
+    Write-Host "Using subscription '$($account.name)' ($($account.id)) in tenant $($account.tenantId) as $($account.user.name)" -ForegroundColor Green
+}
 
 # ---------------------------------------------------------------------------
 # 2. Tenant names via Microsoft Graph (initial *.onmicrosoft.com domain)
@@ -222,13 +229,18 @@ $templateForRg = (Get-Content $templatePath -Raw | ConvertFrom-Json)
 $resourceGroupName = $templateForRg.resourceGroupName.Value
 
 Write-Host ""
-Write-Host "Looking for an existing Bestillingsportalen installation in the subscription..." -ForegroundColor Yellow
 $existingInstalls = @()
-try {
-    $existingJson = az resource list --subscription $account.id --resource-type "Microsoft.Logic/workflows" --name "ProcessProvisionRequest" --query "[].{rg:resourceGroup, location:location}" --output json 2>$null
-    if ($existingJson) { $existingInstalls = @($existingJson | ConvertFrom-Json) }
+if ($noSubscription) {
+    Write-Host "No subscription - skipping the lookup for an existing installation (resourceGroupName = '$resourceGroupName', region = '$Region')." -ForegroundColor Yellow
 }
-catch {}
+else {
+    Write-Host "Looking for an existing Bestillingsportalen installation in the subscription..." -ForegroundColor Yellow
+    try {
+        $existingJson = az resource list --subscription $account.id --resource-type "Microsoft.Logic/workflows" --name "ProcessProvisionRequest" --query "[].{rg:resourceGroup, location:location}" --output json 2>$null
+        if ($existingJson) { $existingInstalls = @($existingJson | ConvertFrom-Json) }
+    }
+    catch {}
+}
 
 if ($existingInstalls.Count -eq 1) {
     $found = $existingInstalls[0]
@@ -253,7 +265,7 @@ elseif ($existingInstalls.Count -gt 1) {
     }
     Write-Host "Keeping resourceGroupName = '$resourceGroupName' and region = '$Region' - set them yourself in $OutputPath before deploying." -ForegroundColor Yellow
 }
-else {
+elseif (-not $noSubscription) {
     Write-Host "None found - treating this as a new installation (resourceGroupName = '$resourceGroupName', region = '$Region')." -ForegroundColor Green
 }
 
@@ -261,7 +273,10 @@ else {
 # 3. Values that cannot be derived - prompt unless provided as parameters
 # ---------------------------------------------------------------------------
 if ([string]::IsNullOrEmpty($ServiceAccountUPN)) {
-    $ServiceAccountUPN = Read-Host "Service account UPN (standard licensed user - used to authorise the delegated API connections)"
+    $ServiceAccountUPN = Read-Host "Service account UPN (standard licensed user - used to authorise the delegated API connections; enter to leave it blank for deploy.ps1 -SharePointOnly)"
+}
+if ([string]::IsNullOrWhiteSpace($ServiceAccountUPN)) {
+    Write-Host "No service account given - serviceAccountUPN is left blank. deploy.ps1 -SharePointOnly installs without it; set it before the full deployment." -ForegroundColor Yellow
 }
 
 # Validate that the service account exists - deploy.ps1 uses it as site owner and
@@ -290,7 +305,7 @@ $parameters = Get-Content $templatePath -Raw | ConvertFrom-Json
 
 $values = @{
     tenantId          = $account.tenantId
-    subscriptionId    = $account.id
+    subscriptionId    = $(if ($noSubscription) { '' } else { $account.id })
     fullTenantName    = $fullTenantName
     spoTenantName     = $spoTenantName
     region            = $Region
@@ -484,4 +499,10 @@ $deployCommand = if ((Split-Path -Leaf $OutputPath) -eq 'parameters.json') {
 else {
     "./deploy.ps1 -ParametersPath $OutputPath"
 }
-Write-Host "  1. Run $deployCommand - the pre-flight summary shows the target environment (and which parameter file it came from) before anything is created." -ForegroundColor Cyan
+if ($noSubscription) {
+    Write-Host "  1. No Azure subscription yet: run $deployCommand -SharePointOnly to install the SharePoint part now." -ForegroundColor Cyan
+    Write-Host "  2. Once you have Owner on the subscription, fill in subscriptionId (and check region/resourceGroupName) in $OutputPath - or re-run this script - and run $deployCommand for the Azure part." -ForegroundColor Cyan
+}
+else {
+    Write-Host "  1. Run $deployCommand - the pre-flight summary shows the target environment (and which parameter file it came from) before anything is created." -ForegroundColor Cyan
+}
