@@ -11,7 +11,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 - [ ] Windows 10/11 med PowerShell **7.4+**
 - [ ] Azure CLI installert, og `az login` fungerer gjennom brannmur/proxy
 - [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, WriteAscii
-- [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxDeploy`)
+- [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxBuild` med ferdig bygd pakke, eller `-SkipSPFxDeploy`)
 
 **Kontoen som kjører installasjonen:**
 
@@ -39,7 +39,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
-- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
+- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxBuild` når pakka allerede er bygd, eller `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
@@ -308,7 +308,13 @@ Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Sour
 
 Når webdelen er publisert kan den legges til på en hvilken som helst SharePoint-side. Husk å konfigurere `guestRequestSiteUrl` i property pane til URL-en til Bestillingsportalen-admin-området slik at gjesteforespørsler skrives til riktig liste.
 
-**Hopp over SPFx-bygg/publisering** hvis du allerede har bygget manuelt eller kun vil deploye Azure-ressurser:
+**Publiser uten å bygge** når du allerede har en ferdig bygd `.sppkg`, typisk når samme versjon skal installeres i flere tenanter: bygg én gang, og kjør deretter `deploy.ps1` med `-SkipSPFxBuild` per tenant. `npm install` og `npm run build` hoppes over, og pakka som ligger i `Source/SharePointFramework/*/sharepoint/solution/` lastes opp som den er. Forhåndssjekken viser at pakka finnes og når den ble bygd, så du oppdager en utdatert pakke før den publiseres. Node.js trengs ikke. Teams-appen pakkes og publiseres som vanlig:
+
+```powershell
+./deploy.ps1 -SkipSPFxBuild
+```
+
+**Hopp over SPFx helt** hvis du kun vil deploye Azure-ressurser, eller lastet opp pakka manuelt. Da hoppes også Teams-appen over:
 
 ```powershell
 ./deploy.ps1 -SkipSPFxDeploy
