@@ -54,6 +54,15 @@
     manually. Use this when the organisation does not use the Teams app, or manages it in
     the Teams admin center itself. Implied by -SkipSPFxDeploy.
 
+.PARAMETER SkipSPFxBuild
+    Publish the SPFx packages WITHOUT building them first: npm install and npm run build
+    are skipped, and the .sppkg already present under each solution's
+    sharepoint/solution/ folder is uploaded to the tenant app catalog as it is. Use this
+    when the same build is installed in several tenants - build once, then run deploy.ps1
+    with this switch per tenant. Pre-flight verifies that the package exists and shows
+    when it was built; Node.js is not needed. The Teams app is still packaged and
+    published (its manifest is not part of the build). Implied by -SkipSPFxDeploy.
+
 .PARAMETER SharePointOnly
     Install ONLY the SharePoint part: the requests site with the PnP template and
     assets, the SPFx packages and the tenant instance registry (bp_ProvisionUrls).
@@ -104,6 +113,11 @@
     deploy.ps1 -SharePointOnly
     Install the SharePoint site, SPFx packages and instance registry only - no Azure
     access needed. Run deploy.ps1 without the switch later for the Azure part.
+
+.EXAMPLE
+    deploy.ps1 -SkipSPFxBuild
+    Publish the already built .sppkg from Source/SharePointFramework/*/sharepoint/solution/
+    without running npm - for installing one build in several tenants.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -122,6 +136,7 @@ param
     [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
     [switch]$SkipTeamsApp, # Do not package or publish the Teams app - see the help
+    [switch]$SkipSPFxBuild, # Publish the already built .sppkg without running npm - see the help
     [switch]$SharePointOnly, # SharePoint site + SPFx + registry only, no Azure sign-in - see the help
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
@@ -1470,6 +1485,11 @@ function CheckNodeJs {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxDeploy"
         return
     }
+    if ($SkipSPFxBuild) {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxBuild"
+        CheckPrebuiltSPFxPackages
+        return
+    }
     $nodeVersionRaw = if (Get-Command node -ErrorAction SilentlyContinue) { (node --version) 2>$null } else { $null }
     if ([string]::IsNullOrWhiteSpace($nodeVersionRaw)) {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH" -Fix "Install Node.js 22.14+ (https://nodejs.org), or run with -SkipSPFxDeploy."
@@ -1485,6 +1505,30 @@ function CheckNodeJs {
     }
     catch {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status UNKNOWN -Detail "Could not parse 'node --version' output '$nodeVersionRaw'"
+    }
+}
+
+# -SkipSPFxBuild uploads whatever .sppkg is already in each solution's sharepoint/solution/
+# folder. A missing package would otherwise surface as the LAST deploy step, so check
+# here - and show the build time, so a stale package is spotted before it is published.
+function CheckPrebuiltSPFxPackages {
+    $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
+    $solutions = @(Get-ChildItem -Path $spfxRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
+            Test-Path (Join-Path $_.FullName "config/package-solution.json")
+        })
+    if ($solutions.Count -eq 0) {
+        RecordPreflightCheck -Name "SPFx package (prebuilt)" -Status UNKNOWN -Detail "No SPFx solutions found under $spfxRoot"
+        return
+    }
+    foreach ($solution in $solutions) {
+        $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
+        $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($sppkg) {
+            RecordPreflightCheck -Name "SPFx package (prebuilt): $($solution.Name)" -Status OK -Detail "$($sppkg.Name), built $($sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))"
+        }
+        else {
+            RecordPreflightCheck -Name "SPFx package (prebuilt): $($solution.Name)" -Status MISSING -Detail "No .sppkg in $sppkgFolder" -Fix "Run 'npm install' and 'npm run build' in $($solution.FullName), or run without -SkipSPFxBuild to build as part of the deployment."
+        }
     }
 }
 
@@ -2057,7 +2101,8 @@ function ConfirmDeployment {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
-    WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
+    $spfxPlan = if ($SkipSPFxBuild) { "Publish the already built .sppkg to the tenant app catalog (no build, -SkipSPFxBuild)" } else { "Build + publish to the tenant app catalog" }
+    WritePlanLine "SPFx packages" $spfxPlan $SkipSPFxDeploy
     $teamsAppPlan = if ($script:teamsAppPublishScope -eq $false) { "Package only - upload manually in the Teams admin center afterwards" } else { "Package + publish to the Teams app catalog" }
     WritePlanLine "Teams app" $teamsAppPlan ($SkipSPFxDeploy -or $SkipTeamsApp)
 
@@ -2704,8 +2749,8 @@ function DeploySPFxPackages {
             return
         }
 
-        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-            throw "npm not installed. Install Node.js (https://nodejs.org) or use -SkipSPFxDeploy to skip SPFx build."
+        if (-not $SkipSPFxBuild -and -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm not installed. Install Node.js (https://nodejs.org), use -SkipSPFxBuild to publish an already built .sppkg, or -SkipSPFxDeploy to skip SPFx entirely."
         }
 
         $spfxSolutions = Get-ChildItem -Path $spfxRoot -Directory | Where-Object {
@@ -2731,24 +2776,35 @@ function DeploySPFxPackages {
 
         foreach ($solution in $spfxSolutions) {
             Write-Host ""
-            Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+            $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
 
             Push-Location $solution.FullName
             try {
-                if (-not (Test-Path "node_modules")) {
-                    Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
-                    npm install
-                    if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                if ($SkipSPFxBuild) {
+                    # Publish what is already built - the same .sppkg goes to every tenant
+                    Write-Host "Publishing prebuilt SPFx solution: $($solution.Name) (-SkipSPFxBuild, no npm)" -ForegroundColor Yellow
+                    $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $sppkg) {
+                        throw "No .sppkg found for $($solution.Name) in $sppkgFolder - build it first (npm run build), or run without -SkipSPFxBuild"
+                    }
+                    Write-Host "Using $($sppkg.Name) built $($sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))" -ForegroundColor Yellow
                 }
+                else {
+                    Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+                    if (-not (Test-Path "node_modules")) {
+                        Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
+                        npm install
+                        if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                    }
 
-                Write-Host "Running npm run build..." -ForegroundColor Yellow
-                npm run build
-                if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
+                    Write-Host "Running npm run build..." -ForegroundColor Yellow
+                    npm run build
+                    if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
 
-                $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
-                $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if (-not $sppkg) {
-                    throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                    $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $sppkg) {
+                        throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                    }
                 }
 
                 Write-Host "Uploading $($sppkg.Name) to app catalog..." -ForegroundColor Yellow
@@ -3121,11 +3177,14 @@ if ($global:upgrade) {
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
     Write-Host "  - Deploy the ProcessProvisionRequest and ProcessGuestRequest Logic Apps" -ForegroundColor Cyan
-    if (-not $SkipSPFxDeploy) {
-        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
+    if ($SkipSPFxDeploy) {
+        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+    }
+    elseif ($SkipSPFxBuild) {
+        Write-Host "  - Publish the already built SPFx packages (Source/SharePointFramework/*/sharepoint/solution/*.sppkg) to the tenant app catalog, no build (-SkipSPFxBuild was set)" -ForegroundColor Cyan
     }
     else {
-        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
     }
     Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
     Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan
