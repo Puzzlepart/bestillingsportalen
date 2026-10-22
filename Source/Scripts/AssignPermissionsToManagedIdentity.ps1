@@ -24,7 +24,8 @@
     Requirements: PowerShell 7+, the Microsoft.Graph PowerShell module
     (Install-Module Microsoft.Graph.Applications), and an account that can assign
     app roles - Global Administrator, or Privileged Role Administrator + Cloud
-    Application Administrator. Sign-in is interactive.
+    Application Administrator. Sign-in is interactive. The PowerShell version and the
+    modules are checked before anything else, with the command that fixes them.
 
     The role sets mirror what deploy.ps1 assigns (AssignManagedIdentityPermissions /
     AssignUamiPermissions) - keep them in sync if the solution's permissions change.
@@ -76,6 +77,34 @@ param(
 
 if (-not $AutomationIdentityId -and -not $UamiId -and -not $ManagedIdentityId) {
     Write-Host "Nothing to do: provide -AutomationIdentityId and/or -UamiId (handover mode), or -ManagedIdentityId (repair mode). See Get-Help ./AssignPermissionsToManagedIdentity.ps1 -Full." -ForegroundColor Red
+    exit 1
+}
+
+# The prerequisites, checked up front. This script is handed to a Global Administrator
+# who has usually not run anything from the solution before - without the checks a
+# missing module surfaced as "Failed to connect to Microsoft Graph: The term
+# 'Connect-MgGraph' is not recognized", and with only Microsoft.Graph.Authentication
+# installed the sign-in went through and the run failed at the first lookup.
+if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host "This script requires PowerShell 7 or newer (current: $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)). Install it from https://aka.ms/powershell and run the script in pwsh, not Windows PowerShell." -ForegroundColor Red
+    exit 1
+}
+$installCommand = "Install-Module Microsoft.Graph.Applications -Scope CurrentUser"
+$missingModules = @('Microsoft.Graph.Authentication', 'Microsoft.Graph.Applications' | Where-Object {
+        -not (Get-Module -Name $_) -and -not (Get-Module -Name $_ -ListAvailable)
+    })
+if ($missingModules.Count -gt 0) {
+    Write-Host "Missing PowerShell module(s): $($missingModules -join ', '). Install with: $installCommand (Microsoft.Graph.Authentication comes with it), then re-run." -ForegroundColor Red
+    exit 1
+}
+# Importing proves the pair loads together: Microsoft.Graph.Applications pins its exact
+# Microsoft.Graph.Authentication version, and a mismatch fails here instead of mid-run
+try {
+    Import-Module Microsoft.Graph.Applications -ErrorAction Stop
+}
+catch {
+    Write-Host "Microsoft.Graph.Applications could not be loaded: $(($_.Exception.Message -split "`r?`n")[0])" -ForegroundColor Red
+    Write-Host "Usually mismatched Microsoft.Graph module versions. Bring them to the same version with: Update-Module Microsoft.Graph.Authentication, Microsoft.Graph.Applications - or $installCommand -Force - then re-run in a NEW PowerShell session." -ForegroundColor Yellow
     exit 1
 }
 
