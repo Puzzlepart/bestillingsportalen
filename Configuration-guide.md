@@ -189,7 +189,15 @@ Når brukere sender inn bestillinger via Bestillingsportalen webdel eller Teams 
 
 ## Steg 8: Verifiser med en testbestilling
 
-Send en bestilling gjennom hele løpet før løsningen annonseres for brukerne — det er den eneste testen som dekker alle leddene samlet: tilganger, godkjenningsflyt, Logic Apps, runbook-konfigurasjon og varsling.
+**Kjør sjekklisten først.** `Source/Scripts/Test-Installation.ps1` bruker samme parameterfil og innlogginger som `deploy.ps1`, og sjekker alt som kan sjekkes automatisk: bestillingsområdet med listene, versjonsstempelet og registreringen i `bp_ProvisionUrls`, tjenestekontoens tilgang til området, SPFx-pakkene og Teams-appen, app-rollene til begge managed identities, runbookene, API-tilkoblingene og Logic Apps med siste kjøring. Skriptet endrer ingenting.
+
+```powershell
+./Test-Installation.ps1 -ParametersPath .\parameters-<tenant>.json
+```
+
+Hvert punkt får `OK`, `MISSING`, `WARNING`, `UNKNOWN` eller `SKIPPED`, og en `Fix`-linje som sier hva som må gjøres. Rett opp alle `MISSING` og kjør skriptet på nytt — exit-koden er 0 når ingenting mangler. `UNKNOWN` betyr at et oppslag ikke fikk svar, som regel fordi kontoen mangler lesetilgang (SharePoint-administrator og Reader på ressursgruppen er nok). Godkjenningsflyten fra Steg 2 og selve testbestillingen kan ikke sjekkes av skriptet, og står som `SKIPPED` med hva som må sjekkes for hånd. Etter `deploy.ps1 -SharePointOnly` kjøres skriptet med `-SharePointOnly`.
+
+Når sjekklisten er ren, sender du testbestillingen. Send en bestilling gjennom hele løpet før løsningen annonseres for brukerne — det er den eneste testen som dekker alle leddene samlet: tilganger, godkjenningsflyt, Logic Apps, runbook-konfigurasjon og varsling.
 
 1. **Test som en vanlig bruker** — ikke som tjenestekontoen og ikke som administratoren som installerte. Det verifiserer tilgangene fra Steg 3 og den normale eier-flyten i provisjoneringen.
 2. Send inn en testbestilling via webdelen eller Teams-appen — gjerne av en type med Teams-avhuking og hub-tilknytning, så testes mest mulig.

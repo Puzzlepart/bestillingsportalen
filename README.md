@@ -71,7 +71,7 @@ Installasjonen gjøres av en administrator med et PowerShell-skript, etterfulgt 
 1. **Les [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md).** Den beskriver hva som installeres, hvilke tilganger installasjonen og driften krever, og kan brukes som underlag for sikkerhetsvurdering før dere begynner.
 2. **Hent koden.** Klon repoet eller last ned [nyeste release](https://github.com/Puzzlepart/bestillingsportalen/releases). Skriptene ligger i `Source/Scripts/`.
 3. **Følg [Installasjonsveiledningen](./Deployment-guide.md).** `GenerateParameters.ps1` lager parameterfila fra tenanten du er logget inn i, `deploy.ps1 -Preflight` sjekker alle forutsetningene uten å installere noe, og `deploy.ps1` oppretter Azure-ressursene, SharePoint-området og SPFx-pakken.
-4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningskanal, import av Power Automate-flyten, deling, aktivering av Teams-appen og en verifiserende testbestilling.
+4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningskanal, import av Power Automate-flyten, deling, aktivering av Teams-appen og en verifiserende testbestilling. Før testbestillingen sjekker `Test-Installation.ps1` installasjonen punkt for punkt uten å endre noe.
 
 Løsningen er ikke i drift før både steg 3 og 4 er gjennomført. Merk at Bestillingsportalen-appen i Teams normalt må lastes opp manuelt i Teams admin center (zip-pakken produseres av deploy-skriptet) – se [Teams-appen](./Deployment-guide.md#teams-appen) i installasjonsveiledningen.
 
