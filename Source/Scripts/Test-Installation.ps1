@@ -211,6 +211,21 @@ function FormatTime($Value) {
 # not answer the question (UNKNOWN). Reading a missing resource as "unknown" only costs
 # a re-run; reading a 403 as "missing" sends someone off to redeploy for nothing.
 # ---------------------------------------------------------------------------
+# az prints Graph/ARM errors as 'ERROR: Forbidden({"error":{...}})' - one line of JSON
+# that can run for a screen. Keep the status and the error message, capped.
+function ShortAzError([string]$Stderr) {
+    $text = (FirstLine $Stderr) -replace '^ERROR:\s*', ''
+    if ($text -match '^(\w+)\((\{.*\})\)$') {
+        try {
+            $message = "$((($Matches[2] | ConvertFrom-Json -ErrorAction Stop).error).message)"
+            if ($message) { $text = "$($Matches[1]): $message" }
+        }
+        catch {}
+    }
+    if ($text.Length -gt 200) { $text = $text.Substring(0, 197) + '...' }
+    return $text
+}
+
 function InvokeAz {
     $output = & az @args --only-show-errors 2>&1
     $exitCode = $LASTEXITCODE
@@ -220,7 +235,7 @@ function InvokeAz {
     return [pscustomobject]@{
         Ok       = -not $failed
         Output   = $stdout.Trim()
-        Error    = if ($failed) { $(if ($stderr) { (FirstLine $stderr) -replace '^ERROR:\s*', '' } else { "az exited with code $exitCode" }) } else { $null }
+        Error    = if ($failed) { $(if ($stderr) { ShortAzError $stderr } else { "az exited with code $exitCode" }) } else { $null }
         NotFound = $failed -and ($stderr -match '(?i)ResourceNotFound|ResourceGroupNotFound|Request_ResourceNotFound|Not Found|\(404\)|could not be found|was not found|does not exist')
     }
 }
@@ -565,7 +580,9 @@ function CheckSpfxPackages {
                 RecordCheck -Name $name -Status $status -Detail "'$($package.name)' $($package.version): $appsError"
                 return
             }
-            $app = $apps | Where-Object { "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
+            # ProductId is the solution id from package-solution.json. Id is the app catalog
+            # item's own id, which only matches by accident.
+            $app = $apps | Where-Object { "$($_.ProductId)" -eq "$($package.id)" -or "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
             $fix = "Run deploy.ps1 -Upgrade (or -SkipSPFxBuild to publish an already built package) - or upload the .sppkg to $script:appCatalogUrl and deploy it."
             if ($null -eq $app) {
                 RecordCheck -Name $name -Status MISSING -Detail "'$($package.name)' ($($package.id)) is not in the tenant app catalog" -Fix $fix
@@ -617,7 +634,9 @@ function CheckTeamsApp {
             }
             $manualCheck = "Teams admin center -> Teams apps -> Manage apps -> search for '$($manifest.name.short)': it should be there, version $expectedVersion, allowed."
             if ($null -eq $apps) {
-                RecordCheck -Name $name -Status WARNING -Detail "Could not be checked - the Teams app catalog cannot be read with these sign-ins ($($reasons -join '; '))" -Fix "Check by hand: $manualCheck"
+                # The usual case: neither token carries a scope that may read the catalog
+                $why = if (@($reasons | Where-Object { $_ -notmatch '(?i)403|Forbidden' }).Count -eq 0) { "neither the PnP app nor the Azure CLI has AppCatalog.Read.All - normal, nothing to fix" } else { $reasons -join '; ' }
+                RecordCheck -Name $name -Status WARNING -Detail "Could not be checked - the Teams app catalog cannot be read with these sign-ins ($why)" -Fix "Check by hand: $manualCheck"
                 return
             }
             $app = $apps | Select-Object -First 1
@@ -850,6 +869,9 @@ function CheckAppRoles {
     $expectedCount = $Expected.Graph.Count + $Expected.SharePoint.Count
 
     if ($missing.Count -gt 0) {
+        # The logic apps authenticate with the user-assigned identity - CheckLogicApps
+        # points its failed runs here
+        if ($ParameterName -eq 'UamiId') { $script:uamiRolesMissing = $true }
         $command = "./AssignPermissionsToManagedIdentity.ps1 -TenantId $($parameters.tenantId.Value) -$ParameterName $PrincipalId"
         RecordCheck -Name $name -Status MISSING -Detail "$($expectedCount - $missing.Count) of $expectedCount roles - the solution gets 401/403 until the rest are assigned" -Fix "Missing: $($missing -join ', '). Have a Global Administrator run: $command - tokens are cached for up to ~$tokenCacheHours h afterwards."
         return
@@ -936,7 +958,13 @@ function CheckLogicApps {
             }
             if ($latest -and "$($latest.properties.status)" -in @('Failed', 'TimedOut', 'Aborted')) {
                 $errorText = if ($latest.properties.error.message) { " - $(FirstLine $latest.properties.error.message)" } else { "" }
-                RecordCheck -Name $name -Status WARNING -Detail "Enabled, $runText$errorText" -Fix "Open the run: Azure Portal -> $workflowName -> Run history, and read the failed action. See Error-handling.md. A 401/403 within ~$tokenCacheHours h of the app role assignment is the token cache, not an error."
+                $runFix = if ($script:uamiRolesMissing) {
+                    "Most likely the missing app roles on $uamiName (see above) - assign them, wait out the ~$tokenCacheHours h token cache and run it again. To confirm, open the run: Azure Portal -> $workflowName -> Run history -> the failed action (401/403)."
+                }
+                else {
+                    "Open the run: Azure Portal -> $workflowName -> Run history, and read the failed action. See Error-handling.md. A 401/403 within ~$tokenCacheHours h of the app role assignment is the token cache, not an error."
+                }
+                RecordCheck -Name $name -Status WARNING -Detail "Enabled, $runText$errorText" -Fix $runFix
                 return
             }
             if (-not $latest -and $workflowName -in $supportLogicApps) {
@@ -1091,6 +1119,7 @@ if ($checkAzure) {
 }
 Write-Host "  Signed in (CLI):    $(if ($cliUser) { $cliUser } else { '(not signed in)' })"
 Write-Host "  Signed in (PnP):    $(if ($script:pnpIdentity) { $script:pnpIdentity } else { '(not signed in)' })"
+Write-Host "  Service account:    $(if (IsValidParam $parameters.serviceAccountUPN) { $parameters.serviceAccountUPN.Value } else { '(not set)' })"
 Write-Host "  Version (checkout): $(if ($repoVersion) { $repoVersion } else { 'unknown' })"
 Write-Host ""
 Write-Host "Running the checks (SharePoint, SPFx, app roles, Automation, API connections, Logic Apps - takes a minute)..." -ForegroundColor Yellow
@@ -1145,6 +1174,7 @@ try {
 
         $script:appRoleSetupError = $null
         $script:latestAppRoleAssignment = $null
+        $script:uamiRolesMissing = $false
         try {
             $expectedRoles = GetExpectedAppRoles
             $script:resourceSps = GetResourceServicePrincipals
