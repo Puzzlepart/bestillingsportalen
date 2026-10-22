@@ -521,7 +521,7 @@ function CheckServiceAccountGroup {
     if (-not $isOwner) { $lacking += 'owner' }
     if (-not $isMember) { $lacking += 'member' }
     if ($lacking.Count -gt 0) {
-        RecordCheck -Name $name -Status MISSING -Detail "$upn is not $($lacking -join ' or ') of group $groupId - the approval flow and the Teams welcome message run as this account" -Fix "Re-run deploy.ps1 WITHOUT -SkipSharepointSite and answer n to re-applying the template (GrantServiceAccountAccess only runs in the site step), or add $upn as OWNER and MEMBER of the group in the Microsoft 365 admin center."
+        RecordCheck -Name $name -Status MISSING -Detail "$upn is not $($lacking -join ' or ') of group $groupId - the approval flow and the Teams welcome message run as this account" -Fix "Re-run deploy.ps1 and answer n to re-applying the template (GrantServiceAccountAccess adds it), or add $upn as OWNER and MEMBER of the group in the Microsoft 365 admin center."
         return
     }
     RecordCheck -Name $name -Status OK -Detail "$upn is owner and member"
@@ -540,7 +540,7 @@ function CheckServiceAccountSiteAdmin {
     # last segment
     $admins = @(Get-PnPSiteCollectionAdmin -Connection $script:siteConnection -ErrorAction Stop | ForEach-Object { ("$($_.LoginName)" -split '\|')[-1] })
     if ($admins -notcontains $upn) {
-        RecordCheck -Name $name -Status MISSING -Detail "$upn is not among the site collection admins" -Fix "Re-run deploy.ps1 WITHOUT -SkipSharepointSite and answer n to re-applying the template (GrantServiceAccountAccess only runs in the site step), or add $upn as site collection admin on $requestsSiteUrl in the SharePoint admin center."
+        RecordCheck -Name $name -Status MISSING -Detail "$upn is not among the site collection admins" -Fix "Re-run deploy.ps1 and answer n to re-applying the template (GrantServiceAccountAccess adds it), or add $upn as site collection admin on $requestsSiteUrl in the SharePoint admin center."
         return
     }
     RecordCheck -Name $name -Status OK -Detail "$upn"
