@@ -296,6 +296,10 @@ Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede
 
 > Underveis viser Microsoft en advarsel om at «this connection was created from a different organization» med phishing-varsel. Det er forventet: samtykkelenken genereres av admin-sesjonen din, mens tjenestekontoen er den som samtykker. Huk av `I have verified this request and trust the source` og velg `Allow access`.
 
+Skriptet venter i opptil 5 minutter per tilkobling. Trykk `s` for å hoppe over en tilkobling, eller Ctrl+C for å avslutte. Samtykkelenken skrives også ut i konsollen.
+
+> **«No consent server information was associated with this request»:** Samtykkesiden lagrer informasjon i en cookie når lenken åpnes. Havner innloggingen som tjenestekonto i et annet vindu eller en annen nettleserprofil, mister den informasjonen, og samtykket ender på denne feilsiden. Edge bytter for eksempel profil automatisk når du logger inn med en annen jobbkonto. Enklest er å autorisere i Azure Portal som beskrevet under. Vil du bruke skriptet, åpner du den utskrevne lenken i et InPrivate-vindu mens skriptet venter, eller slår av automatisk profilbytte i Edge.
+
 **Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
 ### SPFx-løsninger (webdelene `ProjectProvision` og `InviteGuests`)
