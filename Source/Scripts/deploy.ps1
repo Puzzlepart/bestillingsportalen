@@ -3465,6 +3465,13 @@ else {
     $context.Load($guestRequestsList)
     $context.ExecuteQuery()
     $global:guestRequestsListId = $guestRequestsList.Id
+
+    # Not part of the skipped site step: the service account's access is what the
+    # approval flow runs on, and a -SharePointOnly install without a service account
+    # leaves it to this run. Skipping it here left the account with no access at all
+    # (seen at a customer 22.10.2026). Checks before it writes, so on an installation
+    # where the access is in place it only reads.
+    GrantServiceAccountAccess
 }
 
 # -SharePointOnly ends here: the SharePoint-side steps of a full deployment, then out -
