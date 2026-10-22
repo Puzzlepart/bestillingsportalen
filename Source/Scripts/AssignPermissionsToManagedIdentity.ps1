@@ -80,6 +80,32 @@ if (-not $AutomationIdentityId -and -not $UamiId -and -not $ManagedIdentityId) {
     exit 1
 }
 
+# The ids are copied by hand from a handover message, and a line break in an e-mail or a
+# terminal cuts them short. At a customer a UAMI id one character short went all the way
+# through: Graph refused every call with 'Invalid object identifier', and the run still
+# ended with 'All requested app roles are in place'. Checked before the sign-in, so a
+# bad id costs nothing.
+$AutomationIdentityId = "$AutomationIdentityId".Trim()
+$UamiId = "$UamiId".Trim()
+$TenantId = "$TenantId".Trim()
+$ManagedIdentityId = "$ManagedIdentityId".Trim()
+$invalidIds = @()
+foreach ($idParam in @(
+        @{ Name = 'AutomationIdentityId'; Value = $AutomationIdentityId },
+        @{ Name = 'UamiId'; Value = $UamiId },
+        @{ Name = 'TenantId'; Value = $TenantId },
+        @{ Name = 'ManagedIdentityId'; Value = $ManagedIdentityId })) {
+    if ($idParam.Value -and $idParam.Value -notmatch '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$') {
+        $invalidIds += "  -$($idParam.Name) '$($idParam.Value)' has $($idParam.Value.Length) characters - a GUID has 36 (8-4-4-4-12 hexadecimal digits)"
+    }
+}
+if ($invalidIds.Count -gt 0) {
+    Write-Host "Not a valid id - nothing has been signed in to or assigned:" -ForegroundColor Red
+    $invalidIds | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+    Write-Host "The id was probably cut off or broken across lines when it was copied. Copy it again from the handover command and re-run." -ForegroundColor Yellow
+    exit 1
+}
+
 # The prerequisites, checked up front. This script is handed to a Global Administrator
 # who has usually not run anything from the solution before - without the checks a
 # missing module surfaced as "Failed to connect to Microsoft Graph: The term
@@ -174,15 +200,31 @@ function Confirm-Session {
         Write-Host "  Tenant       : $(if ($tenantName) { "$tenantName " })($($context.TenantId))" -ForegroundColor $(if ($tenantMismatch) { 'Red' } else { 'Gray' })
         Write-Host ""
         Write-Host "App roles to assign" -ForegroundColor Cyan
+        $notFound = @()
         foreach ($target in $targets) {
-            $name = try { (Get-MgServicePrincipal -ServicePrincipalId $target.Id -ErrorAction Stop).DisplayName } catch { "NOT FOUND in this tenant" }
+            $name = try { (Get-MgServicePrincipal -ServicePrincipalId $target.Id -ErrorAction Stop).DisplayName } catch { $null }
             $roles = "$(@($target.GraphRoles).Count) Graph role(s)$(if ($target.IncludeSpo) { ' + SharePoint Sites.FullControl.All' })"
-            Write-Host "  $($target.Label): $name ($($target.Id)) - $roles"
+            if ($name) {
+                Write-Host "  $($target.Label): $name ($($target.Id)) - $roles"
+            }
+            else {
+                Write-Host "  $($target.Label): NOT FOUND in this tenant ($($target.Id)) - $roles" -ForegroundColor Red
+                $notFound += $target
+            }
         }
         Write-Host ""
 
-        if ($tenantMismatch) {
-            Write-Host "The session is signed in to tenant $($context.TenantId), not $TenantId." -ForegroundColor Red
+        # Not offered as 'y': every assignment to an identity that cannot be read fails,
+        # and continuing used to look like it had worked. Signing in again is offered
+        # because a wrong tenant or account is one way to get here.
+        if ($tenantMismatch -or $notFound.Count -gt 0) {
+            if ($tenantMismatch) {
+                Write-Host "The session is signed in to tenant $($context.TenantId), not $TenantId." -ForegroundColor Red
+            }
+            if ($notFound.Count -gt 0) {
+                Write-Host "$(@($notFound.Label) -join ' and ') could not be found in tenant $($context.TenantId) - nothing will be assigned." -ForegroundColor Red
+                Write-Host "Check the object id against the handover command (look it up with: az identity show --resource-group <rg> --name <uami> --query principalId for the user-assigned identity, or on the automation account's Identity page), or sign in to the right tenant." -ForegroundColor Yellow
+            }
             if ($Force) { exit 1 }
             $answer = Read-Host "s = sign in as a different account, n = cancel"
         }
@@ -208,8 +250,8 @@ Connect-Graph
 Confirm-Session
 
 try {
-    $GraphServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'"
-    $SpoServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0ff1-ce00-000000000000'"
+    $GraphServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'" -ErrorAction Stop
+    $SpoServicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0ff1-ce00-000000000000'" -ErrorAction Stop
 }
 catch {
     Write-Host "Failed to resolve the Microsoft Graph / SharePoint service principals: $_" -ForegroundColor Red
@@ -241,7 +283,10 @@ function Add-AppRoleToPrincipal {
         ResourceId  = $ResourceServicePrincipal.Id
         AppRoleId   = $appRole.Id
     }
-    New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $PrincipalId -BodyParameter $bodyParam | Out-Null
+    # -ErrorAction Stop on every Graph call: the Microsoft.Graph cmdlets report failures
+    # as NON-terminating errors, so without it the callers' catch blocks never ran, and
+    # a refused assignment printed 'Assigned' and counted as a success.
+    New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $PrincipalId -BodyParameter $bodyParam -ErrorAction Stop | Out-Null
     Write-Host "  Assigned '$PermissionScope' ($($ResourceServicePrincipal.DisplayName))" -ForegroundColor Green
 }
 
@@ -257,7 +302,7 @@ function Grant-RoleSet {
 
     Write-Host "$($Label) ($PrincipalId):" -ForegroundColor Yellow
     try {
-        $principal = Get-MgServicePrincipal -ServicePrincipalId $PrincipalId
+        $principal = Get-MgServicePrincipal -ServicePrincipalId $PrincipalId -ErrorAction Stop
         Write-Host "  Found: $($principal.DisplayName)" -ForegroundColor Gray
     }
     catch {
@@ -266,7 +311,14 @@ function Grant-RoleSet {
         return
     }
 
-    $existing = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $PrincipalId -All
+    try {
+        $existing = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $PrincipalId -All -ErrorAction Stop
+    }
+    catch {
+        Write-Host "  Could not read the existing app role assignments of '$PrincipalId': $_" -ForegroundColor Red
+        $script:assignmentFailed = $true
+        return
+    }
 
     foreach ($scope in $GraphRoles) {
         try {
