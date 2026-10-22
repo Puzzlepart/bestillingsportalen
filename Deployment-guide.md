@@ -296,6 +296,10 @@ Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede
 
 > Underveis viser Microsoft en advarsel om at «this connection was created from a different organization» med phishing-varsel. Det er forventet: samtykkelenken genereres av admin-sesjonen din, mens tjenestekontoen er den som samtykker. Huk av `I have verified this request and trust the source` og velg `Allow access`.
 
+Skriptet venter i opptil 5 minutter per tilkobling. Trykk `s` for å hoppe over en tilkobling, eller Ctrl+C for å avslutte. Samtykkelenken skrives også ut i konsollen.
+
+> **Åpnes lenken i feil nettleserprofil?** Kopier lenken **fra konsollen** og åpne den i et vindu der du kan logge inn som tjenestekontoen, for eksempel et InPrivate-vindu, mens skriptet venter. Ikke kopier adressen fra nettleseren. Når nettleseren har åpnet lenken, er den sendt videre, og adressen den havnet på virker bare i det vinduet. Andre steder gir den feilen «No consent server information was associated with this request». Du kan også trykke `s` og autorisere i Azure Portal som beskrevet under.
+
 **Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
 ### SPFx-løsninger (webdelene `ProjectProvision` og `InviteGuests`)
