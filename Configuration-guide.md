@@ -212,6 +212,8 @@ Husk å rydde opp etterpå: slett testområdet/-teamet (slett Microsoft 365-grup
 
 ## Konfigurasjonen er nå fullført, og Bestillingsportalen webdel eller Teams app skal være tilgjengelig
 
+Skal løsningen overleveres til kunden, finnes det en [e-postmal for overlevering](./Overlevering-e-postmal.md). Den beskriver hva som er installert, hvordan brukerne bestiller, og har en sjekkliste over det kunden må gjøre før løsningen åpnes for alle.
+
 ## Merknad: Bestillings-webdelen følger denne løsningen
 
 Selve bestillings-webdelen (grensesnittet der brukerne bestiller samarbeidsområder) inngår fra og med versjon 1.0.0 i **dette repoet**, som del av SPFx-pakken `bp-provision-web-parts.sppkg` — den distribueres automatisk av `deploy.ps1`. Prosjektportalen 365 er ikke lenger en forutsetning. Slik tas den i bruk:
