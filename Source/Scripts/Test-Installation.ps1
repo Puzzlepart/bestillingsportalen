@@ -968,6 +968,12 @@ function CheckLogicApps {
         RunCheck "Logic App: $workflowName" {
             $name = "Logic App: $workflowName"
             $state = "$($workflow.properties.state)"
+            # Run by -TriggerLogicApps just now: its 'Logic App run' item already says how
+            # that went, and repeating the same failure here only doubles it
+            if ($workflowName -in $script:triggeredWorkflows -and $state -eq 'Enabled') {
+                RecordCheck -Name $name -Status OK -Detail "Enabled - run just now, see 'Logic App run: $workflowName' above"
+                return
+            }
             $runs = ArmGet "$rgPath/providers/Microsoft.Logic/workflows/$workflowName/runs" "2019-05-01" @('$top=1')
             $runText = $null
             $latest = $null
@@ -1011,6 +1017,9 @@ function CheckLogicApps {
 # -TriggerLogicApps: run the scheduled logic apps and wait for the results
 # ---------------------------------------------------------------------------
 $terminalRunStates = @('Succeeded', 'Failed', 'Cancelled', 'TimedOut', 'Aborted', 'Skipped')
+# The logic apps -TriggerLogicApps started - the Logic Apps check leaves their runs to the
+# 'Logic App run' items
+$script:triggeredWorkflows = @()
 
 # Run and trigger times as UTC. ConvertFrom-Json turns ARM's ISO timestamps into
 # DateTime (Kind Utc) - but DateTime comparisons ignore Kind, so everything compared
@@ -1081,6 +1090,7 @@ function InvokeScheduledLogicApps {
         }
         Write-Host "  Started $workflowName" -ForegroundColor Gray
         $started += [pscustomobject]@{ Workflow = $workflowName; Trigger = $triggerName; StartedAt = $startedAt; Run = $null }
+        $script:triggeredWorkflows += $workflowName
     }
     if ($started.Count -eq 0) {
         if (@($script:checks | Where-Object Name -like 'Logic App run: *').Count -eq 0) {
