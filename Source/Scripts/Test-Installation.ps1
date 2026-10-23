@@ -10,11 +10,11 @@
     Configuration-guide.md (Steg 8). It answers "is everything in place?" in one run,
     instead of clicking through the SharePoint admin center, the Azure portal and Entra ID.
 
-    The script NEVER creates, changes or deletes anything in the environment. Every
-    lookup is a read; a lookup that fails is reported as UNKNOWN or WARNING, never as a
-    crash, and the remaining checks still run. The only local change is the Azure CLI's
-    default subscription, which is switched to the target for the run and restored at
-    the end.
+    Without -TriggerLogicApps the script NEVER creates, changes or deletes anything in
+    the environment. Every lookup is a read; a lookup that fails is reported as UNKNOWN
+    or WARNING, never as a crash, and the remaining checks still run. The only local
+    change is the Azure CLI's default subscription, which is switched to the target for
+    the run and restored at the end.
 
     Same inputs and sign-ins as deploy.ps1: the parameter file (-ParametersPath), PnP
     interactive sign-in with the PnP app (pnpAppId) and the Azure CLI. Az PowerShell is
@@ -34,8 +34,31 @@
     packages. For an environment installed with deploy.ps1 -SharePointOnly where the
     Azure part is not in place yet. No subscription access is needed.
 
+.PARAMETER TriggerLogicApps
+    Also RUN the logic apps that run on a schedule (Recurrence trigger: GetHubSites,
+    GetSiteTemplates, GetTeamsTemplates, SyncGroupSettings, SyncLabels - found from
+    their definitions, so a customer's own scheduled logic app is included), wait for
+    each run to finish and report the result: succeeded, or which action failed and
+    why. This is Configuration-guide.md Steg 4 in one go, and the quickest way to see
+    that the app roles and API connections actually work.
+
+    This is the one thing the script changes: the runs do what they do on their weekly
+    schedule - fill the Hub Sites, Site Templates, Teams Templates and IP Labels lists
+    and sync the group settings. Needs Logic App Contributor (or Contributor) on the
+    resource group; Reader is enough for everything else. Disabled logic apps are not
+    started. Cannot be combined with -SharePointOnly.
+
+.PARAMETER LogicAppTimeoutMinutes
+    With -TriggerLogicApps: how long to wait for the runs, in total. Default 10. A run
+    still going after that is reported as a WARNING with where to follow it - it is not
+    cancelled. Ctrl+C stops the script, not the runs: they finish in Azure regardless.
+
 .EXAMPLE
     ./Test-Installation.ps1
+
+.EXAMPLE
+    ./Test-Installation.ps1 -TriggerLogicApps
+    Check everything, and run the scheduled logic apps and wait for the results.
 
 .EXAMPLE
     ./Test-Installation.ps1 -ParametersPath .\parameters-contoso.json
@@ -48,8 +71,16 @@ param
 (
     [Parameter(Mandatory = $false)]
     [string]$ParametersPath = ".\parameters.json", # Parameter file the environment was deployed from
-    [switch]$SharePointOnly # Check the SharePoint part only - see the help
+    [switch]$SharePointOnly, # Check the SharePoint part only - see the help
+    [switch]$TriggerLogicApps, # Also run the scheduled logic apps and wait for the results - see the help
+    [ValidateRange(1, 120)]
+    [int]$LogicAppTimeoutMinutes = 10 # With -TriggerLogicApps: total wait for the runs
 )
+
+if ($TriggerLogicApps -and $SharePointOnly) {
+    Write-Host "-TriggerLogicApps cannot be combined with -SharePointOnly: the logic apps are part of the Azure installation." -ForegroundColor Red
+    exit 1
+}
 
 # Every lookup handles its own failure (try/catch, -ErrorAction Stop where it matters)
 $ErrorActionPreference = "Continue"
@@ -977,9 +1008,160 @@ function CheckLogicApps {
 }
 
 # ---------------------------------------------------------------------------
+# -TriggerLogicApps: run the scheduled logic apps and wait for the results
+# ---------------------------------------------------------------------------
+$terminalRunStates = @('Succeeded', 'Failed', 'Cancelled', 'TimedOut', 'Aborted', 'Skipped')
+
+# Run and trigger times as UTC. ConvertFrom-Json turns ARM's ISO timestamps into
+# DateTime (Kind Utc) - but DateTime comparisons ignore Kind, so everything compared
+# against [DateTime]::UtcNow goes through here.
+function ToUtc($Value) {
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    return ([DateTimeOffset]::Parse("$Value", [Globalization.CultureInfo]::InvariantCulture)).UtcDateTime
+}
+
+# The name of the workflow's Recurrence trigger, or $null when it has none - found from
+# the definition, so the set follows the templates (and includes a customer's own
+# scheduled logic app) instead of a list kept here.
+function GetRecurrenceTrigger($Workflow) {
+    $definition = $Workflow.properties.definition
+    if ($null -eq $definition) {
+        $full = ArmGet "$rgPath/providers/Microsoft.Logic/workflows/$($Workflow.name)" "2019-05-01"
+        if ($full.Ok) { $definition = $full.Data.properties.definition }
+    }
+    if ($null -eq $definition -or $null -eq $definition.triggers) { return $null }
+    foreach ($trigger in $definition.triggers.PSObject.Properties) {
+        if ("$($trigger.Value.type)" -eq 'Recurrence') { return $trigger.Name }
+    }
+    return $null
+}
+
+# The failed action of a run as 'action: code - message', or $null. A scope fails with
+# ActionFailed because something inside it failed, so an action with a real error code
+# is preferred. Best effort - the run itself is the authority.
+function GetFailedActionText([string]$WorkflowName, [string]$RunName) {
+    $actions = ArmGet "$rgPath/providers/Microsoft.Logic/workflows/$WorkflowName/runs/$RunName/actions" "2019-05-01"
+    if (-not $actions.Ok) { return $null }
+    $failed = @($actions.Data.value | Where-Object { "$($_.properties.status)" -eq 'Failed' })
+    if ($failed.Count -eq 0) { return $null }
+    $pick = $failed | Where-Object { "$($_.properties.code)" -ne 'ActionFailed' } | Select-Object -First 1
+    if ($null -eq $pick) { $pick = $failed | Select-Object -First 1 }
+    $text = "$($pick.name)"
+    if ($pick.properties.code) { $text += ": $($pick.properties.code)" }
+    if ($pick.properties.error.message) { $text += " - $(FirstLine $pick.properties.error.message)" }
+    if ($text.Length -gt 200) { $text = $text.Substring(0, 197) + '...' }
+    return $text
+}
+
+function InvokeScheduledLogicApps {
+    $list = ArmGet "$rgPath/providers/Microsoft.Logic/workflows" "2019-05-01"
+    if (-not $list.Ok) {
+        RecordCheck -Name "Logic App runs" -Status UNKNOWN -Detail "Could not list the logic apps in $resourceGroupName ($($list.Error)) - nothing was started"
+        return
+    }
+
+    $started = @()
+    foreach ($workflow in (@($list.Data.value) | Sort-Object { "$($_.name)" })) {
+        $workflowName = "$($workflow.name)"
+        $triggerName = GetRecurrenceTrigger $workflow
+        if (-not $triggerName) { continue }
+        $name = "Logic App run: $workflowName"
+        $state = "$($workflow.properties.state)"
+        if ($state -ne 'Enabled') {
+            RecordCheck -Name $name -Status WARNING -Detail "Not started - the logic app is $(if ($state) { $state } else { 'not enabled' })" -Fix "Enable it (Azure Portal -> $workflowName -> Overview -> Enable) and re-run with -TriggerLogicApps."
+            continue
+        }
+        # Taken before the POST: the run's startTime is compared against it to tell the
+        # run started here from an earlier one
+        $startedAt = [DateTime]::UtcNow
+        $post = InvokeAz rest --method post --url "https://management.azure.com$rgPath/providers/Microsoft.Logic/workflows/$workflowName/triggers/$triggerName/run?api-version=2016-06-01"
+        if (-not $post.Ok) {
+            RecordCheck -Name $name -Status WARNING -Detail "Could not be started ($($post.Error))" -Fix "Starting a run needs Logic App Contributor (or Contributor) on $resourceGroupName. Or run it by hand: Azure Portal -> $workflowName -> Run trigger -> Run."
+            continue
+        }
+        Write-Host "  Started $workflowName" -ForegroundColor Gray
+        $started += [pscustomobject]@{ Workflow = $workflowName; Trigger = $triggerName; StartedAt = $startedAt; Run = $null }
+    }
+    if ($started.Count -eq 0) {
+        if (@($script:checks | Where-Object Name -like 'Logic App run: *').Count -eq 0) {
+            RecordCheck -Name "Logic App runs" -Status UNKNOWN -Detail "No logic app with a Recurrence trigger found in $resourceGroupName - nothing was started"
+        }
+        return
+    }
+
+    # All started at once, then polled together: the total wait is the slowest run, not
+    # the sum. Short sleeps, so Ctrl+C is handled promptly.
+    Write-Host "Waiting for $($started.Count) logic app run(s) - up to $LogicAppTimeoutMinutes min. Ctrl+C stops the script; the runs finish in Azure regardless." -ForegroundColor Yellow
+    $deadline = [DateTime]::UtcNow.AddMinutes($LogicAppTimeoutMinutes)
+    $pending = @($started)
+    $lastProgress = $null
+    $lastProgressAt = [DateTime]::UtcNow
+    while ($pending.Count -gt 0 -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Seconds 10
+        foreach ($item in $pending) {
+            $runs = ArmGet "$rgPath/providers/Microsoft.Logic/workflows/$($item.Workflow)/runs" "2019-05-01" @('$top=5')
+            if (-not $runs.Ok) { continue }
+            # The run started here: the newest from this trigger since the POST. A minute of
+            # slack for the clock difference between this machine and Azure.
+            $run = @($runs.Data.value) | Where-Object {
+                "$($_.properties.trigger.name)" -eq $item.Trigger -and $_.properties.startTime -and (ToUtc $_.properties.startTime) -ge $item.StartedAt.AddMinutes(-1)
+            } | Select-Object -First 1
+            if ($run) { $item.Run = $run }
+        }
+        $pending = @($pending | Where-Object { $null -eq $_.Run -or "$($_.Run.properties.status)" -notin $terminalRunStates })
+        # A line when a run finishes, otherwise one a minute - not one per poll
+        $progress = "  $($started.Count - $pending.Count) of $($started.Count) finished - waiting for $(@($pending.Workflow) -join ', ')"
+        if ($pending.Count -gt 0 -and ($progress -ne $lastProgress -or ([DateTime]::UtcNow - $lastProgressAt).TotalSeconds -ge 60)) {
+            Write-Host $progress -ForegroundColor Gray
+            $lastProgress = $progress
+            $lastProgressAt = [DateTime]::UtcNow
+        }
+    }
+
+    foreach ($item in $started) {
+        $name = "Logic App run: $($item.Workflow)"
+        $historyHint = "Azure Portal -> $($item.Workflow) -> Run history"
+        if ($null -eq $item.Run) {
+            RecordCheck -Name $name -Status WARNING -Detail "Started, but no run showed up within $LogicAppTimeoutMinutes min" -Fix "Look for it in $historyHint."
+            continue
+        }
+        $status = "$($item.Run.properties.status)"
+        $runStart = ToUtc $item.Run.properties.startTime
+        if ($status -notin $terminalRunStates) {
+            RecordCheck -Name $name -Status WARNING -Detail "Still $status after $LogicAppTimeoutMinutes min (started $(FormatTime $runStart))" -Fix "Follow it in $historyHint, or re-run with a higher -LogicAppTimeoutMinutes."
+            continue
+        }
+        $duration = if ($item.Run.properties.endTime) { " in $([int]((ToUtc $item.Run.properties.endTime) - $runStart).TotalSeconds) s" } else { "" }
+        if ($status -eq 'Succeeded') {
+            RecordCheck -Name $name -Status OK -Detail "Succeeded$duration (started $(FormatTime $runStart))"
+            continue
+        }
+        # Run just now, so a failure is the current state of the installation, not history -
+        # MISSING, unlike an old failed run in the Logic Apps check
+        $failedAction = GetFailedActionText $item.Workflow "$($item.Run.name)"
+        $detail = "$status$duration$(if ($failedAction) { " - $failedAction" } elseif ($item.Run.properties.error.message) { " - $(FirstLine $item.Run.properties.error.message)" })"
+        $fix = if ($script:uamiRolesMissing) {
+            "Most likely the missing app roles on $uamiName (see above) - assign them, wait out the ~$tokenCacheHours h token cache and re-run with -TriggerLogicApps."
+        }
+        elseif ($script:latestAppRoleAssignment -and $script:latestAppRoleAssignment.AddHours($tokenCacheHours) -gt [DateTime]::UtcNow) {
+            "App roles were assigned $(FormatTime $script:latestAppRoleAssignment) - a 401/403 before $(FormatTime $script:latestAppRoleAssignment.AddHours($tokenCacheHours)) is the token cache: re-run with -TriggerLogicApps then. Otherwise open the run in $historyHint and see Error-handling.md."
+        }
+        else {
+            "Open the run in $historyHint and read the failed action. See Error-handling.md."
+        }
+        RecordCheck -Name $name -Status MISSING -Detail $detail -Fix $fix
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only - nothing is changed)  ###" -ForegroundColor Magenta
+if ($TriggerLogicApps) {
+    Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only, except that the scheduled logic apps are run)  ###" -ForegroundColor Magenta
+}
+else {
+    Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only - nothing is changed)  ###" -ForegroundColor Magenta
+}
 
 # PnP.PowerShell 3.2+, as deploy.ps1 requires. Az PowerShell is not used here - if it
 # ever is, import PnP.PowerShell BEFORE the first Az cmdlet (see the assembly-conflict
@@ -1122,7 +1304,7 @@ Write-Host "  Signed in (PnP):    $(if ($script:pnpIdentity) { $script:pnpIdenti
 Write-Host "  Service account:    $(if (IsValidParam $parameters.serviceAccountUPN) { $parameters.serviceAccountUPN.Value } else { '(not set)' })"
 Write-Host "  Version (checkout): $(if ($repoVersion) { $repoVersion } else { 'unknown' })"
 Write-Host ""
-Write-Host "Running the checks (SharePoint, SPFx, app roles, Automation, API connections, Logic Apps - takes a minute)..." -ForegroundColor Yellow
+Write-Host "Running the checks (SharePoint, SPFx, app roles, Automation, API connections, Logic Apps - takes a minute$(if ($TriggerLogicApps) { ", plus up to $LogicAppTimeoutMinutes min for the logic app runs" }))..." -ForegroundColor Yellow
 
 try {
     # --- Sign-ins ---
@@ -1189,6 +1371,11 @@ try {
         foreach ($connection in @($delegatedConnections + $automationConnection)) {
             RunCheck "API connection: $connection" { CheckApiConnection $connection }
         }
+        # Before the Logic Apps check, so its 'latest run' is the run started here.
+        # After the app roles, so a failure can be put down to missing roles.
+        if ($TriggerLogicApps) {
+            RunCheck "Logic App runs" { InvokeScheduledLogicApps }
+        }
         RunCheck "Logic Apps" { CheckLogicApps }
     }
 
@@ -1211,7 +1398,12 @@ finally {
     }
 }
 
-Write-Host "Read-only check: nothing has been changed in the environment." -ForegroundColor Cyan
+if ($TriggerLogicApps) {
+    Write-Host "Nothing has been changed in the environment, except that the scheduled logic apps were run (-TriggerLogicApps)." -ForegroundColor Cyan
+}
+else {
+    Write-Host "Read-only check: nothing has been changed in the environment." -ForegroundColor Cyan
+}
 if ($missingCount -gt 0) {
     Write-Host "Fix the $missingCount missing item(s) above and re-run." -ForegroundColor Yellow
     exit 1
