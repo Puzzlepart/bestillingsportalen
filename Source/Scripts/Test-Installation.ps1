@@ -580,12 +580,20 @@ function CheckSpfxPackages {
                 RecordCheck -Name $name -Status $status -Detail "'$($package.name)' $($package.version): $appsError"
                 return
             }
-            # ProductId is the solution id from package-solution.json. Id is the app catalog
-            # item's own id, which only matches by accident.
-            $app = $apps | Where-Object { "$($_.ProductId)" -eq "$($package.id)" -or "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
+            # Matched on the solution NAME. Get-PnPApp returns PnP.Framework's AppMetadata,
+            # which has no ProductId: its Id is the app catalog's own id for the package
+            # (AvailableApps 'ID'), not the solution id in package-solution.json, so an id
+            # comparison never matched - at a customer 23.10.2026 a deployed package was
+            # reported as missing. Title is the solution name from package-solution.json,
+            # which is what the app catalog shows. The id is still tried first, for the
+            # case where the two happen to be the same.
+            $app = $apps | Where-Object { "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
+            if ($null -eq $app) {
+                $app = $apps | Where-Object { "$($_.Title)" -eq "$($package.name)" } | Select-Object -First 1
+            }
             $fix = "Run deploy.ps1 -Upgrade (or -SkipSPFxBuild to publish an already built package) - or upload the .sppkg to $script:appCatalogUrl and deploy it."
             if ($null -eq $app) {
-                RecordCheck -Name $name -Status MISSING -Detail "'$($package.name)' ($($package.id)) is not in the tenant app catalog" -Fix $fix
+                RecordCheck -Name $name -Status MISSING -Detail "No app named '$($package.name)' in the tenant app catalog" -Fix $fix
                 return
             }
             if (-not $app.Deployed) {
