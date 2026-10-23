@@ -205,6 +205,19 @@ Hvert punkt får `OK`, `MISSING`, `WARNING`, `UNKNOWN` eller `SKIPPED`, og en `F
 
 Med `-TriggerLogicApps` kjører skriptet i tillegg Logic Apps med tidsstyrt trigger og venter på resultatet, som beskrevet i [Steg 4](#steg-4-kjørekonfigurere-støttende-logic-apps). Det er den raskeste måten å se at app-rollene og API-tilkoblingene faktisk virker, før testbestillingen. Kjøringene fyller listene og synkroniserer innstillingene slik de ellers gjør ukentlig, og det er det eneste skriptet da endrer. En kjøring som feiler, blir `MISSING`. Er app-rollene tildelt det siste døgnet, kan en 401/403 være token-cachen, og da sier `Fix`-linjen når det er verdt å prøve igjen.
 
+Med `-TestProvision` bestiller skriptet i tillegg et testområde og følger det til det er ferdig. Bestillingen legges i `Provisioning Requests`-listen med de samme feltene som webdelen fyller ut. Kontoen som er logget inn i SharePoint, blir eier og bestiller. Navnet er `BP-test <tidspunkt>`, og aliaset er `bptest<tidspunkt>`. Skriptet viser hver statusendring og registrerer resultatet i sjekklisten: `OK` ved `Space Created`, og `MISSING` med `StatusReason` ved `Space Creation Failed`. Til slutt sletter det testområdet: en Microsoft 365-gruppe slettes (kan gjenopprettes i 30 dager, og området følger med), og et vanlig område flyttes til papirkurven. Bestillingselementet beholdes som dokumentasjon.
+
+```powershell
+./Test-Installation.ps1 -ParametersPath .\parameters-<tenant>.json -TriggerLogicApps -TestProvision
+```
+
+- **Godkjenning:** følger innstillingen `EnableAutoApproval`, slik webdelen gjør. Er den av, må noen godkjenne bestillingen i Teams eller Approvals mens skriptet venter. Skjer ikke det innen tidsgrensen (`-TestProvisionTimeoutMinutes`, standard 30), slettes bestillingen, slik at en sen godkjenning ikke oppretter noe.
+- **Type:** `-TestProvisionType` velger bestillingstype, med `InternalTitle` eller `Title` fra `Provisioning Types`. Standard er `Office 365 Group`, en gruppe med område uten Teams og hub. Typer som kobles til en hub eller bruker en mal, støttes ikke ennå.
+- **Når testen ikke kjøres:** testen kjøres bare når ingen punkter over står som `MISSING`. Den ville ellers feilet på det som mangler og etterlatt en halvferdig gruppe.
+- **Ved tidsgrensen:** er bestillingen fortsatt under oppretting når tidsgrensen nås, slettes ingenting. Skriptet sier hva som må slettes når den er ferdig.
+
+Testbestillingen erstatter ikke en bestilling gjort som vanlig bruker. Den tester ikke webdelen og tilgangene i Steg 3.
+
 Når sjekklisten er ren, sender du testbestillingen. Send en bestilling gjennom hele løpet før løsningen annonseres for brukerne — det er den eneste testen som dekker alle leddene samlet: tilganger, godkjenningsflyt, Logic Apps, runbook-konfigurasjon og varsling.
 
 1. **Test som en vanlig bruker** — ikke som tjenestekontoen og ikke som administratoren som installerte. Det verifiserer tilgangene fra Steg 3 og den normale eier-flyten i provisjoneringen.

@@ -10,8 +10,8 @@
     Configuration-guide.md (Steg 8). It answers "is everything in place?" in one run,
     instead of clicking through the SharePoint admin center, the Azure portal and Entra ID.
 
-    Without -TriggerLogicApps the script NEVER creates, changes or deletes anything in
-    the environment. Every lookup is a read; a lookup that fails is reported as UNKNOWN
+    Without -TriggerLogicApps and -TestProvision the script NEVER creates, changes or
+    deletes anything in the environment. Every lookup is a read; a lookup that fails is reported as UNKNOWN
     or WARNING, never as a crash, and the remaining checks still run. The only local
     change is the Azure CLI's default subscription, which is switched to the target for
     the run and restored at the end.
@@ -53,8 +53,49 @@
     still going after that is reported as a WARNING with where to follow it - it is not
     cancelled. Ctrl+C stops the script, not the runs: they finish in Azure regardless.
 
+.PARAMETER TestProvision
+    Also ORDER a space through the 'Provisioning Requests' list, the same way the
+    ordering web part does, follow it until it is created (or fails) and then DELETE it.
+    This tests the provisioning end to end: the ProcessProvisionRequest logic app, the
+    group or site creation, the ConfigureSpace runbook and - unless auto approval is on -
+    the approval flow.
+
+    - The request gets the same fields as one from the web part, with the account signed
+      in to SharePoint as owner and requester, a generated name ('BP-test <time>') and
+      alias ('bptest<time>'), Private visibility and no guests.
+    - Approval follows the 'EnableAutoApproval' setting, like the web part: 'Approved'
+      right away when it is on, otherwise 'Submitted' - and then someone has to approve
+      the request (Teams or Approvals) while the script waits.
+    - Afterwards the test space is deleted: a Microsoft 365 group is deleted (soft - it
+      can be restored for 30 days, and its site goes with it), a plain site goes to the
+      recycle bin. A request that never got past approval is deleted, so a late approval
+      cannot create anything. A request still being provisioned at the timeout is left
+      alone - deleting under the logic app's feet would only leave debris - and the
+      script says what to delete afterwards. The request item itself is kept as a record.
+    - Welcome e-mail and Teams messages go to the signed-in account, as for any order.
+
+    Needs the Azure CLI signed in (the group is deleted over Graph) and edit rights on
+    the requests site. Cannot be combined with -SharePointOnly.
+
+.PARAMETER TestProvisionType
+    With -TestProvision: the provisioning type to order, as its InternalTitle (as in
+    SpaceTypeInternal) or Title in the 'Provisioning Types' list. Default 'Office 365
+    Group' - a Microsoft 365 group with a site, no Teams, no hub. Types that join a hub
+    or apply a template are not supported (yet), and are refused before anything is
+    created.
+
+.PARAMETER TestProvisionTimeoutMinutes
+    With -TestProvision: how long to wait for the order to finish. Default 30 - a group
+    usually takes 10-15 minutes, and without auto approval the wait includes the
+    approval.
+
 .EXAMPLE
     ./Test-Installation.ps1
+
+.EXAMPLE
+    ./Test-Installation.ps1 -TriggerLogicApps -TestProvision
+    Check everything, run the scheduled logic apps, then order a test space, follow it to
+    'Space Created' and delete it.
 
 .EXAMPLE
     ./Test-Installation.ps1 -TriggerLogicApps
@@ -74,11 +115,15 @@ param
     [switch]$SharePointOnly, # Check the SharePoint part only - see the help
     [switch]$TriggerLogicApps, # Also run the scheduled logic apps and wait for the results - see the help
     [ValidateRange(1, 120)]
-    [int]$LogicAppTimeoutMinutes = 10 # With -TriggerLogicApps: total wait for the runs
+    [int]$LogicAppTimeoutMinutes = 10, # With -TriggerLogicApps: total wait for the runs
+    [switch]$TestProvision, # Also order a test space, follow it and delete it - see the help
+    [string]$TestProvisionType = 'Office 365 Group', # With -TestProvision: InternalTitle or Title in 'Provisioning Types'
+    [ValidateRange(5, 240)]
+    [int]$TestProvisionTimeoutMinutes = 30 # With -TestProvision: wait for the order to finish
 )
 
-if ($TriggerLogicApps -and $SharePointOnly) {
-    Write-Host "-TriggerLogicApps cannot be combined with -SharePointOnly: the logic apps are part of the Azure installation." -ForegroundColor Red
+if ($SharePointOnly -and ($TriggerLogicApps -or $TestProvision)) {
+    Write-Host "$(if ($TriggerLogicApps) { '-TriggerLogicApps' } else { '-TestProvision' }) cannot be combined with -SharePointOnly: the logic apps are part of the Azure installation." -ForegroundColor Red
     exit 1
 }
 
@@ -1154,10 +1199,264 @@ function InvokeScheduledLogicApps {
 }
 
 # ---------------------------------------------------------------------------
+# -TestProvision: order a space through the requests list, follow it, delete it
+# ---------------------------------------------------------------------------
+$requestsListName = "Provisioning Requests"
+$provisioningTypesListName = "Provisioning Types"
+$finalRequestStates = @('Space Created', 'Space Creation Failed', 'Space Already Exists', 'Rejected')
+# Before ProcessProvisionRequest has picked the request up - the approval flow's states
+$unapprovedRequestStates = @('Not Submitted', 'Submitted', 'Pending Approval')
+# The SpaceTypeInternal values ProcessProvisionRequest creates a Microsoft 365 group for,
+# and the plain SharePoint site types (Check_space_type in processprovisionrequest.json)
+$groupSpaceTypes = @('Office 365 Group', 'Project', 'Microsoft Teams Team')
+$siteSpaceTypes = @('Team Site', 'Communication Site', 'Hub Site')
+
+# What usually explains a failed run right after an installation, for the Fix lines
+function RunFailureHint([string]$Where) {
+    if ($script:uamiRolesMissing) {
+        return "Most likely the missing app roles on $uamiName (see above) - assign them, wait out the ~$tokenCacheHours h token cache and test again."
+    }
+    if ($script:latestAppRoleAssignment -and $script:latestAppRoleAssignment.AddHours($tokenCacheHours) -gt [DateTime]::UtcNow) {
+        return "App roles were assigned $(FormatTime $script:latestAppRoleAssignment) - a 401/403 before $(FormatTime $script:latestAppRoleAssignment.AddHours($tokenCacheHours)) is the token cache: test again then. Otherwise see $Where and Error-handling.md."
+    }
+    return "See $Where and Error-handling.md."
+}
+
+function GetRequestStatus([int]$Id) {
+    $item = Get-PnPListItem -List $requestsListName -Id $Id -Connection $script:siteConnection -ErrorAction Stop
+    return [pscustomobject]@{ Item = $item; Status = "$($item.FieldValues['Status'])" }
+}
+
+function TestProvisioning {
+    $name = "Test order"
+    if (-not (RequireSiteConnection $name)) { return }
+    $owner = "$script:pnpIdentity"
+    if ($owner -notmatch '@') {
+        RecordCheck -Name $name -Status UNKNOWN -Detail "Not run - the account signed in to SharePoint could not be read, and it is the owner of the test space"
+        return
+    }
+
+    # The type, by InternalTitle as in SpaceTypeInternal - or by Title, as the web part shows it
+    $types = @(Get-PnPListItem -List $provisioningTypesListName -PageSize 500 -Connection $script:siteConnection -ErrorAction Stop)
+    $type = $types | Where-Object { "$($_.FieldValues['InternalTitle'])" -eq $TestProvisionType } | Select-Object -First 1
+    if ($null -eq $type) { $type = $types | Where-Object { "$($_.FieldValues['Title'])" -eq $TestProvisionType } | Select-Object -First 1 }
+    if ($null -eq $type) {
+        $available = @($types | ForEach-Object { "'$($_.FieldValues['InternalTitle'])' ($($_.FieldValues['Title']))" }) -join ', '
+        RecordCheck -Name $name -Status WARNING -Detail "Not run - no provisioning type '$TestProvisionType'" -Fix "Pass -TestProvisionType with one of: $available."
+        return
+    }
+    $typeTitle = "$($type.FieldValues['Title'])"
+    $typeInternal = "$($type.FieldValues['InternalTitle'])"
+    $isGroup = $typeInternal -in $groupSpaceTypes
+    if (-not $isGroup -and $typeInternal -notin $siteSpaceTypes) {
+        RecordCheck -Name $name -Status WARNING -Detail "Not run - type '$typeInternal' is not supported by -TestProvision" -Fix "Use a group type ($($groupSpaceTypes -join ', ')) or a site type ($($siteSpaceTypes -join ', '))."
+        return
+    }
+    # The web part looks the hub and the template up from the type - not replicated here,
+    # so such types are refused rather than ordered half-configured
+    $unsupported = @(@('JoinHub', 'DefaultHub', 'TemplateId') | Where-Object { $v = $type.FieldValues[$_]; $v -and "$v" -ne 'False' })
+    if ($unsupported.Count -gt 0) {
+        RecordCheck -Name $name -Status WARNING -Detail "Not run - type '$typeInternal' has $($unsupported -join ', ') set; -TestProvision does not support hubs or templates yet" -Fix "Test with -TestProvisionType 'Office 365 Group', or order this type through the web part."
+        return
+    }
+    $teamify = $typeInternal -eq 'Microsoft Teams Team' -or ("$($type.FieldValues['Teamify'])" -eq 'True')
+
+    # Approval as in the web part: 'true' (or any other value than 'false') means auto approval
+    $autoApprovalValue = ReadSetting 'EnableAutoApproval'
+    $autoApproval = $autoApprovalValue -and $autoApprovalValue -cne 'false'
+    $managedPath = ReadSetting 'SPOManagedPath'
+    if (-not $managedPath) { $managedPath = $parameters.managedPath.Value }
+
+    $stamp = Get-Date -Format 'yyyyMMddHHmmss'
+    $alias = "bptest$stamp"
+    $spaceTitle = "BP-test $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+    $siteUrl = "$tenantUrl/$("$managedPath".Trim('/'))/$alias"
+    $status = if ($autoApproval) { 'Approved' } else { 'Submitted' }
+
+    # The fields the web part writes (useProvisionDrawer.ts). Add-PnPListItem sets them all,
+    # Owners included, in the one request that creates the item - so ProcessProvisionRequest
+    # cannot pick an approved request up before its owner is there.
+    $values = @{
+        Title                   = $spaceTitle
+        SpaceDisplayName        = $spaceTitle
+        Description             = "Testbestilling fra Test-Installation.ps1 $(Get-Date -Format 'yyyy-MM-dd HH:mm'). Slettes automatisk etter testen."
+        BusinessJustification   = ''
+        AdditionalInfo          = ''
+        SpaceType               = $typeTitle
+        SpaceTypeInternal       = $typeInternal
+        Teamify                 = $teamify
+        TeamsTemplate           = $(if ($teamify) { 'standard' } else { '' })
+        Owners                  = @($owner)
+        RequestedBy             = @($owner)
+        ConfidentialData        = $false
+        Visibility              = 'Private'
+        ExternalSharingRequired = $false
+        Guests                  = ''
+        ApplyPnPTemplate        = $false
+        ReadOnlyGroup           = $false
+        InternalChannel         = $false
+        RequestedSource         = 'Test-Installation.ps1'
+        SiteURL                 = "$siteUrl, $siteUrl"
+        SiteAlias               = $alias
+        MailboxAlias            = $alias
+        TimeZoneId              = 4
+        LCID                    = 1044
+        JoinHub                 = $false
+        HubSiteTitle            = ''
+        HubSite                 = ''
+        ParentSite              = ''
+        Status                  = $status
+        Stage                   = 'Submitted'
+        RequestKey              = [guid]::NewGuid().ToString()
+    }
+
+    Write-Host ""
+    Write-Host "Test order: '$spaceTitle' ($typeTitle) at $siteUrl, owner $owner - $(if ($autoApproval) { 'auto approval is on, so it goes straight to provisioning' } else { 'auto approval is off, so it has to be approved (Teams or Approvals) while this waits' })." -ForegroundColor Yellow
+    $created = Add-PnPListItem -List $requestsListName -Values $values -Connection $script:siteConnection -ErrorAction Stop
+    $requestId = [int]$created.Id
+    Write-Host "  Request $requestId added as '$status' - waiting up to $TestProvisionTimeoutMinutes min. Ctrl+C stops the script, not the order." -ForegroundColor Gray
+
+    $startedAt = [DateTime]::UtcNow
+    $deadline = $startedAt.AddMinutes($TestProvisionTimeoutMinutes)
+    $current = $null
+    $lastStatus = $status
+    $finished = $false
+    try {
+        while ([DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Seconds 15
+            try { $current = GetRequestStatus $requestId } catch { continue }
+            if ($current.Status -ne $lastStatus) {
+                Write-Host "  $(Get-Date -Format 'HH:mm:ss')  $($current.Status)" -ForegroundColor Gray
+                if ($current.Status -eq 'Pending Approval') {
+                    Write-Host "  Waiting for approval - approve request $requestId in Teams or Approvals." -ForegroundColor Cyan
+                }
+                $lastStatus = $current.Status
+            }
+            if ($current.Status -in $finalRequestStates) { break }
+        }
+        $finished = $true
+    }
+    finally {
+        if (-not $finished) {
+            # Ctrl+C: the order goes on in Azure, and nothing below runs to clean it up
+            Write-Host "Stopped while waiting - request $requestId ('$spaceTitle', alias $alias) is left as it is. Delete it, and the group or site if one gets created, by hand." -ForegroundColor Yellow
+        }
+    }
+    if ($null -eq $current) {
+        try { $current = GetRequestStatus $requestId } catch {}
+    }
+    $finalStatus = if ($current) { $current.Status } else { $lastStatus }
+    $minutes = [math]::Round(([DateTime]::UtcNow - $startedAt).TotalMinutes, 1)
+
+    switch ($finalStatus) {
+        'Space Created' {
+            $groupId = "$($current.Item.FieldValues['GroupId'])"
+            $siteText = $siteUrl
+            try {
+                if ($null -eq (Get-PnPTenantSite -Url $siteUrl -ErrorAction Stop)) { throw "not found" }
+            }
+            catch {
+                RecordCheck -Name $name -Status WARNING -Detail "'Space Created' after $minutes min, but $siteUrl could not be read ($(FirstLine $_.Exception.Message))" -Fix "Look the space up in the SharePoint admin center. With group language retry on, the site can end up on an alias with a suffix."
+                break
+            }
+            RecordCheck -Name $name -Status OK -Detail "'Space Created' after $minutes min - $siteText$(if ($groupId) { ", group $groupId" })"
+        }
+        'Space Creation Failed' {
+            $reason = FirstLine "$($current.Item.FieldValues['StatusReason'])"
+            RecordCheck -Name $name -Status MISSING -Detail "'Space Creation Failed' after $minutes min$(if ($reason) { " - $reason" })" -Fix (RunFailureHint "StatusReason on request $requestId, the ProcessProvisionRequest run history and the ConfigureSpace job")
+        }
+        'Rejected' {
+            RecordCheck -Name $name -Status WARNING -Detail "Rejected by the approver - the approval flow works, the provisioning was not tested" -Fix "Approve the next test order, or turn on EnableAutoApproval for the test."
+        }
+        'Space Already Exists' {
+            RecordCheck -Name $name -Status WARNING -Detail "'Space Already Exists' - something already holds $siteUrl" -Fix "Run the test again - the alias has a timestamp, so this should not repeat."
+        }
+        default {
+            $waitingFor = if ($finalStatus -in $unapprovedRequestStates) { "approval" } else { "ProcessProvisionRequest" }
+            $fix = if ($finalStatus -in $unapprovedRequestStates) {
+                "Nobody approved it within $TestProvisionTimeoutMinutes min. Check that the approval flow is on (Configuration-guide.md Steg 2) and who gets the approvals (Steg 1) - or turn on EnableAutoApproval for the test."
+            }
+            elseif ($finalStatus -eq 'Approved') {
+                "Approved, but ProcessProvisionRequest never picked it up (it polls every minute). Check that the logic app is enabled and that the bestillingsportalen-spo connection is Connected."
+            }
+            else {
+                "Still being provisioned - follow it in the ProcessProvisionRequest run history, or re-run with a higher -TestProvisionTimeoutMinutes."
+            }
+            RecordCheck -Name $name -Status WARNING -Detail "Still '$finalStatus' after $TestProvisionTimeoutMinutes min (waiting for $waitingFor)" -Fix $fix
+        }
+    }
+
+    RemoveTestOrder -RequestId $requestId -Status $finalStatus -Item $(if ($current) { $current.Item }) -IsGroup $isGroup -Alias $alias -SiteUrl $siteUrl
+}
+
+# Deletes what the test order created. Never what it did not: the alias carries a
+# timestamp, and only the group with exactly that alias, or the site on exactly that URL,
+# is deleted.
+function RemoveTestOrder([int]$RequestId, [string]$Status, $Item, [bool]$IsGroup, [string]$Alias, [string]$SiteUrl) {
+    $name = "Test order: cleanup"
+
+    if ($Status -in $unapprovedRequestStates) {
+        # Not approved yet: deleting the request means a late approval cannot create anything
+        try {
+            Remove-PnPListItem -List $requestsListName -Identity $RequestId -Recycle -Force -Connection $script:siteConnection -ErrorAction Stop | Out-Null
+            RecordCheck -Name $name -Status OK -Detail "Request $RequestId was never approved - moved it to the site's recycle bin, so a late approval cannot create the space"
+        }
+        catch {
+            RecordCheck -Name $name -Status WARNING -Detail "Could not delete the unapproved request $RequestId ($(FirstLine $_.Exception.Message))" -Fix "Delete it in the 'Provisioning Requests' list - or reject it - so that a late approval does not create the space."
+        }
+        return
+    }
+    if ($Status -notin @('Space Created', 'Space Creation Failed')) {
+        if ($Status -in @('Approved', 'Space Creation')) {
+            RecordCheck -Name $name -Status WARNING -Detail "Nothing deleted - request $RequestId was still '$Status', and deleting under the logic app would only leave debris" -Fix "When it has finished: delete the Microsoft 365 group or site with alias '$Alias' ($SiteUrl)."
+        }
+        return
+    }
+
+    if ($IsGroup) {
+        if (-not $script:cliSignedIn) {
+            RecordCheck -Name $name -Status WARNING -Detail "The test group was not deleted - the Azure CLI is not signed in" -Fix "Delete the Microsoft 365 group with alias '$Alias' (Entra ID or the Microsoft 365 admin center)."
+            return
+        }
+        $groupId = if ($Item) { "$($Item.FieldValues['GroupId'])" } else { '' }
+        if (-not $groupId) {
+            # A failed order may have created the group before it failed
+            $lookup = GraphGet "groups" @("`$filter=mailNickname eq '$Alias'", '$select=id')
+            if ($lookup.Ok) { $groupId = "$(@($lookup.Data.value | Select-Object -First 1).id)" }
+        }
+        if (-not $groupId) {
+            RecordCheck -Name $name -Status OK -Detail "No group with alias '$Alias' was created - nothing to delete"
+            return
+        }
+        $delete = InvokeAz rest --method delete --url "https://graph.microsoft.com/v1.0/groups/$groupId"
+        if ($delete.Ok) {
+            RecordCheck -Name $name -Status OK -Detail "Deleted the test group '$Alias' ($groupId) and with it its site - restorable for 30 days under Entra ID -> Groups -> Deleted groups"
+        }
+        else {
+            RecordCheck -Name $name -Status WARNING -Detail "Could not delete the test group '$Alias' ($groupId): $($delete.Error)" -Fix "Delete it by hand (Entra ID or the Microsoft 365 admin center). The account signed in to the Azure CLI must be an owner of the group, or Groups Administrator."
+        }
+        return
+    }
+
+    try {
+        if ($null -eq (Get-PnPTenantSite -Url $SiteUrl -ErrorAction SilentlyContinue)) {
+            RecordCheck -Name $name -Status OK -Detail "No site at $SiteUrl was created - nothing to delete"
+            return
+        }
+        Remove-PnPTenantSite -Url $SiteUrl -Force -ErrorAction Stop
+        RecordCheck -Name $name -Status OK -Detail "Moved the test site $SiteUrl to the tenant recycle bin (restorable for 93 days)"
+    }
+    catch {
+        RecordCheck -Name $name -Status WARNING -Detail "Could not delete the test site $SiteUrl ($(FirstLine $_.Exception.Message))" -Fix "Delete it in the SharePoint admin center -> Active sites."
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-if ($TriggerLogicApps) {
-    Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only, except that the scheduled logic apps are run)  ###" -ForegroundColor Magenta
+if ($TriggerLogicApps -or $TestProvision) {
+    $changes = @(@(if ($TriggerLogicApps) { 'the scheduled logic apps are run' }) + @(if ($TestProvision) { 'a test space is ordered and deleted' })) -join ' and '
+    Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only, except that $changes)  ###" -ForegroundColor Magenta
 }
 else {
     Write-Host "###  POST-INSTALLATION CHECK STARTED (read-only - nothing is changed)  ###" -ForegroundColor Magenta
@@ -1304,7 +1603,7 @@ Write-Host "  Signed in (PnP):    $(if ($script:pnpIdentity) { $script:pnpIdenti
 Write-Host "  Service account:    $(if (IsValidParam $parameters.serviceAccountUPN) { $parameters.serviceAccountUPN.Value } else { '(not set)' })"
 Write-Host "  Version (checkout): $(if ($repoVersion) { $repoVersion } else { 'unknown' })"
 Write-Host ""
-Write-Host "Running the checks (SharePoint, SPFx, app roles, Automation, API connections, Logic Apps - takes a minute$(if ($TriggerLogicApps) { ", plus up to $LogicAppTimeoutMinutes min for the logic app runs" }))..." -ForegroundColor Yellow
+Write-Host "Running the checks (SharePoint, SPFx, app roles, Automation, API connections, Logic Apps - takes a minute$(if ($TriggerLogicApps) { ", plus up to $LogicAppTimeoutMinutes min for the logic app runs" })$(if ($TestProvision) { ", plus up to $TestProvisionTimeoutMinutes min for the test order" }))..." -ForegroundColor Yellow
 
 try {
     # --- Sign-ins ---
@@ -1379,6 +1678,21 @@ try {
         RunCheck "Logic Apps" { CheckLogicApps }
     }
 
+    # --- Test order ---
+    if ($TestProvision) {
+        $missingSoFar = @($script:checks | Where-Object Status -eq 'MISSING')
+        if ($script:pnpConnectError -or -not $checkAzure -or -not $script:cliSignedIn) {
+            RecordCheck -Name "Test order" -Status SKIPPED -Detail "Not run - it needs both the SharePoint and the Azure CLI sign-in, and the Azure part (see above)"
+        }
+        elseif ($missingSoFar.Count -gt 0) {
+            # It would fail on what is missing, and leave a half-created group behind
+            RecordCheck -Name "Test order" -Status SKIPPED -Detail "Not run - $($missingSoFar.Count) item(s) above are MISSING, and the order would fail on them" -Fix "Fix the MISSING items, then re-run with -TestProvision."
+        }
+        else {
+            RunCheck "Test order" { TestProvisioning }
+        }
+    }
+
     # --- Manual ---
     $flowOwner = if (IsValidParam $parameters.serviceAccountUPN) { $parameters.serviceAccountUPN.Value } else { "the service account" }
     RecordCheck -Name "Manual: approval flow" -Status SKIPPED -Detail "Lives in Power Automate, which cannot be read from here" -Fix "make.powerautomate.com as $flowOwner -> Solutions -> 'Bestillingsportalen Flows': 'Provisioning Request Approval' is there and turned On (Configuration-guide.md Steg 2)."
@@ -1388,7 +1702,9 @@ try {
     else {
         " Within ~$tokenCacheHours h of an app role assignment, sporadic 401/403 are the managed identity token cache - wait and test again rather than troubleshoot."
     }
-    RecordCheck -Name "Manual: test order" -Status SKIPPED -Detail "End to end - the only test that covers the approval, the Logic Apps and the runbooks together" -Fix "Order a space as an ordinary user, approve it, and follow the status to 'Space Created' (Configuration-guide.md Steg 8).$tokenNote"
+    $testOrderPassed = @($script:checks | Where-Object { $_.Name -eq 'Test order' -and $_.Status -eq 'OK' }).Count -gt 0
+    $manualDetail = if ($testOrderPassed) { "The provisioning works (see 'Test order') - what is left is the web part and the access as an ordinary user" } else { "End to end - the only test that covers the approval, the Logic Apps and the runbooks together" }
+    RecordCheck -Name "Manual: test order" -Status SKIPPED -Detail $manualDetail -Fix "Order a space as an ordinary user, approve it, and follow the status to 'Space Created' (Configuration-guide.md Steg 8).$tokenNote"
 
     $missingCount = ShowChecklist
 }
@@ -1398,8 +1714,8 @@ finally {
     }
 }
 
-if ($TriggerLogicApps) {
-    Write-Host "Nothing has been changed in the environment, except that the scheduled logic apps were run (-TriggerLogicApps)." -ForegroundColor Cyan
+if ($TriggerLogicApps -or $TestProvision) {
+    Write-Host "Nothing else has been changed in the environment than that $(@(@(if ($TriggerLogicApps) { 'the scheduled logic apps were run (-TriggerLogicApps)' }) + @(if ($TestProvision) { 'a test space was ordered and deleted (-TestProvision) - see the cleanup item' })) -join ' and ')." -ForegroundColor Cyan
 }
 else {
     Write-Host "Read-only check: nothing has been changed in the environment." -ForegroundColor Cyan
