@@ -549,6 +549,12 @@ function CheckServiceAccountSiteAdmin {
 # ---------------------------------------------------------------------------
 # SPFx and Teams app
 # ---------------------------------------------------------------------------
+# Earlier display names (package-solution.json 'name') per solution id. The SPFx check
+# finds packages by name, so add the old name here when a solution is renamed.
+$previousSpfxNames = @{
+    '00b53018-61b2-4576-b559-27df9321cfc8' = @('Bestillingsportalen - Provision Web Parts')
+}
+
 function GetSpfxSolutions {
     return @(Get-ChildItem -Path $spfxRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
             Test-Path (Join-Path $_.FullName "config/package-solution.json")
@@ -587,13 +593,16 @@ function CheckSpfxPackages {
             # reported as missing. Title is the solution name from package-solution.json,
             # which is what the app catalog shows. The id is still tried first, for the
             # case where the two happen to be the same.
+            # Names a solution has been published under before, so an environment that
+            # has not been redeployed since a rename is still found.
+            $knownNames = @("$($package.name)") + @($previousSpfxNames["$($package.id)"] | Where-Object { $_ })
             $app = $apps | Where-Object { "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
             if ($null -eq $app) {
-                $app = $apps | Where-Object { "$($_.Title)" -eq "$($package.name)" } | Select-Object -First 1
+                $app = $apps | Where-Object { "$($_.Title)" -in $knownNames } | Select-Object -First 1
             }
             $fix = "Run deploy.ps1 -Upgrade (or -SkipSPFxBuild to publish an already built package) - or upload the .sppkg to $script:appCatalogUrl and deploy it."
             if ($null -eq $app) {
-                RecordCheck -Name $name -Status MISSING -Detail "No app named '$($package.name)' in the tenant app catalog" -Fix $fix
+                RecordCheck -Name $name -Status MISSING -Detail "No app named '$($knownNames -join "' or '")' in the tenant app catalog" -Fix $fix
                 return
             }
             if (-not $app.Deployed) {
@@ -602,6 +611,10 @@ function CheckSpfxPackages {
             }
             if ("$($app.AppCatalogVersion)" -ne "$($package.version)") {
                 RecordCheck -Name $name -Status WARNING -Detail "Version $($app.AppCatalogVersion) in the app catalog, $($package.version) in this checkout" -Fix "$fix If the environment is meant to stay on $($app.AppCatalogVersion), run this script from a checkout of that version."
+                return
+            }
+            if ("$($app.Title)" -ne "$($package.name)") {
+                RecordCheck -Name $name -Status WARNING -Detail "'$($app.Title)' $($app.AppCatalogVersion) is deployed under its old name - this checkout names it '$($package.name)'" -Fix "Nothing breaks. Re-run deploy.ps1 -Upgrade (or -SkipSPFxBuild) to publish it under the new name."
                 return
             }
             RecordCheck -Name $name -Status OK -Detail "'$($app.Title)' $($app.AppCatalogVersion), deployed"
