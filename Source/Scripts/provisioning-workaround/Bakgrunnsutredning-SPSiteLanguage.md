@@ -8,9 +8,9 @@ Siden slutten av mai 2026 ignorerer Microsoft Graph verdien `SPSiteLanguage` i `
 
 Prosjektportalens provisjonering validerer at området har samme språk som malen. Når området kommer på engelsk, stopper provisjoneringen med «Ugyldig språk», og e-postvarsel og Teams-tilknytning uteblir fordi de kjøres etter valideringen.
 
-Microsoft har bekreftet feilen i sp-dev-docs #10875 og i en supportsak SoftwareOne har eskalert til SharePoint Product Group. En rettelse ble merget 31. august 2026 med anslått tre ukers utrulling. Test i en kundetenant 29. september 2026 viste at rettelsen fortsatt ikke er aktiv; Microsoft kan ikke verifisere utrullingsstatus per tenant.
+Microsoft har bekreftet feilen i sp-dev-docs #10875 og i en supportsak SoftwareOne har eskalert til SharePoint Product Group. En rettelse ble merget 31. august 2026 med anslått tre ukers utrulling. Test i en kundetenant 29. september 2026 viste at rettelsen fortsatt ikke er aktiv; Microsoft kan ikke verifisere utrullingsstatus per tenant. 28. oktober 2026 meldte Microsoft support på nytt at rettelsen er funnet, nå med utrulling innen tre uker (medio november 2026).
 
-Anbefaling: ikke vent på Microsoft. Feilen er tilfeldig per opprettelse (ca. 28 % riktig språk i test), så opprett flere kandidater samtidig, behold den som fikk riktig språk og slett resten. Det gjøres av hjelpeskriptet `New-PPSiteWithLanguageRetry.ps1`, og av Bestillingsportalen når innstillingen er slått på. Groupify (workaround C) er testet og forkastet. Behold rotsiden urørt. Berørte kunder bør i tillegg åpne egen Microsoft-sak fra sin tenant.
+Anbefaling: ikke vent på Microsoft. Det er andre gang Microsoft melder en rettelse med tre ukers utrulling. Feilen er tilfeldig per opprettelse (ca. 28 % riktig språk i test), så opprett flere kandidater samtidig, behold den som fikk riktig språk og slett resten. Det gjøres av hjelpeskriptet `New-PPSiteWithLanguageRetry.ps1`, og av Bestillingsportalen når innstillingen er slått på. Groupify (workaround C) er testet og forkastet. Behold rotsiden urørt. Berørte kunder bør i tillegg åpne egen Microsoft-sak fra sin tenant.
 
 ## Symptomer i Prosjektportalen og ROS-portalen
 
@@ -49,7 +49,7 @@ Språket på et SharePoint-område kan ikke endres etter opprettelse. Det styrer
 
 ## Rotårsak og Microsofts bekreftelse
 
-Microsoft har reprodusert og bekreftet feilen på to kanaler. Rettelsen er merget, men utrullingen kan ikke verifiseres.
+Microsoft har reprodusert og bekreftet feilen på to kanaler. En rettelse ble merget i august uten verifiserbar effekt. I oktober meldte support på nytt at rettelsen er funnet, med utrulling innen medio november 2026.
 
 **sp-dev-docs #10875** ([lenke](https://github.com/SharePoint/sp-dev-docs/issues/10875)). Opprettet 4. juni 2026, merket `type:bug-confirmed`. Microsoft-representant reproduserte at gruppen opprettes, men at `SPSiteLanguage` og `SiteAlias` ikke anvendes ved områdeprovisjonering; området får `mailNickname` som URL og rotsidens språk. Saken er en repost av [pnpframework #1236](https://github.com/pnp/pnpframework/issues/1236). Over 20 leverandører og partnere rapporterer påvirkning på tvers av mange tenanter. Per slutten av september rapporterer én leverandør (NL) at rettelsen virker, mens norske tenanter fortsatt feiler.
 
@@ -65,6 +65,7 @@ Microsoft har reprodusert og bekreftet feilen på to kanaler. Rettelsen er merge
 | 31. aug | Rettelse merget. Anslått utrulling: ca. 3 uker. |
 | 22. sep | Retest: fortsatt 1033. Microsoft har ingen metode for å verifisere om en tenant har fått rettelsen. |
 | 29. sep | Retest 06:53 UTC: `creationOptions` lagret på gruppen, området fortsatt 1033. Tatt tilbake til Product Group. |
+| 28. okt | Support melder på nytt at rettelsen er funnet. Anslått utrulling: innen 3 uker (medio november). |
 
 Microsoft har ikke gitt en offisiell kundevendt uttalelse, ingen dokumentert erstatningsmekanisme, og har ikke bekreftet om rettelsen gjenoppretter gammel atferd eller introduserer nytt mønster. Support kan ikke kommentere roadmap.
 
@@ -105,7 +106,7 @@ Ingen av workaroundene er rene. Tabellen oppsummerer; detaljer under.
 
 ## Anbefaling og plan videre
 
-Ikke vent på Microsoft. Rettelsen har vært «under utrulling» i fire uker uten verifiserbar effekt, og Microsoft har ingen måte å bekrefte status per tenant.
+Ikke vent på Microsoft. Rettelsen som ble merget 31. august var meldt utrullet innen tre uker, men hadde ingen verifiserbar effekt. 28. oktober kom samme melding på nytt: rettelsen er funnet, utrulling innen medio november. Microsoft har fortsatt ingen måte å bekrefte status per tenant, så workarounden beholdes til treffraten viser at rettelsen virker.
 
 **For berørte kunder**
 
@@ -120,6 +121,7 @@ Ikke vent på Microsoft. Rettelsen har vært «under utrulling» i fire uker ute
 - Vurder om Prosjektportalens installasjonsskript skal få innebygd språkverifisering etter opprettelse, med tydelig feilmelding som peker på denne saken, uavhengig av Microsoft-rettelsen.
 - Følg opp supportsaken. Be eksplisitt om: bekreftelse på at rettelsen gjenoppretter `SPSiteLanguage`-atferden, og en metode for å verifisere utrulling.
 - Følg #10875 for meldinger om at rettelsen er aktiv i norske tenanter. Første tegn er at treffraten i testskriptet nærmer seg 100 %.
+- Kjør testskriptet på nytt i egen tenant og minst én kundetenant etter medio november 2026, og meld resultatet tilbake i supportsaken.
 - Når rettelsen er bekreftet: legg bort hjelpeskriptet, behold det i repoet for neste gang.
 
 **Åpne spørsmål**
@@ -131,6 +133,8 @@ Ikke vent på Microsoft. Rettelsen har vært «under utrulling» i fire uker ute
 
 | Dato | Hendelse |
 | --- | --- |
+| Medio nov 2026 | Ventet utrulling av rettelsen ifølge Microsoft support. Retest med `Test-GroupSiteLanguageRetry.ps1`. |
+| 28. okt 2026 | Microsoft support melder på nytt at rettelsen er funnet, med utrulling innen tre uker (medio november). Andre gang en rettelse meldes; den forrige (31. aug) hadde ingen verifiserbar effekt. |
 | 6. okt 2026 | Test av opprett-sjekk-slett (`Source/Diagnostics/Test-GroupSiteLanguageRetry.ps1`): feilen er tilfeldig per opprettelse, ca. 28 % får riktig språk (12 av 43), likt delegert og app-only. Området er klart etter ca. 20 s. Bom ryddes app-only: gruppen slettes permanent via Graph, deretter `ClearGroupId` og `Tenant.RemoveSite` (admin-API-et nekter å slette gruppeområder direkte, og `GroupSiteManager/Delete` gir 403 app-only). Groupify-workarounden er forkastet. |
 | 5. okt 2026 | Test i egen tenant (`Source/Diagnostics/Test-GroupifyOptions.ps1`): groupify med managed identity avvises med 403 i alle varianter (`CreateGroupForSite` på området, `Add-PnPMicrosoft365GroupToSite` og `Tenant.CreateGroupForSite` i admin-CSOM). Workaround C krever delegert kall. Samme dag, delegert som tjenestekonto uten admin-rolle: `CreateGroupForSite` oppretter gruppen, men SharePoint lager et nytt område med nummerert URL i stedet for å koble gruppen til STS#3-området – 3 av 3 forsøk, 120 s buffer. Nytt forsøk med 15 min buffer (første kall 19 min etter opprettelse): duplikat. Som administrator via PnP (`New-PPSiteWithLanguageRetry.ps1`): duplikat, duplikat, deretter koblet på tredje forsøk (13 min etter opprettelse). Groupify i SharePoint-grensesnittet som administrator: koblet på første forsøk. Ventetid alene forklarer altså ikke duplikatene. Groupify i SharePoint-grensesnittet som tjenestekonto (site collection admin, ingen Entra-rolle): duplikat. Med samme fremgangsmåte koblet administrator riktig, så hvem som kaller ser ut til å avgjøre utfallet. |
 | 30. sep 2026 | Hjelpeskript med retry og STS#3-fallback klart for test. Denne utredningen. |
