@@ -2,6 +2,12 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Uutgitt
+
+### Ny funksjonalitet
+
+- **Releasene får ferdig bygde filer**: Når en versjonstag (`v1.2.3`) pushes, bygger workflowen `.github/workflows/release.yml` løsningen og legger filene ved GitHub-releasen. Det er installasjonspakken `bestillingsportalen-<versjon>.zip` med den bygde `.sppkg`-fila på plass for `deploy.ps1 -SkipSPFxBuild`, `.sppkg`-fila og Teams-appen hver for seg, Power Automate-løsningen og `SHA256SUMS.txt`. Finnes ikke releasen, opprettes den som utkast med versjonens seksjon fra `CHANGELOG.md`. Finnes den, byttes bare filene. Workflowen stopper hvis taggen ikke stemmer med `VERSION` og `package-solution.json`, eller ikke ligger på `main`. Den kan også kjøres manuelt for en eksisterende tag. Byggingen gjøres av `.github/scripts/build-release-assets.sh`, som også kan kjøres lokalt. Se [Release-rutine](./CONTRIBUTING.md#release-rutine).
+
 ## 1.0.1 - 29.10.2026
 
 ### Ny funksjonalitet
