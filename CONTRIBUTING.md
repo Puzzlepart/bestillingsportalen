@@ -87,22 +87,35 @@ er konkrete for denne løsningen:
 Versjonsnummeret står i **`VERSION`** i repo-rot, som én linje (`1.0.0`). `deploy.ps1`
 leser den derfra — nummeret skal ikke hardkodes noe annet sted. Er fila borte eller
 feilformatert, stopper ikke installasjonen: versjonen faller til `unknown`, og
-pre-flight-sjekklista sier hvorfor.
+pre-flight-sjekklista sier hvorfor. Unntaket er `package-solution.json`, som SPFx og
+app-katalogen leser selv. Release-workflowen sjekker at den stemmer med `VERSION`.
 
 ### Release-rutine
 
-Repoet har ingen CI, så rekkefølgen er manuell:
-
-1. Oppdater `VERSION` med det nye nummeret.
-2. Sett releasedato på den øverste seksjonen i [CHANGELOG.md](CHANGELOG.md) (erstatt `TBA`).
-3. Commit endringene: `Release 1.0.0`.
-4. Lag en annotert tag:
+1. Oppdater `VERSION` med det nye nummeret, og `solution.version` og `features[].version`
+   i `config/package-solution.json` for hver SPFx-løsning (`1.0.1` → `1.0.1.0`). Teams-appen
+   får versjonen fra `package-solution.json`.
+2. Gi seksjonen «Uutgitt» i [CHANGELOG.md](CHANGELOG.md) versjon og releasedato
+   (`## 1.0.1 - 29.10.2026`).
+3. Commit endringene: `Release 1.0.1`, og få dem inn på `main`.
+4. Lag en annotert tag på `main`, og push den:
 
     ```sh
-    git tag -a v1.0.0 -m "Bestillingsportalen 1.0.0"
+    git tag -a v1.0.1 -m "Bestillingsportalen 1.0.1"
+    git push --tags
     ```
 
-5. Push begge: `git push && git push --tags`.
+5. Workflowen [`release.yml`](.github/workflows/release.yml) bygger løsningen og lager et
+   utkast til release med filene vedlagt og versjonens seksjon fra CHANGELOG.md som tekst.
+   Skriv høydepunktene øverst, og trykk **Publish release**.
+
+Workflowen stopper før noe lastes opp hvis taggen ikke stemmer med `VERSION` og
+`package-solution.json`, eller ikke ligger på `main`. Rett feilen, slett taggen og tagg på
+nytt. Finnes releasen fra før, byttes bare filene, og teksten blir stående. For å bygge
+filene på nytt for en eksisterende tag: **Actions → Release → Run workflow**, med taggen.
+
+Filene kan også bygges lokalt med `.github/scripts/build-release-assets.sh 1.0.1`
+(krever Node.js, `jq` og `zip`). De havner i `release-assets/`.
 
 Ved installasjon stempler `deploy.ps1` versjonen inn i miljøet på to steder — se
 [Upgrade.md](Upgrade.md#hvilken-versjon-kjører-miljøet).

@@ -30,3 +30,7 @@ Source/SharePointFramework/ProvisionWebParts/jest-output/
 
 # Lokale Claude Code-innstillinger (maskinspesifikke stier/tillatelser)
 .claude/settings.local.json
+
+# Release-filer (.github/scripts/build-release-assets.sh)
+/release-assets/
+/release-notes.md

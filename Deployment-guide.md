@@ -314,6 +314,8 @@ Når webdelen er publisert kan den legges til på en hvilken som helst SharePoin
 ./deploy.ps1 -SkipSPFxBuild
 ```
 
+Hver versjon fra 1.0.1 har en ferdig installasjonspakke under [Releases](https://github.com/Puzzlepart/bestillingsportalen/releases): `bestillingsportalen-<versjon>.zip` inneholder repoet for versjonen med den bygde `.sppkg`-fila på plass, så du kan pakke den ut og kjøre `deploy.ps1 -SkipSPFxBuild` uten Node.js. Releasen har også `.sppkg`-fila og Teams-appen hver for seg, til manuell opplasting, og `SHA256SUMS.txt` med sjekksummer.
+
 **Hopp over SPFx helt** hvis du kun vil deploye Azure-ressurser, eller lastet opp pakka manuelt. Da hoppes også Teams-appen over:
 
 ```powershell

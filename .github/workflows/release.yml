@@ -1,0 +1,79 @@
+# Builds the release files when a version tag (v1.2.3) is pushed and attaches them to
+# the tag's GitHub release. A new release is created as a draft with the version's
+# CHANGELOG.md section, so the highlights can be written before it is published. If the
+# release already exists, only its files are replaced and the text is left as it is.
+#
+# To build the files for an existing tag again, run the workflow manually with the tag.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build, e.g. v1.0.1
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check the tag format
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' is not a version tag (vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      # The build script comes from the workflow's own commit, so tags made before the
+      # script existed can also be built
+      - uses: actions/checkout@v4
+        with:
+          path: .release-tooling
+          sparse-checkout: .github/scripts
+
+      - name: Check that the tag is on main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG points to a commit that is not on main"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: Source/SharePointFramework/ProvisionWebParts/.nvmrc
+          cache: npm
+          cache-dependency-path: Source/SharePointFramework/*/package-lock.json
+
+      - name: Build the release files
+        run: .release-tooling/.github/scripts/build-release-assets.sh "$VERSION" "$RUNNER_TEMP/release-assets"
+
+      - name: Create or update the release
+        run: |
+          assets=("$RUNNER_TEMP"/release-assets/*)
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            echo "Replaced the files on the existing release $TAG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh release create "$TAG" "${assets[@]}" --draft --verify-tag \
+              --title "Bestillingsportalen $VERSION" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+            echo "Created a draft release for $TAG - write the highlights and publish it" >> "$GITHUB_STEP_SUMMARY"
+          fi
