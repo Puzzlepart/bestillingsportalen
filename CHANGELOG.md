@@ -2,7 +2,7 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
-## Uutgitt
+## 1.1.0 - 29.10.2026
 
 ### Ny funksjonalitet
 
