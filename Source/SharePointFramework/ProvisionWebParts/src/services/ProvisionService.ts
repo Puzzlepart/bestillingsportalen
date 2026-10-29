@@ -193,38 +193,35 @@ export class ProvisionService {
           'SuffixText',
           'SuffixUseAttribute',
           'SuffixAttribute',
-          'ExternalSharingSetting',
-          'PowerAppOnly'
+          'ExternalSharingSetting'
         )
         .using(DefaultCaching)()
 
-      return spItems
-        .filter((item) => !item.PowerAppOnly)
-        .map((item) => {
-          let value = item.Value === 'true' ? true : item.Value === 'false' ? false : item.Value
-          if (item.Title === 'NamingConvention') {
-            value = {
-              value: item.Value,
-              prefixText: item.PrefixText || '',
-              prefixUseAttribute: item.PrefixUseAttribute,
-              prefixAttribute: item.PrefixAttribute,
-              suffixText: item.SuffixText || '',
-              suffixUseAttribute: item.SuffixUseAttribute,
-              suffixAttribute: item.SuffixAttribute
-            }
-          } else if (item.Title === 'DefaultExternalSharingSetting') {
-            value = {
-              value: item.Value,
-              externalSharingSetting: item.ExternalSharingSetting
-            }
+      return spItems.map((item) => {
+        let value = item.Value === 'true' ? true : item.Value === 'false' ? false : item.Value
+        if (item.Title === 'NamingConvention') {
+          value = {
+            value: item.Value,
+            prefixText: item.PrefixText || '',
+            prefixUseAttribute: item.PrefixUseAttribute,
+            prefixAttribute: item.PrefixAttribute,
+            suffixText: item.SuffixText || '',
+            suffixUseAttribute: item.SuffixUseAttribute,
+            suffixAttribute: item.SuffixAttribute
           }
+        } else if (item.Title === 'DefaultExternalSharingSetting') {
+          value = {
+            value: item.Value,
+            externalSharingSetting: item.ExternalSharingSetting
+          }
+        }
 
-          return {
-            title: item.Title,
-            value,
-            description: item.Description
-          }
-        })
+        return {
+          title: item.Title,
+          value,
+          description: item.Description
+        }
+      })
     } catch (error) {
       throw new Error(
         format(

@@ -225,7 +225,7 @@ Når `EnableAutoApproval` er aktivert, settes `Status` og `Stage` direkte til `A
 
 ## 5. Innstillinger brukt av bestillingsflaten
 
-`ProvisionService.getProvisionRequestSettings` leser `Provisioning Request Settings`, filtrerer bort rader med `PowerAppOnly` og konverterer tekstverdiene `true` og `false` til boolske verdier.
+`ProvisionService.getProvisionRequestSettings` leser `Provisioning Request Settings` og konverterer tekstverdiene `true` og `false` til boolske verdier.
 
 | Nøkkel                           | Bruk i SPFx-klienten                                                        |
 | -------------------------------- | --------------------------------------------------------------------------- |
