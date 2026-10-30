@@ -671,7 +671,10 @@ function CheckSpfxPackages {
             # case where the two happen to be the same.
             # Names a solution has been published under before, so an environment that
             # has not been redeployed since a rename is still found.
-            $knownNames = @("$($package.name)") + @($previousSpfxNames["$($package.id)"] | Where-Object { $_ })
+            # The app catalog shows 'title' when package-solution.json sets one (the manifest
+            # Name must be ASCII, so the Norwegian display name lives in 'title'), else 'name'.
+            $knownNames = @("$($package.title)", "$($package.name)") + @($previousSpfxNames["$($package.id)"] | Where-Object { $_ })
+            $knownNames = @($knownNames | Where-Object { $_ } | Select-Object -Unique)
             $app = $apps | Where-Object { "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
             if ($null -eq $app) {
                 $app = $apps | Where-Object { "$($_.Title)" -in $knownNames } | Select-Object -First 1

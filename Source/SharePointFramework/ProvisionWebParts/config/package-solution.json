@@ -1,7 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "Bestillingsportalen - provisjonering og gjestehåndtering",
+    "name": "Bestillingsportalen - Provision Web Parts",
+    "title": "Bestillingsportalen - provisjonering og gjestehåndtering",
     "id": "00b53018-61b2-4576-b559-27df9321cfc8",
     "version": "1.1.0.0",
     "includeClientSideAssets": true,
