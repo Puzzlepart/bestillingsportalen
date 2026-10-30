@@ -64,7 +64,7 @@ Installasjonen utføres i sin helhet fra en administrators arbeidsstasjon med `d
 | SharePoint-område | Et gruppetilknyttet Team Site (navn fra `requestsSiteName` i `parameters.json`) som utgjør backend for løsningen. Tjenestekontoen settes som eier og site collection-administrator. |
 | Lister og biblioteker | PnP-provisjoneringsmal (`Bestillingsportalen.xml`) oppretter listene `Provisioning Requests`, `Guest Requests`, `Provisioning Request Settings`, `Provisioning Types`, `Site Templates`, `Teams Templates`, `Hub Sites`, `Business Units`, `IP Labels`, `Retention Labels`, `Time Zones`, `Locales` samt dokumentbiblioteket `PnP Templates`. Se [Datalagre](./Data-stores.md) for full beskrivelse. |
 | Standardinnhold | Listeelementer (innstillinger, områdetyper, Teams-maler, tidssoner, språk) seedes av `<pnp:DataRows>`-blokker i PnP-malen (`Source/Templates/Objects/Lists/*.xml`) med `UpdateBehavior="Skip"`: eksisterende elementer røres aldri, manglende standardelementer legges til ved re-apply. Bilder og ikoner lastes opp til `SiteAssets`. |
-| SPFx-pakke i app-katalogen | `deploy.ps1` bygger SPFx-løsningene under `Source/SharePointFramework/` (npm) og publiserer dem tenant-wide i tenantens App Catalog (`Add-PnPApp -Overwrite -Publish`). Per i dag gjelder dette `bp-provision-web-parts.sppkg`, som inneholder bestillings-webdelen (`ProjectProvision`, også Teams-appen) og `InviteGuests`-webdelen. Kan hoppes over med `-SkipSPFxDeploy`. |
+| SPFx-pakke i app-katalogen | `deploy.ps1` publiserer SPFx-løsningene under `Source/SharePointFramework/` tenant-wide i tenantens App Catalog (`Add-PnPApp -Overwrite -Publish`). Installasjonspakken har dem ferdig bygd; en klone av repoet bygger dem (npm) ved første kjøring. Per i dag gjelder dette `bp-provision-web-parts.sppkg`, som inneholder bestillings-webdelen (`ProjectProvision`, også Teams-appen) og `InviteGuests`-webdelen. Kan hoppes over med `-SkipSPFxDeploy`. |
 
 ### 2.2 Microsoft Entra ID
 
@@ -134,7 +134,7 @@ Denne app-registreringen kan **slettes, eller tilgangene fjernes, etter fullfør
 ### 3.4 Arbeidsstasjon, tenant og nettverk
 
 - Windows 10/11 med PowerShell 7.4 (eller nyere) og Azure CLI installert.
-- Node.js 22.14.0 eller nyere (kun nødvendig for SPFx-bygg; kan hoppes over med `-SkipSPFxDeploy`).
+- Node.js 22.14.0 eller nyere (kun nødvendig for SPFx-bygg fra en klone av repoet; installasjonspakken har pakken ferdig bygd).
 - PowerShell-moduler: `PnP.PowerShell` (3.2 eller nyere), `Az`, `WriteAscii`.
 - Tenant App Catalog må være opprettet i SharePoint Admin Center (for publisering av SPFx-pakker).
 - Execution Policy satt til `Unrestricted` under installasjonen.

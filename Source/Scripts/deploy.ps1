@@ -49,18 +49,24 @@
 
 .PARAMETER SkipTeamsApp
     Do not package or publish the Bestillingsportalen Teams app. The SPFx packages are
-    still built and published to the tenant app catalog - only the Teams app zip and the
+    still published to the tenant app catalog - only the Teams app zip and the
     publish to the Teams app catalog are skipped, along with the reminder to upload it
     manually. Use this when the organisation does not use the Teams app, or manages it in
     the Teams admin center itself. Implied by -SkipSPFxDeploy.
 
+.PARAMETER BuildSPFx
+    Build the SPFx packages (npm install and npm run build) even when a built .sppkg is
+    already there. By default a solution is only built when its sharepoint/solution/
+    folder has no .sppkg: the release package ships the built package, so an installation
+    from it needs no Node.js, and a clone of the repo builds on the first run. Use this
+    in a clone after changing the source - pre-flight warns when the source is newer than
+    the package. Needs Node.js 22.14+.
+
 .PARAMETER SkipSPFxBuild
-    Publish the SPFx packages WITHOUT building them first: npm install and npm run build
-    are skipped, and the .sppkg already present under each solution's
-    sharepoint/solution/ folder is uploaded to the tenant app catalog as it is. Use this
-    when the same build is installed in several tenants - build once, then run deploy.ps1
-    with this switch per tenant. Pre-flight verifies that the package exists and shows
-    when it was built; Node.js is not needed. The Teams app is still packaged and
+    Never build: the .sppkg already present under each solution's sharepoint/solution/
+    folder is published as it is, and a missing package is an error instead of a build.
+    This is the default behaviour whenever the package exists, so the switch is only
+    needed to make a run fail rather than build. The Teams app is still packaged and
     published (its manifest is not part of the build). Implied by -SkipSPFxDeploy.
 
 .PARAMETER SharePointOnly
@@ -115,9 +121,9 @@
     access needed. Run deploy.ps1 without the switch later for the Azure part.
 
 .EXAMPLE
-    deploy.ps1 -SkipSPFxBuild
-    Publish the already built .sppkg from Source/SharePointFramework/*/sharepoint/solution/
-    without running npm - for installing one build in several tenants.
+    deploy.ps1 -BuildSPFx
+    Build the SPFx packages before publishing them, even though a built .sppkg exists -
+    for a clone of the repo where the source has changed.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -136,7 +142,8 @@ param
     [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
     [switch]$SkipTeamsApp, # Do not package or publish the Teams app - see the help
-    [switch]$SkipSPFxBuild, # Publish the already built .sppkg without running npm - see the help
+    [switch]$BuildSPFx, # Build the SPFx packages even when a built .sppkg exists - see the help
+    [switch]$SkipSPFxBuild, # Never build - publish the already built .sppkg, or fail - see the help
     [switch]$SharePointOnly, # SharePoint site + SPFx + registry only, no Azure sign-in - see the help
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
@@ -1478,56 +1485,92 @@ function ValidateResourceProviders {
     RecordPreflightCheck -Name "Resource providers" -Status OK -Detail "$($unregistered -join ', ') not registered, but the account can register them - done automatically after confirmation"
 }
 
+# The SPFx solutions under Source/SharePointFramework/: each subfolder with
+# config/package-solution.json
+function GetSPFxSolutions {
+    $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
+    return @(Get-ChildItem -Path $spfxRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
+            Test-Path (Join-Path $_.FullName "config/package-solution.json")
+        })
+}
+
+# The .sppkg already built for a solution (in its sharepoint/solution/ folder), or $null
+function GetPrebuiltSppkg($Solution) {
+    return Get-ChildItem -Path (Join-Path $Solution.FullName "sharepoint/solution") -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+
+# Whether a solution is built in this run. A built .sppkg is published as it is when
+# there is one: the release package ships it, so an installation from the package needs
+# no Node.js, and the same package goes to every tenant. A clone of the repo has none
+# until it is built, so it builds on the first run. -BuildSPFx builds regardless (the
+# source changed), -SkipSPFxBuild never builds.
+function SPFxBuildWanted($Solution) {
+    if ($BuildSPFx) { return $true }
+    if ($SkipSPFxBuild) { return $false }
+    return ($null -eq (GetPrebuiltSppkg $Solution))
+}
+
 # Node.js is only needed for the SPFx build, which is the LAST deploy step - a
-# missing Node would otherwise surface after everything else succeeded.
+# missing Node would otherwise surface after everything else succeeded. Checked only
+# when something is built; the prebuilt packages are checked instead.
 function CheckNodeJs {
     if ($SkipSPFxDeploy) {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxDeploy"
         return
     }
-    if ($SkipSPFxBuild) {
-        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxBuild"
-        CheckPrebuiltSPFxPackages
+    $solutions = GetSPFxSolutions
+    if ($solutions.Count -eq 0) {
+        RecordPreflightCheck -Name "SPFx packages" -Status UNKNOWN -Detail "No SPFx solutions found under $(Join-Path $packageRootPath 'SharePointFramework')"
         return
     }
+    CheckPrebuiltSPFxPackages -Solutions @($solutions | Where-Object { -not (SPFxBuildWanted $_) })
+    $building = @($solutions | Where-Object { SPFxBuildWanted $_ })
+    if ($building.Count -eq 0) {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail $(if ($SkipSPFxBuild) { "-SkipSPFxBuild" } else { "Not needed - the built .sppkg is published as it is (-BuildSPFx builds it again)" })
+        return
+    }
+    $why = if ($BuildSPFx) { "-BuildSPFx" } else { "no built .sppkg for $(@($building | ForEach-Object Name) -join ', ')" }
     $nodeVersionRaw = if (Get-Command node -ErrorAction SilentlyContinue) { (node --version) 2>$null } else { $null }
     if ([string]::IsNullOrWhiteSpace($nodeVersionRaw)) {
-        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH" -Fix "Install Node.js 22.14+ (https://nodejs.org), or run with -SkipSPFxDeploy."
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH, and a build is needed ($why)" -Fix "Install Node.js 22.14+ (https://nodejs.org). Or install from the release package, which ships the built .sppkg so nothing is built - or run with -SkipSPFxDeploy."
         return
     }
     try {
         $nodeVersion = [version]($nodeVersionRaw.TrimStart('v'))
         if ($nodeVersion -lt [version]'22.14.0') {
-            RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "$nodeVersionRaw installed, 22.14+ required" -Fix "Update Node.js (https://nodejs.org), or run with -SkipSPFxDeploy."
+            RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "$nodeVersionRaw installed, 22.14+ required for the build ($why)" -Fix "Update Node.js (https://nodejs.org), or run with -SkipSPFxDeploy."
             return
         }
-        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status OK -Detail "$nodeVersionRaw"
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status OK -Detail "$nodeVersionRaw - builds $(@($building | ForEach-Object Name) -join ', ') ($why)"
     }
     catch {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status UNKNOWN -Detail "Could not parse 'node --version' output '$nodeVersionRaw'"
     }
 }
 
-# -SkipSPFxBuild uploads whatever .sppkg is already in each solution's sharepoint/solution/
-# folder. A missing package would otherwise surface as the LAST deploy step, so check
-# here - and show the build time, so a stale package is spotted before it is published.
+# The solutions published without a build: show the package and when it was built, so a
+# stale package is spotted before it is published. A missing package (only possible with
+# -SkipSPFxBuild) would otherwise surface as the LAST deploy step. In a clone, the source
+# being newer than the package is the usual sign that it should be built again.
 function CheckPrebuiltSPFxPackages {
-    $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
-    $solutions = @(Get-ChildItem -Path $spfxRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
-            Test-Path (Join-Path $_.FullName "config/package-solution.json")
-        })
-    if ($solutions.Count -eq 0) {
-        RecordPreflightCheck -Name "SPFx package (prebuilt)" -Status UNKNOWN -Detail "No SPFx solutions found under $spfxRoot"
-        return
-    }
-    foreach ($solution in $solutions) {
-        $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
-        $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($sppkg) {
-            RecordPreflightCheck -Name "SPFx package (prebuilt): $($solution.Name)" -Status OK -Detail "$($sppkg.Name), built $($sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))"
+    param([array]$Solutions)
+    foreach ($solution in $Solutions) {
+        $name = "SPFx package (prebuilt): $($solution.Name)"
+        $sppkg = GetPrebuiltSppkg $solution
+        if (-not $sppkg) {
+            RecordPreflightCheck -Name $name -Status MISSING -Detail "No .sppkg in $(Join-Path $solution.FullName 'sharepoint/solution')" -Fix "Install from the release package, which ships it - or run without -SkipSPFxBuild to build it (needs Node.js 22.14+)."
+            continue
+        }
+        $built = $sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+        # Only a clone has the source; the release package has just the package
+        $newerSource = @('src', 'config') | ForEach-Object { Join-Path $solution.FullName $_ } | Where-Object { Test-Path $_ } | ForEach-Object {
+            Get-ChildItem -Path $_ -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt $sppkg.LastWriteTime }
+        } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newerSource) {
+            RecordPreflightCheck -Name $name -Status WARNING -Detail "$($sppkg.Name), built $built - but the source changed after that ($($newerSource.Name), $($newerSource.LastWriteTime.ToString('yyyy-MM-dd HH:mm')))" -Fix "Run with -BuildSPFx to build it again - or ignore this if the source change is not meant to be published."
         }
         else {
-            RecordPreflightCheck -Name "SPFx package (prebuilt): $($solution.Name)" -Status MISSING -Detail "No .sppkg in $sppkgFolder" -Fix "Run 'npm install' and 'npm run build' in $($solution.FullName), or run without -SkipSPFxBuild to build as part of the deployment."
+            RecordPreflightCheck -Name $name -Status OK -Detail "$($sppkg.Name), built $built - published as it is"
         }
     }
 }
@@ -2101,7 +2144,12 @@ function ConfirmDeployment {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
-    $spfxPlan = if ($SkipSPFxBuild) { "Publish the already built .sppkg to the tenant app catalog (no build, -SkipSPFxBuild)" } else { "Build + publish to the tenant app catalog" }
+    $spfxSolutions = GetSPFxSolutions
+    $spfxBuilding = @($spfxSolutions | Where-Object { SPFxBuildWanted $_ } | ForEach-Object Name)
+    $spfxPlan = if ($spfxSolutions.Count -eq 0) { "No solutions found under Source/SharePointFramework" }
+    elseif ($spfxBuilding.Count -eq 0) { "Publish the built .sppkg to the tenant app catalog as it is (no build$(if ($SkipSPFxBuild) { ', -SkipSPFxBuild' }))" }
+    elseif ($spfxBuilding.Count -eq $spfxSolutions.Count) { "Build + publish to the tenant app catalog$(if ($BuildSPFx) { ' (-BuildSPFx)' } else { ' (no built .sppkg found)' })" }
+    else { "Build $($spfxBuilding -join ', ') (no built .sppkg), publish the rest as they are" }
     WritePlanLine "SPFx packages" $spfxPlan $SkipSPFxDeploy
     $teamsAppPlan = if ($script:teamsAppPublishScope -eq $false) { "Package only - upload manually in the Teams admin center afterwards" } else { "Package + publish to the Teams app catalog" }
     WritePlanLine "Teams app" $teamsAppPlan ($SkipSPFxDeploy -or $SkipTeamsApp)
@@ -2749,16 +2797,14 @@ function DeploySPFxPackages {
             return
         }
 
-        if (-not $SkipSPFxBuild -and -not (Get-Command npm -ErrorAction SilentlyContinue)) {
-            throw "npm not installed. Install Node.js (https://nodejs.org), use -SkipSPFxBuild to publish an already built .sppkg, or -SkipSPFxDeploy to skip SPFx entirely."
-        }
-
-        $spfxSolutions = Get-ChildItem -Path $spfxRoot -Directory | Where-Object {
-            Test-Path (Join-Path $_.FullName "config/package-solution.json")
-        }
+        $spfxSolutions = GetSPFxSolutions
         if ($spfxSolutions.Count -eq 0) {
             Write-Host "No SPFx solutions found under $spfxRoot" -ForegroundColor Yellow
             return
+        }
+
+        if (@($spfxSolutions | Where-Object { SPFxBuildWanted $_ }).Count -gt 0 -and -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm not installed, and a build is needed. Install Node.js (https://nodejs.org), install from the release package (it ships the built .sppkg), or use -SkipSPFxDeploy to skip SPFx entirely."
         }
 
         # Need an admin connection to resolve the tenant app catalog URL
@@ -2780,17 +2826,17 @@ function DeploySPFxPackages {
 
             Push-Location $solution.FullName
             try {
-                if ($SkipSPFxBuild) {
+                if (-not (SPFxBuildWanted $solution)) {
                     # Publish what is already built - the same .sppkg goes to every tenant
-                    Write-Host "Publishing prebuilt SPFx solution: $($solution.Name) (-SkipSPFxBuild, no npm)" -ForegroundColor Yellow
-                    $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                    Write-Host "Publishing the built SPFx solution: $($solution.Name) (no build$(if ($SkipSPFxBuild) { ', -SkipSPFxBuild' }))" -ForegroundColor Yellow
+                    $sppkg = GetPrebuiltSppkg $solution
                     if (-not $sppkg) {
-                        throw "No .sppkg found for $($solution.Name) in $sppkgFolder - build it first (npm run build), or run without -SkipSPFxBuild"
+                        throw "No .sppkg found for $($solution.Name) in $sppkgFolder - install from the release package, which ships it, or run without -SkipSPFxBuild to build it"
                     }
                     Write-Host "Using $($sppkg.Name) built $($sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))" -ForegroundColor Yellow
                 }
                 else {
-                    Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+                    Write-Host "Building SPFx solution: $($solution.Name) ($(if ($BuildSPFx) { '-BuildSPFx' } else { 'no built .sppkg found' }))" -ForegroundColor Yellow
                     if (-not (Test-Path "node_modules")) {
                         Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
                         npm install
@@ -3180,11 +3226,11 @@ if ($global:upgrade) {
     if ($SkipSPFxDeploy) {
         Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
     }
-    elseif ($SkipSPFxBuild) {
-        Write-Host "  - Publish the already built SPFx packages (Source/SharePointFramework/*/sharepoint/solution/*.sppkg) to the tenant app catalog, no build (-SkipSPFxBuild was set)" -ForegroundColor Cyan
+    elseif (@(GetSPFxSolutions | Where-Object { SPFxBuildWanted $_ }).Count -eq 0) {
+        Write-Host "  - Publish the built SPFx packages (Source/SharePointFramework/*/sharepoint/solution/*.sppkg) to the tenant app catalog as they are, no build" -ForegroundColor Cyan
     }
     else {
-        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
+        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog$(if ($BuildSPFx) { ' (-BuildSPFx)' })" -ForegroundColor Cyan
     }
     Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
     Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan

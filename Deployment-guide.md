@@ -11,7 +11,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 - [ ] Windows 10/11 med PowerShell **7.4+**
 - [ ] Azure CLI installert, og `az login` fungerer gjennom brannmur/proxy
 - [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, WriteAscii
-- [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxBuild` med ferdig bygd pakke, eller `-SkipSPFxDeploy`)
+- [ ] Node.js 22.14+ (kun hvis SPFx-pakken skal bygges, altså fra en klone av repoet eller med `-BuildSPFx` — installasjonspakken har den ferdig bygd)
 
 **Kontoen som kjører installasjonen:**
 
@@ -39,7 +39,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
-- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxBuild` når pakka allerede er bygd, eller `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
+- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-pakken skal bygges: fra en klone av repoet, eller med `-BuildSPFx`. Installasjonspakken har den ferdig bygd, og `-SkipSPFxDeploy` hopper over SPFx helt). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
@@ -95,7 +95,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 1: Konfigurere PowerShell
 
-1. Last ned [nyeste utgave](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) av Bestillingsportalen.
+1. Last ned installasjonspakken `bestillingsportalen-<versjon>.zip` fra [nyeste utgave](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) av Bestillingsportalen, og pakk den ut. Den inneholder skriptene, malene, dokumentasjonen og den ferdig bygde SPFx-pakken, så Node.js trengs ikke. `SHA256SUMS.txt` på samme side har sjekksummen.
 2. Start PowerShell 7 som administrator.
 3. Sett PowerShell Execution Policy til `Unrestricted` ved å kjøre ```Set-ExecutionPolicy -ExecutionPolicy unrestricted```.
 
@@ -304,17 +304,19 @@ Skriptet venter i opptil 5 minutter per tilkobling. Trykk `s` for å hoppe over 
 
 ### SPFx-løsninger (webdelene `ProjectProvision` og `InviteGuests`)
 
-Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder bestillings-webdelen `ProjectProvision` og `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
+Deploy-scriptet publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder bestillings-webdelen `ProjectProvision` og `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
 
 Når webdelen er publisert kan den legges til på en hvilken som helst SharePoint-side. Husk å konfigurere `guestRequestSiteUrl` i property pane til URL-en til Bestillingsportalen-admin-området slik at gjesteforespørsler skrives til riktig liste.
 
-**Publiser uten å bygge** når du allerede har en ferdig bygd `.sppkg`, typisk når samme versjon skal installeres i flere tenanter: bygg én gang, og kjør deretter `deploy.ps1` med `-SkipSPFxBuild` per tenant. `npm install` og `npm run build` hoppes over, og pakka som ligger i `Source/SharePointFramework/*/sharepoint/solution/` lastes opp som den er. Forhåndssjekken viser at pakka finnes og når den ble bygd, så du oppdager en utdatert pakke før den publiseres. Node.js trengs ikke. Teams-appen pakkes og publiseres som vanlig:
+**Pakka publiseres ferdig bygd.** Installasjonspakken `bestillingsportalen-<versjon>.zip` under [Releases](https://github.com/Puzzlepart/bestillingsportalen/releases) har den bygde `.sppkg`-fila på plass i `Source/SharePointFramework/*/sharepoint/solution/`, og `deploy.ps1` laster den opp som den er. Ingenting bygges, og Node.js trengs ikke. Forhåndssjekken viser hvilken pakke som publiseres og når den ble bygd. Samme pakke går til alle tenanter som installerer versjonen. Teams-app-zipen ligger i samme mappe, til manuell opplasting.
+
+**Bygging skjer bare i en klone av repoet.** Der finnes ingen `.sppkg` før den er bygd, så første kjøring kjører `npm install` og `npm run build` (krever Node.js 22.14+). Senere kjøringer publiserer den bygde pakka som den er. Har du endret kildekoden, varsler forhåndssjekken om at kilden er nyere enn pakka. Bygg på nytt med `-BuildSPFx`:
 
 ```powershell
-./deploy.ps1 -SkipSPFxBuild
+./deploy.ps1 -BuildSPFx
 ```
 
-Hver versjon fra 1.0.1 har en ferdig installasjonspakke under [Releases](https://github.com/Puzzlepart/bestillingsportalen/releases): `bestillingsportalen-<versjon>.zip` inneholder repoet for versjonen med den bygde `.sppkg`-fila på plass, så du kan pakke den ut og kjøre `deploy.ps1 -SkipSPFxBuild` uten Node.js. Releasen har også `.sppkg`-fila og Teams-appen hver for seg, til manuell opplasting, og `SHA256SUMS.txt` med sjekksummer.
+`-SkipSPFxBuild` gjør det motsatte: aldri bygg, og stopp hvis pakka mangler.
 
 **Hopp over SPFx helt** hvis du kun vil deploye Azure-ressurser, eller lastet opp pakka manuelt. Da hoppes også Teams-appen over:
 
@@ -327,7 +329,7 @@ Hver versjon fra 1.0.1 har en ferdig installasjonspakke under [Releases](https:/
 Bestillingsportalen skal også være tilgjengelig som personlig app i Teams. Som del av SPFx-distribusjonen pakker `deploy.ps1` Teams-app-manifestet (`ProvisionWebParts/teams/`, versjon synkronisert fra `package-solution.json`) til `bestillingsportalen-teams-app.zip` og forsøker å publisere den til Teams-appkatalogen via Graph. Automatisk publisering krever delegert `AppCatalog.ReadWrite.All` på PnP-appen (se [PnP PowerShell App Registration](#pnp-powershell-app-registration)) — en tillatelse de fleste tenanter ikke gir. Forhåndssjekken leser dette ut av PnP-tokenet og varsler med `WARNING` på forhånd; mangler tillatelsen, hopper skriptet over publiseringsforsøket. **Regn derfor med å laste opp appen manuelt** (skriptet minner om det på slutten av kjøringen):
 
 1. Åpne **Teams admin center** → `Teams-apper` → `Administrer apper`
-2. `Handlinger` → `Last opp ny app`, og velg `Source/SharePointFramework/ProvisionWebParts/sharepoint/solution/bestillingsportalen-teams-app.zip` (produseres av deploy-skriptet, som også skriver ut stien)
+2. `Handlinger` → `Last opp ny app`, og velg `Source/SharePointFramework/ProvisionWebParts/sharepoint/solution/bestillingsportalen-teams-app.zip` (ligger i installasjonspakken, og produseres på nytt av deploy-skriptet, som også skriver ut stien)
 3. Finnes appen **Bestillingsportalen** i katalogen fra før (f.eks. synkronisert fra Prosjektportalen 365 tidligere), åpne den eksisterende appen og bruk `Last opp fil` for å oppdatere den i stedet
 4. Verifiser at appen åpner i Teams
 

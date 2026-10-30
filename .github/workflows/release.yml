@@ -1,9 +1,9 @@
-# Builds the release files when a version tag (v1.2.3) is pushed and attaches them to
-# the tag's GitHub release. A new release is created as a draft with the version's
+# Builds the installation package when a version tag (v1.2.3) is pushed and attaches it
+# to the tag's GitHub release. A new release is created as a draft with the version's
 # CHANGELOG.md section, so the highlights can be written before it is published. If the
 # release already exists, only its files are replaced and the text is left as it is.
 #
-# To build the files for an existing tag again, run the workflow manually with the tag.
+# To build the package for an existing tag again, run the workflow manually with the tag.
 name: Release
 
 on:
@@ -62,8 +62,9 @@ jobs:
           cache: npm
           cache-dependency-path: Source/SharePointFramework/*/package-lock.json
 
-      - name: Build the release files
-        run: .release-tooling/.github/scripts/build-release-assets.sh "$VERSION" "$RUNNER_TEMP/release-assets"
+      - name: Build the installation package
+        shell: pwsh
+        run: ./.release-tooling/.github/scripts/build-release-assets.ps1 -Version $env:VERSION -OutDir "$env:RUNNER_TEMP/release-assets"
 
       - name: Create or update the release
         run: |

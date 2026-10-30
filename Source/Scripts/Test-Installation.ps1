@@ -676,7 +676,7 @@ function CheckSpfxPackages {
             if ($null -eq $app) {
                 $app = $apps | Where-Object { "$($_.Title)" -in $knownNames } | Select-Object -First 1
             }
-            $fix = "Run deploy.ps1 -Upgrade (or -SkipSPFxBuild to publish an already built package) - or upload the .sppkg to $script:appCatalogUrl and deploy it."
+            $fix = "Run deploy.ps1 -Upgrade (it publishes the built .sppkg from the installation package) - or upload the .sppkg to $script:appCatalogUrl and deploy it."
             if ($null -eq $app) {
                 RecordCheck -Name $name -Status MISSING -Detail "No app named '$($knownNames -join "' or '")' in the tenant app catalog" -Fix $fix
                 return
@@ -690,7 +690,7 @@ function CheckSpfxPackages {
                 return
             }
             if ("$($app.Title)" -ne "$($package.name)") {
-                RecordCheck -Name $name -Status WARNING -Detail "'$($app.Title)' $($app.AppCatalogVersion) is deployed under its old name - this checkout names it '$($package.name)'" -Fix "Nothing breaks. Re-run deploy.ps1 -Upgrade (or -SkipSPFxBuild) to publish it under the new name."
+                RecordCheck -Name $name -Status WARNING -Detail "'$($app.Title)' $($app.AppCatalogVersion) is deployed under its old name - this checkout names it '$($package.name)'" -Fix "Nothing breaks. Re-run deploy.ps1 -Upgrade to publish it under the new name."
                 return
             }
             RecordCheck -Name $name -Status OK -Detail "'$($app.Title)' $($app.AppCatalogVersion), deployed"
