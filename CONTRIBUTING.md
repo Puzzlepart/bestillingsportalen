@@ -36,7 +36,8 @@ Før du bidrar:
 
 SPFx-løsningen (`ProjectProvision`-webdelen/Teams-appen og `InviteGuests`-webdelen) ligger i
 `Source/SharePointFramework/ProvisionWebParts/` og bygges med SPFx 1.23 og Heft. `deploy.ps1` kjører
-`npm install` og `npm run build` for deg ved installasjon, men for utvikling bygger du selv:
+`npm install` og `npm run build` for deg i en klone uten bygd pakke (og med `-BuildSPFx`), men for
+utvikling bygger du selv:
 
 ```sh
 cd Source/SharePointFramework/ProvisionWebParts
@@ -105,8 +106,9 @@ app-katalogen leser selv. Release-workflowen sjekker at den stemmer med `VERSION
     git push --tags
     ```
 
-5. Workflowen [`release.yml`](.github/workflows/release.yml) bygger løsningen og lager et
-   utkast til release med filene vedlagt og versjonens seksjon fra CHANGELOG.md som tekst.
+5. Workflowen [`release.yml`](.github/workflows/release.yml) bygger installasjonspakken
+   `bestillingsportalen-<versjon>.zip` og lager et utkast til release med pakken og
+   `SHA256SUMS.txt` vedlagt og versjonens seksjon fra CHANGELOG.md som tekst.
    Skriv høydepunktene øverst, og trykk **Publish release**.
 
 Workflowen stopper før noe lastes opp hvis taggen ikke stemmer med `VERSION` og
@@ -114,8 +116,12 @@ Workflowen stopper før noe lastes opp hvis taggen ikke stemmer med `VERSION` og
 nytt. Finnes releasen fra før, byttes bare filene, og teksten blir stående. For å bygge
 filene på nytt for en eksisterende tag: **Actions → Release → Run workflow**, med taggen.
 
-Filene kan også bygges lokalt med `.github/scripts/build-release-assets.sh 1.0.1`
-(krever Node.js, `jq` og `zip`). De havner i `release-assets/`.
+Pakken kan også bygges lokalt med `.github/scripts/build-release-assets.ps1 -Version 1.0.1`
+(PowerShell 7 og Node.js; `-SkipSPFxBuild` pakker en allerede bygd `.sppkg`). Den havner i
+`release-assets/`. Pakken inneholder det en installasjon trenger: skriptene, malene,
+ARM-malene, runbookene, ressursene, Power Automate-løsningen og dokumentasjonen, med den
+bygde `.sppkg`-fila og Teams-app-zipen på plass under `sharepoint/solution/`. SPFx-kildekoden,
+bildene til dokumentasjonen og GitHub-innstillingene er ikke med.
 
 Ved installasjon stempler `deploy.ps1` versjonen inn i miljøet på to steder — se
 [Upgrade.md](Upgrade.md#hvilken-versjon-kjører-miljøet).

@@ -63,8 +63,7 @@ Bruk oppgraderingsmodus når du vil:
 
 4. **SPFx-løsninger** (med mindre `-SkipSPFxDeploy` brukes)
    - Alle løsninger under `Source/SharePointFramework/*/` med `config/package-solution.json`
-   - `npm install` (kun ved første gang / hvis `node_modules` mangler) + `npm run build`
-   - `.sppkg` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`
+   - Den ferdig bygde `.sppkg` i `sharepoint/solution/` lastes opp til tenant app-katalog via `Add-PnPApp -Overwrite -Publish`. Installasjonspakken har den på plass. Bare en klone uten bygd pakke, eller `-BuildSPFx`, kjører `npm install` og `npm run build`
    - Eksempel: `InviteGuests`-webdel for invitasjon av gjester
 
 ### ❌ Oppdateres IKKE i oppgraderingsmodus
@@ -171,7 +170,7 @@ Før du starter oppgraderingen:
    - **Verifiser `requestsSiteAlias` mot områdets faktiske URL** hvis du regenererer parameterfila. Parameteren er ny i 1.0, og står den utfylt utledes ikke aliaset lenger fra `requestsSiteName`. Standardverdien `bestillingsportalen` treffer den vanlige URL-en (`/sites/bestillingsportalen`), men ligger området et annet sted, sett aliaset til det faktiske URL-segmentet — eller la parameteren stå tom, som gir gammel oppførsel. Feil verdi peker oppgraderingen på et annet område enn det du har i drift.
 
 5. **Forutsetninger for SPFx-deploy** (kan hoppes over med `-SkipSPFxDeploy`)
-   - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon)
+   - Node.js installert (se `Source/SharePointFramework/ProvisionWebParts/.nvmrc` for versjon) – bare hvis SPFx-pakken skal bygges, altså fra en klone eller med `-BuildSPFx`. Installasjonspakken har den ferdig bygd
    - Tenant app-katalog må være opprettet i SharePoint Admin Center
    - PnP-appen må ha delegert `AllSites.FullControl` for å publisere til app-katalogen (interaktiv pålogging — kontoen som kjører skriptet må være SharePoint-administrator)
 
@@ -267,7 +266,7 @@ Skriptet vil:
 5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
 6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2), og runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres automatisk.
 7. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
-8. **Bygge og publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Kjør `npm install`/`npm run build` og last opp `.sppkg` til tenant app-katalog
+8. **Publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Last opp den ferdig bygde `.sppkg` til tenant app-katalog. Bygges først (`npm install`/`npm run build`) bare når pakka mangler, som i en klone, eller med `-BuildSPFx`
 9. **Fullføre** – Vise deployment summary
 
 ### Steg 4: Verifisering etter oppgradering
@@ -430,7 +429,7 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Oppdater lokalt repository til nyeste versjon
 - [ ] Verifiser at `parameters.json` er oppdatert
 - [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
-- [ ] Verifiser at Node.js er installert (hvis SPFx skal deployes)
+- [ ] Verifiser at Node.js er installert (bare hvis SPFx-pakken skal bygges – installasjonspakken har den ferdig bygd)
 - [ ] Varsle brukere om vedlikeholdsvindu
 - [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten — eller bruk `-Force`, som svarer nei)
 - [ ] Verifiser at området lastes korrekt
