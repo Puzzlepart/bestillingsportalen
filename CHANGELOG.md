@@ -2,7 +2,11 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
-## Uutgitt
+## 1.1.0 - 30.10.2026
+
+### Ny funksjonalitet
+
+- **«Område opprettet»-varselet kan også sendes til godkjenneren**: Med den nye innstillingen `NotifyApproverOnSpaceCreated` sender `ProcessProvisionRequest` Teams-kortet og e-posten om at området er opprettet også til godkjenneren av bestillingen, i tillegg til bestilleren. Det dekker organisasjoner der godkjenneren setter opp området etterpå, og som til nå har måttet endre Logic App-en selv. Varselet hoppes over når godkjenneren er bestilleren, og når bestillingen er automatisk godkjent. Av som standard. Innstillingsraden kommer med malen, så eksisterende installasjoner må kjøre `deploy.ps1 -Upgrade` og svare ja på malspørsmålet, eller opprette raden manuelt. Se [Godkjenningsflyten](./Approval-flow.md#varsel-når-området-er-opprettet).
 
 ### Feilrettinger
 
