@@ -1083,9 +1083,10 @@
                                                     ]
                                                 },
                                                 "type": "SetVariable",
+                                                "description": "Body for POST /_api/SPSiteManager/create. Lcid is the language the order asked for, falling back to the DefaultLCID setting when the order has no LCID. The site language cannot be changed after creation; ConfigureSpace only sets the regional settings (LocaleId).",
                                                 "inputs": {
                                                     "name": "SiteCreationBody",
-                                                    "value": "{\n  \"request\": {\n    \"Description\": \"@{triggerBody()?['Description']}\",\n    \"Lcid\": 1033,\n    \"Owner\": \"@{first(variables('OwnerUPNs'))}\",\n    \"ShareByEmailEnabled\": false,\n@{if(equals(empty(triggerBody()?['SensitivityLabelId']),true),'',concat('\"SensitivityLabel\":\"',triggerBody()?['SensitivityLabelId'],'\",'))}\n    \"Title\": \"@{If(equals(variables('UseNamingConventions'), true), If(and(equals(empty(triggerBody()?['Prefix']), true), equals(empty(triggerBody()?['Suffix']), true)), triggerBody()?['Title'], concat(triggerBody()?['Prefix'], triggerBody()?['SiteAlias'], triggerBody()?['Suffix'])), triggerBody()?['Title'])}\",\n    \"Url\": \"@{variables('EffectiveSiteURL')}\",\n    \"WebTemplate\": \"@{variables('WebTemplate')}\"\n@{outputs('Build_sitedesign_JSON_properties')}\n  }\n}\n"
+                                                    "value": "{\n  \"request\": {\n    \"Description\": \"@{triggerBody()?['Description']}\",\n    \"Lcid\": @{coalesce(triggerBody()?['LCID'], variables('DefaultLCID'))},\n    \"Owner\": \"@{first(variables('OwnerUPNs'))}\",\n    \"ShareByEmailEnabled\": false,\n@{if(equals(empty(triggerBody()?['SensitivityLabelId']),true),'',concat('\"SensitivityLabel\":\"',triggerBody()?['SensitivityLabelId'],'\",'))}\n    \"Title\": \"@{If(equals(variables('UseNamingConventions'), true), If(and(equals(empty(triggerBody()?['Prefix']), true), equals(empty(triggerBody()?['Suffix']), true)), triggerBody()?['Title'], concat(triggerBody()?['Prefix'], triggerBody()?['SiteAlias'], triggerBody()?['Suffix'])), triggerBody()?['Title'])}\",\n    \"Url\": \"@{variables('EffectiveSiteURL')}\",\n    \"WebTemplate\": \"@{variables('WebTemplate')}\"\n@{outputs('Build_sitedesign_JSON_properties')}\n  }\n}\n"
                                                 }
                                             },
                                             "Wait_for_site_to_provision": {
@@ -2438,6 +2439,19 @@
                                                         }
                                                     }
                                                 },
+                                                "Case_DefaultLCID": {
+                                                    "case": "DefaultLCID",
+                                                    "actions": {
+                                                        "Set_DefaultLCID_variable": {
+                                                            "runAfter": {},
+                                                            "type": "SetVariable",
+                                                            "inputs": {
+                                                                "name": "DefaultLCID",
+                                                                "value": "@if(empty(items('For_each_setting')?['Value']), 1033, int(trim(items('For_each_setting')?['Value'])))"
+                                                            }
+                                                        }
+                                                    }
+                                                },
                                                 "Case_TeamsWelcomeMessage": {
                                                     "case": "TeamsWelcomeMessage",
                                                     "actions": {
@@ -2682,9 +2696,27 @@
                                 ]
                             }
                         },
-                        "Initialize_GroupJson_variable": {
+                        "Initialize_DefaultLCID_variable": {
                             "runAfter": {
                                 "Initialize_GroupLanguageRetryMaxRounds_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "description": "Fallback language for sites created through SPSiteManager when the order has no LCID. Overwritten by the DefaultLCID row in Provisioning Request Settings.",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "DefaultLCID",
+                                        "type": "integer",
+                                        "value": 1033
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_GroupJson_variable": {
+                            "runAfter": {
+                                "Initialize_DefaultLCID_variable": [
                                     "Succeeded"
                                 ]
                             },
