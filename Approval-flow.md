@@ -23,6 +23,12 @@ Rediger listeelementene og endre verdien etter behov:
 - **`DisableApprovalNotifications`** – Deaktiver de innebygde Power Automate-varslene om godkjenning. Nyttig hvis du vil redigere flyten og legge til en egen varselepost.
 - **`ApprovalReminderInterval`** – Intervall (i dager) før en påminnelses-epost sendes til godkjennerne.
 
+## Varsel når området er opprettet
+
+Når `ProcessProvisionRequest` har opprettet og konfigurert området, sender den et «Område opprettet»-varsel som Teams-kort (`Post_space_created_adaptive_card`) og e-post (`Send_space_created_email`). Mottakeren er den bestillingen ble registrert på vegne av (`RequestedBy`), ellers bestilleren (`Author`).
+
+- **`NotifyApproverOnSpaceCreated`** – Når `true`, sendes samme kort og e-post også til godkjenneren av bestillingen (`Approver`). Nyttig når godkjenneren skal sette opp området etterpå, for eksempel med Prosjektportalens oppsettveiviser. Varselet hoppes over når godkjenneren er den samme som bestilleren, og når bestillingen ble automatisk godkjent og derfor ikke har noen godkjenner. Standardverdien er `false`.
+
 ## Prosess
 
 På et overordnet nivå fungerer `Provisioning Request Approval`-flyten slik:
