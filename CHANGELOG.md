@@ -4,6 +4,10 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ## Uutgitt
 
+### Ny funksjonalitet
+
+- **«Område opprettet»-varselet kan også sendes til godkjenneren**: Med den nye innstillingen `NotifyApproverOnSpaceCreated` sender `ProcessProvisionRequest` Teams-kortet og e-posten om at området er opprettet også til godkjenneren av bestillingen, i tillegg til bestilleren. Det dekker organisasjoner der godkjenneren setter opp området etterpå, og som til nå har måttet endre Logic App-en selv. Varselet hoppes over når godkjenneren er bestilleren, og når bestillingen er automatisk godkjent. Av som standard. Innstillingsraden kommer med malen, så eksisterende installasjoner må kjøre `deploy.ps1 -Upgrade` og svare ja på malspørsmålet, eller opprette raden manuelt. Se [Godkjenningsflyten](./Approval-flow.md#varsel-når-området-er-opprettet).
+
 ### Feilrettinger
 
 - **Kommunikasjonsområder og teamområder uten gruppe ble alltid opprettet på engelsk**: SharePoint-grenen i `ProcessProvisionRequest` sendte `Lcid: 1033` hardkodet til `SPSiteManager/create`, uavhengig av språket i bestillingen. Språket i bestillingen ble bare brukt for gruppeområder, og i `ConfigureSpace`, som setter regionale innstillinger (`LocaleId`) og ikke områdets språk. Et områdes språk kan ikke endres etter opprettelsen, så kunder som ville ha norske kommunikasjonsområder måtte forke Logic App-en. Nå brukes `LCID` fra bestillingen, med innstillingen `DefaultLCID` i `Provisioning Request Settings` som reserve når feltet er tomt, og 1033 som siste utvei når innstillingen mangler. Se [Regionale innstillinger](./Regional-settings.md#språk-på-området-og-regionale-innstillinger).

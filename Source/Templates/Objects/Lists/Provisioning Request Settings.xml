@@ -351,5 +351,10 @@ Sjekk ut Microsofts hjelpesenter for nyttige tips angående bruk av Microsoft Te
       <pnp:DataValue FieldName="Value">3</pnp:DataValue>
       <pnp:DataValue FieldName="Description">Maks antall runder før bestillingen feiler når EnableGroupLanguageRetry er true.</pnp:DataValue>
     </pnp:DataRow>
+    <pnp:DataRow>
+      <pnp:DataValue FieldName="Title">NotifyApproverOnSpaceCreated</pnp:DataValue>
+      <pnp:DataValue FieldName="Value">false</pnp:DataValue>
+      <pnp:DataValue FieldName="Description">Send «Område opprettet»-varselet (Teams-kort og e-post) også til godkjenneren av bestillingen, i tillegg til bestilleren. Nyttig når godkjenneren skal sette opp området etterpå.</pnp:DataValue>
+    </pnp:DataRow>
   </pnp:DataRows>
 </pnp:ListInstance>
