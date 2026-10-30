@@ -2,6 +2,12 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Uutgitt
+
+### Feilrettinger
+
+- **Kommunikasjonsområder og teamområder uten gruppe ble alltid opprettet på engelsk**: SharePoint-grenen i `ProcessProvisionRequest` sendte `Lcid: 1033` hardkodet til `SPSiteManager/create`, uavhengig av språket i bestillingen. Språket i bestillingen ble bare brukt for gruppeområder, og i `ConfigureSpace`, som setter regionale innstillinger (`LocaleId`) og ikke områdets språk. Et områdes språk kan ikke endres etter opprettelsen, så kunder som ville ha norske kommunikasjonsområder måtte forke Logic App-en. Nå brukes `LCID` fra bestillingen, med innstillingen `DefaultLCID` i `Provisioning Request Settings` som reserve når feltet er tomt, og 1033 som siste utvei når innstillingen mangler. Se [Regionale innstillinger](./Regional-settings.md#språk-på-området-og-regionale-innstillinger).
+
 ## 1.0.1 - 30.10.2026
 
 ### Ny funksjonalitet
