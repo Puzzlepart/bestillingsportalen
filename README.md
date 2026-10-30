@@ -125,6 +125,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md) – komponenter, arkitektur og tilganger
 - [Installasjonsveiledning](./Deployment-guide.md) – forutsetninger og den skriptede installasjonen
 - [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenning, flyt-import, deling og Teams-app
+- [E-postmal for overlevering](./Overlevering-e-postmal.md) – til kunden når installasjonen er ferdig
 
 **Drift**
 
