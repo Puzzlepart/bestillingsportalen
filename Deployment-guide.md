@@ -11,11 +11,11 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 - [ ] Windows 10/11 med PowerShell **7.4+**
 - [ ] Azure CLI installert, og `az login` fungerer gjennom brannmur/proxy
 - [ ] PowerShell-moduler: PnP.PowerShell 3.2+, Az, WriteAscii
-- [ ] Node.js 22.14+ (kun hvis SPFx skal bygges — ellers `-SkipSPFxDeploy`)
+- [ ] Node.js 22.14+ (kun hvis SPFx-pakken skal bygges, altså fra en klone av repoet eller med `-BuildSPFx` — installasjonspakken har den ferdig bygd)
 
 **Kontoen som kjører installasjonen:**
 
-- [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen
+- [ ] **Owner på Azure-abonnementet** — eller minimum Contributor + User Access Administrator på ressursgruppen. **Mangler du Azure-tilgang ennå, kan SharePoint-delen installeres først med `-SharePointOnly`** (se [Installere SharePoint-delen først](#installere-sharepoint-delen-først--sharepointonly))
 - [ ] SharePoint Administrator (Teams- og Power Platform-administrator trengs også, for stegene i [Konfigurasjonsveiledningen](./Configuration-guide.md))
 - [ ] Kan tildele app-roller til managed identities: Global Administrator, ev. Privileged Role Administrator + Cloud Application Administrator — **mangler du dette, bruk `-SkipAppRoles`** (se noten under detaljene)
 
@@ -25,7 +25,7 @@ Alt under er utdypet i [detaljene nedenfor](#detaljer). Punktene i siste gruppe 
 - [ ] **Resource providers registrert i abonnementet**: `Microsoft.Automation`, `Microsoft.ManagedIdentity`, `Microsoft.Logic`, `Microsoft.Web` — registrering krever rettigheter på *abonnementsnivå*, se detaljene. ([Om resource providers – Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types))
 - [ ] Power Automate (seeded licenses) aktivert og utrullet i organisasjonen
 - [ ] Tenant app-katalog opprettet i SharePoint Admin Center
-- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online, Teams og seeded Power Automate (E- og F-lisenser fungerer begge — se detaljene)
+- [ ] Tjenestekonto opprettet, med lisens som inkluderer SPO, Exchange Online, Teams og seeded Power Automate (E- og F-lisenser fungerer begge — se detaljene). Med `-SharePointOnly` kan den vente til den fulle kjøringen
 - [ ] PnP app registration i tenanten (Prosjektportalen sin kan gjenbrukes — se «PnP PowerShell App Registration»)
 
 Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1 -Preflight`** (etter Steg 2), så kjøres alle sjekkene — tjenestekonto med lisens, område-alias, RBAC-rettigheter, resource providers, GA-rettigheter for app-roller, app-katalog, Teams-app-publisering og Node.js — og resultatet vises som en **PRE-DEPLOYMENT CHECKLIST** med `OK`/`MISSING`/`WARNING` per punkt og konkret løsning for hver mangel, uten at noe deployes. Alle sjekkene kjøres uansett i starten av en vanlig kjøring, og **alle** resultater vises samlet før noe opprettes — du får hele mangellisten i én kjøring, ikke én vegg per forsøk.
@@ -39,7 +39,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.
 - Azure CLI (Command Line Interface) – <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>.
-- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-løsninger skal bygges; kan hoppes over med `-SkipSPFxDeploy`). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
+- **Node.js 22.14.0** eller nyere – <https://nodejs.org/> (kun nødvendig hvis SPFx-pakken skal bygges: fra en klone av repoet, eller med `-BuildSPFx`. Installasjonspakken har den ferdig bygd, og `-SkipSPFxDeploy` hopper over SPFx helt). Se [`.nvmrc`](Source/SharePointFramework/ProvisionWebParts/.nvmrc) for eksakt versjon.
 - **Tenant app-katalog opprettet** i SharePoint Admin Center – kreves for å publisere SPFx-pakker (`.sppkg`). Se <https://learn.microsoft.com/en-us/sharepoint/use-app-catalog>.
 - Brannmur/Proxy konfigurert til å tillate tilkobling via Azure CLI – test at `az login` fungerer før du fortsetter.
 - Global Administrator (for å opprette/autorisere PnP app registration).
@@ -95,7 +95,7 @@ Følgende PowerShell-moduler brukes av installasjonsskriptet og må installeres 
 
 ## Steg 1: Konfigurere PowerShell
 
-1. Last ned [nyeste utgave](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) av Bestillingsportalen.
+1. Last ned installasjonspakken `bestillingsportalen-<versjon>.zip` fra [nyeste utgave](https://github.com/Puzzlepart/bestillingsportalen/releases/latest) av Bestillingsportalen, og pakk den ut. Den inneholder skriptene, malene, dokumentasjonen og den ferdig bygde SPFx-pakken, så Node.js trengs ikke. `SHA256SUMS.txt` på samme side har sjekksummen.
 2. Start PowerShell 7 som administrator.
 3. Sett PowerShell Execution Policy til `Unrestricted` ved å kjøre ```Set-ExecutionPolicy -ExecutionPolicy unrestricted```.
 
@@ -216,6 +216,35 @@ På slutten av kjøringen skriver skriptet ut en **DEPLOYMENT SUMMARY** — en s
 
 Skriptet sender én installasjonsmelding til Prosjektportalen-teamet på slutten av kjøringen: adressen til bestillingsområdet, versjon, tidspunkt og navnene på parameterne som ble brukt, uten brukernavn eller parameterverdier. Vil dere ikke sende den, kjør med `-SkipPingback`. Se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md#35-installasjonsmelding).
 
+### Installere SharePoint-delen først (`-SharePointOnly`)
+
+Har du SharePoint Administrator, men ennå ikke tilgang til Azure-abonnementet eller Global Administrator, kan du installere SharePoint-delen først:
+
+```powershell
+./deploy.ps1 -SharePointOnly
+```
+
+Kjøringen oppretter bestillingsområdet med PnP-malen og bildene, publiserer SPFx-pakkene til app-katalogen og registrerer området i `bp_ProvisionUrls`. Den logger ikke inn med Az PowerShell, leser ikke abonnementet og deployer ingenting i Azure. Pre-flight hopper over Azure-sjekkene (MFA, maler, RBAC, resource providers og app-roller), og `subscriptionId`, `region` og `resourceGroupName` trenger ikke være fylt ut i parameterfilen. Az-modulen trenger heller ikke være installert.
+
+Dette trengs fortsatt:
+
+- **PnP-appen (`pnpAppId`).** Den krever admin consent, så du kan ikke registrere den med bare SharePoint Administrator. Har tenanten Prosjektportalen, kan den appen gjenbrukes. Se [PnP PowerShell App Registration](#pnp-powershell-app-registration).
+- **Azure CLI, logget inn på tenantnivå.** Skriptet logger inn med `--allow-no-subscriptions` og bruker CLI-en mot Graph, blant annet til å se etter grupper og brukere som allerede har aliaset.
+- **App-katalogen** må finnes, som ved en vanlig installasjon.
+
+**Tjenestekontoen kan vente.** Er `serviceAccountUPN` tom, eller finnes ikke kontoen ennå, viser pre-flight `WARNING` i stedet for `MISSING`, og området installeres uten den. Den fulle kjøringen krever kontoen og gjør den til eier og medlem av Microsoft 365-gruppen og områdeadministrator, også på et område som finnes fra før. Ikke gi kontoen samme navn som områdets alias, for gruppen har allerede den adressen.
+
+`GenerateParameters.ps1` fungerer også uten abonnement og uten tjenestekonto. Da blir `subscriptionId` og `serviceAccountUPN` stående tomme, og neste steg viser kommandoen med `-SharePointOnly`.
+
+Bestillinger kan ikke behandles før Azure-delen er på plass, så kjøringen stempler ikke versjonen i innstillingslisten. Konfigurasjonslistene (områdemaler, huber og Teams-maler) kan likevel fylles ut i mellomtiden.
+
+Når du har fått Owner på abonnementet:
+
+1. Fyll inn `subscriptionId`, og sjekk `region` og `resourceGroupName`, i parameterfilen. Har du ventet med tjenestekontoen, oppretter du den nå og fyller inn `serviceAccountUPN`.
+2. Kjør `./deploy.ps1` uten `-SharePointOnly`, med `-SkipAppRoles` hvis du fortsatt mangler Global Administrator. Området gjenkjennes som eksisterende. Svar `n` på spørsmålet om PnP-malen, så hentes bare liste-ID-ene, og kjøringen fortsetter med Azure-ressursene.
+
+`-SharePointOnly` kan ikke kombineres med `-Upgrade`, fordi en oppgradering deployer runbooks og Logic Apps i Azure.
+
 ### Kjøre uten Global Administrator (`-SkipAppRoles`)
 
 App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Administrator. Har ikke kontoen din den rollen i tenanten:
@@ -227,7 +256,7 @@ App-rolletildelingen er det eneste steget i `deploy.ps1` som krever Global Admin
    ./AssignPermissionsToManagedIdentity.ps1 -TenantId <tenantId> -AutomationIdentityId <objectId> -UamiId <objectId>
    ```
 
-3. GA-en trenger PowerShell 7+ og Microsoft.Graph-modulen (`Install-Module Microsoft.Graph.Applications`), logger inn interaktivt, og godkjenner scopene `AppRoleAssignment.ReadWrite.All` + `Application.Read.All`. Rollelistene er innbakt i skriptet og dokumentert i [Datatilgang og sikkerhet](Data-access-security.md).
+3. GA-en trenger PowerShell 7+ og Microsoft.Graph-modulen (`Install-Module Microsoft.Graph.Applications`), logger inn interaktivt, og godkjenner scopene `AppRoleAssignment.ReadWrite.All` + `Application.Read.All`. Rollelistene er innbakt i skriptet og dokumentert i [Datatilgang og sikkerhet](Data-access-security.md). Før noe tildeles, viser skriptet hvilken konto og tenant Graph-sesjonen bruker og hvilke identiteter som får roller, og spør om det skal fortsette. Svarer GA-en `s`, logges sesjonen ut og inn igjen. Det trengs fordi `Connect-MgGraph` gjenbruker en cachet innlogging uten å spørre. Er sesjonen logget inn i en annen tenant enn `-TenantId`, stopper skriptet. `-Force` hopper over spørsmålet.
 4. **Frem til kommandoen er kjørt får Logic Apps 401/403** — bestillinger kan ikke behandles. Nye app-roller kan bruke noen minutter på å propagere, og managed identity-tokens caches i opptil ~24 timer.
 
 Kommandoen er idempotent — eksisterende roller hoppes over, så den kan trygt kjøres på nytt, også etter en oppgradering som legger til nye roller.
@@ -235,7 +264,7 @@ Kommandoen er idempotent — eksisterende roller hoppes over, så den kan trygt 
 **Skriptet kan kjøres på nytt så mange ganger som nødvendig uten at ressurser må slettes — fullførte komponenter oppdateres idempotent.** Ved re-kjøring mot et eksisterende miljø:
 
 - Eksisterende SharePoint-område gjenkjennes (du får spørsmål der det er relevant).
-- På spørsmålet om PnP-malen: **`y` nullstiller ingenting** — malens DataRows bruker `UpdateBehavior="Skip"`, så eksisterende listeelementer røres aldri; `y` oppdaterer skjema/views og legger til manglende standardrader. Svar **`n`** for å hoppe over malen helt (skriptet henter da bare liste-ID-ene). Skal du kun oppdatere Logic Apps/runbooks, hopper `-SkipSharepointSite` over hele områdesteget inkludert denne prompten.
+- På spørsmålet om PnP-malen: **`y` nullstiller ingenting** — malens DataRows bruker `UpdateBehavior="Skip"`, så eksisterende listeelementer røres aldri; `y` oppdaterer skjema/views og legger til manglende standardrader. Svar **`n`** for å hoppe over malen helt (skriptet henter da bare liste-ID-ene). Skal du kun oppdatere Logic Apps/runbooks, hopper `-SkipSharepointSite` over hele områdesteget inkludert denne prompten. Tjenestekontoens tilgang til området sjekkes og gis likevel.
 - App-roller sjekkes per rolle og tildeles kun det som mangler; Logic Apps og API-tilkoblinger oppdateres til malens definisjon.
 - Sjekk at de delegerte API-tilkoblingene fortsatt står som `Connected` etterpå — en re-deploy kan i noen tilfeller kreve re-autorisering.
 
@@ -267,15 +296,29 @@ Skriptet sjekker status på alle fire tilkoblingene (hopper over de som allerede
 
 > Underveis viser Microsoft en advarsel om at «this connection was created from a different organization» med phishing-varsel. Det er forventet: samtykkelenken genereres av admin-sesjonen din, mens tjenestekontoen er den som samtykker. Huk av `I have verified this request and trust the source` og velg `Allow access`.
 
+Skriptet venter i opptil 5 minutter per tilkobling. Trykk `s` for å hoppe over en tilkobling, eller Ctrl+C for å avslutte. Samtykkelenken skrives også ut i konsollen.
+
+> **Åpnes lenken i feil nettleserprofil?** Kopier lenken **fra konsollen** og åpne den i et vindu der du kan logge inn som tjenestekontoen, for eksempel et InPrivate-vindu, mens skriptet venter. Ikke kopier adressen fra nettleseren. Når nettleseren har åpnet lenken, er den sendt videre, og adressen den havnet på virker bare i det vinduet. Andre steder gir den feilen «No consent server information was associated with this request». Du kan også trykke `s` og autorisere i Azure Portal som beskrevet under.
+
 **Alternativt manuelt i Azure Portal:** gå til ressursgruppen → klikk på tilkoblingen (`bestillingsportalen-o365`, `-o365users`, `-spo`, `-teams`) → `Edit API connection` → `Authorize` (logg inn som tjenestekontoen) → `Save`.
 
 ### SPFx-løsninger (webdelene `ProjectProvision` og `InviteGuests`)
 
-Deploy-scriptet bygger og publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder bestillings-webdelen `ProjectProvision` og `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
+Deploy-scriptet publiserer automatisk alle SPFx-løsninger under `Source/SharePointFramework/*/` til tenant app-katalogen via `Add-PnPApp -Overwrite -Publish`. Konkret betyr det at `bp-provision-web-parts.sppkg` (som inneholder bestillings-webdelen `ProjectProvision` og `InviteGuests`-webdelen) blir lastet opp og publisert tenant-wide når deploy fullføres.
 
 Når webdelen er publisert kan den legges til på en hvilken som helst SharePoint-side. Husk å konfigurere `guestRequestSiteUrl` i property pane til URL-en til Bestillingsportalen-admin-området slik at gjesteforespørsler skrives til riktig liste.
 
-**Hopp over SPFx-bygg/publisering** hvis du allerede har bygget manuelt eller kun vil deploye Azure-ressurser:
+**Pakka publiseres ferdig bygd.** Installasjonspakken `bestillingsportalen-<versjon>.zip` under [Releases](https://github.com/Puzzlepart/bestillingsportalen/releases) har den bygde `.sppkg`-fila på plass i `Source/SharePointFramework/*/sharepoint/solution/`, og `deploy.ps1` laster den opp som den er. Ingenting bygges, og Node.js trengs ikke. Forhåndssjekken viser hvilken pakke som publiseres og når den ble bygd. Samme pakke går til alle tenanter som installerer versjonen. Teams-app-zipen ligger i samme mappe, til manuell opplasting.
+
+**Bygging skjer bare i en klone av repoet.** Der finnes ingen `.sppkg` før den er bygd, så første kjøring kjører `npm install` og `npm run build` (krever Node.js 22.14+). Senere kjøringer publiserer den bygde pakka som den er. Har du endret kildekoden, varsler forhåndssjekken om at kilden er nyere enn pakka. Bygg på nytt med `-BuildSPFx`:
+
+```powershell
+./deploy.ps1 -BuildSPFx
+```
+
+`-SkipSPFxBuild` gjør det motsatte: aldri bygg, og stopp hvis pakka mangler.
+
+**Hopp over SPFx helt** hvis du kun vil deploye Azure-ressurser, eller lastet opp pakka manuelt. Da hoppes også Teams-appen over:
 
 ```powershell
 ./deploy.ps1 -SkipSPFxDeploy
@@ -286,14 +329,22 @@ Når webdelen er publisert kan den legges til på en hvilken som helst SharePoin
 Bestillingsportalen skal også være tilgjengelig som personlig app i Teams. Som del av SPFx-distribusjonen pakker `deploy.ps1` Teams-app-manifestet (`ProvisionWebParts/teams/`, versjon synkronisert fra `package-solution.json`) til `bestillingsportalen-teams-app.zip` og forsøker å publisere den til Teams-appkatalogen via Graph. Automatisk publisering krever delegert `AppCatalog.ReadWrite.All` på PnP-appen (se [PnP PowerShell App Registration](#pnp-powershell-app-registration)) — en tillatelse de fleste tenanter ikke gir. Forhåndssjekken leser dette ut av PnP-tokenet og varsler med `WARNING` på forhånd; mangler tillatelsen, hopper skriptet over publiseringsforsøket. **Regn derfor med å laste opp appen manuelt** (skriptet minner om det på slutten av kjøringen):
 
 1. Åpne **Teams admin center** → `Teams-apper` → `Administrer apper`
-2. `Handlinger` → `Last opp ny app`, og velg `Source/SharePointFramework/ProvisionWebParts/sharepoint/solution/bestillingsportalen-teams-app.zip` (produseres av deploy-skriptet, som også skriver ut stien)
+2. `Handlinger` → `Last opp ny app`, og velg `Source/SharePointFramework/ProvisionWebParts/sharepoint/solution/bestillingsportalen-teams-app.zip` (ligger i installasjonspakken, og produseres på nytt av deploy-skriptet, som også skriver ut stien)
 3. Finnes appen **Bestillingsportalen** i katalogen fra før (f.eks. synkronisert fra Prosjektportalen 365 tidligere), åpne den eksisterende appen og bruk `Last opp fil` for å oppdatere den i stedet
 4. Verifiser at appen åpner i Teams
 
 Steget trengs ved førstegangsinstallasjon og ved oppgraderinger som gir ny appversjon. Ikke bruk `Sync to Teams`-knappen i SharePoint-appkatalogen — den er upålitelig (deaktivert eller «Failed to sync» i mange tenanter), og zip-opplastingen gjør nøyaktig det samme.
 
+**Hopp over Teams-appen** hvis organisasjonen ikke bruker den, eller forvalter den selv i Teams admin center. SPFx-pakkene bygges og publiseres som vanlig, men zip-fila lages ikke, ingenting publiseres til Teams-appkatalogen, og påminnelsen om manuell opplasting uteblir:
+
+```powershell
+./deploy.ps1 -SkipTeamsApp
+```
+
 ## Videre: Konfigurasjonsveiledningen
 
 Den skriptede delen av installasjonen er nå ferdig. Resten — godkjenningsoppsett, import og aktivering av flyten, deling med brukerne, støtte-Logic Apps, aktivering av maler/huber, administratorgruppe og en verifiserende testbestilling — gjøres uten Azure-tilganger og er beskrevet i **[Konfigurasjonsveiledningen](./Configuration-guide.md)**.
+
+`./Test-Installation.ps1` viser når som helst hva som er på plass og hva som mangler, med samme parameterfil som `deploy.ps1`. Skriptet endrer ingenting, og konfigurasjonsveiledningen kjører det før testbestillingen i Steg 8. Med `-TriggerLogicApps` kjører det også de tidsstyrte Logic Apps og venter på resultatet (konfigurasjonsveiledningens Steg 4). Med `-TestProvision` bestiller det et testområde, følger det til `Space Created` og sletter det etterpå (Steg 8).
 
 > **Tidsforsinkelse på app-rollene:** rollene tildeles under deployen (eller av en Global Administrator ved `-SkipAppRoles`), men managed identity-tokens utstedes med rollene som gjaldt på utstedelsestidspunktet og caches i opptil **~24 timer** i Azure-infrastrukturen. De første timene etter en fersk installasjon kan Logic Apps og runbooks derfor få sporadiske 401/403 eller Graph-feil av typen `Roles on the request ''` — også blandet, der noen kall lykkes og andre feiler i samme kjøring — selv om alt er riktig konfigurert. Dette leger seg selv og krever ingen handling. Verifiseringssteget i konfigurasjonsveiledningen tar høyde for det.

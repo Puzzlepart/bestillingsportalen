@@ -36,7 +36,8 @@ Før du bidrar:
 
 SPFx-løsningen (`ProjectProvision`-webdelen/Teams-appen og `InviteGuests`-webdelen) ligger i
 `Source/SharePointFramework/ProvisionWebParts/` og bygges med SPFx 1.23 og Heft. `deploy.ps1` kjører
-`npm install` og `npm run build` for deg ved installasjon, men for utvikling bygger du selv:
+`npm install` og `npm run build` for deg i en klone uten bygd pakke (og med `-BuildSPFx`), men for
+utvikling bygger du selv:
 
 ```sh
 cd Source/SharePointFramework/ProvisionWebParts
@@ -87,22 +88,40 @@ er konkrete for denne løsningen:
 Versjonsnummeret står i **`VERSION`** i repo-rot, som én linje (`1.0.0`). `deploy.ps1`
 leser den derfra — nummeret skal ikke hardkodes noe annet sted. Er fila borte eller
 feilformatert, stopper ikke installasjonen: versjonen faller til `unknown`, og
-pre-flight-sjekklista sier hvorfor.
+pre-flight-sjekklista sier hvorfor. Unntaket er `package-solution.json`, som SPFx og
+app-katalogen leser selv. Release-workflowen sjekker at den stemmer med `VERSION`.
 
 ### Release-rutine
 
-Repoet har ingen CI, så rekkefølgen er manuell:
-
-1. Oppdater `VERSION` med det nye nummeret.
-2. Sett releasedato på den øverste seksjonen i [CHANGELOG.md](CHANGELOG.md) (erstatt `TBA`).
-3. Commit endringene: `Release 1.0.0`.
-4. Lag en annotert tag:
+1. Oppdater `VERSION` med det nye nummeret, og `solution.version` og `features[].version`
+   i `config/package-solution.json` for hver SPFx-løsning (`1.0.1` → `1.0.1.0`). Teams-appen
+   får versjonen fra `package-solution.json`.
+2. Gi seksjonen «Uutgitt» i [CHANGELOG.md](CHANGELOG.md) versjon og releasedato
+   (`## 1.0.1 - 29.10.2026`).
+3. Commit endringene: `Release 1.0.1`, og få dem inn på `main`.
+4. Lag en annotert tag på `main`, og push den:
 
     ```sh
-    git tag -a v1.0.0 -m "Bestillingsportalen 1.0.0"
+    git tag -a v1.0.1 -m "Bestillingsportalen 1.0.1"
+    git push --tags
     ```
 
-5. Push begge: `git push && git push --tags`.
+5. Workflowen [`release.yml`](.github/workflows/release.yml) bygger installasjonspakken
+   `bestillingsportalen-<versjon>.zip` og lager et utkast til release med pakken og
+   `SHA256SUMS.txt` vedlagt og versjonens seksjon fra CHANGELOG.md som tekst.
+   Skriv høydepunktene øverst, og trykk **Publish release**.
+
+Workflowen stopper før noe lastes opp hvis taggen ikke stemmer med `VERSION` og
+`package-solution.json`, eller ikke ligger på `main`. Rett feilen, slett taggen og tagg på
+nytt. Finnes releasen fra før, byttes bare filene, og teksten blir stående. For å bygge
+filene på nytt for en eksisterende tag: **Actions → Release → Run workflow**, med taggen.
+
+Pakken kan også bygges lokalt med `.github/scripts/build-release-assets.ps1 -Version 1.0.1`
+(PowerShell 7 og Node.js; `-SkipSPFxBuild` pakker en allerede bygd `.sppkg`). Den havner i
+`release-assets/`. Pakken inneholder det en installasjon trenger: skriptene, malene,
+ARM-malene, runbookene, ressursene, Power Automate-løsningen og dokumentasjonen, med den
+bygde `.sppkg`-fila og Teams-app-zipen på plass under `sharepoint/solution/`. SPFx-kildekoden,
+bildene til dokumentasjonen og GitHub-innstillingene er ikke med.
 
 Ved installasjon stempler `deploy.ps1` versjonen inn i miljøet på to steder — se
 [Upgrade.md](Upgrade.md#hvilken-versjon-kjører-miljøet).

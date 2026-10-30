@@ -47,6 +47,44 @@
     ids filled in) to hand to a Global Administrator. The logic apps get 401/403
     at runtime until that command has been run.
 
+.PARAMETER SkipTeamsApp
+    Do not package or publish the Bestillingsportalen Teams app. The SPFx packages are
+    still published to the tenant app catalog - only the Teams app zip and the
+    publish to the Teams app catalog are skipped, along with the reminder to upload it
+    manually. Use this when the organisation does not use the Teams app, or manages it in
+    the Teams admin center itself. Implied by -SkipSPFxDeploy.
+
+.PARAMETER BuildSPFx
+    Build the SPFx packages (npm install and npm run build) even when a built .sppkg is
+    already there. By default a solution is only built when its sharepoint/solution/
+    folder has no .sppkg: the release package ships the built package, so an installation
+    from it needs no Node.js, and a clone of the repo builds on the first run. Use this
+    in a clone after changing the source - pre-flight warns when the source is newer than
+    the package. Needs Node.js 22.14+.
+
+.PARAMETER SkipSPFxBuild
+    Never build: the .sppkg already present under each solution's sharepoint/solution/
+    folder is published as it is, and a missing package is an error instead of a build.
+    This is the default behaviour whenever the package exists, so the switch is only
+    needed to make a run fail rather than build. The Teams app is still packaged and
+    published (its manifest is not part of the build). Implied by -SkipSPFxDeploy.
+
+.PARAMETER SharePointOnly
+    Install ONLY the SharePoint part: the requests site with the PnP template and
+    assets, the SPFx packages and the tenant instance registry (bp_ProvisionUrls).
+    Nothing in Azure is signed in to, checked or deployed - no subscription access is
+    needed, so this runs with SharePoint Administrator alone while Azure access and
+    Global Administrator are still being arranged.
+
+    The Azure CLI is still signed in (tenant-level, --allow-no-subscriptions): the site
+    creation reads and updates the Microsoft 365 group over Graph with it. The PnP app
+    (pnpAppId) is needed as for any run.
+
+    Later, run deploy.ps1 WITHOUT this switch once Azure access is in place: the site is
+    detected as existing, and the run continues with the Azure resources. The version is
+    not stamped by a -SharePointOnly run - the installation is not complete until then.
+    Cannot be combined with -Upgrade.
+
 .PARAMETER SkipConfirmation
     Skip the pre-flight summary/confirmation prompt, and reuse a cached Az/Azure CLI
     session matching the target tenant without asking.
@@ -76,6 +114,16 @@
 .EXAMPLE
     deploy.ps1 -ParametersPath .\parameters-contoso.json
     Deploy using a specific environment's parameter file.
+
+.EXAMPLE
+    deploy.ps1 -SharePointOnly
+    Install the SharePoint site, SPFx packages and instance registry only - no Azure
+    access needed. Run deploy.ps1 without the switch later for the Azure part.
+
+.EXAMPLE
+    deploy.ps1 -BuildSPFx
+    Build the SPFx packages before publishing them, even though a built .sppkg exists -
+    for a clone of the repo where the source has changed.
 #>
 
 <# Valid Azure locations that support Azure Automation & Logic Apps at the time of writing - https://azure.microsoft.com/en-gb/global-infrastructure/services/?products=logic-apps,automation&regions=all #>
@@ -93,6 +141,10 @@ param
     [switch]$Preflight, # Run only the pre-deployment checks, print the checklist, exit - see the help
     [switch]$SkipAppRoles, # Skip app role assignment (needs GA) and print a handover command instead - see the help
     [switch]$SkipSPFxDeploy,
+    [switch]$SkipTeamsApp, # Do not package or publish the Teams app - see the help
+    [switch]$BuildSPFx, # Build the SPFx packages even when a built .sppkg exists - see the help
+    [switch]$SkipSPFxBuild, # Never build - publish the already built .sppkg, or fail - see the help
+    [switch]$SharePointOnly, # SharePoint site + SPFx + registry only, no Azure sign-in - see the help
     [switch]$SkipConfirmation, # Skip the pre-flight summary/confirmation prompt (for unattended runs)
     [switch]$Force, # Fully unattended: implies -SkipConfirmation, and never re-applies the PnP template. See below.
     [switch]$Upgrade, # See Upgrade.md for details on using upgrade mode
@@ -115,6 +167,23 @@ if ($Force) {
     $SkipConfirmation = $true
     Write-Host "-Force: running unattended. Cached sessions are reused, the pre-flight confirmation is skipped, and the PnP template will NOT be re-applied to an existing site." -ForegroundColor Yellow
     Write-Host "        Destructive prompts (purging a deleted site or group, deleting an active group) still abort - re-run without -Force to decide on those." -ForegroundColor Yellow
+}
+
+# -SharePointOnly: the SharePoint half of a full deployment, for when the account has
+# SharePoint Administrator but no Azure access yet. Every Azure step is skipped, and so
+# are the Az PowerShell sign-in and the subscription-scoped checks - those fail outright
+# without access to the subscription. -Upgrade redeploys runbooks and logic apps, which
+# is all Azure, so the two do not combine.
+if ($SharePointOnly) {
+    if ($Upgrade) {
+        Write-Host "-SharePointOnly cannot be combined with -Upgrade: an upgrade redeploys runbooks and logic apps in Azure. Run -SharePointOnly for a new installation, or -Upgrade with Azure access." -ForegroundColor Red
+        exit 1
+    }
+    $SkipCreateResourceGroup = $true
+    $SkipBicepDeploy = $true
+    $SkipDeployARMTemplates = $true
+    $SkipDeployAPIConnections = $true
+    Write-Host "-SharePointOnly: installing the SharePoint site, SPFx packages and instance registry only. Nothing in Azure is signed in to or deployed." -ForegroundColor Yellow
 }
 
 Add-Type -AssemblyName System.Web
@@ -162,6 +231,8 @@ $preReqModules = [ordered]@{
     'Az'             = $null
     'WriteAscii'     = $null
 }
+# No Az cmdlet runs in -SharePointOnly, so the module need not even be installed
+if ($SharePointOnly) { $preReqModules.Remove('Az') }
 
 #  lists
 $requestsListName = "Provisioning Requests"
@@ -231,6 +302,7 @@ $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
 $global:skipApplyTemplate = $false
+$script:serviceAccountDeferred = $false # Set by ValidateServiceAccount: -SharePointOnly without a service account
 
 # Validates if a parameter in the json file is valid
 function IsValidParam {
@@ -291,22 +363,28 @@ function ValidateParameters {
         $isValid = $false;
     }
 
-    if (-not(IsValidParam($parameters.subscriptionId)) -or -not(IsValidGuid -ObjectGuid $parameters.subscriptionId.Value)) {
-        Write-Host "Invalid subscriptionId. This should be a GUID." -ForegroundColor Red
-        $isValid = $false;
+    # The Azure values are not read by a -SharePointOnly run - it is typically run
+    # precisely because the subscription is not available yet. The full run validates them.
+    if (-not $SharePointOnly) {
+        if (-not(IsValidParam($parameters.subscriptionId)) -or -not(IsValidGuid -ObjectGuid $parameters.subscriptionId.Value)) {
+            Write-Host "Invalid subscriptionId. This should be a GUID." -ForegroundColor Red
+            $isValid = $false;
+        }
+
+        if (-not (IsValidParam($parameters.region))) {
+            Write-Host "Invalid region" -ForegroundColor Red
+            $isValid = $false;
+        }
+
+        if (-not (IsValidParam($parameters.resourceGroupName))) {
+            Write-Host "Invalid resourceGroupName" -ForegroundColor Red
+            $isValid = $false;
+        }
     }
 
-    if (-not (IsValidParam($parameters.region))) {
-        Write-Host "Invalid region" -ForegroundColor Red
-        $isValid = $false;
-    }
-
-    if (-not (IsValidParam($parameters.resourceGroupName))) {
-        Write-Host "Invalid resourceGroupName" -ForegroundColor Red
-        $isValid = $false;
-    }
-
-    if (-not (IsValidParam($parameters.serviceAccountUPN))) {
+    # -SharePointOnly can run before the service account exists - ValidateServiceAccount
+    # then defers it to the full run
+    if (-not $SharePointOnly -and -not (IsValidParam($parameters.serviceAccountUPN))) {
         Write-Host "Invalid serviceAccountUPN" -ForegroundColor Red
         $isValid = $false;
     }
@@ -545,7 +623,8 @@ function CreateRequestsSharePointSite {
                     # hangs indefinitely: the site shows up in the admin center while the
                     # cmdlet never returns. Creating without -Owners makes the caller
                     # group owner and member automatically, so the wait can complete. The
-                    # service account is added as owner and member right after creation.
+                    # service account is added as owner and member after the site step,
+                    # by GrantServiceAccountAccess.
                     $createdSiteUrl = New-PnPSite -Type TeamSite -Title $parameters.requestsSiteName.Value -Alias $requestsSiteAlias -Description $parameters.requestsSiteDesc.Value
 
                     # Trust what SharePoint created, not what we asked for. If the alias is
@@ -579,46 +658,6 @@ function CreateRequestsSharePointSite {
             
             Start-sleep -Seconds 60
             Write-Host "Site created`n**BESTILLINGSPORTALEN SITE CREATION COMPLETE**" -ForegroundColor Green
-
-            # The service account was intentionally not the -Owners of New-PnPSite (see
-            # the comment above the call) - it is put in place here instead, as both
-            # OWNER and MEMBER: owner does not imply member in Microsoft 365 groups, and
-            # the approval flow and Teams welcome message run as this account and need
-            # actual access. Done with az (the CLI session is the installing admin) so it
-            # works regardless of the PnP app's delegated Graph permissions.
-            Write-Host "Adding the service account as group owner and member..." -ForegroundColor Yellow
-            try {
-                $saObjectId = az ad user show --id $parameters.serviceAccountUPN.Value --query id --output tsv
-                if ([string]::IsNullOrWhiteSpace($saObjectId)) { throw "could not resolve the service account's object id" }
-
-                # The group is seconds old - give the directory a few tries to show it.
-                $groupId = $null
-                for ($lookupAttempt = 1; $lookupAttempt -le 5; $lookupAttempt++) {
-                    $groupJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups?`$filter=mailNickname eq '$requestsSiteAlias'&`$select=id" 2>$null
-                    $groupId = if ($groupJson) { @(($groupJson | ConvertFrom-Json).value) | Select-Object -First 1 -ExpandProperty id } else { $null }
-                    if ($groupId) { break }
-                    Start-Sleep -Seconds 15
-                }
-                if (-not $groupId) { throw "the Microsoft 365 group with alias '$requestsSiteAlias' did not show up in the directory" }
-
-                # Idempotent: adding an existing owner/member is an error, so check first.
-                $ownersJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$groupId/owners?`$select=id" 2>$null
-                $existingOwners = if ($ownersJson) { @(($ownersJson | ConvertFrom-Json).value.id) } else { @() }
-                if ($existingOwners -notcontains $saObjectId) {
-                    az ad group owner add --group $groupId --owner-object-id $saObjectId --output none
-                    if ($LASTEXITCODE -ne 0) { throw "az ad group owner add failed - see the error above" }
-                }
-                $isMember = az ad group member check --group $groupId --member-id $saObjectId --query value --output tsv 2>$null
-                if ($isMember -ne 'true') {
-                    az ad group member add --group $groupId --member-id $saObjectId --output none
-                    if ($LASTEXITCODE -ne 0) { throw "az ad group member add failed - see the error above" }
-                }
-                Write-Host "Service account added as group owner and member." -ForegroundColor Green
-            }
-            catch {
-                Write-Host "WARN: Could not add the service account as group owner/member ($(($_.Exception.Message -split "`r?`n")[0]))." -ForegroundColor Yellow
-                Write-Host "      Add $($parameters.serviceAccountUPN.Value) manually as OWNER and MEMBER of the '$($parameters.requestsSiteName.Value)' Microsoft 365 group (Entra ID or the site's group membership) - the approval flow and the Teams welcome message run as this account and need the access." -ForegroundColor Yellow
-            }
         }
         else {
             # -Force answers this with NO on purpose: an unattended run should never
@@ -918,9 +957,6 @@ function ConfigureSharePointSite {
         $context.ExecuteQuery()
         $global:guestRequestsListId = $guestRequestsList.Id
 
-        Write-Host "Configuring Service Account permissions"
-        Add-PnPSiteCollectionAdmin -Owners $parameters.serviceAccountUPN.value
-
         Write-Host "Finished configuring site" -ForegroundColor Green
 
     }
@@ -928,6 +964,89 @@ function ConfigureSharePointSite {
         RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'FAILED' -Detail $_.Exception.Message
         throw('Failed to configure the SharePoint site {0}', $_.Exception.Message)
     }
+}
+
+# Gives the service account its access to the requests site: OWNER and MEMBER of the
+# Microsoft 365 group (owner does not imply member, and the approval flow and the Teams
+# welcome message run as this account and need actual access), and site collection
+# admin. It is deliberately not the -Owners of New-PnPSite - see the comment on that call.
+#
+# Runs on every site step, not only right after creation: a -SharePointOnly run may have
+# installed the site before the service account existed, and the full run that follows
+# finds an existing site. Everything is checked before it is written, so on an
+# installation where the access is already in place this only reads.
+#
+# The group is resolved from the site's GroupId rather than from the alias: after a site
+# URL rename the alias no longer matches the group's mailNickname. Group membership goes
+# through az (the CLI session is the installing admin), so it works regardless of the
+# PnP app's delegated Graph permissions. Expects the default PnP connection on the site.
+function GrantServiceAccountAccess {
+    $componentName = "Service account access to the site"
+    $upn = $parameters.serviceAccountUPN.Value
+    if ($script:serviceAccountDeferred) {
+        RecordDeployStatus -Component $componentName -Status 'SKIPPED' -Detail "No service account yet (-SharePointOnly) - the full run adds it as group owner, member and site collection admin"
+        return
+    }
+
+    $problems = @()
+    Write-Host "Giving the service account ($upn) access to the site..." -ForegroundColor Yellow
+    try {
+        $saObjectId = az ad user show --id $upn --query id --output tsv 2>$null
+        if ([string]::IsNullOrWhiteSpace($saObjectId)) { throw "could not resolve the service account's object id" }
+
+        $groupId = "$((Get-PnPSite -Includes GroupId).GroupId)"
+        if ([string]::IsNullOrWhiteSpace($groupId) -or $groupId -eq [guid]::Empty.ToString()) {
+            # A group that is seconds old can take a moment to show up in the directory
+            $groupId = $null
+            for ($lookupAttempt = 1; $lookupAttempt -le 5; $lookupAttempt++) {
+                $groupJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups?`$filter=mailNickname eq '$requestsSiteAlias'&`$select=id" 2>$null
+                $groupId = if ($groupJson) { @(($groupJson | ConvertFrom-Json).value) | Select-Object -First 1 -ExpandProperty id } else { $null }
+                if ($groupId) { break }
+                Start-Sleep -Seconds 15
+            }
+        }
+        if (-not $groupId) { throw "the site's Microsoft 365 group could not be found" }
+
+        # Idempotent: adding an existing owner/member is an error, so check first.
+        $ownersJson = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$groupId/owners?`$select=id" 2>$null
+        $existingOwners = if ($ownersJson) { @(($ownersJson | ConvertFrom-Json).value.id) } else { @() }
+        if ($existingOwners -notcontains $saObjectId) {
+            az ad group owner add --group $groupId --owner-object-id $saObjectId --output none
+            if ($LASTEXITCODE -ne 0) { throw "az ad group owner add failed - see the error above" }
+        }
+        $isMember = az ad group member check --group $groupId --member-id $saObjectId --query value --output tsv 2>$null
+        if ($isMember -ne 'true') {
+            az ad group member add --group $groupId --member-id $saObjectId --output none
+            if ($LASTEXITCODE -ne 0) { throw "az ad group member add failed - see the error above" }
+        }
+        Write-Host "Service account is group owner and member." -ForegroundColor Green
+    }
+    catch {
+        $reason = ($_.Exception.Message -split "`r?`n")[0]
+        Write-Host "WARN: Could not add the service account as group owner/member ($reason)." -ForegroundColor Yellow
+        $problems += "group owner/member: $reason - add $upn manually as OWNER and MEMBER of the '$($parameters.requestsSiteName.Value)' Microsoft 365 group"
+    }
+
+    try {
+        # LoginName is claims-encoded (i:0#.f|membership|user@tenant.com) - the UPN is
+        # the last segment
+        $admins = @(Get-PnPSiteCollectionAdmin -ErrorAction Stop | ForEach-Object { ("$($_.LoginName)" -split '\|')[-1] })
+        if ($admins -notcontains $upn) {
+            Add-PnPSiteCollectionAdmin -Owners $upn -ErrorAction Stop
+        }
+        Write-Host "Service account is site collection admin." -ForegroundColor Green
+    }
+    catch {
+        $reason = ($_.Exception.Message -split "`r?`n")[0]
+        Write-Host "WARN: Could not make the service account site collection admin ($reason)." -ForegroundColor Yellow
+        $problems += "site collection admin: $reason - add $upn as site collection admin on $requestsSiteUrl in the SharePoint admin center"
+    }
+
+    if ($problems.Count -gt 0) {
+        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "The approval flow and the Teams welcome message run as this account and need the access. $($problems -join ' | ')"
+        return
+    }
+    RecordDeployStatus -Component $componentName -Status 'OK' -Detail "$upn - group owner, member and site collection admin"
 }
 
 function UploadFiles ($targetFolder, $sourcePath, $sourceFolder, $libraryName) {
@@ -1131,8 +1250,21 @@ function ValidateArmTemplates {
 # ---------------------------------------------------------------------------
 function ValidateServiceAccount {
     $upn = $parameters.serviceAccountUPN.Value
-    $saUserJson = az ad user show --id $upn 2>$null
-    $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
+    $saUser = $null
+    if (IsValidParam($parameters.serviceAccountUPN)) {
+        $saUserJson = az ad user show --id $upn 2>$null
+        $saUser = if ($saUserJson) { $saUserJson | ConvertFrom-Json } else { $null }
+    }
+    # Nothing in the SharePoint part depends on the account beyond the access
+    # GrantServiceAccountAccess gives it, and the full run gives that to an existing site
+    # too - so -SharePointOnly installs without it rather than wait for it.
+    if ($null -eq $saUser -and $SharePointOnly) {
+        $script:serviceAccountDeferred = $true
+        $what = if (IsValidParam($parameters.serviceAccountUPN)) { "'$upn' was not found in the tenant" } else { "serviceAccountUPN is not set" }
+        RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "$what - deferred to the full run"
+        RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "$what - deferred: the site is installed without it, and the full run adds it as group owner, member and site collection admin" -Fix "Before the full run: create the account (a standard user licensed for SharePoint, Exchange Online, Teams and seeded Power Automate) and set serviceAccountUPN in $parametersFileName. Do not name it after the site alias '$requestsSiteAlias' - the site's group holds that address."
+        return
+    }
     if ($null -eq $saUser) {
         RecordDeployStatus -Component "Service account" -Status 'FAILED' -Detail "'$upn' was not found in the tenant"
         RecordPreflightCheck -Name "Service account" -Status MISSING -Detail "'$upn' was not found in the tenant" -Fix "Create the account (a standard user licensed for SharePoint, Exchange Online and Teams), or correct serviceAccountUPN in $parametersFileName."
@@ -1353,28 +1485,93 @@ function ValidateResourceProviders {
     RecordPreflightCheck -Name "Resource providers" -Status OK -Detail "$($unregistered -join ', ') not registered, but the account can register them - done automatically after confirmation"
 }
 
+# The SPFx solutions under Source/SharePointFramework/: each subfolder with
+# config/package-solution.json
+function GetSPFxSolutions {
+    $spfxRoot = Join-Path $packageRootPath "SharePointFramework"
+    return @(Get-ChildItem -Path $spfxRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
+            Test-Path (Join-Path $_.FullName "config/package-solution.json")
+        })
+}
+
+# The .sppkg already built for a solution (in its sharepoint/solution/ folder), or $null
+function GetPrebuiltSppkg($Solution) {
+    return Get-ChildItem -Path (Join-Path $Solution.FullName "sharepoint/solution") -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+
+# Whether a solution is built in this run. A built .sppkg is published as it is when
+# there is one: the release package ships it, so an installation from the package needs
+# no Node.js, and the same package goes to every tenant. A clone of the repo has none
+# until it is built, so it builds on the first run. -BuildSPFx builds regardless (the
+# source changed), -SkipSPFxBuild never builds.
+function SPFxBuildWanted($Solution) {
+    if ($BuildSPFx) { return $true }
+    if ($SkipSPFxBuild) { return $false }
+    return ($null -eq (GetPrebuiltSppkg $Solution))
+}
+
 # Node.js is only needed for the SPFx build, which is the LAST deploy step - a
-# missing Node would otherwise surface after everything else succeeded.
+# missing Node would otherwise surface after everything else succeeded. Checked only
+# when something is built; the prebuilt packages are checked instead.
 function CheckNodeJs {
     if ($SkipSPFxDeploy) {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail "-SkipSPFxDeploy"
         return
     }
+    $solutions = GetSPFxSolutions
+    if ($solutions.Count -eq 0) {
+        RecordPreflightCheck -Name "SPFx packages" -Status UNKNOWN -Detail "No SPFx solutions found under $(Join-Path $packageRootPath 'SharePointFramework')"
+        return
+    }
+    CheckPrebuiltSPFxPackages -Solutions @($solutions | Where-Object { -not (SPFxBuildWanted $_) })
+    $building = @($solutions | Where-Object { SPFxBuildWanted $_ })
+    if ($building.Count -eq 0) {
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status SKIPPED -Detail $(if ($SkipSPFxBuild) { "-SkipSPFxBuild" } else { "Not needed - the built .sppkg is published as it is (-BuildSPFx builds it again)" })
+        return
+    }
+    $why = if ($BuildSPFx) { "-BuildSPFx" } else { "no built .sppkg for $(@($building | ForEach-Object Name) -join ', ')" }
     $nodeVersionRaw = if (Get-Command node -ErrorAction SilentlyContinue) { (node --version) 2>$null } else { $null }
     if ([string]::IsNullOrWhiteSpace($nodeVersionRaw)) {
-        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH" -Fix "Install Node.js 22.14+ (https://nodejs.org), or run with -SkipSPFxDeploy."
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "node was not found on PATH, and a build is needed ($why)" -Fix "Install Node.js 22.14+ (https://nodejs.org). Or install from the release package, which ships the built .sppkg so nothing is built - or run with -SkipSPFxDeploy."
         return
     }
     try {
         $nodeVersion = [version]($nodeVersionRaw.TrimStart('v'))
         if ($nodeVersion -lt [version]'22.14.0') {
-            RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "$nodeVersionRaw installed, 22.14+ required" -Fix "Update Node.js (https://nodejs.org), or run with -SkipSPFxDeploy."
+            RecordPreflightCheck -Name "Node.js (SPFx build)" -Status MISSING -Detail "$nodeVersionRaw installed, 22.14+ required for the build ($why)" -Fix "Update Node.js (https://nodejs.org), or run with -SkipSPFxDeploy."
             return
         }
-        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status OK -Detail "$nodeVersionRaw"
+        RecordPreflightCheck -Name "Node.js (SPFx build)" -Status OK -Detail "$nodeVersionRaw - builds $(@($building | ForEach-Object Name) -join ', ') ($why)"
     }
     catch {
         RecordPreflightCheck -Name "Node.js (SPFx build)" -Status UNKNOWN -Detail "Could not parse 'node --version' output '$nodeVersionRaw'"
+    }
+}
+
+# The solutions published without a build: show the package and when it was built, so a
+# stale package is spotted before it is published. A missing package (only possible with
+# -SkipSPFxBuild) would otherwise surface as the LAST deploy step. In a clone, the source
+# being newer than the package is the usual sign that it should be built again.
+function CheckPrebuiltSPFxPackages {
+    param([array]$Solutions)
+    foreach ($solution in $Solutions) {
+        $name = "SPFx package (prebuilt): $($solution.Name)"
+        $sppkg = GetPrebuiltSppkg $solution
+        if (-not $sppkg) {
+            RecordPreflightCheck -Name $name -Status MISSING -Detail "No .sppkg in $(Join-Path $solution.FullName 'sharepoint/solution')" -Fix "Install from the release package, which ships it - or run without -SkipSPFxBuild to build it (needs Node.js 22.14+)."
+            continue
+        }
+        $built = $sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+        # Only a clone has the source; the release package has just the package
+        $newerSource = @('src', 'config') | ForEach-Object { Join-Path $solution.FullName $_ } | Where-Object { Test-Path $_ } | ForEach-Object {
+            Get-ChildItem -Path $_ -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt $sppkg.LastWriteTime }
+        } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newerSource) {
+            RecordPreflightCheck -Name $name -Status WARNING -Detail "$($sppkg.Name), built $built - but the source changed after that ($($newerSource.Name), $($newerSource.LastWriteTime.ToString('yyyy-MM-dd HH:mm')))" -Fix "Run with -BuildSPFx to build it again - or ignore this if the source change is not meant to be published."
+        }
+        else {
+            RecordPreflightCheck -Name $name -Status OK -Detail "$($sppkg.Name), built $built - published as it is"
+        }
     }
 }
 
@@ -1760,6 +1957,10 @@ function CheckTeamsAppPublish {
         RecordPreflightCheck -Name "Teams app publish" -Status SKIPPED -Detail "-SkipSPFxDeploy"
         return
     }
+    if ($SkipTeamsApp) {
+        RecordPreflightCheck -Name "Teams app publish" -Status SKIPPED -Detail "-SkipTeamsApp"
+        return
+    }
     try {
         $scopes = @("$((ReadJwtClaims (Get-PnPAccessToken)).scp)" -split ' ')
         $script:teamsAppPublishScope = [bool]($scopes | Where-Object { $_ -in @('AppCatalog.ReadWrite.All', 'Directory.ReadWrite.All') })
@@ -1881,19 +2082,21 @@ function ConfirmDeployment {
         return
     }
 
-    $azContext = Get-AzContext
-
     Write-Host ""
     Write-Host "#################### PRE-FLIGHT SUMMARY ####################" -ForegroundColor Magenta
     Write-Host ""
     Write-Host ("  Version:              {0}{1}" -f $deployVersion, $(if ($script:previousInstalledVersion) { " (installed: $script:previousInstalledVersion)" })) -ForegroundColor Cyan
-    Write-Host ("  Mode:                 {0}" -f $(if ($global:upgrade) { "UPGRADE of existing environment" } else { "FULL DEPLOYMENT" })) -ForegroundColor Cyan
+    $modeText = if ($global:upgrade) { "UPGRADE of existing environment" } elseif ($SharePointOnly) { "SHAREPOINT ONLY (no Azure - run the full deployment later)" } else { "FULL DEPLOYMENT" }
+    Write-Host ("  Mode:                 {0}" -f $modeText) -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Connected to:" -ForegroundColor Yellow
     Write-Host "    Parameter file:     $parametersFileName"
     Write-Host "    Entra ID tenant:    $($parameters.fullTenantName.Value) ($($parameters.tenantId.Value))"
-    Write-Host "    Azure subscription: $($azContext.Subscription.Name) ($($azContext.Subscription.Id))"
-    Write-Host "    Signed in as (Az):  $($azContext.Account.Id)"
+    if (-not $SharePointOnly) {
+        $azContext = Get-AzContext
+        Write-Host "    Azure subscription: $($azContext.Subscription.Name) ($($azContext.Subscription.Id))"
+        Write-Host "    Signed in as (Az):  $($azContext.Account.Id)"
+    }
     if (-not [string]::IsNullOrEmpty($deployUser)) {
         Write-Host "    Signed in as (CLI): $deployUser"
     }
@@ -1903,7 +2106,12 @@ function ConfirmDeployment {
     # cached account from another tenant. Worth seeing next to the Az/CLI identities.
     Write-Host "    Signed in as (PnP): $(GetPnPSignedInUser)"
     Write-Host "    Root site language: $(GetRootSiteLanguage)"
-    Write-Host ("    Service account:    {0}{1}" -f $parameters.serviceAccountUPN.Value, $(if ($script:serviceAccountDisplayName) { " ($script:serviceAccountDisplayName) - verified" }))
+    if ($script:serviceAccountDeferred) {
+        Write-Host "    Service account:    (deferred - given access to the site by the full run)" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host ("    Service account:    {0}{1}" -f $parameters.serviceAccountUPN.Value, $(if ($script:serviceAccountDisplayName) { " ($script:serviceAccountDisplayName) - verified" }))
+    }
     Write-Host ""
     Write-Host "  Will set up / update:" -ForegroundColor Yellow
 
@@ -1919,13 +2127,16 @@ function ConfirmDeployment {
     WritePlanLine "Resource group" "$($parameters.resourceGroupName.Value) ($($parameters.region.Value))" ($SkipCreateResourceGroup -or $global:upgrade)
     WritePlanLine "SharePoint site" "$requestsSiteUrl (alias '$requestsSiteAlias'; prompts before overwriting an existing site)" $SkipSharepointSite
     WritePlanLine "Azure resources" "Automation account '$automationAccountName', managed identity '$uamiName' (azureresources.bicep)" $SkipBicepDeploy
-    if ($SkipAppRoles) {
+    if ($SharePointOnly) {
+        WritePlanLine "App roles" "" $true
+    }
+    elseif ($SkipAppRoles) {
         WritePlanLine "App roles" "(skipped - a handover command for a Global Administrator is printed instead)" $true
     }
     else {
         WritePlanLine "App roles" "Graph/SharePoint roles on '$uamiName' + Automation system-assigned MI (only missing roles are added)"
     }
-    WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)"
+    WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)" $SharePointOnly
     if ($global:upgrade) {
         WritePlanLine "Logic Apps" "ProcessGuests + ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
     }
@@ -1933,7 +2144,15 @@ function ConfirmDeployment {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
         WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
     }
-    WritePlanLine "SPFx packages" "Build + publish to the tenant app catalog" $SkipSPFxDeploy
+    $spfxSolutions = GetSPFxSolutions
+    $spfxBuilding = @($spfxSolutions | Where-Object { SPFxBuildWanted $_ } | ForEach-Object Name)
+    $spfxPlan = if ($spfxSolutions.Count -eq 0) { "No solutions found under Source/SharePointFramework" }
+    elseif ($spfxBuilding.Count -eq 0) { "Publish the built .sppkg to the tenant app catalog as it is (no build$(if ($SkipSPFxBuild) { ', -SkipSPFxBuild' }))" }
+    elseif ($spfxBuilding.Count -eq $spfxSolutions.Count) { "Build + publish to the tenant app catalog$(if ($BuildSPFx) { ' (-BuildSPFx)' } else { ' (no built .sppkg found)' })" }
+    else { "Build $($spfxBuilding -join ', ') (no built .sppkg), publish the rest as they are" }
+    WritePlanLine "SPFx packages" $spfxPlan $SkipSPFxDeploy
+    $teamsAppPlan = if ($script:teamsAppPublishScope -eq $false) { "Package only - upload manually in the Teams admin center afterwards" } else { "Package + publish to the Teams app catalog" }
+    WritePlanLine "Teams app" $teamsAppPlan ($SkipSPFxDeploy -or $SkipTeamsApp)
 
     Write-Host ""
     Write-Host "############################################################" -ForegroundColor Magenta
@@ -2486,6 +2705,11 @@ function PublishTeamsApp {
     if (-not (Test-Path $manifestPath)) { return }
 
     $componentName = "Teams app: $($Solution.Name)"
+    if ($SkipTeamsApp) {
+        Write-Host "Skipping the Teams app (-SkipTeamsApp)" -ForegroundColor DarkGray
+        RecordDeployStatus -Component $componentName -Status 'SKIPPED' -Detail "-SkipTeamsApp: not packaged or published"
+        return
+    }
     $zipPath = Join-Path $Solution.FullName "sharepoint/solution/bestillingsportalen-teams-app.zip"
     try {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
@@ -2573,16 +2797,14 @@ function DeploySPFxPackages {
             return
         }
 
-        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-            throw "npm not installed. Install Node.js (https://nodejs.org) or use -SkipSPFxDeploy to skip SPFx build."
-        }
-
-        $spfxSolutions = Get-ChildItem -Path $spfxRoot -Directory | Where-Object {
-            Test-Path (Join-Path $_.FullName "config/package-solution.json")
-        }
+        $spfxSolutions = GetSPFxSolutions
         if ($spfxSolutions.Count -eq 0) {
             Write-Host "No SPFx solutions found under $spfxRoot" -ForegroundColor Yellow
             return
+        }
+
+        if (@($spfxSolutions | Where-Object { SPFxBuildWanted $_ }).Count -gt 0 -and -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm not installed, and a build is needed. Install Node.js (https://nodejs.org), install from the release package (it ships the built .sppkg), or use -SkipSPFxDeploy to skip SPFx entirely."
         }
 
         # Need an admin connection to resolve the tenant app catalog URL
@@ -2600,24 +2822,35 @@ function DeploySPFxPackages {
 
         foreach ($solution in $spfxSolutions) {
             Write-Host ""
-            Write-Host "Building SPFx solution: $($solution.Name)" -ForegroundColor Yellow
+            $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
 
             Push-Location $solution.FullName
             try {
-                if (-not (Test-Path "node_modules")) {
-                    Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
-                    npm install
-                    if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                if (-not (SPFxBuildWanted $solution)) {
+                    # Publish what is already built - the same .sppkg goes to every tenant
+                    Write-Host "Publishing the built SPFx solution: $($solution.Name) (no build$(if ($SkipSPFxBuild) { ', -SkipSPFxBuild' }))" -ForegroundColor Yellow
+                    $sppkg = GetPrebuiltSppkg $solution
+                    if (-not $sppkg) {
+                        throw "No .sppkg found for $($solution.Name) in $sppkgFolder - install from the release package, which ships it, or run without -SkipSPFxBuild to build it"
+                    }
+                    Write-Host "Using $($sppkg.Name) built $($sppkg.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))" -ForegroundColor Yellow
                 }
+                else {
+                    Write-Host "Building SPFx solution: $($solution.Name) ($(if ($BuildSPFx) { '-BuildSPFx' } else { 'no built .sppkg found' }))" -ForegroundColor Yellow
+                    if (-not (Test-Path "node_modules")) {
+                        Write-Host "Running npm install (first build may take several minutes)..." -ForegroundColor Yellow
+                        npm install
+                        if ($LASTEXITCODE -ne 0) { throw "npm install failed for $($solution.Name)" }
+                    }
 
-                Write-Host "Running npm run build..." -ForegroundColor Yellow
-                npm run build
-                if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
+                    Write-Host "Running npm run build..." -ForegroundColor Yellow
+                    npm run build
+                    if ($LASTEXITCODE -ne 0) { throw "npm run build failed for $($solution.Name)" }
 
-                $sppkgFolder = Join-Path $solution.FullName "sharepoint/solution"
-                $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if (-not $sppkg) {
-                    throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                    $sppkg = Get-ChildItem -Path $sppkgFolder -Filter "*.sppkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $sppkg) {
+                        throw "No .sppkg produced for $($solution.Name) in $sppkgFolder"
+                    }
                 }
 
                 Write-Host "Uploading $($sppkg.Name) to app catalog..." -ForegroundColor Yellow
@@ -2990,11 +3223,14 @@ if ($global:upgrade) {
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
     Write-Host "  - Deploy the ProcessProvisionRequest and ProcessGuestRequest Logic Apps" -ForegroundColor Cyan
-    if (-not $SkipSPFxDeploy) {
-        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog" -ForegroundColor Cyan
+    if ($SkipSPFxDeploy) {
+        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+    }
+    elseif (@(GetSPFxSolutions | Where-Object { SPFxBuildWanted $_ }).Count -eq 0) {
+        Write-Host "  - Publish the built SPFx packages (Source/SharePointFramework/*/sharepoint/solution/*.sppkg) to the tenant app catalog as they are, no build" -ForegroundColor Cyan
     }
     else {
-        Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
+        Write-Host "  - Build and publish SPFx solutions (Source/SharePointFramework/*) to the tenant app catalog$(if ($BuildSPFx) { ' (-BuildSPFx)' })" -ForegroundColor Cyan
     }
     Write-Host "  - Skip uploading assets (images/icons)" -ForegroundColor Cyan
     Write-Host "  - Skip ALL other Azure resource deployments" -ForegroundColor Cyan
@@ -3041,61 +3277,94 @@ $requestsSiteUrl = "https://$($parameters.spoTenantName.Value).sharepoint.com/$(
 # (which -Force implies) reuses a matching session without asking.
 
 # --- Az PowerShell ---
-Write-Host "Checking for an existing Az PowerShell session..." -ForegroundColor Yellow
-$azConnect = $null
-$existingAzContext = Get-AzContext -ErrorAction SilentlyContinue
-if ($null -ne $existingAzContext -and $existingAzContext.Tenant.Id -eq $parameters.tenantId.Value) {
-    Write-Host "Found existing Az PowerShell session: $($existingAzContext.Account.Id) in tenant $($existingAzContext.Tenant.Id)." -ForegroundColor Green
-    $reuseAz = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
-    if ($reuseAz -eq 'y') {
-        try {
-            # Silent subscription switch - no re-authentication within the same tenant
-            $azConnect = Set-AzContext -SubscriptionId $parameters.subscriptionId.Value -TenantId $parameters.tenantId.Value
-        }
-        catch {
-            Write-Host "Could not switch the existing session to subscription $($parameters.subscriptionId.Value) - signing in again." -ForegroundColor Yellow
-            $azConnect = $null
+# Not used at all in -SharePointOnly: Connect-AzAccount -Subscription and Get-AzLocation
+# both need access to the subscription.
+if (-not $SharePointOnly) {
+    Write-Host "Checking for an existing Az PowerShell session..." -ForegroundColor Yellow
+    $azConnect = $null
+    $existingAzContext = Get-AzContext -ErrorAction SilentlyContinue
+    if ($null -ne $existingAzContext -and $existingAzContext.Tenant.Id -eq $parameters.tenantId.Value) {
+        Write-Host "Found existing Az PowerShell session: $($existingAzContext.Account.Id) in tenant $($existingAzContext.Tenant.Id)." -ForegroundColor Green
+        $reuseAz = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+        if ($reuseAz -eq 'y') {
+            try {
+                # Silent subscription switch - no re-authentication within the same tenant
+                $azConnect = Set-AzContext -SubscriptionId $parameters.subscriptionId.Value -TenantId $parameters.tenantId.Value
+            }
+            catch {
+                Write-Host "Could not switch the existing session to subscription $($parameters.subscriptionId.Value) - signing in again." -ForegroundColor Yellow
+                $azConnect = $null
+            }
         }
     }
-}
-if ($null -eq $azConnect) {
-    Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
-    $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
-}
+    if ($null -eq $azConnect) {
+        Write-Host "Launching Azure sign-in..." -ForegroundColor Yellow
+        $azConnect = Connect-AzAccount -Subscription $parameters.subscriptionId.Value -Tenant $parameters.tenantId.Value
+    }
 
-# Skip validation steps in upgrade mode
-if (-not $global:upgrade) {
-    if (-not $SkipBicepDeploy) {
+    # Skip validation steps in upgrade mode
+    if (-not $global:upgrade) {
+        if (-not $SkipBicepDeploy) {
+        }
+        ValidateAzureLocation
     }
-    ValidateAzureLocation
 }
 
 # --- Azure CLI ---
-Write-Host "Checking for an existing Azure CLI session..." -ForegroundColor Yellow
-$cliSignedIn = $false
-$cachedSubsJson = az account list --output json 2>$null
-$cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
-$targetCliSub = $cachedSubs | Where-Object { $_.id -eq $parameters.subscriptionId.Value -and $_.tenantId -eq $parameters.tenantId.Value } | Select-Object -First 1
-if ($null -ne $targetCliSub) {
-    Write-Host "Found existing Azure CLI session: $($targetCliSub.user.name) with access to subscription '$($targetCliSub.name)'." -ForegroundColor Green
-    $reuseCli = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
-    if ($reuseCli -eq 'y') {
-        $cliSignedIn = $true
+if ($SharePointOnly) {
+    # Tenant-level sign-in: the site creation reads and updates the Microsoft 365 group
+    # over Graph with the CLI, which needs no subscription. --allow-no-subscriptions makes
+    # az login succeed for an account without any, and a cached session in the target
+    # tenant is reused whatever subscription (or none) it is on.
+    Write-Host "Checking for an existing Azure CLI session in tenant $($parameters.tenantId.Value)..." -ForegroundColor Yellow
+    $cliSignedIn = $false
+    $cachedSubsJson = az account list --output json 2>$null
+    $cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
+    $targetCliAccount = $cachedSubs | Where-Object { $_.tenantId -eq $parameters.tenantId.Value } | Select-Object -First 1
+    if ($null -ne $targetCliAccount) {
+        Write-Host "Found existing Azure CLI session: $($targetCliAccount.user.name) in tenant $($targetCliAccount.tenantId)." -ForegroundColor Green
+        $reuseCli = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+        if ($reuseCli -eq 'y') {
+            az account set --subscription $targetCliAccount.id
+            $cliSignedIn = $true
+        }
     }
+    if (-not $cliSignedIn) {
+        Write-Host "Launching Azure CLI sign-in (tenant level - no subscription needed)..." -ForegroundColor Yellow
+        az login --tenant $parameters.tenantId.Value --allow-no-subscriptions --only-show-errors | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Azure CLI sign-in to tenant $($parameters.tenantId.Value) failed - see the error above."
+        }
+    }
+    Write-Host "Connected to Entra ID (Azure CLI)" -ForegroundColor Green
 }
-if (-not $cliSignedIn) {
-    Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
-    az login --tenant $parameters.tenantId.Value --only-show-errors | Out-Null
+else {
+    Write-Host "Checking for an existing Azure CLI session..." -ForegroundColor Yellow
+    $cliSignedIn = $false
+    $cachedSubsJson = az account list --output json 2>$null
+    $cachedSubs = if ($cachedSubsJson) { @($cachedSubsJson | ConvertFrom-Json) } else { @() }
+    $targetCliSub = $cachedSubs | Where-Object { $_.id -eq $parameters.subscriptionId.Value -and $_.tenantId -eq $parameters.tenantId.Value } | Select-Object -First 1
+    if ($null -ne $targetCliSub) {
+        Write-Host "Found existing Azure CLI session: $($targetCliSub.user.name) with access to subscription '$($targetCliSub.name)'." -ForegroundColor Green
+        $reuseCli = if ($SkipConfirmation) { 'y' } else { Read-Host "Reuse this session? ( y = reuse / n = sign in again )" }
+        if ($reuseCli -eq 'y') {
+            $cliSignedIn = $true
+        }
+    }
+    if (-not $cliSignedIn) {
+        Write-Host "Launching Azure CLI sign-in..." -ForegroundColor Yellow
+        az login --tenant $parameters.tenantId.Value --only-show-errors | Out-Null
+    }
+    Write-Host "Connected to Azure" -ForegroundColor Green
+
+    # Change the subscription
+    az account set --subscription $parameters.subscriptionId.Value
+
+    # Signed in is not the same as allowed to deploy: a tenant that enforces MFA for Azure
+    # refuses writes from a password-only session. Probed here, so the fix is one more sign-in
+    # now rather than a failed Azure half of the run - see TestAzureWriteMfa.
+    $script:azureWriteProbe = ConfirmAzureWriteMfa
 }
-Write-Host "Connected to Azure" -ForegroundColor Green
-
-# Change the subscription
-az account set --subscription $parameters.subscriptionId.Value
-
-# Signed in is not the same as allowed to deploy: a tenant that enforces MFA for Azure
-# refuses writes from a password-only session. Probed here, so the fix is one more sign-in
-# now rather than a failed Azure half of the run - see TestAzureWriteMfa.
-$script:azureWriteProbe = ConfirmAzureWriteMfa
 
 # Capture the signed-in user (used for the deployment pingback and for granting the
 # installing user site collection admin). Deliberately AFTER 'az account set': read
@@ -3139,13 +3408,21 @@ catch {
 Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
 CheckSpoAdminAccess
-CheckAzureWriteMfa
-ValidateArmTemplates
+if ($SharePointOnly) {
+    # Every one of these reads the subscription or concerns a step this run does not take
+    RecordPreflightCheck -Name "Azure checks" -Status SKIPPED -Detail "-SharePointOnly: MFA, ARM/bicep templates, RBAC, resource providers and app role rights are checked by the full run"
+}
+else {
+    CheckAzureWriteMfa
+    ValidateArmTemplates
+}
 ValidateServiceAccount
 ValidateSiteAlias
-ValidateAzureRbac
-ValidateResourceProviders
-CheckAppRoleRights
+if (-not $SharePointOnly) {
+    ValidateAzureRbac
+    ValidateResourceProviders
+    CheckAppRoleRights
+}
 CheckAppCatalog
 CheckTeamsAppPublish
 CheckNodeJs
@@ -3183,6 +3460,7 @@ if (-not $SkipSharepointSite) {
         UploadAssets
     }
     RecordDeployStatus -Component "SharePoint site + PnP template" -Status 'OK'
+    GrantServiceAccountAccess
 }
 else {
     # If we're skipping site creation/configuration, we need to get the list ids
@@ -3233,6 +3511,57 @@ else {
     $context.Load($guestRequestsList)
     $context.ExecuteQuery()
     $global:guestRequestsListId = $guestRequestsList.Id
+
+    # Not part of the skipped site step: the service account's access is what the
+    # approval flow runs on, and a -SharePointOnly install without a service account
+    # leaves it to this run. Skipping it here left the account with no access at all
+    # (seen at a customer 22.10.2026). Checks before it writes, so on an installation
+    # where the access is in place it only reads.
+    GrantServiceAccountAccess
+}
+
+# -SharePointOnly ends here: the SharePoint-side steps of a full deployment, then out -
+# before anything below touches the subscription.
+if ($SharePointOnly) {
+    if (-not $SkipSPFxDeploy) {
+        DeploySPFxPackages
+    }
+    else {
+        Write-Host "Skipping SPFx deployment" -ForegroundColor Yellow
+        RecordDeployStatus -Component "SPFx packages" -Status 'SKIPPED'
+    }
+
+    RegisterProvisionInstance
+
+    # Deliberately not stamped: the runbooks and logic apps are not there yet, so the
+    # environment must not claim to be a complete $deployVersion. The full run stamps it.
+    RecordDeployStatus -Component "Azure resources (resource group, Automation, UAMI, app roles, Logic Apps)" -Status 'SKIPPED' -Detail "-SharePointOnly"
+    RecordDeployStatus -Component "Version stamp" -Status 'SKIPPED' -Detail "Stamped by the full run, once the Azure part is installed"
+
+    SendDeployPingback
+
+    WriteDeploymentReport
+
+    Write-Host ""
+    Write-Host "The SharePoint part is installed. Orders cannot be processed until the Azure part is in place:" -ForegroundColor Cyan
+    Write-Host "  1. Get Owner on the Azure subscription, and fill in subscriptionId, region and resourceGroupName in $parametersFileName." -ForegroundColor Cyan
+    if ($script:serviceAccountDeferred) {
+        Write-Host "     Create the service account as well and set serviceAccountUPN - the full run gives it access to the site." -ForegroundColor Cyan
+    }
+    Write-Host "  2. Run deploy.ps1 again WITHOUT -SharePointOnly (with -SkipAppRoles if you still lack Global Administrator)." -ForegroundColor Cyan
+    Write-Host "     The site is detected as existing - answer 'n' to leave it as it is, and the run continues with the Azure resources." -ForegroundColor Cyan
+    Write-Host "  Until then the configuration lists (site templates, hub sites, Teams templates) can be filled in on $requestsSiteUrl." -ForegroundColor Cyan
+    Write-Host ""
+
+    WriteTeamsAppManualUploadNotice
+
+    if ((GetFailedDeployComponents).Count -gt 0) {
+        Write-Host "### SHAREPOINT-ONLY DEPLOYMENT COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "### SHAREPOINT-ONLY DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
+    exit 0
 }
 
 # Skip Azure resource deployment in upgrade mode - only deploy Logic App

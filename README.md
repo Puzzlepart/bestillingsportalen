@@ -69,9 +69,9 @@ Installasjonen gjøres av en administrator med et PowerShell-skript, etterfulgt 
 **Rekkefølge**
 
 1. **Les [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md).** Den beskriver hva som installeres, hvilke tilganger installasjonen og driften krever, og kan brukes som underlag for sikkerhetsvurdering før dere begynner.
-2. **Hent koden.** Klon repoet eller last ned [nyeste release](https://github.com/Puzzlepart/bestillingsportalen/releases). Skriptene ligger i `Source/Scripts/`.
+2. **Hent installasjonspakken.** Last ned `bestillingsportalen-<versjon>.zip` fra [nyeste release](https://github.com/Puzzlepart/bestillingsportalen/releases) og pakk den ut. Den har alt installasjonen trenger, med SPFx-pakken ferdig bygd. Skriptene ligger i `Source/Scripts/`. En klone av repoet går også, men bygger SPFx-pakken selv og krever Node.js.
 3. **Følg [Installasjonsveiledningen](./Deployment-guide.md).** `GenerateParameters.ps1` lager parameterfila fra tenanten du er logget inn i, `deploy.ps1 -Preflight` sjekker alle forutsetningene uten å installere noe, og `deploy.ps1` oppretter Azure-ressursene, SharePoint-området og SPFx-pakken.
-4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningskanal, import av Power Automate-flyten, deling, aktivering av Teams-appen og en verifiserende testbestilling.
+4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningskanal, import av Power Automate-flyten, deling, aktivering av Teams-appen og en verifiserende testbestilling. Før testbestillingen sjekker `Test-Installation.ps1` installasjonen punkt for punkt uten å endre noe.
 
 Løsningen er ikke i drift før både steg 3 og 4 er gjennomført. Merk at Bestillingsportalen-appen i Teams normalt må lastes opp manuelt i Teams admin center (zip-pakken produseres av deploy-skriptet) – se [Teams-appen](./Deployment-guide.md#teams-appen) i installasjonsveiledningen.
 
@@ -98,7 +98,7 @@ Bestillingsportalen bygger på [Provision Assist](https://github.com/pnp/provisi
 
 - Gjeldende versjon står i [`VERSION`](./VERSION); endringer per versjon i [endringsloggen](./CHANGELOG.md). Versjonering følger [SemVer](https://semver.org/lang/no/) som beskrevet i [retningslinjene for bidrag](./CONTRIBUTING.md#versjonering).
 - Løsningen er i produksjonsbruk hos norske organisasjoner. Repoet vedlikeholdes av Prosjektportalen-teamet hos SoftwareOne, som også eier opphavsretten (se [LICENSE](./LICENSE)).
-- Repoet har ingen CI. Releaser bygges og tagges manuelt, og installasjonen verifiseres i reelle tenanter før release.
+- Repoet har ingen automatiske tester. Installasjonen verifiseres i reelle tenanter før release, og installasjonspakken bygges av en workflow når versjonstaggen pushes.
 - Feil og forslag håndteres via GitHub issues etter beste evne, uten garantert responstid. Trenger organisasjonen din bistand til installasjon eller tilpasning, ta kontakt med vedlikeholderne.
 
 ## Feil og problemer
@@ -125,6 +125,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md) – komponenter, arkitektur og tilganger
 - [Installasjonsveiledning](./Deployment-guide.md) – forutsetninger og den skriptede installasjonen
 - [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenning, flyt-import, deling og Teams-app
+- [E-postmal for overlevering](./Overlevering-e-postmal.md) – til kunden når installasjonen er ferdig
 
 **Drift**
 

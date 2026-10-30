@@ -34,3 +34,14 @@ Slik konfigurerer du standard tidssone/språk:
 2. Rediger `DefaultTimeZone` og `DefaultLCID` og oppdater verdien i `Value`-kolonnen til tidssonen og LCID-en du vil ha som standard. Du finner ID-ene i listene Time Zones og Locales.
 
 En standard tidssone/språk er nå konfigurert og vil ta effekt neste gang Bestillingsportalen webdel eller Teams app startes.
+
+---
+
+## Språk på området og regionale innstillinger
+
+Språket (LCID) i bestillingen brukes to steder:
+
+- **Områdets språk** settes når området opprettes, og kan ikke endres etterpå. For områdetyper som oppretter en Microsoft 365-gruppe sendes språket som `SPSiteLanguage` til Graph (se [Språk på gruppeområder](./Group-site-language.md) for workaround-en når Graph ignorerer det). For kommunikasjonsområder og teamområder uten gruppe sendes det som `Lcid` til `SPSiteManager/create`. Er `LCID` tomt i bestillingen, brukes `DefaultLCID` fra `Provisioning Request Settings`, og mangler den raden, brukes 1033 (engelsk).
+- **Regionale innstillinger** (`LocaleId` og tidssone) settes av runbooken `ConfigureSpace` etter opprettelsen, med `LCID` og `TimeZoneId` fra bestillingen. Disse styrer dato-, tall- og kalenderformat, og kan endres senere under områdeinnstillingene.
+
+`DefaultLCID` er altså både standardvalget i bestillingsskjemaet og reserveverdien Logic App-en bruker når en bestilling kommer uten språk.
