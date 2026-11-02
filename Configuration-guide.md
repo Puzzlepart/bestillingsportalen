@@ -264,7 +264,12 @@ Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som 
    - Ekstern prosjektleder er gruppen `<områdetittel> – Ekstern prosjektleder`
    - «Interne dokumenter» kan ikke deles
    - lenker til partenes biblioteker legges under «Dokumentsamhandling»
-3. Legg webdelen **Inviter gjester** på siden som `guestInvitationUrl` peker til (standard `SitePages/Inviter-gjester.aspx`), og legg områdets tittel i `allowedSpGroups` der, slik at partenes grupper kan velges.
+3. Legg webdelen **Inviter gjester** på siden som `guestInvitationUrl` peker til (standard `SitePages/Inviter-gjester.aspx`). Lås den til partene:
+   - Sett `allowedSpGroups` til gruppeprefikset med tankestrek, f.eks. `Kaiprosjekt – `. Da kan bare partene og Ekstern prosjektleder velges. Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville derfor også gitt treff på standardgruppene «Kaiprosjekt Owners», «… Members» og «… Visitors».
+   - Sett M365-rollen til «Ingen» og lås den (`defaultM365GroupRole: None`, `lockM365GroupRole`), slik at eksterne aldri legges i Microsoft 365-gruppen.
+   - Skjul «Opprett ny gruppe» (`showSpActionCreateNew: false`). Parter opprettes i Samarbeidsparter.
+
+   I Prosjektportalen-tillegget «Dokumentsamhandling med eksterne» er siden satt opp slik fra før, med `{sitename} – ` som prefiks.
 
 Webdelen er bare for eierne av området og bruker deres egne rettigheter. Den trenger ingen ekstra tillatelser, Logic Apps eller innstillinger i Bestillingsportalen-området. Første gang noe endres, oppretter den den skjulte listen `Lists/ActivityLog`, som bare eierne har tilgang til. Se [Teknisk referanse](./App-teknisk-referanse.md#11-externalparties-arkitektur-samarbeidsparter).
 

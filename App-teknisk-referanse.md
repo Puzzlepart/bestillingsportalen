@@ -614,7 +614,7 @@ Feil i loggen stopper aldri operasjonen og vises ikke i webdelen.
 
 Alle kall går til SharePoint som innlogget bruker, gjennom SPFx-konteksten. Webdelen trenger ingen API-tillatelser og ingen Azure-ressurser. Brukere som ikke er eiere, får en melding om at webdelen bare er for eiere.
 
-Dette er en annen modell enn `InviteGuests`, som legger forespørsler i `Guest Requests` og lar Logic Apps gjøre arbeidet. Gjester inviteres fortsatt med `InviteGuests`, og det gjøres til partens gruppe. For at partens gruppe skal kunne velges i `InviteGuests`, må områdets tittel stå i `allowedSpGroups`.
+Dette er en annen modell enn `InviteGuests`, som legger forespørsler i `Guest Requests` og lar Logic Apps gjøre arbeidet. Gjester inviteres fortsatt med `InviteGuests`, og det gjøres til partens gruppe. For at bare partenes grupper og Ekstern prosjektleder skal kunne velges i `InviteGuests`, settes `allowedSpGroups` til gruppeprefikset med tankestrek (`<områdetittel> – `). Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville også gitt treff på standardgruppene «<område> Owners/Members/Visitors». Se [konfigurasjonsveiledningen](./Configuration-guide.md#merknad-webdelen-samarbeidsparter).
 
 ## 12. `ExternalParties`-egenskaper
 

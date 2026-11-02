@@ -14,6 +14,7 @@ Bestillingsportalen gir en styrt inngang til å:
 - velge eiere, medlemmer, personvern, maler og andre egenskaper organisasjonen har gjort tilgjengelige
 - følge status på egne bestillinger
 - invitere eksterne gjester til et eksisterende SharePoint-område, når gjesteinvitasjonswebdelen er tilgjengelig
+- styre hvilke eksterne parter som har tilgang til hvilke biblioteker og mapper på et prosjektområde, med webdelen Samarbeidsparter
 
 Hvilke områdetyper, felt og valg du ser, bestemmes av organisasjonens konfigurasjon. Skjermbildet kan derfor avvike noe fra eksemplene i denne veiledningen.
 
@@ -180,6 +181,63 @@ Avhengig av konfigurasjonen kan du:
 - oppdatere statuslisten manuelt
 
 Når du prøver på nytt, opprettes en ny forespørsel. Den gamle mislykkede forespørselen flyttes til papirkurven.
+
+## Styre tilgangen for eksterne parter
+
+Med webdelen **Samarbeidsparter** ser du hvilke eksterne parter som har tilgang til prosjektområdet, og hva de har tilgang til. Du kan også opprette nye parter og gi, endre eller fjerne tilgang. Webdelen er bare for eiere av området.
+
+En part er en gruppe på området for én konsulent, leverandør eller intern gruppe, for eksempel «Kaiprosjekt – Leverandør A». Du gir tilgang til parten, ikke til enkeltpersoner. Personene inviterer du etterpå til partens gruppe med Gjesteinvitasjon.
+
+### Se hvem som har tilgang
+
+Tabellen viser Ekstern prosjektleder øverst og deretter partene. For hver part ser du:
+
+- tilgangen i dag, for eksempel «Eget bibliotek + 2 mapper»
+- antall medlemmer
+- status
+
+| Status | Betydning |
+| --- | --- |
+| OK | Parten har medlemmer og tilgang til noe på området. |
+| Ingen medlemmer | Ingen er invitert til gruppen ennå. |
+| Ingen tilgang | Gruppen har medlemmer, men ingen tilgang til biblioteker eller mapper. |
+| Gruppen finnes ikke | Gruppen for Ekstern prosjektleder mangler på området. Kontakt administrator. |
+
+Velg navnet på en part for å se bibliotekene og mappene parten har tilgang til. Velg **Åpne gruppen** for å se og endre medlemmene på gruppesiden i SharePoint.
+
+Oversikten viser tilgang på biblioteker og mapper på første nivå, slik den er satt opp i SharePoint nå. Den viser ikke tilgang lenger ned i mappene, på enkeltfiler eller gitt med delingslenker. Oversikten er derfor ikke en fasit.
+
+### Opprette en ny part
+
+1. Velg **Ny part**.
+2. Skriv navnet på parten, for eksempel «Leverandør A».
+3. Velg type.
+4. La **Opprett eget bibliotek for parten** være avkrysset hvis parten skal ha sitt eget bibliotek.
+5. Kontroller koden. Den blir en del av adressen til biblioteket og kan ikke endres senere.
+6. Les «Dette opprettes», og velg **Neste: gi tilganger**.
+7. Huk av for bibliotekene og mappene parten skal få tilgang til, og velg Bidra eller Lese for hver.
+8. Les «Dette skjer», og velg **Opprett part**.
+
+Ingenting opprettes før du velger **Opprett part**. Deretter ser du hvert steg med status. Når alt er ferdig, kan du velge **Inviter gjester** for å invitere personene til partens gruppe.
+
+### Gi, endre eller fjerne tilgang
+
+1. Velg **Gi tilgang**, eller velg en part og deretter **Endre tilgang**.
+2. Velg parten øverst i panelet hvis den ikke er valgt.
+3. Huk av for å gi tilgang, velg et annet nivå for å endre, eller fjern haken for å fjerne tilgangen.
+4. Les «Dette skjer», og velg **Lagre**. Knappen viser hvor mange endringer som lagres.
+
+Bibliotekene og mappene parten har tilgang til i dag, er avkrysset fra start. Endringene får merkene **Ny**, **Endres** og **Fjernes**.
+
+Når du gir tilgang til et bibliotek eller en mappe som arver tilgangen fra området, gjør webdelen to ting. Den gir stedet egne tillatelser, og den kopierer tilgangen som finnes der fra før. Eiere, medlemmer og Ekstern prosjektleder beholder derfor tilgangen sin. Når du fjerner tilgang, fjernes bare partens tilgang. Stedet beholder egne tillatelser.
+
+Biblioteker som er merket «kan ikke deles», for eksempel Interne dokumenter, kan ikke gis til parter.
+
+### Hvis et steg feiler
+
+Webdelen stopper ved steget som feilet, og viser feilmeldingen fra SharePoint. Velg **Prøv igjen**. Steg som allerede er gjort, hoppes over.
+
+Lukker du panelet før alle stegene er ferdige, kan du opprette parten på nytt med samme navn og kode. Webdelen fortsetter der den stoppet.
 
 ## Viktige avgrensninger
 
