@@ -7,9 +7,10 @@ import { spfi, SPFI, SPFx } from '@pnp/sp'
 
 import * as strings from 'ProvisionWebPartsStrings'
 import { ExternalParties } from '../../components/ExternalParties'
-import type { IExternalPartiesProps } from '../../components/ExternalParties/types'
+import type { IExternalPartiesProps, IWriteServices } from '../../components/ExternalParties/types'
 import {
   AccessReaderService,
+  ActivityLogService,
   DEFAULT_ACTIVITY_LOG_TITLE,
   DEFAULT_ACTIVITY_LOG_URL,
   DEFAULT_EXTERNAL_PROJECT_MANAGER,
@@ -19,7 +20,9 @@ import {
   DEFAULT_NAVIGATION_HEADING,
   DEFAULT_PROTECTED_LIBRARIES,
   type IPartiesConfig,
+  type IPartiesSiteInfo,
   parsePartTypes,
+  PartiesProvisioningService,
   PartiesService,
   splitList
 } from '../../services/parties'
@@ -40,14 +43,15 @@ export interface IExternalPartiesWebPartProps {
 }
 
 export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExternalPartiesWebPartProps> {
+  private _sp!: SPFI
   private _partiesService!: PartiesService
   private _accessReader!: AccessReaderService
 
   protected async onInit(): Promise<void> {
     await super.onInit()
-    const sp: SPFI = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
-    this._partiesService = new PartiesService(sp)
-    this._accessReader = new AccessReaderService(sp)
+    this._sp = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
+    this._partiesService = new PartiesService(this._sp)
+    this._accessReader = new AccessReaderService(this._sp)
   }
 
   /** Resolves the web part properties to a configuration, with defaults for empty values. */
@@ -74,6 +78,15 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
     }
   }
 
+  /** Services that change SharePoint. Created when the site is known. */
+  private _createWriteServices = (site: IPartiesSiteInfo): IWriteServices => {
+    const config = this._config
+    return {
+      writer: new PartiesProvisioningService(this._sp, site),
+      logger: new ActivityLogService(this._sp, site, config.activityLogUrl, config.activityLogTitle)
+    }
+  }
+
   public render(): void {
     // SharePoint chrome can pre-register an older Tabster instance without the
     // attrHandlers Map, which makes Fluent UI v9 crash. Same polyfill as in
@@ -92,7 +105,8 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
         description: this.properties.description,
         config: this._config,
         partiesService: this._partiesService,
-        accessReader: this._accessReader
+        accessReader: this._accessReader,
+        createWriteServices: this._createWriteServices
       }
     )
     ReactDom.render(element, this.domElement)

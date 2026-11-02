@@ -44,6 +44,8 @@ export interface IOperationState {
   label: IOperationLabel
   status: OperationStatus
   error?: string
+  /** Code from a PartyOperationError, for a translated message. */
+  errorCode?: string
 }
 
 export interface IActivityLogEntry extends IOperationLogInfo {
@@ -119,7 +121,12 @@ export const runOperations = async (
       if (result === 'done') await log(operations[i], { status: 'Success' })
     } catch (e) {
       const message = errorMessage(e)
-      update(i, { status: 'failed', error: message })
+      const code = (e as { code?: unknown })?.code
+      update(i, {
+        status: 'failed',
+        error: message,
+        errorCode: typeof code === 'string' ? code : undefined
+      })
       await log(operations[i], { status: 'Failed', details: message })
       return { ok: false, states }
     }

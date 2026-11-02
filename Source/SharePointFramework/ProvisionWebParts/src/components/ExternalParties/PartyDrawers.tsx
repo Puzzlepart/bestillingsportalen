@@ -8,7 +8,6 @@ import {
   Link,
   MessageBar,
   MessageBarBody,
-  OverlayDrawer,
   Text
 } from '@fluentui/react-components'
 import { Dismiss24Regular, Open16Regular } from '@fluentui/react-icons'
@@ -27,37 +26,57 @@ const openInNewTab = (url: string) => (e: React.MouseEvent) => {
   window.open(url, '_blank')
 }
 
-const DrawerShell: React.FC<{ title: string; onClose: () => void; footer?: React.ReactNode }> = ({
-  title,
-  onClose,
-  footer,
-  children
-}) => (
-  <OverlayDrawer
-    open
-    position='end'
-    size='medium'
-    onOpenChange={(_, { open }) => !open && onClose()}>
-    <DrawerHeader>
-      <DrawerHeaderTitle
-        action={
-          <Button
-            appearance='subtle'
-            aria-label={strings.Parties.Close}
-            icon={<Dismiss24Regular />}
-            onClick={onClose}
-          />
-        }>
-        {title}
-      </DrawerHeaderTitle>
-    </DrawerHeader>
-    <DrawerBody className={styles.drawerBody}>{children}</DrawerBody>
-    <DrawerFooter>
-      {footer}
-      <Button onClick={onClose}>{strings.Parties.Close}</Button>
-    </DrawerFooter>
-  </OverlayDrawer>
-)
+/**
+ * Header, body and footer of a panel. The OverlayDrawer itself lives in
+ * ExternalParties and stays mounted: removing an open OverlayDrawer leaves
+ * aria-hidden on the rest of the page, and screen readers lose the page.
+ */
+export const DrawerShell: React.FC<{
+  title: string
+  footer?: React.ReactNode
+  closeLabel?: string
+  /** When this changes, focus moves to the title, e.g. on a new step. */
+  focusKey?: string | number
+}> = ({ title, footer, closeLabel, focusKey, children }) => {
+  const { setDrawer } = useExternalPartiesContext()
+  const close = (): void => setDrawer({ kind: 'none' })
+  const headingRef = React.useRef<HTMLHeadingElement>(null)
+  const mounted = React.useRef(false)
+
+  // Keep focus inside the panel when its content is replaced. Without this,
+  // focus falls back to the page and Escape no longer closes the panel.
+  React.useEffect(() => {
+    const heading = headingRef.current
+    const dialog = heading?.closest('[role="dialog"]')
+    const focusLost = !dialog || !dialog.contains(document.activeElement)
+    if (heading && (mounted.current || focusLost)) heading.focus()
+    mounted.current = true
+  }, [focusKey])
+
+  return (
+    <>
+      <DrawerHeader>
+        <DrawerHeaderTitle
+          heading={{ ref: headingRef, tabIndex: -1 }}
+          action={
+            <Button
+              appearance='subtle'
+              aria-label={strings.Parties.Close}
+              icon={<Dismiss24Regular />}
+              onClick={close}
+            />
+          }>
+          {title}
+        </DrawerHeaderTitle>
+      </DrawerHeader>
+      <DrawerBody className={styles.drawerBody}>{children}</DrawerBody>
+      <DrawerFooter>
+        {footer}
+        <Button onClick={close}>{closeLabel || strings.Parties.Close}</Button>
+      </DrawerFooter>
+    </>
+  )
+}
 
 /** The party's group and the libraries and first-level folders it has access to today. */
 export const PartyDrawer: React.FC<{ partyId: number }> = ({ partyId }) => {
@@ -68,7 +87,15 @@ export const PartyDrawer: React.FC<{ partyId: number }> = ({ partyId }) => {
   const groupUrl = PartiesService.groupPageUrl(data.site.absoluteUrl, party.id)
 
   return (
-    <DrawerShell title={party.name} onClose={() => setDrawer({ kind: 'none' })}>
+    <DrawerShell
+      title={party.name}
+      footer={
+        <Button
+          appearance='primary'
+          onClick={() => setDrawer({ kind: 'grant', partyId: party.id })}>
+          {strings.Parties.ChangeAccess}
+        </Button>
+      }>
       <div className={styles.groupLine}>
         <Text>{`${party.type} · ${membersText(party.memberCount)}`}</Text>
         <Link href={groupUrl} onClick={openInNewTab(groupUrl)}>
@@ -117,7 +144,7 @@ export const PartyDrawer: React.FC<{ partyId: number }> = ({ partyId }) => {
  * assignments. Read-only: the web part does not change this role.
  */
 export const EplDrawer: React.FC = () => {
-  const { data, setDrawer } = useExternalPartiesContext()
+  const { data } = useExternalPartiesContext()
   const epl = data.externalProjectManager
   if (!epl) return null
   const { snapshot, site } = data
@@ -126,9 +153,7 @@ export const EplDrawer: React.FC = () => {
   const groupUrl = PartiesService.groupPageUrl(site.absoluteUrl, epl.id)
 
   return (
-    <DrawerShell
-      title={strings.Parties.ExternalProjectManager}
-      onClose={() => setDrawer({ kind: 'none' })}>
+    <DrawerShell title={strings.Parties.ExternalProjectManager}>
       <div className={styles.groupLine}>
         <Text>{`${strings.Parties.FixedRole} · ${membersText(epl.memberCount)}`}</Text>
         <Link href={groupUrl} onClick={openInNewTab(groupUrl)}>

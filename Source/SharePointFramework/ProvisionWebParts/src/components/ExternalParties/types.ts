@@ -1,10 +1,17 @@
 import type { IAccessSnapshot, IParty, IPrincipalAccess } from '../../models/IExternalParties'
 import type {
   AccessReaderService,
+  IActivityLogger,
   IPartiesConfig,
   IPartiesSiteInfo,
+  IPartiesWriter,
   PartiesService
 } from '../../services/parties'
+
+export interface IWriteServices {
+  writer: IPartiesWriter
+  logger: IActivityLogger
+}
 
 export interface IExternalPartiesProps {
   title: string
@@ -12,6 +19,8 @@ export interface IExternalPartiesProps {
   config: IPartiesConfig
   partiesService: PartiesService
   accessReader: AccessReaderService
+  /** Creates the services that change SharePoint, once the site is known. */
+  createWriteServices: (site: IPartiesSiteInfo) => IWriteServices
 }
 
 /** Status shown for a party in the overview. Based on facts only, never a blueprint. */
@@ -34,4 +43,9 @@ export interface IExternalPartiesData {
   externalProjectManager?: IParty
 }
 
-export type DrawerState = { kind: 'none' } | { kind: 'party'; partyId: number } | { kind: 'epl' }
+export type DrawerState =
+  | { kind: 'none' }
+  | { kind: 'party'; partyId: number }
+  | { kind: 'epl' }
+  | { kind: 'grant'; partyId?: number }
+  | { kind: 'new' }

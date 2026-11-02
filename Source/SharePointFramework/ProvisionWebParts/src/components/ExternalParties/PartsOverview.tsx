@@ -11,7 +11,7 @@ import {
   Tag,
   Text
 } from '@fluentui/react-components'
-import { ArrowClockwise20Regular, Open16Regular } from '@fluentui/react-icons'
+import { Add20Regular, ArrowClockwise20Regular, Open16Regular } from '@fluentui/react-icons'
 import * as strings from 'ProvisionWebPartsStrings'
 
 import { format } from '../../utils/format'
@@ -70,6 +70,15 @@ export const PartsOverview: React.FC = () => {
       </div>
 
       <div className={styles.toolbar}>
+        <Button
+          appearance='primary'
+          icon={<Add20Regular />}
+          onClick={() => setDrawer({ kind: 'new' })}>
+          {strings.Parties.NewParty}
+        </Button>
+        <Button disabled={parties.length === 0} onClick={() => setDrawer({ kind: 'grant' })}>
+          {strings.Parties.GrantAccess}
+        </Button>
         <span className={styles.spacer} />
         {guestInvitationUrl && (
           <Link href={guestInvitationUrl}>{strings.Parties.InviteGuestsLink}</Link>

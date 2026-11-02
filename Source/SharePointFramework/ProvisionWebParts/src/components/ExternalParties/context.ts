@@ -1,7 +1,7 @@
 import * as React from 'react'
 
 import type { IPartiesConfig } from '../../services/parties'
-import type { DrawerState, IExternalPartiesData } from './types'
+import type { DrawerState, IExternalPartiesData, IWriteServices } from './types'
 
 export interface IExternalPartiesContext {
   config: IPartiesConfig
@@ -9,6 +9,9 @@ export interface IExternalPartiesContext {
   drawer: DrawerState
   setDrawer: (drawer: DrawerState) => void
   refresh: () => Promise<void>
+  services: IWriteServices
+  /** Reads the access again when the panel closes, e.g. after a failed run. */
+  markNeedsRefresh: () => void
 }
 
 export const ExternalPartiesContext = React.createContext<IExternalPartiesContext | undefined>(
