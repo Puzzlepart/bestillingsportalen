@@ -40,8 +40,19 @@ export const ExternalParties: React.FC<IExternalPartiesProps> = (props) => {
     key: 0
   })
   const needsRefresh = React.useRef(false)
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  // The element that opened the panel. Focus goes back to it when the panel
+  // closes, or to the first button in the web part if it is gone.
+  const returnFocus = React.useRef<HTMLElement | null>(null)
+  const isOpen = React.useRef(false)
+  const wasOpen = React.useRef(false)
   const setDrawer = React.useCallback(
     (next: DrawerState) => {
+      if (!isOpen.current && next.kind !== 'none') {
+        const active = document.activeElement as HTMLElement | null
+        returnFocus.current = rootRef.current?.contains(active) ? active : null
+      }
+      isOpen.current = next.kind !== 'none'
       setDrawerState(next)
       if (next.kind !== 'none') {
         setDrawerContent((c) => ({ state: next, key: c.key + 1 }))
@@ -52,6 +63,27 @@ export const ExternalParties: React.FC<IExternalPartiesProps> = (props) => {
     },
     [refresh]
   )
+  React.useEffect(() => {
+    const closing = wasOpen.current && drawer.kind === 'none'
+    wasOpen.current = drawer.kind !== 'none'
+    if (!closing) return undefined
+    // The panel is removed after its close animation. Wait for that, then put
+    // focus back unless the user has already moved it somewhere else.
+    let tries = 0
+    const timer = window.setInterval(() => {
+      const active = document.activeElement
+      const stillInPanel = !!active?.closest('[role="dialog"]')
+      if (stillInPanel && ++tries < 40) return
+      window.clearInterval(timer)
+      const target = returnFocus.current
+      returnFocus.current = null
+      if (!rootRef.current || (active && active !== document.body && !stillInPanel)) return
+      if (target?.isConnected) target.focus()
+      else rootRef.current.querySelector<HTMLElement>('button')?.focus()
+    }, 50)
+    return () => window.clearInterval(timer)
+  }, [drawer.kind])
+
   const markNeedsRefresh = React.useCallback(() => {
     needsRefresh.current = true
   }, [])
@@ -122,7 +154,7 @@ export const ExternalParties: React.FC<IExternalPartiesProps> = (props) => {
   return (
     <IdPrefixProvider value={fluentProviderId}>
       <FluentProvider theme={customLightTheme}>
-        <div className={styles.externalParties}>
+        <div className={styles.externalParties} ref={rootRef}>
           <WebPartTitle title={title} description={description} />
           {content}
         </div>
