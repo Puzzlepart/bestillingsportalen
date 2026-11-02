@@ -100,7 +100,10 @@ describe('buildNewPartyOperations', () => {
   it('creates group, library, access and link, and does nothing on a second run', async () => {
     const writer = new FakeWriter()
     const context: INewPartyContext = {}
-    const options = { externalProjectManagerId: EPL, navigationHeading: 'Dokumentsamhandling' }
+    const options = {
+      externalProjectManager: { id: EPL, title: 'Kai – Ekstern prosjektleder' },
+      navigationHeading: 'Dokumentsamhandling'
+    }
     const first = await runOperations(buildNewPartyOperations(writer, definition, options, context))
     expect(first.ok).toBe(true)
     expect(writer.calls).toEqual([
@@ -190,7 +193,12 @@ describe('buildAccessOperations', () => {
     const entries: IActivityLogEntry[] = []
     const progress: string[] = []
     const result = await runOperations(
-      buildAccessOperations(writer, plan, { id: PARTY, title: 'Kai – Lev A' }, EPL),
+      buildAccessOperations(
+        writer,
+        plan,
+        { id: PARTY, title: 'Kai – Lev A' },
+        { id: EPL, title: 'Kai – Ekstern prosjektleder' }
+      ),
       {
         correlationId: 'c1',
         logger: {
@@ -215,6 +223,7 @@ describe('buildAccessOperations', () => {
       ['ensureExternalProjectManager', 'Folder', 'Success'],
       ['changeRole', 'Library', 'Success']
     ])
+    expect(entries[2].principal).toBe('Kai – Ekstern prosjektleder')
     expect(toLogItem(entries[3])).toEqual(
       expect.objectContaining({
         LogSource: 'Samarbeidsparter',

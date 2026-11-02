@@ -1,7 +1,12 @@
 import * as React from 'react'
 import * as ReactDom from 'react-dom'
 import { Version } from '@microsoft/sp-core-library'
-import { type IPropertyPaneConfiguration, PropertyPaneTextField } from '@microsoft/sp-property-pane'
+import {
+  type IPropertyPaneConfiguration,
+  type IPropertyPaneField,
+  PropertyPaneLabel,
+  PropertyPaneTextField
+} from '@microsoft/sp-property-pane'
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base'
 import { spfi, SPFI, SPFx } from '@pnp/sp'
 
@@ -18,6 +23,7 @@ import {
   DEFAULT_GUEST_INVITATION_URL,
   DEFAULT_LIBRARIES_FILTER,
   DEFAULT_NAVIGATION_HEADING,
+  DEFAULT_PART_TYPES,
   DEFAULT_PROTECTED_LIBRARIES,
   type IPartiesConfig,
   type IPartiesSiteInfo,
@@ -44,6 +50,8 @@ export interface IExternalPartiesWebPartProps {
 
 export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExternalPartiesWebPartProps> {
   private _sp!: SPFI
+  /** Loaded with the property pane, so the code editor is not in the page bundle. */
+  private _codeEditor?: typeof import('@pnp/spfx-property-controls/lib/PropertyFieldCodeEditor')
   private _partiesService!: PartiesService
   private _accessReader!: AccessReaderService
 
@@ -125,6 +133,36 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
     return true
   }
 
+  protected async loadPropertyPaneResources(): Promise<void> {
+    this._codeEditor = await import(
+      /* webpackChunkName: 'external-parties-property-pane' */
+      '@pnp/spfx-property-controls/lib/PropertyFieldCodeEditor'
+    )
+  }
+
+  /** JSON editor for the party types, or a plain text field until the editor is loaded. */
+  private _partTypesField(): IPropertyPaneField<unknown> {
+    if (!this._codeEditor) {
+      return PropertyPaneTextField('partTypes', {
+        label: strings.Parties.PartTypesLabel,
+        description: strings.Parties.PartTypesDescription,
+        multiline: true,
+        rows: 8
+      })
+    }
+    const { PropertyFieldCodeEditor, PropertyFieldCodeEditorLanguages } = this._codeEditor
+    return PropertyFieldCodeEditor('partTypes', {
+      key: 'partTypesCodeEditor',
+      label: strings.Parties.PartTypesLabel,
+      panelTitle: strings.Parties.PartTypesLabel,
+      initialValue: this.properties.partTypes || JSON.stringify(DEFAULT_PART_TYPES, null, 2),
+      language: PropertyFieldCodeEditorLanguages.JSON,
+      properties: this.properties,
+      onPropertyChange: this.onPropertyPaneFieldChanged.bind(this),
+      deferredValidationTime: 500
+    })
+  }
+
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     return {
       pages: [
@@ -154,11 +192,9 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
                   label: strings.Parties.ExternalProjectManagerLabel,
                   description: strings.Parties.ExternalProjectManagerDescription
                 }),
-                PropertyPaneTextField('partTypes', {
-                  label: strings.Parties.PartTypesLabel,
-                  description: strings.Parties.PartTypesDescription,
-                  multiline: true,
-                  rows: 8
+                this._partTypesField(),
+                PropertyPaneLabel('partTypesDescription', {
+                  text: this._codeEditor ? strings.Parties.PartTypesDescription : ''
                 })
               ]
             },

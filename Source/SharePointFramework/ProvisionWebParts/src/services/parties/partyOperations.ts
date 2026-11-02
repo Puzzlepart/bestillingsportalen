@@ -40,6 +40,12 @@ export interface IPartiesWriter {
   ensureNavigationLink(heading: string, title: string, url: string): Promise<boolean>
 }
 
+/** A group by id and title. The title is written to the activity log. */
+export interface IPrincipalRef {
+  id: number
+  title: string
+}
+
 /** Error with a code the UI can translate. */
 export class PartyOperationError extends Error {
   constructor(
@@ -76,7 +82,7 @@ export interface INewPartyContext {
 export const buildNewPartyOperations = (
   writer: IPartiesWriter,
   definition: INewPartyDefinition,
-  options: { externalProjectManagerId?: number; navigationHeading?: string },
+  options: { externalProjectManager?: IPrincipalRef; navigationHeading?: string },
   context: INewPartyContext = {}
 ): IOperation[] => {
   const { groupTitle, library } = definition
@@ -161,15 +167,20 @@ export const buildNewPartyOperations = (
       }
     }
   )
-  if (options.externalProjectManagerId !== undefined) {
-    const eplId = options.externalProjectManagerId
+  if (options.externalProjectManager) {
+    const epl = options.externalProjectManager
     ops.push({
       id: 'library-epl',
       label: { action: 'ensureExternalProjectManager', target: library.title },
-      log: { targetType: 'Library', targetUrl: library.serverRelativeUrl, role: 'Reader' },
+      log: {
+        targetType: 'Library',
+        targetUrl: library.serverRelativeUrl,
+        principal: epl.title,
+        role: 'Reader'
+      },
       run: async () => {
-        if ((await writer.getRoleKinds(ref(), eplId)).length > 0) return 'skipped'
-        await writer.addRole(ref(), eplId, RoleKind.Reader)
+        if ((await writer.getRoleKinds(ref(), epl.id)).length > 0) return 'skipped'
+        await writer.addRole(ref(), epl.id, RoleKind.Reader)
         return 'done'
       }
     })
@@ -199,8 +210,8 @@ export const buildNewPartyOperations = (
 export const buildAccessOperations = (
   writer: IPartiesWriter,
   plan: IAccessPlan,
-  party: { id: number; title: string },
-  externalProjectManagerId?: number
+  party: IPrincipalRef,
+  externalProjectManager?: IPrincipalRef
 ): IOperation[] =>
   plan.steps.map((step, i): IOperation => {
     const target = step.target
@@ -263,14 +274,14 @@ export const buildAccessOperations = (
           log: {
             targetType: log.targetType,
             targetUrl: log.targetUrl,
+            principal: externalProjectManager?.title,
             role: 'Reader' as PartyRole
           },
           run: async () => {
-            if (externalProjectManagerId === undefined) return 'skipped'
-            if ((await writer.getRoleKinds(ref, externalProjectManagerId)).length > 0) {
-              return 'skipped'
-            }
-            await writer.addRole(ref, externalProjectManagerId, RoleKind.Reader)
+            if (!externalProjectManager) return 'skipped'
+            const eplId = externalProjectManager.id
+            if ((await writer.getRoleKinds(ref, eplId)).length > 0) return 'skipped'
+            await writer.addRole(ref, eplId, RoleKind.Reader)
             return 'done'
           }
         }

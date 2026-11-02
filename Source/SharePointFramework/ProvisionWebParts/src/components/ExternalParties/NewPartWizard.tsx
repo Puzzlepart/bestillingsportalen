@@ -153,6 +153,7 @@ export const NewPartWizard: React.FC = () => {
     else markNeedsRefresh()
   }
   const create = async (): Promise<void> => {
+    const eplRef = epl ? { id: epl.id, title: epl.title } : undefined
     const context: INewPartyContext = {}
     const party = {
       get id(): number {
@@ -164,10 +165,10 @@ export const NewPartWizard: React.FC = () => {
       ...buildNewPartyOperations(
         services.writer,
         definition,
-        { externalProjectManagerId: epl?.id, navigationHeading: config.navigationHeading },
+        { externalProjectManager: eplRef, navigationHeading: config.navigationHeading },
         context
       ),
-      ...buildAccessOperations(services.writer, plan, party, epl?.id)
+      ...buildAccessOperations(services.writer, plan, party, eplRef)
     ]
     setStep(3)
     await runAndRefresh()
