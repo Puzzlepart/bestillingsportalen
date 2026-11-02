@@ -10,6 +10,14 @@
         }
       ]
     },
+    "external-parties-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/externalParties/index.js",
+          "manifest": "./src/webparts/externalParties/manifest.json"
+        }
+      ]
+    },
     "project-provision-web-part": {
       "components": [
         {

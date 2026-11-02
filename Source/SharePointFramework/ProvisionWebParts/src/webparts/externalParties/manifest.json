@@ -1,0 +1,35 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "f99f57c7-00f4-4324-9f0b-5c4d81fbdc65",
+  "alias": "ExternalPartiesWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "SharePointFullPage"],
+  "supportsThemeVariants": true,
+  "preconfiguredEntries": [
+    {
+      "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+      "group": { "default": "Other" },
+      "title": { "default": "Samarbeidsparter", "en-us": "Partners" },
+      "description": {
+        "default": "Opprett samarbeidsparter og gi dem tilgang til biblioteker og mapper. For eiere av området.",
+        "en-us": "Create partners and give them access to libraries and folders. For site owners."
+      },
+      "officeFabricIconFontName": "People",
+      "properties": {
+        "title": "Samarbeidsparter",
+        "description": "",
+        "groupPrefix": "{sitename} – ",
+        "externalProjectManager": "Ekstern prosjektleder",
+        "partTypes": "",
+        "librariesFilter": "(BaseTemplate eq 101 and IsCatalog eq false and IsApplicationList eq false) and (Title ne 'Form Templates' and Title ne 'Skjemamaler')",
+        "protectedLibraries": "Interne dokumenter",
+        "navigationHeading": "Dokumentsamhandling",
+        "activityLogUrl": "Lists/ActivityLog",
+        "guestInvitationUrl": "SitePages/Inviter-gjester.aspx"
+      }
+    }
+  ]
+}

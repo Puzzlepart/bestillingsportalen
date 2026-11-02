@@ -512,6 +512,85 @@ declare interface IProvisionWebPartsStrings {
     ProvisionAccessGroupTitleFieldLabel: string
     ProvisionAccessGroupTitleFieldDescription: string
   }
+  /** Samarbeidsparter (ExternalParties web part) */
+  Parties: {
+    PropertyPaneDescription: string
+    GroupGeneral: string
+    GroupParties: string
+    GroupLibraries: string
+    GroupNavigation: string
+    GroupAdvanced: string
+    TitleLabel: string
+    DescriptionLabel: string
+    GroupPrefixLabel: string
+    GroupPrefixDescription: string
+    ExternalProjectManagerLabel: string
+    ExternalProjectManagerDescription: string
+    PartTypesLabel: string
+    PartTypesDescription: string
+    ProtectedLibrariesLabel: string
+    ProtectedLibrariesDescription: string
+    LibrariesFilterLabel: string
+    LibrariesFilterDescription: string
+    NavigationHeadingLabel: string
+    NavigationHeadingDescription: string
+    GuestInvitationUrlLabel: string
+    GuestInvitationUrlDescription: string
+    ActivityLogUrlLabel: string
+    ActivityLogUrlDescription: string
+    NotOwnerMessage: string
+    Loading: string
+    LoadError: string
+    Refresh: string
+    Intro: string
+    InviteGuestsLink: string
+    ChipParties: string
+    ChipMembers: string
+    ChipNoMembers: string
+    TableLabel: string
+    ColumnParty: string
+    ColumnType: string
+    ColumnAccess: string
+    ColumnMembers: string
+    ColumnStatus: string
+    ColumnActions: string
+    ExternalProjectManager: string
+    FixedRole: string
+    WholeSite: string
+    EplAccessMissing: string
+    AccessOwnLibrary: string
+    AccessLibrariesOne: string
+    AccessLibrariesMany: string
+    AccessFoldersOne: string
+    AccessFoldersMany: string
+    AccessNone: string
+    MembersOne: string
+    MembersMany: string
+    StatusOK: string
+    StatusNoMembers: string
+    StatusNoAccess: string
+    StatusMissing: string
+    OpenGroup: string
+    EmptyParties: string
+    Disclaimer: string
+    DrawerDisclaimer: string
+    Close: string
+    AccessToday: string
+    AccessTodayHint: string
+    NoAccessYet: string
+    KindOwnLibrary: string
+    KindLibrary: string
+    KindFolder: string
+    EplSiteAccess: string
+    EplSiteRole: string
+    EplNoSiteAccess: string
+    EplBroken: string
+    EplBrokenHint: string
+    NoAccessLabel: string
+    ProtectedLibrary: string
+    EplReadOnly: string
+    NoBroken: string
+  }
 }
 
 declare module 'ProvisionWebPartsStrings' {

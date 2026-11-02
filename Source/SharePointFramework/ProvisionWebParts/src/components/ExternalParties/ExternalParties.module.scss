@@ -1,0 +1,136 @@
+.externalParties {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 600px) {
+  .externalParties {
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+.intro {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  max-width: 72ch;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 720px;
+}
+
+.secondary {
+  display: block;
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
+.nameButton {
+  font-weight: var(--fontWeightSemibold);
+  padding: 0;
+  min-width: 0;
+  text-align: left;
+}
+
+.disclaimer {
+  color: var(--colorNeutralForeground3);
+}
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.groupLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.groupTitle {
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+  background: var(--colorNeutralBackground3);
+  padding: 2px 6px;
+  border-radius: var(--borderRadiusSmall);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--fontSizeBase300);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.hint {
+  margin: 2px 0 0;
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
+.accessList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+}
+
+.accessItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.accessItemMuted {
+  color: var(--colorNeutralForeground3);
+}
+
+.accessRole {
+  white-space: nowrap;
+  font-size: var(--fontSizeBase200);
+}
+
+.accessSource {
+  grid-column: 1 / -1;
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
+.summaryBox {
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+  padding: 12px;
+}
