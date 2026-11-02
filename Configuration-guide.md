@@ -254,6 +254,20 @@ Gruppen opprettes **ikke** automatisk — verken av `deploy.ps1` eller av PnP-ma
 
 > **Oppgradering i tenanter med Prosjektportalen 365:** Til og med PP365 1.14 fulgte webdelen med PP365-pakken `pp-portfolio-web-parts`, med samme komponent-id. Appkatalogen tillater ikke to pakker som registrerer samme komponent — oppgrader derfor **først** Prosjektportalen 365 til en versjon uten webdelen, og distribuer **deretter** denne pakken, i samme vedlikeholdsvindu. Eksisterende Bestillingsportalen-sider viser «finner ikke komponenten» i mellomtiden og virker igjen så snart denne pakken er distribuert (komponent-id-en er beholdt). Oppdater til slutt Teams-appen fra denne pakken (se under).
 
+## Merknad: Webdelen Samarbeidsparter
+
+Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som de andre webdelene. Den brukes på prosjektområder der eierne skal styre tilgangen for eksterne parter. Slik tas den i bruk:
+
+1. Legg webdelen på en side på prosjektområdet, f.eks. `SitePages/Samarbeidsparter.aspx`. I Prosjektportalen-malen for ekstern samhandling ligger siden og menyen «Deling og tilganger» klar.
+2. Kontroller innstillingene i property pane. Standardverdiene følger tilgangsmodellen for ekstern samhandling:
+   - gruppene heter `<områdetittel> – <navn>`
+   - Ekstern prosjektleder er gruppen `<områdetittel> – Ekstern prosjektleder`
+   - «Interne dokumenter» kan ikke deles
+   - lenker til partenes biblioteker legges under «Dokumentsamhandling»
+3. Legg webdelen **Inviter gjester** på siden som `guestInvitationUrl` peker til (standard `SitePages/Inviter-gjester.aspx`), og legg områdets tittel i `allowedSpGroups` der, slik at partenes grupper kan velges.
+
+Webdelen er bare for eierne av området og bruker deres egne rettigheter. Den trenger ingen ekstra tillatelser, Logic Apps eller innstillinger i Bestillingsportalen-området. Første gang noe endres, oppretter den den skjulte listen `Lists/ActivityLog`, som bare eierne har tilgang til. Se [Teknisk referanse](./App-teknisk-referanse.md#11-externalparties-arkitektur-samarbeidsparter).
+
 ## Merknad: Tenant-registeret `bp_ProvisionUrls`
 
 Webdelene og Teams-appen finner Bestillingsportalen-området via en tenant-omfattende **storage entity** med nøkkel `bp_ProvisionUrls`, som `deploy.ps1` vedlikeholder automatisk ved hver installasjon og oppgradering (Teams-appen har ingen property pane, så uten registeret ville URL-en vært låst til standarden `/sites/bestillingsportalen`). Verdien er enten en ren URL eller et JSON-array av `{title, url}`-objekter der **første element er tenantens standardinstans**:
