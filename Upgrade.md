@@ -7,11 +7,40 @@ Denne veiledningen forklarer hvordan du oppgraderer en eksisterende Bestillingsp
 Oppgraderingsprosessen lar deg:
 
 - Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
-- Oppdatere Logic App-ene `ProcessProvisionRequest` og `ProcessGuestRequest` med de nyeste arbeidsflyt-forbedringene
+- Oppdatere Logic App-ene `ProcessProvisionRequest`, `ProcessGuestRequest` og `ProcessApprovalRequest` med de nyeste arbeidsflyt-forbedringene
 - Bygge og publisere SPFx-løsninger (f.eks. `InviteGuests`-webdelen) til tenant app-katalog
 - Registrere installasjonen i tenant-registeret `bp_ProvisionUrls` (storage entity) som webdelene og Teams-appen bruker til å finne området — eksisterende miljøer uten registeret får det opprettet ved første re-deploy; frem til da gjelder standard-URL-en `/sites/bestillingsportalen` som før. Skrivingen krever at NoScript er av på app-katalogen, så `deploy.ps1` slår det midlertidig av og på igjen etterpå. Feiler registreringen likevel, skriver skriptet ut en `WARNING` med kommandoene for manuell registrering
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
 - Minimere nedetid og konfigurasjonsendringer
+
+## Oppgradere til 2.0.0: godkjenningsflyten erstattes
+
+I versjoner før 2.0.0 ble bestillinger godkjent av Power Automate-flyten `Provisioning Request Approval`, som ble importert manuelt i tjenestekontoens Power Platform-miljø. Fra 2.0.0 godkjennes de av Logic Appen **`ProcessApprovalRequest`**, som `deploy.ps1` deployer. Se [Godkjenningsflyt](./Approval-flow.md).
+
+> [!WARNING]
+> **Egne tilpasninger av flyten blir ikke med.** `ProcessApprovalRequest` er bygd på nytt fra standardflyten. Har dere endret `Provisioning Request Approval` selv, for eksempel e-posttekster, godkjennerlogikk, ekstra steg eller integrasjoner mot andre systemer, finnes ingen av endringene i Logic Appen etter oppgraderingen. Kartlegg tilpasningene **før** dere oppgraderer, og avgjør om de skal bygges inn i `Source/ARMTemplates/LogicApps/processapprovalrequest.json` etterpå. Standardflyten finnes i [v1.1.0](https://github.com/Puzzlepart/bestillingsportalen/blob/v1.1.0/Source/Flows/Bestillingsportalen-Flows_unmanaged.zip) (også i installasjonspakken i [1.1.0-releasen](https://github.com/Puzzlepart/bestillingsportalen/releases/tag/v1.1.0)), så dere kan sammenligne den med flyten i miljøet.
+
+Dette er uendret: innstillingene i `Provisioning Request Settings` (`ApproverEmail`, `PostToTeams`, `TeamsTeamID`/`TeamsChannelID`, påminnelser, forretningsenheter, `EnablePublicSpaceApprovalOnly`, `EnableAutoApproval`), godkjennerne i `Business Units`-listen og statusene bestillingene går gjennom.
+
+Dette er annerledes:
+
+- Godkjenning per e-post sendes med Outlook-connectorens «Send approval email» i stedet for Approvals. E-posten har Approve/Reject-knapper, men **ikke kommentarfelt**. Trenger dere begrunnelse fra godkjenneren, bruk Teams-metoden, som fortsatt har kommentarfelt. Approvals-appen i Teams brukes ikke lenger.
+- `DisableApprovalNotifications` har ingen funksjon lenger.
+- `EnableAutoApproval` slår nå av godkjenningen også for bestillinger som kommer inn som `Submitted` utenom webdelen.
+
+**Flyten og Logic Appen starter begge når en bestilling får `Status = Submitted`.** Kjører begge samtidig, får godkjennerne doble godkjenningsforespørsler, og statusen kan bli overskrevet. Følg derfor denne rekkefølgen:
+
+1. **Før oppgraderingen:** Kartlegg tilpasninger av flyten (se advarselen over). Skru deretter AV flyten `Provisioning Request Approval` i make.powerautomate.com, logget inn som tjenestekontoen, i løsningen «Bestillingsportalen Flows».
+2. Kjør `./deploy.ps1 -Upgrade`. `ProcessApprovalRequest` deployes aktivert og bruker de eksisterende API-tilkoblingene, så ingen ny autorisering trengs. Etter oppsummeringen skriver skriptet ut en påminnelse om disse migreringsstegene.
+3. **Bestillinger som står i `Pending Approval`** ventet i flytkjøringer som nå er stoppet. Åpne `Provisioning Requests`-listen, filtrer på `Status = Pending Approval`, og sett statusen tilbake til `Submitted`. Logic Appen plukker dem opp innen et minutt og sender nye godkjenningsforespørsler.
+4. **Når én bestilling er godkjent og provisjonert:** Slett flyten og løsningen `BestillingsportalenFlows` fra Power Platform-miljøet. Tjenestekontoens tilkoblinger i Power Platform (Approvals, Outlook, SharePoint, Teams) kan også fjernes. Tilkoblingene i Azure skal beholdes.
+
+**Ble flyten aldri importert** (det finnes ingen løsning «Bestillingsportalen Flows» i tjenestekontoens standardmiljø), hopper du over punkt 1, 3 og 4. Vær da oppmerksom på to ting:
+
+- **Godkjenningen begynner å virke etter oppgraderingen.** Uten flyten ble ingen bestillinger godkjent, med mindre `EnableAutoApproval` var slått på. Sjekk derfor `ApproverEmail`, Teams-innstillingene og `EnableAutoApproval` i `Provisioning Request Settings` **før** du oppgraderer, slik at godkjenningsforespørslene går til riktig sted. Se [Konfigurasjonsveiledningen, Steg 1](./Configuration-guide.md#steg-1-konfigurere-godkjenningsprosess).
+- **Bestillinger som allerede står som `Submitted`, blir ikke plukket opp av seg selv.** Logic Appen ser bare endringer etter at den er deployet. Skal de behandles, endrer du et felt på bestillingen, for eksempel `Comments`, mens statusen fortsatt er `Submitted`.
+
+Etter migreringen trenger ikke tjenestekontoen lenger Power Automate-lisens, System Customizer-rollen i standardmiljøet eller Power Platform Administrator-rollen.
 
 ## Oppgradering til 1.0.0 i tenanter med Prosjektportalen 365 — rekkefølgen er obligatorisk
 
@@ -54,6 +83,7 @@ Bruk oppgraderingsmodus når du vil:
    - `ProcessProvisionRequest` — hovedflyten for områdeprovisjonering
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - `ProcessGuests` — selve invitasjonsflyten mot Graph. Oppgraderes sammen med kalleren, siden de to utveksler felter (f.eks. bestilleren som skal registreres som gjestens sponsor)
+   - `ProcessApprovalRequest` — godkjenningen av bestillinger. Erstatter Power Automate-flyten fra 2.0.0, se [Oppgradere til 2.0.0](#oppgradere-til-200-godkjenningsflyten-erstattes)
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
@@ -284,13 +314,14 @@ Når oppgraderingen er fullført:
 
 3. **Test arbeidsflyten**
    - Opprett en test-bestilling (bruk en enkel områdetype)
-   - Overvåk Logic App-kjøringen i Azure Portal
+   - Godkjenn den med godkjennings-e-post eller Teams-kort, avhengig av konfigurasjonen
+   - Overvåk Logic App-kjøringene i Azure Portal
    - Verifiser at området opprettes korrekt
 
 4. **Gjennomgå Logic Apps**
    - Gå til Azure Portal → Ressursgruppe → `ProcessProvisionRequest` Logic App
    - Sjekk kjørehistorikken og verifiser at den bruker nyeste definisjon
-   - Gjenta for `ProcessGuestRequest` Logic App
+   - Gjenta for `ProcessGuestRequest` og `ProcessApprovalRequest`. En `ProcessApprovalRequest`-kjøring står som `Running` mens den venter på godkjenneren, og det er normalt
    - **Husk:** SharePoint-koblingen (`bestillingsportalen-spo`) må kanskje re-autoriseres i Azure Portal etter oppgradering
 
 5. **Verifiser SPFx-løsninger** (hvis ikke `-SkipSPFxDeploy`)
@@ -431,12 +462,15 @@ Bruk denne sjekklisten ved oppgradering:
 - [ ] Verifiser at tenant app-katalog finnes (hvis SPFx skal deployes)
 - [ ] Verifiser at Node.js er installert (bare hvis SPFx-pakken skal bygges – installasjonspakken har den ferdig bygd)
 - [ ] Varsle brukere om vedlikeholdsvindu
+- [ ] Fra før 2.0.0: kartlegg egne tilpasninger av Power Automate-flyten `Provisioning Request Approval`, og skru den av (se [Oppgradere til 2.0.0](#oppgradere-til-200-godkjenningsflyten-erstattes))
 - [ ] Kjør `./deploy.ps1 -Upgrade` (og svar på «Site already exists»-prompten — eller bruk `-Force`, som svarer nei)
 - [ ] Verifiser at området lastes korrekt
 - [ ] Sjekk at alle lister og data er intakte (inkl. ny `Guest Requests`-liste)
-- [ ] Test `ProcessProvisionRequest` med en eksempel-bestilling
+- [ ] Fra før 2.0.0: sett bestillinger som sto i `Pending Approval` tilbake til `Submitted`
+- [ ] Test `ProcessApprovalRequest` og `ProcessProvisionRequest` med en eksempel-bestilling (send inn, godkjenn, verifiser provisjonering)
+- [ ] Fra før 2.0.0: slett Power Automate-flyten og løsningen `BestillingsportalenFlows` når godkjenningen er verifisert
 - [ ] Test `ProcessGuestRequest` ved å invitere en gjest via webdelen
-- [ ] Gjennomgå Logic Apps-kjørehistorikk for begge
+- [ ] Gjennomgå Logic Apps-kjørehistorikk for alle tre
 - [ ] Re-autoriser API Connections i Azure Portal hvis nødvendig
 - [ ] Verifiser at SPFx-pakken vises som «Deployed» i app-katalog
 - [ ] Test ny funksjonalitet (hvis aktuelt)

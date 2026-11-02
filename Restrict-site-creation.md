@@ -138,7 +138,7 @@ Tabellen viser hvem som kan gjøre hva når A og B er slått på, og kan brukes 
 |--|--|--|
 | **Ansatt** | Bestiller gjennom Bestillingsportalen, og blir eier når bestillingen er godkjent og provisjonert. Kan ikke opprette direkte | Avhenger av rollen på området, se under |
 | **Medlem av unntaksgruppen** | Kan opprette direkte i Teams, SharePoint, Planner osv. | Som andre |
-| **Godkjenner i Bestillingsportalen** | Godkjenner eller avviser bestillinger i Teams (Approvals). Ingen egen rett til å opprette | – |
+| **Godkjenner i Bestillingsportalen** | Godkjenner eller avviser bestillinger i Teams eller per e-post. Ingen egen rett til å opprette | – |
 | **Eier av område eller team** | Kan ikke opprette nye områder bare fordi hen er eier. Kan opprette private og delte kanaler hvis Teams-policyen tillater det | Administrerer medlemmer, eiere, innstillinger og deling innenfor tenantens grenser. Undermiljøer hvis det ikke er slått av |
 | **Medlem av område eller team** | Kan opprette private kanaler hvis policyen tillater det og eieren ikke har skrudd det av. Kan ikke opprette delte kanaler | Redigerer innhold og oppretter standardkanaler, med mindre eieren har skrudd det av |
 | **Besøkende** | Nei | Lesetilgang |

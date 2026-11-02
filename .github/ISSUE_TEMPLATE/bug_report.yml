@@ -26,7 +26,7 @@ body:
         - Bestillings-webdel eller Teams-app (ProjectProvision)
         - Gjesteinvitasjon (InviteGuests / ProcessGuestRequest / AddGuestToSite)
         - Provisjonering (ProcessProvisionRequest / ConfigureSpace)
-        - Godkjenningsflyt (Power Automate)
+        - Godkjenning (ProcessApprovalRequest)
         - PnP-mal og SharePoint-lister
         - Dokumentasjon
         - Annet / vet ikke

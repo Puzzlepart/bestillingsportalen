@@ -7,7 +7,7 @@
 
 .DESCRIPTION
     Run it after deploy.ps1 and Authorize-ApiConnections.ps1, before the test order in
-    Configuration-guide.md (Steg 8). It answers "is everything in place?" in one run,
+    Configuration-guide.md (Steg 7). It answers "is everything in place?" in one run,
     instead of clicking through the SharePoint admin center, the Azure portal and Entra ID.
 
     Without -TriggerLogicApps and -TestProvision the script NEVER creates, changes or
@@ -20,8 +20,8 @@
     interactive sign-in with the PnP app (pnpAppId) and the Azure CLI. Az PowerShell is
     not used. Needs SharePoint Administrator, and Reader on the resource group.
 
-    What cannot be checked from here - the Power Automate approval flow and the
-    end-to-end test order - is listed as SKIPPED with what to check by hand.
+    What cannot be checked from here - the end-to-end test order - is listed as
+    SKIPPED with what to check by hand.
 
     Exit code 0 when nothing is MISSING, 1 otherwise.
 
@@ -39,7 +39,7 @@
     GetSiteTemplates, GetTeamsTemplates, SyncGroupSettings, SyncLabels - found from
     their definitions, so a customer's own scheduled logic app is included), wait for
     each run to finish and report the result: succeeded, or which action failed and
-    why. This is Configuration-guide.md Steg 4 in one go, and the quickest way to see
+    why. This is Configuration-guide.md Steg 3 in one go, and the quickest way to see
     that the app roles and API connections actually work.
 
     This is the one thing the script changes: the runs do what they do on their weekly
@@ -58,7 +58,7 @@
     ordering web part does, follow it until it is created (or fails) and then DELETE it.
     This tests the provisioning end to end: the ProcessProvisionRequest logic app, the
     group or site creation, the ConfigureSpace runbook and - unless auto approval is on -
-    the approval flow.
+    the ProcessApprovalRequest logic app.
 
     - The request gets the same fields as one from the web part, with the account signed
       in to SharePoint as owner and requester, a generated name ('BP-test <time>') and
@@ -181,14 +181,14 @@ $customerRunbook = 'CustomerSpecific'
 $delegatedConnections = @('bestillingsportalen-o365', 'bestillingsportalen-o365users', 'bestillingsportalen-spo', 'bestillingsportalen-teams')
 $automationConnection = 'bestillingsportalen-automation'
 # The logic apps DeployARMTemplates deploys. The support ones are run once by hand after
-# the installation (Configuration-guide.md Steg 4) - never having run is worth a warning.
-$expectedLogicApps = @('ProcessGuests', 'CheckSiteExists', 'ProcessProvisionRequest', 'ProcessGuestRequest', 'SyncGroupSettings', 'GetSiteTemplates', 'GetHubSites', 'SyncLabels', 'GetTeamsTemplates')
+# the installation (Configuration-guide.md Steg 3) - never having run is worth a warning.
+$expectedLogicApps = @('ProcessGuests', 'CheckSiteExists', 'ProcessProvisionRequest', 'ProcessGuestRequest', 'ProcessApprovalRequest', 'SyncGroupSettings', 'GetSiteTemplates', 'GetHubSites', 'SyncLabels', 'GetTeamsTemplates')
 $supportLogicApps = @('GetHubSites', 'GetSiteTemplates', 'GetTeamsTemplates', 'SyncGroupSettings', 'SyncLabels')
 
 $graphAppId = '00000003-0000-0000-c000-000000000000'
 $spoAppId = '00000003-0000-0ff1-ce00-000000000000'
 # Managed identity tokens carry the roles from when they were issued, and are cached for
-# up to ~24 hours - see the note in Configuration-guide.md Steg 8
+# up to ~24 hours - see the note in Configuration-guide.md Steg 7
 $tokenCacheHours = 24
 
 $spfxRoot = Join-Path $PSScriptRoot "..\SharePointFramework"
@@ -564,7 +564,7 @@ function RequireServiceAccount([string]$Name) {
     return $true
 }
 
-# The approval flow and the Teams welcome message run as the service account and need
+# The approval Logic App's delegated connections and the Teams welcome message run as the service account and need
 # it as owner AND member of the site's Microsoft 365 group - deploy.ps1's
 # GrantServiceAccountAccess sets it up.
 function CheckServiceAccountGroup {
@@ -597,7 +597,7 @@ function CheckServiceAccountGroup {
     if (-not $isOwner) { $lacking += 'owner' }
     if (-not $isMember) { $lacking += 'member' }
     if ($lacking.Count -gt 0) {
-        RecordCheck -Name $name -Status MISSING -Detail "$upn is not $($lacking -join ' or ') of group $groupId - the approval flow and the Teams welcome message run as this account" -Fix "Re-run deploy.ps1 and answer n to re-applying the template (GrantServiceAccountAccess adds it), or add $upn as OWNER and MEMBER of the group in the Microsoft 365 admin center."
+        RecordCheck -Name $name -Status MISSING -Detail "$upn is not $($lacking -join ' or ') of group $groupId - the approval Logic App's delegated connections and the Teams welcome message run as this account" -Fix "Re-run deploy.ps1 and answer n to re-applying the template (GrantServiceAccountAccess adds it), or add $upn as OWNER and MEMBER of the group in the Microsoft 365 admin center."
         return
     }
     RecordCheck -Name $name -Status OK -Detail "$upn is owner and member"
@@ -1027,7 +1027,7 @@ function CheckLogicApps {
 
     foreach ($expected in $expectedLogicApps) {
         if ($names -notcontains $expected) {
-            RecordCheck -Name "Logic App: $expected" -Status MISSING -Detail "Not found in resource group $resourceGroupName" -Fix $(if ($expected -in @('ProcessGuests', 'ProcessProvisionRequest', 'ProcessGuestRequest')) { "Run deploy.ps1 (-Upgrade is enough) - it deploys this logic app." } else { "Run deploy.ps1 without -Upgrade - -Upgrade deploys only ProcessGuests, ProcessProvisionRequest and ProcessGuestRequest." })
+            RecordCheck -Name "Logic App: $expected" -Status MISSING -Detail "Not found in resource group $resourceGroupName" -Fix $(if ($expected -in @('ProcessGuests', 'ProcessProvisionRequest', 'ProcessGuestRequest', 'ProcessApprovalRequest')) { "Run deploy.ps1 (-Upgrade is enough) - it deploys this logic app." } else { "Run deploy.ps1 without -Upgrade - -Upgrade deploys only ProcessGuests, ProcessProvisionRequest, ProcessGuestRequest and ProcessApprovalRequest." })
         }
     }
 
@@ -1074,7 +1074,7 @@ function CheckLogicApps {
                 return
             }
             if (-not $latest -and $workflowName -in $supportLogicApps) {
-                RecordCheck -Name $name -Status WARNING -Detail "Enabled, never run - the list it fills stays empty until its weekly schedule" -Fix "Run it once now: Azure Portal -> $workflowName -> Run trigger -> Run (Configuration-guide.md Steg 4)."
+                RecordCheck -Name $name -Status WARNING -Detail "Enabled, never run - the list it fills stays empty until its weekly schedule" -Fix "Run it once now: Azure Portal -> $workflowName -> Run trigger -> Run (Configuration-guide.md Steg 3)."
                 return
             }
             RecordCheck -Name $name -Status OK -Detail "Enabled, $runText"
@@ -1238,7 +1238,7 @@ function InvokeScheduledLogicApps {
 $requestsListName = "Provisioning Requests"
 $provisioningTypesListName = "Provisioning Types"
 $finalRequestStates = @('Space Created', 'Space Creation Failed', 'Space Already Exists', 'Rejected')
-# Before ProcessProvisionRequest has picked the request up - the approval flow's states
+# Before ProcessProvisionRequest has picked the request up - the approval states
 $unapprovedRequestStates = @('Not Submitted', 'Submitted', 'Pending Approval')
 # The SpaceTypeInternal values ProcessProvisionRequest creates a Microsoft 365 group for,
 # and the plain SharePoint site types (Check_space_type in processprovisionrequest.json)
@@ -1400,7 +1400,7 @@ function TestProvisioning {
             RecordCheck -Name $name -Status MISSING -Detail "'Space Creation Failed' after $minutes min$(if ($reason) { " - $reason" })" -Fix (RunFailureHint "StatusReason on request $requestId, the ProcessProvisionRequest run history and the ConfigureSpace job")
         }
         'Rejected' {
-            RecordCheck -Name $name -Status WARNING -Detail "Rejected by the approver - the approval flow works, the provisioning was not tested" -Fix "Approve the next test order, or turn on EnableAutoApproval for the test."
+            RecordCheck -Name $name -Status WARNING -Detail "Rejected by the approver - the approval works, the provisioning was not tested" -Fix "Approve the next test order, or turn on EnableAutoApproval for the test."
         }
         'Space Already Exists' {
             RecordCheck -Name $name -Status WARNING -Detail "'Space Already Exists' - something already holds $siteUrl" -Fix "Run the test again - the alias has a timestamp, so this should not repeat."
@@ -1408,7 +1408,7 @@ function TestProvisioning {
         default {
             $waitingFor = if ($finalStatus -in $unapprovedRequestStates) { "approval" } else { "ProcessProvisionRequest" }
             $fix = if ($finalStatus -in $unapprovedRequestStates) {
-                "Nobody approved it within $TestProvisionTimeoutMinutes min. Check that the approval flow is on (Configuration-guide.md Steg 2) and who gets the approvals (Steg 1) - or turn on EnableAutoApproval for the test."
+                "Nobody approved it within $TestProvisionTimeoutMinutes min. Check the ProcessApprovalRequest run history and who gets the approvals (Configuration-guide.md Steg 1) - or turn on EnableAutoApproval for the test."
             }
             elseif ($finalStatus -eq 'Approved') {
                 "Approved, but ProcessProvisionRequest never picked it up (it polls every minute). Check that the logic app is enabled and that the bestillingsportalen-spo connection is Connected."
@@ -1728,8 +1728,6 @@ try {
     }
 
     # --- Manual ---
-    $flowOwner = if (IsValidParam $parameters.serviceAccountUPN) { $parameters.serviceAccountUPN.Value } else { "the service account" }
-    RecordCheck -Name "Manual: approval flow" -Status SKIPPED -Detail "Lives in Power Automate, which cannot be read from here" -Fix "make.powerautomate.com as $flowOwner -> Solutions -> 'Bestillingsportalen Flows': 'Provisioning Request Approval' is there and turned On (Configuration-guide.md Steg 2)."
     $tokenNote = if ($script:latestAppRoleAssignment) {
         " App roles were assigned $(FormatTime $script:latestAppRoleAssignment): until $(FormatTime $script:latestAppRoleAssignment.AddHours($tokenCacheHours)) sporadic 401/403 are the ~$tokenCacheHours h token cache - wait and test again rather than troubleshoot."
     }
@@ -1738,7 +1736,7 @@ try {
     }
     $testOrderPassed = @($script:checks | Where-Object { $_.Name -eq 'Test order' -and $_.Status -eq 'OK' }).Count -gt 0
     $manualDetail = if ($testOrderPassed) { "The provisioning works (see 'Test order') - what is left is the web part and the access as an ordinary user" } else { "End to end - the only test that covers the approval, the Logic Apps and the runbooks together" }
-    RecordCheck -Name "Manual: test order" -Status SKIPPED -Detail $manualDetail -Fix "Order a space as an ordinary user, approve it, and follow the status to 'Space Created' (Configuration-guide.md Steg 8).$tokenNote"
+    RecordCheck -Name "Manual: test order" -Status SKIPPED -Detail $manualDetail -Fix "Order a space as an ordinary user, approve it, and follow the status to 'Space Created' (Configuration-guide.md Steg 7).$tokenNote"
 
     $missingCount = ShowChecklist
 }

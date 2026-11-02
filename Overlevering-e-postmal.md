@@ -1,6 +1,6 @@
 # E-postmal: overlevering etter installasjon
 
-En mal for e-posten til kunden når installasjonen er ferdig: hva som er installert, hvordan brukerne bestiller, og hva kunden selv må gjøre før løsningen åpnes for alle. Send den til kundens systemeier eller IT-ansvarlige etter testbestillingen i [Steg 8 i konfigurasjonsveiledningen](./Configuration-guide.md#steg-8-verifiser-med-en-testbestilling).
+En mal for e-posten til kunden når installasjonen er ferdig: hva som er installert, hvordan brukerne bestiller, og hva kunden selv må gjøre før løsningen åpnes for alle. Send den til kundens systemeier eller IT-ansvarlige etter testbestillingen i [Steg 7 i konfigurasjonsveiledningen](./Configuration-guide.md#steg-7-verifiser-med-en-testbestilling).
 
 Slik bruker du malen:
 
@@ -20,8 +20,8 @@ Bestillingsportalen er nå installert hos <kundenavn> (versjon <versjon>, <dato>
 
 - **Bestillingsområdet** <område-URL>, med listene som styrer løsningen: bestillinger, områdetyper, maler, huber og innstillinger.
 - **Bestillingsportalen** som webdel i SharePoint og som app i Teams.
-- **Automatiseringen** i Azure-abonnementet <abonnement>, ressursgruppe <ressursgruppe>: Logic Apps, en Automation-konto og managed identities. Løsningen har ingen passord, hemmeligheter eller sertifikater som må fornyes.
-- **Godkjenningsflyten** i Power Automate, eid av tjenestekontoen <tjenestekonto>.
+- **Automatiseringen** i Azure-abonnementet <abonnement>, ressursgruppe <ressursgruppe>: Logic Apps, blant dem godkjenningen av bestillinger, en Automation-konto og managed identities. Løsningen har ingen passord, hemmeligheter eller sertifikater som må fornyes.
+- **Tjenestekontoen** <tjenestekonto>, som Logic Appene bruker til å sende e-post og Teams-meldinger.
 
 **Slik bestiller brukerne**
 
@@ -29,11 +29,11 @@ Brukerne åpner Bestillingsportalen i Teams eller på <side-URL>, velger område
 
 **Dette må dere gjøre før dere åpner for brukerne**
 
-- [ ] **Godkjenning:** bestem hvem som godkjenner, og om det skjer i Approvals eller i en Teams-kanal ([Steg 1](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-1-konfigurere-godkjenningsprosess)). Bestillinger kan også godkjennes automatisk ([Steg 7](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-7-valgfritt-aktivere-automatisk-godkjenning-deaktivere-godkjenningsprosess)).
-- [ ] **Tilgang:** del bestillingsområdet med dem som skal kunne bestille, og gi dem redigeringstilgang til listen `Provisioning Requests` ([Steg 3](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-3-dele-flyt-og-sharepoint-område)).
+- [ ] **Godkjenning:** bestem hvem som godkjenner, og om det skjer per e-post eller i en Teams-kanal ([Steg 1](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-1-konfigurere-godkjenningsprosess)). Godkjenningen kan også slås av, slik at bestillinger godkjennes automatisk ([Steg 6](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-6-valgfritt-slå-av-godkjenningen)).
+- [ ] **Tilgang:** del bestillingsområdet med dem som skal kunne bestille, og gi dem redigeringstilgang til listen `Provisioning Requests` ([Steg 2](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-2-dele-sharepoint-området)).
 - [ ] **Områdetyper:** velg hvilke typer brukerne kan bestille, for eksempel Microsoft 365-gruppe og Teams ([Provisioning Types](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Provisioning-types.md)).
-- [ ] **Maler og huber:** velg hvilke områdemaler og huber brukerne skal se ([Steg 5](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-5-valgfritt-aktivere-site-templates-og-hub-sites)).
-- [ ] **Administratorer:** bestem hvem som skal administrere løsningen ([Steg 6](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-6-sette-opp-administratorgruppe)).
+- [ ] **Maler og huber:** velg hvilke områdemaler og huber brukerne skal se ([Steg 4](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-4-valgfritt-aktivere-site-templates-og-hub-sites)).
+- [ ] **Administratorer:** bestem hvem som skal administrere løsningen ([Steg 5](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#steg-5-sette-opp-administratorgruppe)).
 - [ ] **Teams-appen:** gjør appen tilgjengelig for brukerne i Teams admin center, og pinn den gjerne i app-linjen ([Aktivere Teams-appen](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#merknad-aktivere-teams-appen-for-bestillingsportalen)).
 - [ ] **Webdelen:** legg webdelen Bestillingsportalen inn på en SharePoint-side, for eksempel på intranettet ([Bestillings-webdelen](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Configuration-guide.md#merknad-bestillings-webdelen-følger-denne-løsningen)).
 - [ ] **Valgfritt:** begrens hvem som kan opprette team, grupper og områder utenom portalen ([Begrense opprettelse av områder](https://github.com/Puzzlepart/bestillingsportalen/blob/main/Restrict-site-creation.md)).

@@ -2,6 +2,29 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Uutgitt
+
+Planlagt som **2.0.0**: oppgraderingen krever manuelle steg i Power Automate, så den er ikke en ren `-Upgrade`.
+
+### Viktig før oppgradering
+
+- **Godkjenningsflyten i Power Automate erstattes, og egne tilpasninger av den blir ikke med**: Flyten `Provisioning Request Approval` erstattes av den nye Logic Appen `ProcessApprovalRequest`, som er bygd på nytt fra standardflyten. Har kunden endret flyten selv, for eksempel e-posttekster, godkjennerlogikk, ekstra steg eller integrasjoner, overføres ingenting av dette. Tilpasningene må kartlegges før oppgraderingen og eventuelt bygges inn i Logic Appen etterpå. Standardflyten finnes i [1.1.0-releasen](https://github.com/Puzzlepart/bestillingsportalen/releases/tag/v1.1.0) til sammenligning. Flyten må skrus av før oppgraderingen, og bestillinger som står i `Pending Approval`, må settes tilbake til `Submitted` etterpå. Se [Oppgradere til 2.0.0](./Upgrade.md#oppgradere-til-200-godkjenningsflyten-erstattes).
+
+### Ny funksjonalitet
+
+- **Godkjenningen kjører i Azure Logic Apps, og Power Platform trengs ikke lenger** ([#51](https://github.com/Puzzlepart/bestillingsportalen/issues/51)): `ProcessApprovalRequest` (`Source/ARMTemplates/LogicApps/processapprovalrequest.json`) deployes av `deploy.ps1` sammen med de andre Logic Appene, både ved full installasjon og med `-Upgrade`. Kontrakten mot resten av løsningen er uendret: status `Submitted` inn, `Approved`/`Rejected` ut, og innstillingene i `Provisioning Request Settings` og godkjennerne i `Business Units` gjelder som før. Approvals-connectoren finnes ikke i Logic Apps, så godkjenning per e-post bruker Outlook-connectorens «Send approval email». Teams-kortet er portet uendret. Power Automate-lisensen på tjenestekontoen er ikke lenger et krav, og forhåndssjekken av `FLOW_`-planer er fjernet. `DisableApprovalNotifications` har ingen funksjon lenger, men beholdes i listen. `Test-Installation.ps1` sjekker Logic Appen i stedet for å be om manuell kontroll av flyten.
+- **`EnableAutoApproval` slår av godkjenningen helt**: Til nå virket innstillingen bare i bestillingswebdelen, som oppretter bestillingen med status `Approved`. En bestilling som kom inn som `Submitted` på en annen måte, for eksempel lagt rett i listen, gikk likevel til godkjenning. Nå godkjenner `ProcessApprovalRequest` slike bestillinger automatisk når innstillingen er på, uten å sende e-posten om at bestillingen er sendt til godkjenning, og skriver «Auto approved - approval is turned off (EnableAutoApproval).» i `Comments`. Logic Appen tolker verdien som webdelen: alt annet enn tom verdi og `false` slår den på. Beskrivelsen av innstillingen er oppdatert i malen. Eksisterende installasjoner beholder den gamle beskrivelsen, siden `-Upgrade` ikke skriver over listeelementene.
+- **Installasjonen er kortere**: Import, aktivering og deling av flyten i Power Automate er borte fra konfigurasjonsveiledningen, sammen med kravene om Power Automate-lisens på tjenestekontoen, System Customizer-rollen og Power Platform Administrator. Stegene i [konfigurasjonsveiledningen](./Configuration-guide.md) er nummerert om: det som var Steg 3–8, er nå Steg 2–7. `Source/Flows/` og skjermbildene fra flyt-importen er fjernet.
+
+### Feilrettinger
+
+Disse feilene i den gamle flyten er rettet i Logic Appen:
+
+- **Godkjenningsoppgaven ble sendt på nytt hvert tiende minutt**: Flyten ventet bare 10 minutter på svar før den satte bestillingen tilbake til `Submitted`, som startet flyten på nytt med en ny oppgave, helt til noen svarte. Logic Appen venter i 60 dager, også på Teams-kortet, som før ikke hadde noen tidsgrense.
+- **Påminnelsene ble aldri sendt**: Løkken som skulle sende påminnelser, gikk ut på tid etter én time, mens ventetiden mellom påminnelsene er `ApprovalReminderInterval` dager. Påminnelsene sendes nå fra en egen gren som venter intervallet, til noen svarer.
+- **`Approver` ble aldri fylt ut**: Flyten skrev aldri til kolonnen, så `NotifyApproverOnSpaceCreated` fra 1.1.0 hadde ingen godkjenner å varsle. Logic Appen skriver den som svarte i `Approver` før den setter status `Approved`, slik at `ProcessProvisionRequest` ser godkjenneren når den plukker opp bestillingen.
+- **Det ble ikke logget hvem som svarte på Teams-kortet**: Navnet på den som svarte, står nå i `Comments` sammen med svardato og kommentar.
+
 ## 1.1.0 - 30.10.2026
 
 ### Ny funksjonalitet

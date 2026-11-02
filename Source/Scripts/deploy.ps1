@@ -8,7 +8,7 @@
         -Logic App
 
 .DESCRIPTION
-    Deploys the Bestillingsportalen solution (excluding Flows).
+    Deploys the Bestillingsportalen solution.
     This script uses the Azure CLI, Azure Az PowerShell and PnP PowerShell Modules to perform the deployment.
 
     Everything authenticates with managed identity - no certificate, client secret or Key Vault.
@@ -244,6 +244,7 @@ $hubSitesListName = "Hub Sites"
 $teamsTemplatesListName = "Teams Templates"
 $ipLabelsListName = "IP Labels"
 $guestRequestsListName = "Guest Requests"
+$businessUnitsListName = "Business Units"
 
 #  Folder names
 $provRequestsFolderName = "Provisioning Request"
@@ -298,6 +299,7 @@ $global:teamsTemplatesListId = $null
 $global:teamsAppManualUploadZip = $null
 $script:teamsAppPublishScope = $null # Set by CheckTeamsAppPublish: $true, $false, or $null when unknown
 $global:guestRequestsListId = $null
+$global:businessUnitsListId = $null
 $global:uamiPrincipalId = $null
 $global:tenantUrl = $null
 $global:upgrade = $false
@@ -812,6 +814,11 @@ function ConfigureSharePointSite {
             $context.ExecuteQuery()
             $global:guestRequestsListId = $guestRequestsList.Id
 
+            $businessUnitsList = Get-PnPList $businessUnitsListName
+            $context.Load($businessUnitsList)
+            $context.ExecuteQuery()
+            $global:businessUnitsListId = $businessUnitsList.Id
+
             Write-Host "Finished site configuration (existing list content preserved)" -ForegroundColor Green
             return
         }
@@ -957,6 +964,12 @@ function ConfigureSharePointSite {
         $context.ExecuteQuery()
         $global:guestRequestsListId = $guestRequestsList.Id
 
+        # Get id of the business units list
+        $businessUnitsList = Get-PnPList $businessUnitsListName
+        $context.Load($businessUnitsList)
+        $context.ExecuteQuery()
+        $global:businessUnitsListId = $businessUnitsList.Id
+
         Write-Host "Finished configuring site" -ForegroundColor Green
 
     }
@@ -967,8 +980,8 @@ function ConfigureSharePointSite {
 }
 
 # Gives the service account its access to the requests site: OWNER and MEMBER of the
-# Microsoft 365 group (owner does not imply member, and the approval flow and the Teams
-# welcome message run as this account and need actual access), and site collection
+# Microsoft 365 group (owner does not imply member, and the approval Logic App's delegated
+# connections and the Teams welcome message run as this account and need actual access), and site collection
 # admin. It is deliberately not the -Owners of New-PnPSite - see the comment on that call.
 #
 # Runs on every site step, not only right after creation: a -SharePointOnly run may have
@@ -1043,7 +1056,7 @@ function GrantServiceAccountAccess {
     }
 
     if ($problems.Count -gt 0) {
-        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "The approval flow and the Teams welcome message run as this account and need the access. $($problems -join ' | ')"
+        RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "The approval Logic App's delegated connections and the Teams welcome message run as this account and need the access. $($problems -join ' | ')"
         return
     }
     RecordDeployStatus -Component $componentName -Status 'OK' -Detail "$upn - group owner, member and site collection admin"
@@ -1262,7 +1275,7 @@ function ValidateServiceAccount {
         $script:serviceAccountDeferred = $true
         $what = if (IsValidParam($parameters.serviceAccountUPN)) { "'$upn' was not found in the tenant" } else { "serviceAccountUPN is not set" }
         RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "$what - deferred to the full run"
-        RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "$what - deferred: the site is installed without it, and the full run adds it as group owner, member and site collection admin" -Fix "Before the full run: create the account (a standard user licensed for SharePoint, Exchange Online, Teams and seeded Power Automate) and set serviceAccountUPN in $parametersFileName. Do not name it after the site alias '$requestsSiteAlias' - the site's group holds that address."
+        RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "$what - deferred: the site is installed without it, and the full run adds it as group owner, member and site collection admin" -Fix "Before the full run: create the account (a standard user licensed for SharePoint, Exchange Online and Teams) and set serviceAccountUPN in $parametersFileName. Do not name it after the site alias '$requestsSiteAlias' - the site's group holds that address."
         return
     }
     if ($null -eq $saUser) {
@@ -1281,30 +1294,14 @@ function ValidateServiceAccount {
         $servicePlans = @($licenseDetails.value.servicePlans.servicePlanName)
         if ($servicePlans.Count -eq 0) {
             RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' exists but has no licenses assigned"
-            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign a license that includes SPO, Exchange Online, Teams and seeded Power Automate (E- and F-plans both qualify)."
-            return
-        }
-        # The account must be able to own and activate the solution flow
-        # (Configuration-guide.md step 2).
-        # Seeded Power Automate from any Office 365 plan qualifies - INCLUDING frontline
-        # F-plans (FLOW_O365_S1), which are verified working in a real customer tenant
-        # (import + activation, August 2026). An earlier FlowNotOriginalAuthor failure
-        # on an F-plan happened in a dev tenant and appears to have been environment-
-        # specific. The only plan still treated as unusable is an unprovisioned viral
-        # trial (FLOW_P2_VIRAL without _REAL).
-        $flowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' -and $_ -ne 'FLOW_P2_VIRAL' })
-        if ($flowPlans.Count -eq 0) {
-            $foundFlowPlans = @($servicePlans | Where-Object { $_ -match '^FLOW_' }) -join ', '
-            if (-not $foundFlowPlans) { $foundFlowPlans = 'none' }
-            RecordDeployStatus -Component "Service account" -Status 'WARNING' -Detail "'$upn' has no seeded Power Automate plan for the approval flow"
-            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' has no seeded Power Automate plan (found: $foundFlowPlans)" -Fix "Assign a license with seeded Power Automate (any E- or F-plan) before importing the approval flow (Configuration-guide.md step 2). Unprovisioned viral trials do not count."
+            RecordPreflightCheck -Name "Service account" -Status WARNING -Detail "'$upn' exists but has no licenses assigned" -Fix "Assign a license that includes SPO, Exchange Online and Teams (E- and F-plans both qualify)."
             return
         }
     }
     catch {}
 
     RecordDeployStatus -Component "Service account" -Status 'OK'
-    RecordPreflightCheck -Name "Service account" -Status OK -Detail "$($saUser.displayName) ($upn), licensed incl. Power Automate"
+    RecordPreflightCheck -Name "Service account" -Status OK -Detail "$($saUser.displayName) ($upn), licensed"
 }
 
 # ---------------------------------------------------------------------------
@@ -2138,11 +2135,11 @@ function ConfirmDeployment {
     }
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)" $SharePointOnly
     if ($global:upgrade) {
-        WritePlanLine "Logic Apps" "ProcessGuests + ProcessProvisionRequest + ProcessGuestRequest (upgrade set)" $SkipDeployARMTemplates
+        WritePlanLine "Logic Apps" "ProcessGuests + ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest (upgrade set)" $SkipDeployARMTemplates
     }
     else {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
-        WritePlanLine "Logic Apps" "9 logic apps" $SkipDeployARMTemplates
+        WritePlanLine "Logic Apps" "10 logic apps" $SkipDeployARMTemplates
     }
     $spfxSolutions = GetSPFxSolutions
     $spfxBuilding = @($spfxSolutions | Where-Object { SPFxBuildWanted $_ } | ForEach-Object Name)
@@ -2480,6 +2477,11 @@ function DeployARMTemplates {
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
         RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
 
+        Write-Host "ProcessApprovalRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processapprovalrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "requestsSettingsListId=$global:requestsSettingsListId" "businessUnitsListId=$global:businessUnitsListId" "uamiName=$uamiName" --output none
+        RecordAzResult "Logic App: ProcessApprovalRequest" -DeploymentName "processapprovalrequest"
+
         Write-Host "SyncGroupSettings" -ForegroundColor Yellow
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName" --output none
@@ -2571,7 +2573,7 @@ function VerifyRunbookRuntimeEnvironment {
     Write-Host "  Note: the portal's default Runbooks blade shows 7.2+ runtime environments as 'PowerShell 5.1'. Use Automation account > Runtime environments to see the real value." -ForegroundColor Gray
 }
 
-# Deploy ProcessProvisionRequest + ProcessGuestRequest logic apps for upgrade scenarios
+# Deploy ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest logic apps for upgrade scenarios
 # See Upgrade.md for more details
 function DeployLocalRunbooks {
     Write-Host "Deploying runbooks + PowerShell 7.4 runtime environment (runbooks.bicep)..." -ForegroundColor Yellow
@@ -2646,6 +2648,9 @@ function DeployUpgradeLogicApp {
         if ([string]::IsNullOrEmpty($global:guestRequestsListId)) {
             throw "Guest Requests list ID not found. Did the PnP template apply succeed?"
         }
+        if ([string]::IsNullOrEmpty($global:businessUnitsListId)) {
+            throw "Business Units list ID not found. Did the PnP template apply succeed?"
+        }
 
         # ProcessGuests is part of the guest chain and must be upgraded alongside its
         # caller: ProcessGuestRequest passes it RequestedByEmail (the sponsor), which
@@ -2664,6 +2669,11 @@ function DeployUpgradeLogicApp {
 
         az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
         RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
+
+        Write-Host "ProcessApprovalRequest" -ForegroundColor Yellow
+
+        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processapprovalrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "requestsSettingsListId=$global:requestsSettingsListId" "businessUnitsListId=$global:businessUnitsListId" "uamiName=$uamiName" --output none
+        RecordAzResult "Logic App: ProcessApprovalRequest" -DeploymentName "processapprovalrequest"
 
         Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
     }
@@ -2768,6 +2778,21 @@ function PublishTeamsApp {
         $global:teamsAppManualUploadZip = $zipPath
         RecordDeployStatus -Component $componentName -Status 'WARNING' -Detail "Publish failed ($reason). Upload $zipPath manually via the Teams admin center (Manage apps -> Upload new app)."
     }
+}
+
+# Printed at the end of an upgrade, where it won't be scrolled away: before 2.0.0 the
+# approval was a Power Automate flow, which keeps running next to ProcessApprovalRequest
+# until someone turns it off. Many tenants never imported the flow, hence the "if".
+function WriteApprovalFlowMigrationNotice {
+    Write-Host ""
+    Write-Host "IMPORTANT: The ProcessApprovalRequest Logic App replaces the Power Automate flow 'Provisioning Request Approval'." -ForegroundColor Yellow
+    Write-Host "If this tenant has that flow (solution 'Bestillingsportalen Flows' in the service account's default environment):" -ForegroundColor Yellow
+    Write-Host "  - Turn it OFF now, and delete it once an approval has gone through - both process Status=Submitted, so leaving it on causes duplicate approvals." -ForegroundColor Yellow
+    Write-Host "  - Set requests in 'Pending Approval' back to 'Submitted' - the Logic App then sends new approval requests." -ForegroundColor Yellow
+    Write-Host "  - Customisations made to the flow are NOT carried over to the Logic App - they must be re-implemented." -ForegroundColor Yellow
+    Write-Host "If the flow was never imported, approval starts working now unless EnableAutoApproval is true - check ApproverEmail and the Teams settings." -ForegroundColor Yellow
+    Write-Host "See 'Oppgradere til 2.0.0' in Upgrade.md." -ForegroundColor Yellow
+    Write-Host ""
 }
 
 # Repeats the manual Teams app upload instructions at the end of the run, where they
@@ -3222,7 +3247,7 @@ if ($global:upgrade) {
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
-    Write-Host "  - Deploy the ProcessProvisionRequest and ProcessGuestRequest Logic Apps" -ForegroundColor Cyan
+    Write-Host "  - Deploy the ProcessProvisionRequest, ProcessGuestRequest and ProcessApprovalRequest Logic Apps" -ForegroundColor Cyan
     if ($SkipSPFxDeploy) {
         Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
     }
@@ -3512,8 +3537,13 @@ else {
     $context.ExecuteQuery()
     $global:guestRequestsListId = $guestRequestsList.Id
 
+    $businessUnitsList = Get-PnPList $businessUnitsListName
+    $context.Load($businessUnitsList)
+    $context.ExecuteQuery()
+    $global:businessUnitsListId = $businessUnitsList.Id
+
     # Not part of the skipped site step: the service account's access is what the
-    # approval flow runs on, and a -SharePointOnly install without a service account
+    # approval Logic App's delegated connections run on, and a -SharePointOnly install without a service account
     # leaves it to this run. Skipping it here left the account with no access at all
     # (seen at a customer 22.10.2026). Checks before it writes, so on an installation
     # where the access is in place it only reads.
@@ -3567,7 +3597,7 @@ if ($SharePointOnly) {
 # Skip Azure resource deployment in upgrade mode - only deploy Logic App
 if ($global:upgrade) {
     Write-Host "### UPGRADE MODE - SKIPPING AZURE RESOURCE DEPLOYMENT ###" -ForegroundColor Yellow
-    Write-Host "Only deploying ProcessProvisionRequest Logic App..." -ForegroundColor Yellow
+    Write-Host "Only deploying the upgrade Logic App set..." -ForegroundColor Yellow
     
     # Get the location from parameters for the logic app deployment
     $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
@@ -3615,6 +3645,8 @@ if ($global:upgrade) {
 
     WriteTeamsAppManualUploadNotice
 
+    WriteApprovalFlowMigrationNotice
+
     if ((GetFailedDeployComponents).Count -gt 0) {
         Write-Host "### UPGRADE COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
         exit 1
@@ -3622,10 +3654,10 @@ if ($global:upgrade) {
 
     Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
     if ($spfxDeployed) {
-        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps and SPFx packages have been updated." -ForegroundColor Green
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest Logic Apps and SPFx packages have been updated." -ForegroundColor Green
     }
     else {
-        Write-Host "ProcessProvisionRequest + ProcessGuestRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
+        Write-Host "ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
     }
 
     exit 0
@@ -3740,7 +3772,7 @@ Write-Host ""
 # guide's step list drifts out of sync with it. The guide is the single source.
 Write-Host "The scripted part is done. Next: authorise the API connections as the service account" -ForegroundColor Cyan
 Write-Host "('Autorisere API-tilkoblinger' in Deployment-guide.md - guided flow: ./Authorize-ApiConnections.ps1)," -ForegroundColor Cyan
-Write-Host "then follow Configuration-guide.md for approval setup, flow import, sharing and a verification order." -ForegroundColor Cyan
+Write-Host "then follow Configuration-guide.md for approval setup and a verification order." -ForegroundColor Cyan
 Write-Host ""
 
 WriteTeamsAppManualUploadNotice
