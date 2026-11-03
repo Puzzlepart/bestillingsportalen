@@ -212,9 +212,40 @@ if ($null -eq $resolvedParametersPath) {
 $ParametersPath = $resolvedParametersPath.Path
 $parametersFileName = Split-Path -Leaf $ParametersPath
 
+# Every run is transcribed to Scripts\logs\, so the pre-flight checklist, the prompts
+# and their answers, and the DEPLOYMENT SUMMARY of an earlier run can be read back
+# afterwards - when a run is questioned days later, the console is long gone. The file
+# name carries the time, the mode and the parameter file, so runs against several
+# environments sort apart. The transcript holds what the console showed (tenant ids,
+# UPNs, URLs); sign-ins happen in the browser, so no secret passes through it.
+# Stopped by StopDeployLog in the finally block around the main flow below - a
+# transcript left running outlives the script and keeps recording the caller's session.
+$script:deployLogPath = $null
+$script:deployLogStarted = $false
+function StopDeployLog {
+    if (-not $script:deployLogStarted) { return }
+    $script:deployLogStarted = $false
+    try { Stop-Transcript | Out-Null } catch {}
+    Write-Host "Log saved to $script:deployLogPath" -ForegroundColor DarkGray
+}
+try {
+    $logDir = Join-Path $PSScriptRoot "logs"
+    if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+    $logMode = if ($Preflight) { 'preflight' } elseif ($Upgrade) { 'upgrade' } elseif ($SharePointOnly) { 'sharepointonly' } else { 'deploy' }
+    $logName = "$(Get-Date -Format 'yyyyMMdd-HHmmss')-$logMode-$([System.IO.Path]::GetFileNameWithoutExtension($parametersFileName)).log"
+    $script:deployLogPath = Join-Path $logDir $logName
+    Start-Transcript -LiteralPath $script:deployLogPath | Out-Null
+    $script:deployLogStarted = $true
+    Write-Host "Logging this run to $script:deployLogPath" -ForegroundColor DarkGray
+}
+catch {
+    Write-Host "[WARNING] Could not start the run log ($(($_.Exception.Message -split "`r?`n")[0])) - continuing without it" -ForegroundColor Yellow
+}
+
 # Check for presence of Azure CLI (cross-platform)
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
     Write-Host "AZURE CLI NOT INSTALLED!`nPLEASE INSTALL THE CLI FROM https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest and re-run this script in a new PowerShell session" -ForegroundColor Red
+    StopDeployLog
     exit 1
 }
 
@@ -488,7 +519,7 @@ function GetSiteExistenceState([string]$Url) {
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
-        Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site at $requestsSiteUrl..." -ForegroundColor Yellow
 
         $siteState = GetSiteExistenceState $requestsSiteUrl
         if ($siteState -eq 'Unknown') {
@@ -670,10 +701,15 @@ function CreateRequestsSharePointSite {
             # which stopped being true with the DataRows migration.
             if ($Force) {
                 $global:skipApplyTemplate = $true
-                Write-Host "Site already exists. -Force: NOT re-applying the PnP template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                Write-Host "Site already exists at $requestsSiteUrl. -Force: NOT re-applying the PnP template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
             else {
-                Write-Host "Site already exists. Apply the PnP provisioning template to it?" -ForegroundColor Yellow
+                # The URL is repeated here on purpose: this prompt is the last stop before the
+                # template is written to whatever site the alias resolved to. A run against the
+                # wrong alias once applied the template to a customer's Prosjektportalen site
+                # (30.10.2026), and the prompt gave no hint which site it was about to touch.
+                Write-Host "Site already exists: $requestsSiteUrl" -ForegroundColor Yellow
+                Write-Host "Apply the PnP provisioning template to it?" -ForegroundColor Yellow
                 if ($global:upgrade) {
                     Write-Host "  y = apply the latest template (schema, views, new lists). Existing list items and navigation are preserved; missing default rows are added." -ForegroundColor Cyan
                     Write-Host "  n = skip the template entirely (only reads the list ids), then continue with the rest of the upgrade. Tip: -SkipSharepointSite skips this whole step including the prompt." -ForegroundColor Cyan
@@ -3152,6 +3188,12 @@ function StampInstalledVersion {
 
 $ErrorActionPreference = "stop"
 
+# The main flow runs inside try/finally so the run log is closed however the script
+# ends: normal completion, every 'exit' (also from inside a function), an uncaught
+# throw, or Ctrl+C - finally runs on all of them. The body is deliberately not
+# re-indented: it is the whole rest of the file.
+try {
+
 # Print the (partial) deployment summary even when the script stops on a
 # terminating error, so it is clear which components completed before the failure.
 trap {
@@ -3751,3 +3793,8 @@ if ((GetFailedDeployComponents).Count -gt 0) {
 }
 
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
+
+}
+finally {
+    StopDeployLog
+}
