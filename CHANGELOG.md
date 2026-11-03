@@ -12,6 +12,7 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ### Feilrettinger
 
+- **`Test-Installation.ps1` varslet feilaktig om gammelt SPFx-navn**: Etter at visningsnavnet flyttet til `title` i `package-solution.json`, sammenlignet sjekken app-katalogens navn med `name` og meldte «deployed under its old name» på hver riktig deploy. Sjekken sammenligner nå med `title` når den er satt.
 - **`deploy.ps1 -Upgrade` deployer alle Logic App-ene**: Oppgraderingsmodus deployet bare `ProcessGuests`, `ProcessProvisionRequest` og `ProcessGuestRequest`. `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings`, `SyncLabels` og `CheckSiteExists` ble stående med område-URL og liste-ID-er fra forrige fulle kjøring. Ble `requestsSiteAlias` rettet etter en kjøring mot feil område, pekte de seks fortsatt på det gamle området og feilet når listene der ble slettet. Nå deployes alle ni i begge modus, fra én felles funksjon, pekt på det kjøringen leste fra SharePoint. Upgrade.md er oppdatert tilsvarende.
 
 ## 1.1.0 - 30.10.2026
