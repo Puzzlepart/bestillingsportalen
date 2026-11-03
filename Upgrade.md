@@ -139,6 +139,9 @@ har en `Solution version`-linje som også viser hva miljøet står på fra før,
 SUMMARY viser `Version: <ny> (installed: <gammel>)` før du bekrefter, og DEPLOYMENT
 SUMMARY bekrefter overgangen med en `Version stamp`-linje.
 
+Alt dette lagres også i en loggfil per kjøring i `Source/Scripts/logs/`, så en tidligere
+oppgraderings pre-flight og summary kan leses igjen i ettertid.
+
 Er begge stedene tomme, er miljøet installert før versjonsstemplingen ble innført
 (1.0.0). Merk at `InstalledVersion` **ikke** oppdateres hvis en kjøring hadde
 komponenter som feilet — den gamle verdien beholdes med vilje, slik at en halvferdig

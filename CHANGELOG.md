@@ -2,6 +2,13 @@
 
 Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/releases) for høydepunkter og mer detaljert endringslogg for siste hovedversjon.
 
+## Uutgitt
+
+### Forbedringer
+
+- **Spørsmålet om et eksisterende område viser hvilket område det gjelder**: `deploy.ps1` spurte «Site already exists. Apply the PnP provisioning template to it?» uten å si hvilket område. Med feil `requestsSiteAlias` i parameterfila ble malen dermed anvendt på et annet område enn ment, uten at spørsmålet ga noe hint. Nå står URL-en i spørsmålet, i `-Force`-meldingen og i overskriften for områdesteget.
+- **Hver kjøring av `deploy.ps1` lagres som loggfil**: Konsollutskriften fra hele kjøringen, med pre-flight-sjekklista, PRE-FLIGHT SUMMARY, spørsmålene med svar og DEPLOYMENT SUMMARY, skrives til `Source/Scripts/logs/<tidspunkt>-<modus>-<parameterfil>.log`. Da kan en tidligere kjøring leses igjen i ettertid, for eksempel pre-flighten fra forrige forsøk. Loggen lukkes uansett hvordan skriptet slutter, også ved `exit`, feil og Ctrl+C. Mappen er git-ignorert. Innloggingene skjer i nettleseren, så loggen inneholder ingen passord eller tokens.
+
 ## 1.1.0 - 30.10.2026
 
 ### Ny funksjonalitet
