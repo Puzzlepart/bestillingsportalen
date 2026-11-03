@@ -625,8 +625,9 @@ function CheckServiceAccountSiteAdmin {
 # ---------------------------------------------------------------------------
 # SPFx and Teams app
 # ---------------------------------------------------------------------------
-# Earlier display names (package-solution.json 'name') per solution id. The SPFx check
-# finds packages by name, so add the old name here when a solution is renamed.
+# Earlier display names per solution id: what the app catalog showed before a rename
+# (package-solution.json 'title' when set, else 'name'). The SPFx check finds packages
+# by name, so add the old display name here when a solution is renamed.
 $previousSpfxNames = @{
     '00b53018-61b2-4576-b559-27df9321cfc8' = @('Bestillingsportalen - Provision Web Parts')
 }
@@ -673,7 +674,8 @@ function CheckSpfxPackages {
             # has not been redeployed since a rename is still found.
             # The app catalog shows 'title' when package-solution.json sets one (the manifest
             # Name must be ASCII, so the Norwegian display name lives in 'title'), else 'name'.
-            $knownNames = @("$($package.title)", "$($package.name)") + @($previousSpfxNames["$($package.id)"] | Where-Object { $_ })
+            $currentName = if ("$($package.title)") { "$($package.title)" } else { "$($package.name)" }
+            $knownNames = @($currentName, "$($package.name)") + @($previousSpfxNames["$($package.id)"] | Where-Object { $_ })
             $knownNames = @($knownNames | Where-Object { $_ } | Select-Object -Unique)
             $app = $apps | Where-Object { "$($_.Id)" -eq "$($package.id)" } | Select-Object -First 1
             if ($null -eq $app) {
@@ -692,8 +694,10 @@ function CheckSpfxPackages {
                 RecordCheck -Name $name -Status WARNING -Detail "Version $($app.AppCatalogVersion) in the app catalog, $($package.version) in this checkout" -Fix "$fix If the environment is meant to stay on $($app.AppCatalogVersion), run this script from a checkout of that version."
                 return
             }
-            if ("$($app.Title)" -ne "$($package.name)") {
-                RecordCheck -Name $name -Status WARNING -Detail "'$($app.Title)' $($app.AppCatalogVersion) is deployed under its old name - this checkout names it '$($package.name)'" -Fix "Nothing breaks. Re-run deploy.ps1 -Upgrade to publish it under the new name."
+            # Compared with the display name, not 'name': after the 1.1.0 rename the catalog
+            # shows 'title', and comparing with 'name' flagged every correct deployment.
+            if ("$($app.Title)" -ne $currentName) {
+                RecordCheck -Name $name -Status WARNING -Detail "'$($app.Title)' $($app.AppCatalogVersion) is deployed under its old name - this checkout names it '$currentName'" -Fix "Nothing breaks. Re-run deploy.ps1 -Upgrade to publish it under the new name."
                 return
             }
             RecordCheck -Name $name -Status OK -Detail "'$($app.Title)' $($app.AppCatalogVersion), deployed"

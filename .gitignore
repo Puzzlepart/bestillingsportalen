@@ -3,6 +3,8 @@ Source/Scripts/parameters.json
 # Parameterfiler per miljø (tenant-ID, subscription-ID, tjenestekonto-UPN)
 Source/Scripts/parameters-*.json
 !Source/Scripts/parameters.template.json
+# Kjørelogger fra deploy.ps1 (transkript per kjøring)
+Source/Scripts/logs/
 .DS_Store
 
 # Excel-låsefiler

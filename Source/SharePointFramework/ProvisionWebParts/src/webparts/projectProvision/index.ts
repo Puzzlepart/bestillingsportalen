@@ -32,6 +32,7 @@ import * as ReactDom from 'react-dom'
 import { Dropdown, Option, IdPrefixProvider, FluentProvider } from '@fluentui/react-components'
 import { customLightTheme } from '../../utils/theme'
 import { format } from '../../utils/format'
+import { buildRequestedSource } from '../../utils/buildRequestedSource'
 import { ProvisionService } from '../../services/ProvisionService'
 import {
   DEFAULT_PROVISION_URL,
@@ -58,6 +59,7 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
   private _instances: IProvisionInstance[] = []
   private _accessibleInstances: IProvisionInstance[] = []
   private _instanceResolved = false
+  private _requestedSource: string
   private _initialProperties: IProjectProvisionProps
   // The effective site URL. Kept OUT of this.properties: on SharePoint pages
   // the property bag is persisted on page save, and writing the resolved URL
@@ -114,7 +116,8 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
         displayMode: this.displayMode,
         sp: this._sp,
         pageContext: this.context.pageContext,
-        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl
+        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
+        requestedSource: this._requestedSource
       })
     }
     ReactDom.render(element, this.domElement)
@@ -152,6 +155,38 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
     ]
   }
 
+  /**
+   * Where an order placed from this web part comes from, written to the
+   * `Requested Source` column: the Teams team and channel for a channel tab,
+   * the app name for the personal app, or site title and page name for a
+   * SharePoint page. Resolved once; the host does not change while mounted.
+   */
+  private async _resolveRequestedSource(isTeams: boolean): Promise<string> {
+    let teamName: string | undefined
+    let channelName: string | undefined
+    if (isTeams) {
+      const teams = this.context.sdks.microsoftTeams
+      try {
+        const teamsContext = await teams.teamsJs.app.getContext()
+        teamName = teamsContext.team?.displayName
+        channelName = teamsContext.channel?.displayName
+      } catch {
+        // Older hosts: the v1-shaped context SPFx still exposes
+        teamName = teams.context?.teamName
+        channelName = teams.context?.channelName
+      }
+    }
+    return buildRequestedSource({
+      isTeams,
+      teamName,
+      channelName,
+      webTitle: this.context.pageContext.web.title,
+      serverRequestPath: this.context.pageContext.site.serverRequestPath,
+      teamsAppLabel: strings.Provision.RequestedSourceTeamsApp,
+      fallback: strings.Provision.RequestedSource
+    })
+  }
+
   public async onInit(): Promise<void> {
     this._sp = spfi(this.context.pageContext.web.absoluteUrl).using(SPFx(this.context))
     this._provisionService = new ProvisionService(this.context)
@@ -162,6 +197,7 @@ export default class ProjectProvisionWebPart extends BaseClientSideWebPart<IProj
       this.properties.isTeamsContext = true
       if (!this.properties.drawerSize) this.properties.drawerSize = 'full'
     }
+    this._requestedSource = await this._resolveRequestedSource(isTeams)
 
     // Pristine snapshot (taken after the Teams-mode flags) restored on every
     // instance switch, so one instance's Object.assign-ed TeamsAppConfig does

@@ -435,6 +435,7 @@ define([], function () {
       "DeletedSubmissionErrorToastBody": "An error occurred while deleting the request. Please try again or contact an administrator.",
       "NoHubSiteConnectionMessage": "Hub site association is not available. The site can be requested, but will not be connected to a hub.",
       "RequestedSource": "Project Portal – Request form",
+      "RequestedSourceTeamsApp": "Teams: Bestillingsportalen",
       "SensitivityLabelLibraryFieldLabel": "Sensitivity label for library",
       "SensitivityLabelLibraryFieldDescription": "Which sensitivity label do you want to apply to the document library for this site?",
       "ImageDropZoneErrorText": "The image could not be uploaded. Please ensure the file is an image (png, jpeg/jpg) and does not exceed 512 KB.",

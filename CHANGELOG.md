@@ -18,6 +18,17 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
   - **Logg:** Endringene logges i en skjult liste, `Lists/ActivityLog`, som bare eierne har tilgang til.
   - **Mer informasjon:** Se [Teknisk referanse](./App-teknisk-referanse.md#11-externalparties-arkitektur-samarbeidsparter) og [konfigurasjonsveiledningen](./Configuration-guide.md#merknad-webdelen-samarbeidsparter).
 
+### Forbedringer
+
+- **Spørsmålet om et eksisterende område viser hvilket område det gjelder**: `deploy.ps1` spurte «Site already exists. Apply the PnP provisioning template to it?» uten å si hvilket område. Med feil `requestsSiteAlias` i parameterfila ble malen dermed anvendt på et annet område enn ment, uten at spørsmålet ga noe hint. Nå står URL-en i spørsmålet, i `-Force`-meldingen og i overskriften for områdesteget.
+- **`Requested Source` sier hvor bestillingen kom fra**: Kolonnen i Provisioning Requests fikk alltid den faste teksten «Prosjektportalen - Bestillingsskjema». Nå skriver webdelen `Teams: <team> / <kanal>` når den står som fane i en Teams-kanal, «Teams: Bestillingsportalen» i den personlige Teams-appen, og `<områdetittel> - <sidenavn>` når bestillingen er lagt inn fra en SharePoint-side (sidenavnet er filnavnet uten `.aspx`, med bindestreker som mellomrom). Den gamle teksten brukes bare når ingen av delene kan bestemmes. Ingenting annet leser kolonnen.
+- **Hver kjøring av `deploy.ps1` lagres som loggfil**: Konsollutskriften fra hele kjøringen, med pre-flight-sjekklista, PRE-FLIGHT SUMMARY, spørsmålene med svar og DEPLOYMENT SUMMARY, skrives til `Source/Scripts/logs/<tidspunkt>-<modus>-<parameterfil>.log`. Da kan en tidligere kjøring leses igjen i ettertid, for eksempel pre-flighten fra forrige forsøk. Loggen lukkes uansett hvordan skriptet slutter, også ved `exit`, feil og Ctrl+C. Mappen er git-ignorert. Innloggingene skjer i nettleseren, så loggen inneholder ingen passord eller tokens.
+
+### Feilrettinger
+
+- **`Test-Installation.ps1` varslet feilaktig om gammelt SPFx-navn**: Etter at visningsnavnet flyttet til `title` i `package-solution.json`, sammenlignet sjekken app-katalogens navn med `name` og meldte «deployed under its old name» på hver riktig deploy. Sjekken sammenligner nå med `title` når den er satt.
+- **`deploy.ps1 -Upgrade` deployer alle Logic App-ene**: Oppgraderingsmodus deployet bare `ProcessGuests`, `ProcessProvisionRequest` og `ProcessGuestRequest`. `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings`, `SyncLabels` og `CheckSiteExists` ble stående med område-URL og liste-ID-er fra forrige fulle kjøring. Ble `requestsSiteAlias` rettet etter en kjøring mot feil område, pekte de seks fortsatt på det gamle området og feilet når listene der ble slettet. Nå deployes alle ni i begge modus, fra én felles funksjon, pekt på det kjøringen leste fra SharePoint. Upgrade.md er oppdatert tilsvarende.
+
 ## 1.1.0 - 30.10.2026
 
 ### Ny funksjonalitet

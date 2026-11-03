@@ -343,6 +343,7 @@ declare interface IProvisionWebPartsStrings {
     DeletedSubmissionErrorToastTitle: string
     DeletedSubmissionErrorToastBody: string
     RequestedSource: string
+    RequestedSourceTeamsApp: string
     NotConfiguredTitle: string
     NotConfiguredText: string
     ExpirationDateNoneOption: string
