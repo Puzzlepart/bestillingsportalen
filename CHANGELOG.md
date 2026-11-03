@@ -9,6 +9,10 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 - **Spørsmålet om et eksisterende område viser hvilket område det gjelder**: `deploy.ps1` spurte «Site already exists. Apply the PnP provisioning template to it?» uten å si hvilket område. Med feil `requestsSiteAlias` i parameterfila ble malen dermed anvendt på et annet område enn ment, uten at spørsmålet ga noe hint. Nå står URL-en i spørsmålet, i `-Force`-meldingen og i overskriften for områdesteget.
 - **Hver kjøring av `deploy.ps1` lagres som loggfil**: Konsollutskriften fra hele kjøringen, med pre-flight-sjekklista, PRE-FLIGHT SUMMARY, spørsmålene med svar og DEPLOYMENT SUMMARY, skrives til `Source/Scripts/logs/<tidspunkt>-<modus>-<parameterfil>.log`. Da kan en tidligere kjøring leses igjen i ettertid, for eksempel pre-flighten fra forrige forsøk. Loggen lukkes uansett hvordan skriptet slutter, også ved `exit`, feil og Ctrl+C. Mappen er git-ignorert. Innloggingene skjer i nettleseren, så loggen inneholder ingen passord eller tokens.
 
+### Feilrettinger
+
+- **`deploy.ps1 -Upgrade` deployer alle Logic App-ene**: Oppgraderingsmodus deployet bare `ProcessGuests`, `ProcessProvisionRequest` og `ProcessGuestRequest`. `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings`, `SyncLabels` og `CheckSiteExists` ble stående med område-URL og liste-ID-er fra forrige fulle kjøring. Ble `requestsSiteAlias` rettet etter en kjøring mot feil område, pekte de seks fortsatt på det gamle området og feilet når listene der ble slettet. Nå deployes alle ni i begge modus, fra én felles funksjon, pekt på det kjøringen leste fra SharePoint. Upgrade.md er oppdatert tilsvarende.
+
 ## 1.1.0 - 30.10.2026
 
 ### Ny funksjonalitet
