@@ -334,6 +334,7 @@ define([], function () {
       "DeletedSubmissionErrorToastTitle": "Feil ved sletting",
       "DeletedSubmissionErrorToastBody": "Det oppstod en feil ved sletting av bestillingen. Vennligst prøv igjen, eller kontakt administrator.",
       "RequestedSource": "Prosjektportalen - Bestillingsskjema",
+      "RequestedSourceTeamsApp": "Teams: Bestillingsportalen",
       "NotConfiguredTitle": "Ikke konfigurert",
       "NotConfiguredText": "Det er ikke konfigurert url til Bestillingsportalen. Vennligst angi dette i webdelen.",
       "ExpirationDateNoneOption": "Ingen utløpsdato",

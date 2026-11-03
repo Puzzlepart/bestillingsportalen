@@ -63,6 +63,8 @@ export interface IProjectProvisionProps extends IBaseComponentProps {
   provisionAccessGroupTitle?: string
   hasProjectProvisionAccess?: boolean
   isTeamsContext?: boolean
+  /** Written to `Requested Source` on new requests: the Teams tab/app or the site page the order came from */
+  requestedSource?: string
   /** Instances from the tenant registry the current user has access to (Teams only) */
   provisionInstances?: IProvisionInstance[]
   /** Switches the active instance (Teams only, when more than one is accessible) */
