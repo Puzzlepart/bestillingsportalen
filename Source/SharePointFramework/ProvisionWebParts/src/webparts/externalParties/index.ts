@@ -16,21 +16,12 @@ import type { IExternalPartiesProps, IWriteServices } from '../../components/Ext
 import {
   AccessReaderService,
   ActivityLogService,
-  DEFAULT_ACTIVITY_LOG_TITLE,
-  DEFAULT_ACTIVITY_LOG_URL,
-  DEFAULT_EXTERNAL_PROJECT_MANAGER,
-  DEFAULT_GROUP_PREFIX,
-  DEFAULT_GUEST_INVITATION_URL,
-  DEFAULT_LIBRARIES_FILTER,
-  DEFAULT_NAVIGATION_HEADING,
   DEFAULT_PART_TYPES,
-  DEFAULT_PROTECTED_LIBRARIES,
   type IPartiesConfig,
   type IPartiesSiteInfo,
-  parsePartTypes,
+  resolvePartiesConfig,
   PartiesProvisioningService,
-  PartiesService,
-  splitList
+  PartiesService
 } from '../../services/parties'
 
 export interface IExternalPartiesWebPartProps {
@@ -62,28 +53,9 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
     this._accessReader = new AccessReaderService(this._sp)
   }
 
-  /** Resolves the web part properties to a configuration, with defaults for empty values. */
+  /** The web part properties as configuration. Neutral defaults, see resolvePartiesConfig. */
   private get _config(): IPartiesConfig {
-    const p = this.properties
-    const orDefault = (value: string | undefined, fallback: string): string =>
-      value && value.trim() ? value.trim() : fallback
-    return {
-      // The prefix keeps its trailing space, so it is not trimmed.
-      groupPrefix: p.groupPrefix || DEFAULT_GROUP_PREFIX,
-      externalProjectManager: orDefault(p.externalProjectManager, DEFAULT_EXTERNAL_PROJECT_MANAGER),
-      partTypes: parsePartTypes(p.partTypes),
-      librariesFilter: orDefault(p.librariesFilter, DEFAULT_LIBRARIES_FILTER),
-      protectedLibraries: splitList(
-        p.protectedLibraries === undefined ? DEFAULT_PROTECTED_LIBRARIES : p.protectedLibraries
-      ),
-      navigationHeading: orDefault(p.navigationHeading, DEFAULT_NAVIGATION_HEADING),
-      activityLogUrl: orDefault(p.activityLogUrl, DEFAULT_ACTIVITY_LOG_URL),
-      activityLogTitle: DEFAULT_ACTIVITY_LOG_TITLE,
-      guestInvitationUrl:
-        p.guestInvitationUrl === undefined
-          ? DEFAULT_GUEST_INVITATION_URL
-          : p.guestInvitationUrl.trim()
-    }
+    return resolvePartiesConfig(this.properties)
   }
 
   /** Services that change SharePoint. Created when the site is known. */

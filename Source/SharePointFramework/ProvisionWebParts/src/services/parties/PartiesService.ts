@@ -3,6 +3,7 @@ import { PermissionKind } from '@pnp/sp/security'
 import '@pnp/sp/webs'
 import '@pnp/sp/site-groups/web'
 import '@pnp/sp/site-users/web'
+import '@pnp/sp/files'
 
 import type { IParty } from '../../models/IExternalParties'
 import { parsePartyType } from './partyMarker'
@@ -86,11 +87,13 @@ export class PartiesService {
       .top(500)()) as IRawGroup[]
 
     const prefix = resolveGroupPrefix(groupPrefix, siteTitle)
-    const eplTitle = `${prefix}${externalProjectManager}`.toLowerCase()
+    // The fixed role is optional. Without a name, no group is the fixed role.
+    const eplName = (externalProjectManager || '').trim()
+    const eplTitle = eplName ? `${prefix}${eplName}`.toLowerCase() : undefined
 
     const relevant = groups
       .map((g) => {
-        const isEpl = g.Title.toLowerCase() === eplTitle
+        const isEpl = !!eplTitle && g.Title.toLowerCase() === eplTitle
         const type = parsePartyType(g.Description)
         if (!isEpl && !type) return undefined
         return {
@@ -121,6 +124,21 @@ export class PartiesService {
       }
       return a.name.localeCompare(b.name, 'nb')
     })
+  }
+
+  /**
+   * Returns the server-relative URL of a page when it exists, otherwise
+   * undefined. A failed lookup counts as missing, so a link is never shown to
+   * a page that is not there.
+   */
+  public async existingPageUrl(serverRelativeUrl: string): Promise<string | undefined> {
+    if (!serverRelativeUrl) return undefined
+    try {
+      const exists = await this.sp.web.getFileByServerRelativePath(serverRelativeUrl).exists()
+      return exists ? serverRelativeUrl : undefined
+    } catch {
+      return undefined
+    }
   }
 
   /** Link to the group's members page in classic SharePoint. */

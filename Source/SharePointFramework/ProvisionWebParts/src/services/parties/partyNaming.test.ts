@@ -9,7 +9,11 @@ import {
   validatePartyName
 } from './partyNaming'
 
-const leverandor = DEFAULT_PART_TYPES[1]
+// A type as a template sets it up, with standard folders. The defaults have no folders.
+const leverandor = {
+  ...DEFAULT_PART_TYPES[1],
+  folders: ['01 Grunnlag', '02 Korrespondanse', '03 Leveranser']
+}
 const intern = DEFAULT_PART_TYPES[2]
 
 describe('validatePartyName', () => {

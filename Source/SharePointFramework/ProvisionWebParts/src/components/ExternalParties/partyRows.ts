@@ -9,12 +9,7 @@ export const ownLibraryTitle = (party: IParty, partTypes: IPartyType[]): string 
   return type ? type.libraryTitle.replace(/\{name\}/gi, party.name) : undefined
 }
 
-export const partyStatus = (
-  memberCount: number,
-  hasAccess: boolean,
-  exists: boolean = true
-): PartyStatus => {
-  if (!exists) return 'Missing'
+export const partyStatus = (memberCount: number, hasAccess: boolean): PartyStatus => {
   if (memberCount === 0) return 'NoMembers'
   if (!hasAccess) return 'NoAccess'
   return 'OK'

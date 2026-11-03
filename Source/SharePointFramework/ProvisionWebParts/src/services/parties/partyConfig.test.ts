@@ -2,6 +2,7 @@ import {
   DEFAULT_PART_TYPES,
   isProtectedLibrary,
   parsePartTypes,
+  resolvePartiesConfig,
   resolveGroupPrefix,
   splitList,
   stripGroupPrefix,
@@ -91,5 +92,36 @@ describe('isProtectedLibrary', () => {
     expect(isProtectedLibrary('X', '/sites/kai/Interne%20dokumenter', ['Interne dokumenter'])).toBe(
       true
     )
+  })
+})
+
+describe('resolvePartiesConfig', () => {
+  it('has neutral defaults, so the web part works on any site', () => {
+    const c = resolvePartiesConfig({})
+    expect(c.externalProjectManager).toBe('')
+    expect(c.protectedLibraries).toEqual([])
+    expect(c.guestInvitationUrl).toBe('')
+    expect(c.navigationHeading).toBe('Samarbeidsparter')
+    expect(c.groupPrefix).toBe('{sitename} – ')
+    expect(c.partTypes.map((t) => t.label)).toEqual(['Konsulent', 'Leverandør', 'Intern'])
+    expect(c.partTypes.every((t) => t.folders.length === 0)).toBe(true)
+  })
+
+  it('uses the values a template sets, and an empty value turns a feature off', () => {
+    const c = resolvePartiesConfig({
+      externalProjectManager: ' Ekstern prosjektleder ',
+      protectedLibraries: 'Interne dokumenter',
+      navigationHeading: '',
+      guestInvitationUrl: 'SitePages/Inviter-gjester.aspx',
+      librariesFilter: '  ',
+      activityLogUrl: ''
+    })
+    expect(c.externalProjectManager).toBe('Ekstern prosjektleder')
+    expect(c.protectedLibraries).toEqual(['Interne dokumenter'])
+    expect(c.navigationHeading).toBe('')
+    expect(c.guestInvitationUrl).toBe('SitePages/Inviter-gjester.aspx')
+    // Required values fall back to the default when empty.
+    expect(c.librariesFilter).toContain('BaseTemplate eq 101')
+    expect(c.activityLogUrl).toBe('Lists/ActivityLog')
   })
 })

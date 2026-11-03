@@ -8,8 +8,7 @@ import type { PartyStatus } from './types'
 const LABELS: Record<PartyStatus, string> = {
   OK: strings.Parties.StatusOK,
   NoMembers: strings.Parties.StatusNoMembers,
-  NoAccess: strings.Parties.StatusNoAccess,
-  Missing: strings.Parties.StatusMissing
+  NoAccess: strings.Parties.StatusNoAccess
 }
 
 /** Status as text, with colour as a supplement only. */
@@ -19,7 +18,7 @@ export const StatusBadge: React.FC<{ status: PartyStatus }> = ({ status }) =>
       {LABELS[status]}
     </Badge>
   ) : (
-    <Badge appearance='tint' color={status === 'Missing' ? 'warning' : 'informative'}>
+    <Badge appearance='tint' color='informative'>
       {LABELS[status]}
     </Badge>
   )

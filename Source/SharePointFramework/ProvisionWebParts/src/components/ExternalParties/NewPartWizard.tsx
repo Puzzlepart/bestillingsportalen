@@ -22,7 +22,6 @@ import {
   type PartyNameError,
   planAccessChanges,
   suggestLibraryCode,
-  toServerRelativeUrl,
   validateLibraryCode,
   validatePartyName
 } from '../../services/parties'
@@ -153,7 +152,7 @@ export const NewPartWizard: React.FC = () => {
     else markNeedsRefresh()
   }
   const create = async (): Promise<void> => {
-    const eplRef = epl ? { id: epl.id, title: epl.title } : undefined
+    const eplRef = epl ? { id: epl.id, title: epl.title, name: epl.name } : undefined
     const context: INewPartyContext = {}
     const party = {
       get id(): number {
@@ -177,9 +176,7 @@ export const NewPartWizard: React.FC = () => {
     if (operations.current) await runAndRefresh()
   }
 
-  const guestUrl = config.guestInvitationUrl
-    ? toServerRelativeUrl(site.serverRelativeUrl, config.guestInvitationUrl)
-    : undefined
+  const guestUrl = data.guestInvitationUrl
   const ownLibraryAccess = definition.library
     ? format(
         strings.Parties.SummaryOwnLibraryAccess,

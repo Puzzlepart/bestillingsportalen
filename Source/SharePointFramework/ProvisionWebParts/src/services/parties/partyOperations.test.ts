@@ -90,7 +90,15 @@ class FakeWriter implements IPartiesWriter {
 }
 
 const definition = defineNewParty(
-  { name: 'Leverandør A', type: DEFAULT_PART_TYPES[1], ownLibrary: true, code: 'AB' },
+  {
+    name: 'Leverandør A',
+    type: {
+      ...DEFAULT_PART_TYPES[1],
+      folders: ['01 Grunnlag', '02 Korrespondanse', '03 Leveranser']
+    },
+    ownLibrary: true,
+    code: 'AB'
+  },
   'Kai',
   '/sites/k',
   '{sitename} – '

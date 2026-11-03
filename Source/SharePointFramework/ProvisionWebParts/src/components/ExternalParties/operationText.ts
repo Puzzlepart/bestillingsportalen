@@ -30,7 +30,7 @@ export const operationText = (label: IOperationLabel): string => {
     case 'removeRole':
       return format(strings.Parties.OpRemoveRole, target)
     case 'ensureExternalProjectManager':
-      return format(strings.Parties.OpEnsureEpl, target)
+      return format(strings.Parties.OpEnsureEpl, target, label.principal || '')
     case 'addNavigationLink':
       return format(strings.Parties.OpNavigation, target)
     default:

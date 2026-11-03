@@ -2,8 +2,9 @@ import type { IPartyType } from '../../models/IExternalParties'
 
 /**
  * Configuration of the Samarbeidsparter web part, resolved from the web part
- * properties. Defaults follow the Stavangerregionen havn access model, but
- * every value can be overridden in the property pane.
+ * properties. The defaults are neutral, so the web part works on any site.
+ * A template sets the values for its own access model, e.g. a fixed role and
+ * protected libraries.
  */
 export interface IPartiesConfig {
   /** Prefix for group titles. `{sitename}` is replaced with the site title. */
@@ -26,16 +27,17 @@ export interface IPartiesConfig {
 }
 
 export const DEFAULT_GROUP_PREFIX = '{sitename} – '
-export const DEFAULT_EXTERNAL_PROJECT_MANAGER = 'Ekstern prosjektleder'
+/** No fixed role by default. A template sets it, e.g. «Ekstern prosjektleder». */
+export const DEFAULT_EXTERNAL_PROJECT_MANAGER = ''
 export const DEFAULT_LIBRARIES_FILTER =
   "(BaseTemplate eq 101 and IsCatalog eq false and IsApplicationList eq false) and (Title ne 'Form Templates' and Title ne 'Skjemamaler')"
-export const DEFAULT_PROTECTED_LIBRARIES = 'Interne dokumenter'
-export const DEFAULT_NAVIGATION_HEADING = 'Dokumentsamhandling'
+/** No protected libraries by default. A template sets them, e.g. «Interne dokumenter». */
+export const DEFAULT_PROTECTED_LIBRARIES = ''
+export const DEFAULT_NAVIGATION_HEADING = 'Samarbeidsparter'
 export const DEFAULT_ACTIVITY_LOG_URL = 'Lists/ActivityLog'
 export const DEFAULT_ACTIVITY_LOG_TITLE = 'Aktivitetslogg'
-export const DEFAULT_GUEST_INVITATION_URL = 'SitePages/Inviter-gjester.aspx'
-
-const STANDARD_FOLDERS = ['01 Grunnlag', '02 Korrespondanse', '03 Leveranser']
+/** No link to a guest invitation page by default. */
+export const DEFAULT_GUEST_INVITATION_URL = ''
 
 export const DEFAULT_PART_TYPES: IPartyType[] = [
   {
@@ -43,7 +45,7 @@ export const DEFAULT_PART_TYPES: IPartyType[] = [
     label: 'Konsulent',
     libraryTitle: 'Konsulent – {name}',
     libraryUrl: 'Kon{code}',
-    folders: STANDARD_FOLDERS,
+    folders: [],
     ownLibraryRole: 'Contributor'
   },
   {
@@ -51,7 +53,7 @@ export const DEFAULT_PART_TYPES: IPartyType[] = [
     label: 'Leverandør',
     libraryTitle: 'Leverandør – {name}',
     libraryUrl: 'Lev{code}',
-    folders: STANDARD_FOLDERS,
+    folders: [],
     ownLibraryRole: 'Contributor'
   },
   {
@@ -131,4 +133,41 @@ export const isProtectedLibrary = (
     const value = p.trim().toLowerCase()
     return value === title.toLowerCase() || value === urlName
   })
+}
+
+/** Web part properties that resolvePartiesConfig reads. */
+export interface IPartiesProperties {
+  groupPrefix?: string
+  externalProjectManager?: string
+  partTypes?: string
+  librariesFilter?: string
+  protectedLibraries?: string
+  navigationHeading?: string
+  activityLogUrl?: string
+  guestInvitationUrl?: string
+}
+
+/**
+ * Resolves the web part properties to a configuration. A missing property
+ * (undefined) gets the default. An empty value turns the feature off where
+ * that makes sense: no fixed role, no protected libraries, no menu link and
+ * no link to the guest invitation page.
+ */
+export const resolvePartiesConfig = (p: IPartiesProperties): IPartiesConfig => {
+  const valueOr = (value: string | undefined, fallback: string): string =>
+    value === undefined || value === null ? fallback : value.trim()
+  const nonEmptyOr = (value: string | undefined, fallback: string): string =>
+    value && value.trim() ? value.trim() : fallback
+  return {
+    // The prefix keeps its trailing space, so it is not trimmed.
+    groupPrefix: p.groupPrefix || DEFAULT_GROUP_PREFIX,
+    externalProjectManager: valueOr(p.externalProjectManager, DEFAULT_EXTERNAL_PROJECT_MANAGER),
+    partTypes: parsePartTypes(p.partTypes),
+    librariesFilter: nonEmptyOr(p.librariesFilter, DEFAULT_LIBRARIES_FILTER),
+    protectedLibraries: splitList(valueOr(p.protectedLibraries, DEFAULT_PROTECTED_LIBRARIES)),
+    navigationHeading: valueOr(p.navigationHeading, DEFAULT_NAVIGATION_HEADING),
+    activityLogUrl: nonEmptyOr(p.activityLogUrl, DEFAULT_ACTIVITY_LOG_URL),
+    activityLogTitle: DEFAULT_ACTIVITY_LOG_TITLE,
+    guestInvitationUrl: valueOr(p.guestInvitationUrl, DEFAULT_GUEST_INVITATION_URL)
+  }
 }

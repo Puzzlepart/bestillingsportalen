@@ -22,6 +22,8 @@ export interface IOperationLabel {
   /** Display name of the group, library or folder. */
   target?: string
   role?: string
+  /** Display name of the group the step is about, e.g. the fixed role. */
+  principal?: string
 }
 
 /** What is written to the activity log for an operation. */

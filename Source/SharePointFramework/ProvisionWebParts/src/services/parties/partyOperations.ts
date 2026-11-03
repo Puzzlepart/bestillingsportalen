@@ -44,6 +44,8 @@ export interface IPartiesWriter {
 export interface IPrincipalRef {
   id: number
   title: string
+  /** Short name shown in the UI, e.g. «Ekstern prosjektleder». Defaults to the title. */
+  name?: string
 }
 
 /** Error with a code the UI can translate. */
@@ -171,7 +173,11 @@ export const buildNewPartyOperations = (
     const epl = options.externalProjectManager
     ops.push({
       id: 'library-epl',
-      label: { action: 'ensureExternalProjectManager', target: library.title },
+      label: {
+        action: 'ensureExternalProjectManager',
+        target: library.title,
+        principal: epl.name || epl.title
+      },
       log: {
         targetType: 'Library',
         targetUrl: library.serverRelativeUrl,
@@ -270,7 +276,11 @@ export const buildAccessOperations = (
       case 'ensureExternalProjectManager':
         return {
           id,
-          label: { action: 'ensureExternalProjectManager', target: target.title },
+          label: {
+            action: 'ensureExternalProjectManager',
+            target: target.title,
+            principal: externalProjectManager?.name || externalProjectManager?.title
+          },
           log: {
             targetType: log.targetType,
             targetUrl: log.targetUrl,

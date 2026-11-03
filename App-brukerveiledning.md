@@ -190,7 +190,7 @@ En part er en gruppe på området for én konsulent, leverandør eller intern gr
 
 ### Se hvem som har tilgang
 
-Tabellen viser Ekstern prosjektleder øverst og deretter partene. For hver part ser du:
+Tabellen viser partene. Er området satt opp med en fast rolle, for eksempel Ekstern prosjektleder, står den øverst. For hver part ser du:
 
 - tilgangen i dag, for eksempel «Eget bibliotek + 2 mapper»
 - antall medlemmer
@@ -201,7 +201,6 @@ Tabellen viser Ekstern prosjektleder øverst og deretter partene. For hver part 
 | OK | Parten har medlemmer og tilgang til noe på området. |
 | Ingen medlemmer | Ingen er invitert til gruppen ennå. |
 | Ingen tilgang | Gruppen har medlemmer, men ingen tilgang til biblioteker eller mapper. |
-| Gruppen finnes ikke | Gruppen for Ekstern prosjektleder mangler på området. Kontakt administrator. |
 
 Velg navnet på en part for å se bibliotekene og mappene parten har tilgang til. Velg **Åpne gruppen** for å se og endre medlemmene på gruppesiden i SharePoint.
 
@@ -218,7 +217,7 @@ Oversikten viser tilgang på biblioteker og mapper på første nivå, slik den e
 7. Huk av for bibliotekene og mappene parten skal få tilgang til, og velg Bidra eller Lese for hver.
 8. Les «Dette skjer», og velg **Opprett part**.
 
-Ingenting opprettes før du velger **Opprett part**. Deretter ser du hvert steg med status. Når alt er ferdig, kan du velge **Inviter gjester** for å invitere personene til partens gruppe.
+Ingenting opprettes før du velger **Opprett part**. Deretter ser du hvert steg med status. Når alt er ferdig, inviterer du personene til partens gruppe. Har området en side for gjesteinvitasjon, vises knappen **Inviter gjester**.
 
 ### Gi, endre eller fjerne tilgang
 
@@ -229,9 +228,9 @@ Ingenting opprettes før du velger **Opprett part**. Deretter ser du hvert steg 
 
 Bibliotekene og mappene parten har tilgang til i dag, er avkrysset fra start. Endringene får merkene **Ny**, **Endres** og **Fjernes**.
 
-Når du gir tilgang til et bibliotek eller en mappe som arver tilgangen fra området, gjør webdelen to ting. Den gir stedet egne tillatelser, og den kopierer tilgangen som finnes der fra før. Eiere, medlemmer og Ekstern prosjektleder beholder derfor tilgangen sin. Når du fjerner tilgang, fjernes bare partens tilgang. Stedet beholder egne tillatelser.
+Når du gir tilgang til et bibliotek eller en mappe som arver tilgangen fra området, gjør webdelen to ting. Den gir stedet egne tillatelser, og den kopierer tilgangen som finnes der fra før. Eiere, medlemmer og en eventuell fast rolle beholder derfor tilgangen sin. Når du fjerner tilgang, fjernes bare partens tilgang. Stedet beholder egne tillatelser.
 
-Biblioteker som er merket «kan ikke deles», for eksempel Interne dokumenter, kan ikke gis til parter.
+Biblioteker som er merket «kan ikke deles», kan ikke gis til parter. Hvilke biblioteker det gjelder, bestemmes av oppsettet på området.
 
 ### Hvis et steg feiler
 

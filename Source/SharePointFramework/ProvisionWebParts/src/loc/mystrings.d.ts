@@ -554,7 +554,6 @@ declare interface IProvisionWebPartsStrings {
     ColumnMembers: string
     ColumnStatus: string
     ColumnActions: string
-    ExternalProjectManager: string
     FixedRole: string
     WholeSite: string
     EplAccessMissing: string
@@ -569,7 +568,6 @@ declare interface IProvisionWebPartsStrings {
     StatusOK: string
     StatusNoMembers: string
     StatusNoAccess: string
-    StatusMissing: string
     OpenGroup: string
     EmptyParties: string
     Disclaimer: string

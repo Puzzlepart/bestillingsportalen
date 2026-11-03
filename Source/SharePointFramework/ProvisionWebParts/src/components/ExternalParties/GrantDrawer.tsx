@@ -70,7 +70,7 @@ export const GrantDrawer: React.FC<{ partyId?: number }> = ({ partyId }) => {
       services.writer,
       plan,
       { id: party.id, title: party.title },
-      epl ? { id: epl.id, title: epl.title } : undefined
+      epl ? { id: epl.id, title: epl.title, name: epl.name } : undefined
     )
     await runAndRefresh()
   }

@@ -20,7 +20,6 @@ import {
   brokenTargetsWithoutPrincipal,
   webRoleForPrincipal
 } from '../../services/parties/accessModel'
-import { toServerRelativeUrl } from '../../services/parties/partyConfig'
 import { RoleKind } from '../../models/IExternalParties'
 import { useExternalPartiesContext } from './context'
 import { accessText } from './accessText'
@@ -35,21 +34,19 @@ const openInNewTab = (url: string) => (e: React.MouseEvent) => {
 }
 
 export const PartsOverview: React.FC = () => {
-  const { data, config, setDrawer, refresh } = useExternalPartiesContext()
+  const { data, setDrawer, refresh } = useExternalPartiesContext()
   const { site, rows, snapshot, externalProjectManager: epl } = data
 
   const parties = rows.filter((r) => !r.party.isExternalProjectManager)
   const members = rows.reduce((sum, r) => sum + r.party.memberCount, 0)
   const withoutMembers = parties.filter((r) => r.party.memberCount === 0).length
-  const guestInvitationUrl = config.guestInvitationUrl
-    ? toServerRelativeUrl(site.serverRelativeUrl, config.guestInvitationUrl)
-    : undefined
+  // Shown only when the page exists, see useExternalPartiesData.
+  const guestInvitationUrl = data.guestInvitationUrl
 
   const eplWebRole = epl ? webRoleForPrincipal(snapshot, epl.id) : undefined
   const eplMissingCount = epl
     ? brokenTargetsWithoutPrincipal(snapshot, epl.id).filter((t) => !t.isProtected).length
     : 0
-  const eplRow = rows.find((r) => r.party.isExternalProjectManager)
 
   return (
     <>
@@ -106,57 +103,53 @@ export const PartsOverview: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell>
-                {epl ? (
+            {epl && (
+              <TableRow>
+                <TableCell>
                   <Button
                     appearance='transparent'
                     className={styles.nameButton}
                     onClick={() => setDrawer({ kind: 'epl' })}>
-                    {strings.Parties.ExternalProjectManager}
+                    {epl.name}
                   </Button>
-                ) : (
-                  <Text weight='semibold'>{strings.Parties.ExternalProjectManager}</Text>
-                )}
-              </TableCell>
-              <TableCell>{strings.Parties.FixedRole}</TableCell>
-              <TableCell>
-                {eplWebRole && eplWebRole.kind !== RoleKind.None ? (
-                  <>
-                    {strings.Parties.WholeSite}
-                    <span className={styles.secondary}>
-                      {eplMissingCount > 0
-                        ? format(strings.Parties.EplAccessMissing, eplWebRole.name, eplMissingCount)
-                        : eplWebRole.name}
-                    </span>
-                  </>
-                ) : (
-                  strings.Parties.AccessNone
-                )}
-              </TableCell>
-              <TableCell>{epl ? epl.memberCount : '–'}</TableCell>
-              <TableCell>
-                <StatusBadge
-                  status={
-                    eplRow
-                      ? partyStatus(
-                          eplRow.party.memberCount,
-                          !!eplWebRole && eplWebRole.kind !== RoleKind.None
-                        )
-                      : 'Missing'
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                {epl && (
+                </TableCell>
+                <TableCell>{strings.Parties.FixedRole}</TableCell>
+                <TableCell>
+                  {eplWebRole && eplWebRole.kind !== RoleKind.None ? (
+                    <>
+                      {strings.Parties.WholeSite}
+                      <span className={styles.secondary}>
+                        {eplMissingCount > 0
+                          ? format(
+                              strings.Parties.EplAccessMissing,
+                              eplWebRole.name,
+                              eplMissingCount
+                            )
+                          : eplWebRole.name}
+                      </span>
+                    </>
+                  ) : (
+                    strings.Parties.AccessNone
+                  )}
+                </TableCell>
+                <TableCell>{epl.memberCount}</TableCell>
+                <TableCell>
+                  <StatusBadge
+                    status={partyStatus(
+                      epl.memberCount,
+                      !!eplWebRole && eplWebRole.kind !== RoleKind.None
+                    )}
+                  />
+                </TableCell>
+                <TableCell>
                   <Link
                     href={PartiesService.groupPageUrl(site.absoluteUrl, epl.id)}
                     onClick={openInNewTab(PartiesService.groupPageUrl(site.absoluteUrl, epl.id))}>
                     {strings.Parties.OpenGroup} <Open16Regular />
                   </Link>
-                )}
-              </TableCell>
-            </TableRow>
+                </TableCell>
+              </TableRow>
+            )}
 
             {parties.map((row) => {
               const text = accessText(row)

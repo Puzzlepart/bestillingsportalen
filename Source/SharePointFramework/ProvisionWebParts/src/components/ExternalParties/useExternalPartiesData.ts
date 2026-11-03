@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import type { IPartiesConfig, PartiesService, AccessReaderService } from '../../services/parties'
+import { toServerRelativeUrl } from '../../services/parties/partyConfig'
 import { buildPartyRows } from './partyRows'
 import type { IExternalPartiesData } from './types'
 
@@ -38,16 +39,22 @@ export const useExternalPartiesData = (
     setError(undefined)
     try {
       const site = await partiesService.getSiteInfo()
-      const [parties, snapshot] = await Promise.all([
+      const [parties, snapshot, guestInvitationUrl] = await Promise.all([
         partiesService.getParties(site.title, config.groupPrefix, config.externalProjectManager),
-        accessReader.getSnapshot(config.librariesFilter, config.protectedLibraries)
+        accessReader.getSnapshot(config.librariesFilter, config.protectedLibraries),
+        config.guestInvitationUrl
+          ? partiesService.existingPageUrl(
+              toServerRelativeUrl(site.serverRelativeUrl, config.guestInvitationUrl)
+            )
+          : Promise.resolve(undefined)
       ])
       setData({
         site,
         parties,
         snapshot,
         rows: buildPartyRows(parties, snapshot, config.partTypes),
-        externalProjectManager: parties.find((p) => p.isExternalProjectManager)
+        externalProjectManager: parties.find((p) => p.isExternalProjectManager),
+        guestInvitationUrl
       })
     } catch (e) {
       if (isAccessDenied(e)) setAccess('denied')

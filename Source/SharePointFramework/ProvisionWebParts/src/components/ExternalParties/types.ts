@@ -24,7 +24,7 @@ export interface IExternalPartiesProps {
 }
 
 /** Status shown for a party in the overview. Based on facts only, never a blueprint. */
-export type PartyStatus = 'OK' | 'NoMembers' | 'NoAccess' | 'Missing'
+export type PartyStatus = 'OK' | 'NoMembers' | 'NoAccess'
 
 export interface IPartyRow {
   party: IParty
@@ -39,8 +39,10 @@ export interface IExternalPartiesData {
   parties: IParty[]
   snapshot: IAccessSnapshot
   rows: IPartyRow[]
-  /** The external project manager group, if it exists on the site. */
+  /** The fixed role group (e.g. Ekstern prosjektleder), when it is configured and exists. */
   externalProjectManager?: IParty
+  /** Server-relative URL of the guest invitation page, when it is configured and exists. */
+  guestInvitationUrl?: string
 }
 
 export type DrawerState =

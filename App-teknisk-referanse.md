@@ -557,8 +557,8 @@ Komponent-ID er `f99f57c7-00f4-4324-9f0b-5c4d81fbdc65`, og bundelen heter `exter
 | Begrep                | I SharePoint                                                                                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Part                  | SharePoint-gruppe `<områdetittel> – <navn>` med beskrivelsen `Samarbeidspart: <type>. …`. Prefikset styres av `groupPrefix`.                                                                 |
-| Ekstern prosjektleder | Gruppen `<prefiks><externalProjectManager>`. Webdelen viser tilgangen gruppen har, men endrer den bare ved å gi gruppen Lese der en part gis tilgang og gruppen ellers ville mangle tilgang. |
-| Eget bibliotek        | Dokumentbibliotek med URL fra `libraryUrl` (f.eks. `Lev{code}`), tittel fra `libraryTitle` og standardmapper per type. Beskrivelsen har samme markør som gruppen.                            |
+| Fast rolle (valgfri)  | Gruppen `<prefiks><externalProjectManager>`, f.eks. Ekstern prosjektleder. Settes av malen. Webdelen viser rollen bare når gruppen finnes, og endrer bare tilgangen ved å gi gruppen Lese der en part gis tilgang og gruppen ellers ville mangle tilgang. |
+| Eget bibliotek        | Dokumentbibliotek med URL fra `libraryUrl` (f.eks. `Lev{code}`), tittel fra `libraryTitle` og mappene typen har (`folders`). Beskrivelsen har samme markør som gruppen.                            |
 | Tilgang               | Rolle (`Bidra` eller `Lese`) på et bibliotek eller en mappe på første nivå. Aldri på enkeltfiler og aldri til enkeltpersoner.                                                                |
 | Beskyttet bibliotek   | Bibliotek i `protectedLibraries`. Vises, men kan ikke deles.                                                                                                                                 |
 
@@ -587,7 +587,7 @@ Komponent-ID er `f99f57c7-00f4-4324-9f0b-5c4d81fbdc65`, og bundelen heter `exter
    1. Biblioteket opprettes med `lists.add(<url>, …, 101)`. Deretter settes tittel og beskrivelse, og standardmappene lages.
    2. Arven brytes med kopi.
    3. Parten får sin rolle.
-   4. Ekstern prosjektleder får Lese hvis gruppen mangler tilgang.
+   4. Den faste rollen, hvis den finnes, får Lese hvis gruppen mangler tilgang.
    5. Lenken legges under `navigationHeading` i hurtigstartmenyen. Overskriften lages uten lenke (`http://linkless.header/`) hvis den mangler.
 4. Tilgangene som er valgt i steg 2 i veiviseren, gis som i Gi tilgang under.
 
@@ -618,17 +618,19 @@ Dette er en annen modell enn `InviteGuests`, som legger forespørsler i `Guest R
 
 ## 12. `ExternalParties`-egenskaper
 
-| Egenskap                 | Standard                                                                | Betydning                                                                                                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`, `description`   | «Samarbeidsparter»                                                      | Overskrift og introduksjon.                                                                                                                                                        |
-| `groupPrefix`            | `{sitename} – `                                                         | Prefiks for gruppenavn. `{sitename}` byttes med områdets tittel.                                                                                                                   |
-| `externalProjectManager` | `Ekstern prosjektleder`                                                 | Navnet på gruppen for Ekstern prosjektleder, uten prefiks.                                                                                                                         |
-| `partTypes`              | Konsulent (`Kon{code}`), Leverandør (`Lev{code}`), Intern (`Int{code}`) | JSON med typer: `key`, `label`, `libraryTitle` (`{name}`), `libraryUrl` (`{code}`), `folders` og `ownLibraryRole` (`Contributor` eller `Reader`). Ugyldig JSON gir standardtypene. |
-| `protectedLibraries`     | `Interne dokumenter`                                                    | Biblioteker som aldri kan deles, med tittel eller URL-navn, skilt med komma, semikolon eller linjeskift.                                                                           |
-| `librariesFilter`        | Dokumentbiblioteker unntatt kataloger, applister og skjemamaler         | OData-filter for bibliotekene som vises.                                                                                                                                           |
-| `navigationHeading`      | `Dokumentsamhandling`                                                   | Overskriften i hurtigstartmenyen der lenken til partens bibliotek legges.                                                                                                          |
-| `guestInvitationUrl`     | `SitePages/Inviter-gjester.aspx`                                        | Lenke til siden med `InviteGuests`. Tom verdi skjuler lenken.                                                                                                                      |
-| `activityLogUrl`         | `Lists/ActivityLog`                                                     | Områderelativ URL til aktivitetsloggen.                                                                                                                                            |
+Standardverdiene er nøytrale, så webdelen virker på alle områder. En egenskap som mangler, får standardverdien. En tom verdi slår av funksjonen der det står «Tom».
+
+| Egenskap                 | Standard                                                                             | Betydning                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`, `description`   | «Samarbeidsparter»                                                                   | Overskrift og introduksjon.                                                                                                                                                                                    |
+| `groupPrefix`            | `{sitename} – `                                                                      | Prefiks for gruppenavn. `{sitename}` byttes med områdets tittel.                                                                                                                                               |
+| `externalProjectManager` | tom                                                                                  | Fast rolle: navnet på en gruppe uten prefiks, f.eks. `Ekstern prosjektleder`. Gruppen får Lese der parter får tilgang. Tom betyr ingen fast rolle. Gruppen opprettes ikke av webdelen.                         |
+| `partTypes`              | Konsulent (`Kon{code}`), Leverandør (`Lev{code}`), Intern (`Int{code}`), uten mapper | JSON med typer: `key`, `label`, `libraryTitle` (`{name}`), `libraryUrl` (`{code}`), `folders` og `ownLibraryRole` (`Contributor` eller `Reader`). Ugyldig JSON gir standardtypene. Redigeres i en JSON-editor. |
+| `protectedLibraries`     | tom                                                                                  | Biblioteker som aldri kan deles, med tittel eller URL-navn, skilt med komma, semikolon eller linjeskift.                                                                                                       |
+| `librariesFilter`        | Dokumentbiblioteker unntatt kataloger, applister og skjemamaler                      | OData-filter for bibliotekene som vises.                                                                                                                                                                       |
+| `navigationHeading`      | `Samarbeidsparter`                                                                   | Overskriften i hurtigstartmenyen der lenken til partens bibliotek legges. Opprettes hvis den mangler. Tom betyr ingen lenke.                                                                                   |
+| `guestInvitationUrl`     | tom                                                                                  | Siden med `InviteGuests`. Lenken vises bare når siden finnes. Tom skjuler lenken.                                                                                                                              |
+| `activityLogUrl`         | `Lists/ActivityLog`                                                                  | Områderelativ URL til aktivitetsloggen.                                                                                                                                                                        |
 
 ## 13. Caching og konsistens
 

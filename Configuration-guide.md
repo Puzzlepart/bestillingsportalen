@@ -256,16 +256,19 @@ Gruppen opprettes **ikke** automatisk — verken av `deploy.ps1` eller av PnP-ma
 
 ## Merknad: Webdelen Samarbeidsparter
 
-Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som de andre webdelene. Den brukes på prosjektområder der eierne skal styre tilgangen for eksterne parter. Slik tas den i bruk:
+Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som de andre webdelene. Den virker på alle områder der eierne skal styre tilgangen for eksterne parter. Den forutsetter ingen bestemte grupper, biblioteker eller sider. Slik tas den i bruk:
 
-1. Legg webdelen på en side på prosjektområdet, f.eks. `SitePages/Samarbeidsparter.aspx`. I Prosjektportalen-malen for ekstern samhandling ligger siden og menyen «Deling og tilganger» klar.
-2. Kontroller innstillingene i property pane. Standardverdiene følger tilgangsmodellen for ekstern samhandling:
+1. Legg webdelen på en side på området, f.eks. `SitePages/Samarbeidsparter.aspx`.
+2. Kontroller innstillingene i property pane. Standardverdiene er nøytrale:
    - gruppene heter `<områdetittel> – <navn>`
-   - Ekstern prosjektleder er gruppen `<områdetittel> – Ekstern prosjektleder`
-   - «Interne dokumenter» kan ikke deles
-   - lenker til partenes biblioteker legges under «Dokumentsamhandling»
-3. Legg webdelen **Inviter gjester** på siden som `guestInvitationUrl` peker til (standard `SitePages/Inviter-gjester.aspx`). Lås den til partene:
-   - Sett `allowedSpGroups` til gruppeprefikset med tankestrek, f.eks. `Kaiprosjekt – `. Da kan bare partene og Ekstern prosjektleder velges. Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville derfor også gitt treff på standardgruppene «Kaiprosjekt Owners», «… Members» og «… Visitors».
+   - ingen fast rolle og ingen beskyttede biblioteker
+   - lenker til partenes biblioteker legges under overskriften «Samarbeidsparter» i venstremenyen, som opprettes hvis den mangler
+   - ingen lenke til gjesteinvitasjon
+   - typene Konsulent, Leverandør og Intern, uten standardmapper
+
+   En mal for en bestemt tilgangsmodell setter sine egne verdier i webdelens egenskaper. Den kan for eksempel sette en fast rolle (`externalProjectManager`), beskyttede biblioteker (`protectedLibraries`) og typer med mapper (`partTypes`). Gruppen for den faste rollen og de beskyttede bibliotekene må malen opprette selv. Webdelen viser den faste rollen bare når gruppen finnes. Prosjektportalen-tillegget «Dokumentsamhandling med eksterne» er et eksempel på en slik mal.
+3. Skal eierne invitere gjester fra Samarbeidsparter, legg webdelen **Inviter gjester** på en egen side, og sett `guestInvitationUrl` til den siden. Lenken vises bare når siden finnes. Lås Inviter gjester til partene:
+   - Sett `allowedSpGroups` til gruppeprefikset med tankestrek, f.eks. `Kaiprosjekt – `. Da kan bare partene og den faste rollen velges. Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville derfor også gitt treff på standardgruppene «Kaiprosjekt Owners», «… Members» og «… Visitors».
    - Sett M365-rollen til «Ingen» og lås den (`defaultM365GroupRole: None`, `lockM365GroupRole`), slik at eksterne aldri legges i Microsoft 365-gruppen.
    - Skjul «Opprett ny gruppe» (`showSpActionCreateNew: false`). Parter opprettes i Samarbeidsparter.
 

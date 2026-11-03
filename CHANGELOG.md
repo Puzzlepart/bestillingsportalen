@@ -6,12 +6,13 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ### Ny funksjonalitet
 
-- **Ny webdel: Samarbeidsparter**: Webdelen `ExternalParties` gir eierne av et prosjektområde oversikt over de eksterne partene og tilgangen de har. Partene er konsulenter, leverandører og interne grupper. Eierne kan også opprette nye parter og gi, endre eller fjerne tilgang uten å gå til SharePoint-innstillingene.
+- **Ny webdel: Samarbeidsparter**: Webdelen `ExternalParties` gir eierne av et område oversikt over de eksterne partene og tilgangen de har, for eksempel konsulenter, leverandører og interne grupper. Den virker på alle områder og forutsetter ingen bestemte grupper, biblioteker eller sider. Eierne kan også opprette nye parter og gi, endre eller fjerne tilgang uten å gå til SharePoint-innstillingene.
   - **Hva er en part?** En part er en SharePoint-gruppe med markøren `Samarbeidspart: <type>.` i beskrivelsen. Gruppen heter `<områdetittel> – <navn>`.
-  - **Oversikten** leses fra SharePoint hver gang. Den viser bibliotekene og mappene på første nivå der hver part og Ekstern prosjektleder har tilgang, antall medlemmer og status. «Åpne gruppen» åpner gruppesiden i klassisk visning.
-  - **Ny part** er en veiviser i tre steg: part, tilganger og status. Den oppretter gruppen, eventuelt et eget bibliotek med standardmapper og en lenke i menyen, og gir tilgangene som er valgt.
+  - **Oversikten** leses fra SharePoint hver gang. Den viser bibliotekene og mappene på første nivå der hver part har tilgang, antall medlemmer og status. «Åpne gruppen» åpner gruppesiden i klassisk visning.
+  - **Ny part** er en veiviser i tre steg: part, tilganger og status. Den oppretter gruppen, eventuelt et eget bibliotek med mappene typen har og en lenke i menyen, og gir tilgangene som er valgt.
   - **Gi tilgang** viser hva som legges til, endres og fjernes før noe lagres.
-  - **Når en part får tilgang** til et bibliotek eller en mappe som arver, brytes arven med kopi. Eiere, medlemmer og Ekstern prosjektleder beholder da tilgangen. Biblioteker i innstillingen `protectedLibraries` (standard «Interne dokumenter») kan aldri deles.
+  - **Når en part får tilgang** til et bibliotek eller en mappe som arver, brytes arven med kopi. Eiere og medlemmer beholder da tilgangen. Biblioteker i innstillingen `protectedLibraries` kan aldri deles.
+  - **Oppsett fra malen:** En mal kan sette en fast rolle, for eksempel Ekstern prosjektleder, som får Lese der partene får tilgang. Den kan også sette beskyttede biblioteker, typer med mapper og en lenke til siden med Inviter gjester. Standardverdiene er nøytrale. Den faste rollen og lenken vises bare når gruppen og siden finnes.
   - **Steg og feil:** Alle steg kjøres ett om gangen med status for hvert. Et nytt forsøk hopper over det som allerede er gjort.
   - **Tillatelser:** Webdelen er bare for eiere av området. Den kjører med eierens egne rettigheter og trenger ingen nye API-tillatelser.
   - **Logg:** Endringene logges i en skjult liste, `Lists/ActivityLog`, som bare eierne har tilgang til.

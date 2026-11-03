@@ -153,7 +153,7 @@ export const EplDrawer: React.FC = () => {
   const groupUrl = PartiesService.groupPageUrl(site.absoluteUrl, epl.id)
 
   return (
-    <DrawerShell title={strings.Parties.ExternalProjectManager}>
+    <DrawerShell title={epl.name}>
       <div className={styles.groupLine}>
         <Text>{`${strings.Parties.FixedRole} · ${membersText(epl.memberCount)}`}</Text>
         <Link href={groupUrl} onClick={openInNewTab(groupUrl)}>
@@ -172,7 +172,7 @@ export const EplDrawer: React.FC = () => {
 
       <div>
         <h3 className={styles.sectionTitle}>{strings.Parties.EplBroken}</h3>
-        <p className={styles.hint}>{strings.Parties.EplBrokenHint}</p>
+        <p className={styles.hint}>{format(strings.Parties.EplBrokenHint, epl.name)}</p>
       </div>
 
       {broken.length === 0 ? (
@@ -199,7 +199,7 @@ export const EplDrawer: React.FC = () => {
 
       <MessageBar intent='info'>
         <MessageBarBody>
-          {strings.Parties.EplReadOnly} {strings.Parties.DrawerDisclaimer}
+          {format(strings.Parties.EplReadOnly, epl.name)} {strings.Parties.DrawerDisclaimer}
         </MessageBarBody>
       </MessageBar>
     </DrawerShell>
