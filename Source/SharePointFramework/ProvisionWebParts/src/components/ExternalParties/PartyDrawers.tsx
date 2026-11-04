@@ -125,14 +125,18 @@ export const PartyDrawer: React.FC<{ partyId: number }> = ({ partyId }) => {
         <ul className={styles.accessList}>
           {row.access.map((a) => (
             <li key={a.target.key} className={styles.accessItem}>
-              <span>{a.target.title}</span>
+              <span>
+                {a.target.kind === 'web' ? strings.Parties.SiteAccessLabel : a.target.title}
+              </span>
               <span className={styles.accessRole}>{a.roleName}</span>
               <span className={styles.accessSource}>
                 {a === row.ownLibrary
                   ? strings.Parties.KindOwnLibrary
-                  : a.target.kind === 'library'
-                    ? strings.Parties.KindLibrary
-                    : strings.Parties.KindFolder}
+                  : a.target.kind === 'web'
+                    ? strings.Parties.KindSite
+                    : a.target.kind === 'library'
+                      ? strings.Parties.KindLibrary
+                      : strings.Parties.KindFolder}
               </span>
             </li>
           ))}
@@ -157,7 +161,7 @@ export const EplDrawer: React.FC = () => {
   if (!epl) return null
   const { snapshot, site } = data
   const webRole = webRoleForPrincipal(snapshot, epl.id)
-  const broken = snapshot.targets.filter((t) => t.hasUniqueRoleAssignments)
+  const broken = snapshot.targets.filter((t) => t.kind !== 'web' && t.hasUniqueRoleAssignments)
   const groupUrl = PartiesService.groupPageUrl(site.absoluteUrl, epl.id)
 
   return (

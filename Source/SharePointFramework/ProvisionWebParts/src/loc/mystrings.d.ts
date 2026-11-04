@@ -594,6 +594,17 @@ declare interface IProvisionWebPartsStrings {
     ProtectedLibrary: string
     EplReadOnly: string
     NoBroken: string
+    SiteAccessLabel: string
+    SiteAccessHint: string
+    InheritsFromLibrary: string
+    InheritsFromSite: string
+    PreviewSiteText: string
+    PreviewSiteRemoveText: string
+    KindSite: string
+    AllowSiteAccessLabel: string
+    AllowSiteAccessOn: string
+    AllowSiteAccessOff: string
+    AllowSiteAccessDescription: string
     NewParty: string
     GrantAccess: string
     ChangeAccess: string

@@ -1,4 +1,5 @@
 import { type IAccessSnapshot, type IAccessTarget, RoleKind } from '../../models/IExternalParties'
+import { inheritedFrom, pruneInheritedDesired } from './accessModel'
 import { currentDesiredAccess, planAccessChanges } from './accessPlanner'
 
 const OWNERS = 3
@@ -170,5 +171,91 @@ describe('planAccessChanges', () => {
     })
     expect(plan.rejected.sort()).toEqual(['Interne', 'Ukjent'])
     expect(plan.steps.some((s) => s.target.key === 'Interne')).toBe(false)
+  })
+})
+
+describe('site access and inheritance', () => {
+  const web: IAccessTarget = {
+    key: '/sites/k',
+    kind: 'web',
+    listId: '',
+    listTitle: '',
+    listUrl: '/sites/k',
+    title: 'Kai',
+    hasUniqueRoleAssignments: true,
+    isProtected: false
+  }
+  const docs = lib('Dokumenter', false)
+  const inheriting = folder('Dokumenter', '01 Tegninger', false)
+  const unique = folder('Dokumenter', '02 Kontrakt', true)
+  const snapshot: IAccessSnapshot = {
+    targets: [web, docs, inheriting, unique, lib('Interne', true, true)],
+    assignments: {
+      '/sites/k': [ra(OWNERS, RoleKind.Administrator), ra(EPL, RoleKind.Reader)],
+      'Dokumenter/02 Kontrakt': [ra(OWNERS, RoleKind.Administrator)],
+      Interne: [ra(OWNERS, RoleKind.Administrator)]
+    },
+    webAssignments: [ra(OWNERS, RoleKind.Administrator), ra(EPL, RoleKind.Reader)]
+  }
+
+  it('gives access on the site without breaking inheritance or touching the fixed role', () => {
+    const plan = planAccessChanges({
+      snapshot,
+      partyId: PARTY,
+      externalProjectManagerId: EPL,
+      desired: { '/sites/k': 'Reader' }
+    })
+    expect(stepTypes(plan.steps)).toEqual(['add:/sites/k'])
+    expect(plan.changes[0]).toEqual(
+      expect.objectContaining({ kind: 'add', breaksInheritance: false })
+    )
+  })
+
+  it('drops choices that inherit from a chosen target', () => {
+    const desired = {
+      '/sites/k': 'Reader' as const,
+      Dokumenter: 'Contributor' as const,
+      'Dokumenter/01 Tegninger': 'Reader' as const,
+      'Dokumenter/02 Kontrakt': 'Contributor' as const
+    }
+    expect(inheritedFrom(snapshot, inheriting, desired)?.target.key).toBe('Dokumenter')
+    expect(inheritedFrom(snapshot, docs, desired)?.target.key).toBe('/sites/k')
+    expect(inheritedFrom(snapshot, unique, desired)).toBeUndefined()
+    expect(Object.keys(pruneInheritedDesired(snapshot, desired)).sort()).toEqual([
+      '/sites/k',
+      'Dokumenter/02 Kontrakt'
+    ])
+    const plan = planAccessChanges({
+      snapshot,
+      partyId: PARTY,
+      externalProjectManagerId: EPL,
+      desired
+    })
+    // Only the site and the folder with unique permissions. The folder gets no fixed-role step,
+    // because the fixed role is missing there: that is expected and done.
+    expect(plan.steps.map((s) => `${s.type}:${s.target.key}`)).toEqual([
+      'add:/sites/k',
+      'add:Dokumenter/02 Kontrakt',
+      'ensureExternalProjectManager:Dokumenter/02 Kontrakt'
+    ])
+  })
+
+  it('changes and removes access on the site', () => {
+    const withParty: IAccessSnapshot = {
+      ...snapshot,
+      assignments: {
+        ...snapshot.assignments,
+        '/sites/k': [...snapshot.assignments['/sites/k'], ra(PARTY, RoleKind.Reader)]
+      }
+    }
+    expect(currentDesiredAccess(withParty, PARTY)).toEqual({ '/sites/k': 'Reader' })
+    const change = planAccessChanges({
+      snapshot: withParty,
+      partyId: PARTY,
+      desired: { '/sites/k': 'Contributor' }
+    })
+    expect(stepTypes(change.steps)).toEqual(['change:/sites/k'])
+    const remove = planAccessChanges({ snapshot: withParty, partyId: PARTY, desired: {} })
+    expect(stepTypes(remove.steps)).toEqual(['remove:/sites/k'])
   })
 })

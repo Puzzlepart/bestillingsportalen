@@ -4,7 +4,12 @@ import {
   type PartyRole,
   RoleKind
 } from '../../models/IExternalParties'
-import { accessForPrincipal, effectiveAssignments, partyRoleToKind } from './accessModel'
+import {
+  accessForPrincipal,
+  effectiveAssignments,
+  partyRoleToKind,
+  pruneInheritedDesired
+} from './accessModel'
 
 /** One SharePoint operation needed to reach the desired access. */
 export type AccessStep =
@@ -59,7 +64,9 @@ export interface IPlanAccessInput {
  *   not restored, because others may have been given access there.
  */
 export const planAccessChanges = (input: IPlanAccessInput): IAccessPlan => {
-  const { snapshot, partyId, externalProjectManagerId, desired } = input
+  const { snapshot, partyId, externalProjectManagerId } = input
+  // Targets that inherit from another chosen target get the access from it.
+  const desired = pruneInheritedDesired(snapshot, input.desired)
   const current = new Map<string, RoleKind>()
   for (const a of accessForPrincipal(snapshot, partyId)) current.set(a.target.key, a.role)
 
@@ -99,7 +106,9 @@ export const planAccessChanges = (input: IPlanAccessInput): IAccessPlan => {
       if (breaksInheritance) steps.push({ type: 'breakInheritance', target })
       steps.push({ type: 'add', target, role: want })
       const assignmentsAfter = effectiveAssignments(snapshot, target)
+      // The fixed role has its own access on the site, so the site is skipped.
       if (
+        target.kind !== 'web' &&
         externalProjectManagerId !== undefined &&
         !assignmentsAfter.some((a) => a.principalId === externalProjectManagerId)
       ) {

@@ -24,6 +24,8 @@ export interface IPartiesConfig {
   activityLogTitle: string
   /** Link to the page where guests are invited. */
   guestInvitationUrl: string
+  /** Whether a party can be given access to the whole site in the tree. */
+  allowSiteAccess: boolean
 }
 
 export const DEFAULT_GROUP_PREFIX = '{sitename} – '
@@ -157,6 +159,7 @@ export interface IPartiesProperties {
   navigationHeading?: string
   activityLogUrl?: string
   guestInvitationUrl?: string
+  allowSiteAccess?: boolean
 }
 
 /**
@@ -180,6 +183,7 @@ export const resolvePartiesConfig = (p: IPartiesProperties): IPartiesConfig => {
     navigationHeading: valueOr(p.navigationHeading, DEFAULT_NAVIGATION_HEADING),
     activityLogUrl: nonEmptyOr(p.activityLogUrl, DEFAULT_ACTIVITY_LOG_URL),
     activityLogTitle: DEFAULT_ACTIVITY_LOG_TITLE,
-    guestInvitationUrl: valueOr(p.guestInvitationUrl, DEFAULT_GUEST_INVITATION_URL)
+    guestInvitationUrl: valueOr(p.guestInvitationUrl, DEFAULT_GUEST_INVITATION_URL),
+    allowSiteAccess: p.allowSiteAccess !== false
   }
 }

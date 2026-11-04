@@ -162,6 +162,16 @@
   color: var(--colorNeutralForeground3);
 }
 
+.treeRowInherited {
+  color: var(--colorNeutralForeground2);
+}
+
+.treeHint {
+  margin: 0 0 8px 28px;
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
 .treeToday {
   font-size: var(--fontSizeBase200);
   color: var(--colorNeutralForeground3);

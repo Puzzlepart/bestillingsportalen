@@ -103,6 +103,7 @@ describe('resolvePartiesConfig', () => {
     expect(c.protectedLibraries).toEqual([])
     expect(c.guestInvitationUrl).toBe('')
     expect(c.navigationHeading).toBe('Samarbeidsparter')
+    expect(c.allowSiteAccess).toBe(true)
     expect(c.groupPrefix).toBe('{sitename} – ')
     expect(c.partTypes.map((t) => t.label)).toEqual(['Konsulent', 'Leverandør', 'Intern'])
     expect(c.partTypes.every((t) => t.folders.length === 0)).toBe(true)
@@ -115,11 +116,13 @@ describe('resolvePartiesConfig', () => {
       navigationHeading: '',
       guestInvitationUrl: 'SitePages/Inviter-gjester.aspx',
       librariesFilter: '  ',
-      activityLogUrl: ''
+      activityLogUrl: '',
+      allowSiteAccess: false
     })
     expect(c.externalProjectManager).toBe('Ekstern prosjektleder')
     expect(c.protectedLibraries).toEqual(['Interne dokumenter'])
     expect(c.navigationHeading).toBe('')
+    expect(c.allowSiteAccess).toBe(false)
     expect(c.guestInvitationUrl).toBe('SitePages/Inviter-gjester.aspx')
     // Required values fall back to the default when empty.
     expect(c.librariesFilter).toContain('BaseTemplate eq 101')

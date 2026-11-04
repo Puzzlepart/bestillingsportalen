@@ -232,6 +232,10 @@ Når du gir tilgang til et bibliotek eller en mappe som arver tilgangen fra omr�
 
 Biblioteker som er merket «kan ikke deles», kan ikke gis til parter. Hvilke biblioteker det gjelder, bestemmes av oppsettet på området.
 
+**Hele området** står øverst i treet. Gir du parten tilgang der, gjelder den alt på området som arver tilgangen, også nye biblioteker og sider. Biblioteker og mapper med egne tillatelser, som Interne dokumenter, påvirkes ikke. Valget kan være skjult i oppsettet.
+
+**Arvet tilgang:** Har du huket av et bibliotek, står mappene som arver fra det, som «Arver fra biblioteket» og kan ikke velges for seg. De får tilgangen fra biblioteket. Det samme gjelder biblioteker og mapper som arver fra området når «Hele området» er valgt. Bare biblioteker og mapper med egne tillatelser kan velges i tillegg.
+
 ### Hvis et steg feiler
 
 Webdelen stopper ved steget som feilet, og viser feilmeldingen fra SharePoint. Velg **Prøv igjen**. Steg som allerede er gjort, hoppes over.

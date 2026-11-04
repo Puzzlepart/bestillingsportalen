@@ -195,6 +195,7 @@ export class PartiesProvisioningService implements IPartiesWriter {
   }
 
   private _securable(ref: ISecurableRef) {
+    if (ref.web) return this.sp.web
     const list = this.sp.web.lists.getById(ref.listId)
     return ref.itemId ? list.items.getById(ref.itemId) : list
   }

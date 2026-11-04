@@ -3,6 +3,7 @@ import { Badge, Checkbox, Select } from '@fluentui/react-components'
 import * as strings from 'ProvisionWebPartsStrings'
 
 import type { IAccessSnapshot, IAccessTarget, PartyRole } from '../../models/IExternalParties'
+import { inheritedFrom, pruneInheritedDesired } from '../../services/parties/accessModel'
 import { format } from '../../utils/format'
 import { roleText } from './operationText'
 import styles from './ExternalParties.module.scss'
@@ -20,6 +21,8 @@ export interface IAccessTreeProps {
   /** Row shown first, e.g. the new party's own library. */
   leading?: React.ReactNode
   disabled?: boolean
+  /** Show «Hele området» first. Existing access on the site is shown anyway. */
+  allowSiteAccess?: boolean
 }
 
 type ChangeBadge = 'new' | 'changed' | 'removed' | undefined
@@ -44,19 +47,54 @@ const BADGE_TEXT = {
  * never be ticked.
  */
 export const AccessTree: React.FC<IAccessTreeProps> = (props) => {
-  const { snapshot, current, currentNames = {}, value, onChange, leading, disabled } = props
+  const {
+    snapshot,
+    current,
+    currentNames = {},
+    value,
+    onChange,
+    leading,
+    disabled,
+    allowSiteAccess = true
+  } = props
   const libraries = snapshot.targets.filter((t) => t.kind === 'library')
+  const site = snapshot.targets.find((t) => t.kind === 'web')
+  const showSite =
+    !!site && ((allowSiteAccess && !site.isProtected) || current[site.key] !== undefined)
   const foldersOf = (key: string): IAccessTarget[] =>
     snapshot.targets.filter((t) => t.kind === 'folder' && t.parentKey === key)
 
+  // Choosing a target clears choices below it that inherit from it: they get
+  // the access through inheritance.
   const set = (key: string, role: PartyRole | undefined): void =>
-    onChange({ ...value, [key]: role })
+    onChange(pruneInheritedDesired(snapshot, { ...value, [key]: role }))
 
   const row = (target: IAccessTarget, nested: boolean): React.ReactNode => {
     const have = current[target.key]
     const want = value[target.key]
     const badge = changeBadge(have, want)
-    const label = nested ? target.name || target.title : target.title
+    const label =
+      target.kind === 'web'
+        ? strings.Parties.SiteAccessLabel
+        : nested
+          ? target.name || target.title
+          : target.title
+    const inherited = inheritedFrom(snapshot, target, value)
+    if (inherited) {
+      return (
+        <div className={[styles.treeRow, styles.treeRowInherited].join(' ')}>
+          <Checkbox checked disabled label={label} />
+          <span className={styles.treeToday}>
+            {format(
+              inherited.target.kind === 'web'
+                ? strings.Parties.InheritsFromSite
+                : strings.Parties.InheritsFromLibrary,
+              roleText(inherited.role)
+            )}
+          </span>
+        </div>
+      )
+    }
     if (target.isProtected) {
       return (
         <div className={[styles.treeRow, styles.treeRowMuted].join(' ')}>
@@ -109,6 +147,12 @@ export const AccessTree: React.FC<IAccessTreeProps> = (props) => {
 
   return (
     <ul className={styles.tree} aria-label={strings.Parties.TreeTitle}>
+      {showSite && (
+        <li>
+          {row(site, false)}
+          <p className={styles.treeHint}>{strings.Parties.SiteAccessHint}</p>
+        </li>
+      )}
       {leading && <li>{leading}</li>}
       {libraries.map((lib) => {
         const folders = lib.isProtected ? [] : foldersOf(lib.key)

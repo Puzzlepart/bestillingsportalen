@@ -43,7 +43,8 @@ export interface IParty {
   isExternalProjectManager: boolean
 }
 
-export type AccessTargetKind = 'library' | 'folder'
+/** `web` is the site itself: access there applies to everything that inherits from it. */
+export type AccessTargetKind = 'web' | 'library' | 'folder'
 
 export interface IAccessTarget {
   /** Server-relative URL of the library root folder or the folder. Unique key. */

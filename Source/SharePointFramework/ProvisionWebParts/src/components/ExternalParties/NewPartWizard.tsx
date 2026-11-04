@@ -273,6 +273,7 @@ export const NewPartWizard: React.FC = () => {
           <p className={styles.hint}>{strings.Parties.AccessStepHint}</p>
         </div>
         <AccessTree
+          allowSiteAccess={config.allowSiteAccess}
           snapshot={snapshot}
           current={{}}
           value={desired}

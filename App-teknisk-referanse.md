@@ -559,13 +559,14 @@ Komponent-ID er `f99f57c7-00f4-4324-9f0b-5c4d81fbdc65`, og bundelen heter `exter
 
 ### Modell
 
-| Begrep                | I SharePoint                                                                                                                                                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Part                  | SharePoint-gruppe `<områdetittel> – <navn>` med beskrivelsen `Samarbeidspart: <type>. …`. Prefikset styres av `groupPrefix`.                                                                 |
-| Fast rolle (valgfri)  | Gruppen `<prefiks><externalProjectManager>`, f.eks. Ekstern prosjektleder. Settes av malen. Webdelen viser rollen bare når gruppen finnes, og endrer bare tilgangen ved å gi gruppen Lese der en part gis tilgang og gruppen ellers ville mangle tilgang. |
-| Eget bibliotek        | Dokumentbibliotek med URL fra `libraryUrl` (f.eks. `Lev{code}`), tittel fra `libraryTitle` og mappene typen har (`folders`). Beskrivelsen har samme markør som gruppen.                            |
-| Tilgang               | Rolle (`Bidra` eller `Lese`) på et bibliotek eller en mappe på første nivå. Aldri på enkeltfiler og aldri til enkeltpersoner.                                                                |
-| Beskyttet bibliotek   | Bibliotek i `protectedLibraries`. Vises, men kan ikke deles.                                                                                                                                 |
+| Begrep               | I SharePoint                                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Part                 | SharePoint-gruppe `<områdetittel> – <navn>` med beskrivelsen `Samarbeidspart: <type>. …`. Prefikset styres av `groupPrefix`.                                                                                                                              |
+| Fast rolle (valgfri) | Gruppen `<prefiks><externalProjectManager>`, f.eks. Ekstern prosjektleder. Settes av malen. Webdelen viser rollen bare når gruppen finnes, og endrer bare tilgangen ved å gi gruppen Lese der en part gis tilgang og gruppen ellers ville mangle tilgang. |
+| Eget bibliotek       | Dokumentbibliotek med URL fra `libraryUrl` (f.eks. `Lev{code}`), tittel fra `libraryTitle` og mappene typen har (`folders`). Beskrivelsen har samme markør som gruppen.                                                                                   |
+| Tilgang              | Rolle (`Bidra` eller `Lese`) på et bibliotek eller en mappe på første nivå. Aldri på enkeltfiler og aldri til enkeltpersoner.                                                                                                                             |
+| Beskyttet bibliotek  | Bibliotek i `protectedLibraries`. Vises, men kan ikke deles.                                                                                                                                                                                              |
+| Hele området         | Rolletildeling på selve området (`kind: 'web'`). Gjelder alt som arver. Brytes aldri: et område som arver tilgangen (et underområde), kan ikke velges.                                                                                                    |
 
 ### Komponenter og tjenester
 
@@ -597,6 +598,9 @@ Komponent-ID er `f99f57c7-00f4-4324-9f0b-5c4d81fbdc65`, og bundelen heter `exter
 4. Tilgangene som er valgt i steg 2 i veiviseren, gis som i Gi tilgang under.
 
 **Gi tilgang:** `planAccessChanges` gir stegene `breakInheritance`, `add`, `change`, `remove` og `ensureExternalProjectManager`.
+
+- **Arv:** Valg på mål som arver fra et annet valgt mål (en mappe under et valgt bibliotek, eller et bibliotek når hele området er valgt), fjernes før planleggingen (`pruneInheritedDesired`). Treet viser dem som «Arver fra …». Arven brytes derfor bare der parten trenger egen tilgang.
+- **Området:** Tilgang på området legges til, endres og fjernes uten brudd på arv og uten steg for den faste rollen.
 
 - **Arv:** Arven brytes alltid med kopi (`breakroleinheritance(true,false)`). Den direkte Full kontroll-tildelingen SharePoint gir den som bryter arven, fjernes, med mindre brukeren har direkte tilgang på nivået over.
 - **Endre:** En endring fjerner partens tildeling og legger til den nye rollen.
@@ -635,6 +639,7 @@ Standardverdiene er nøytrale, så webdelen virker på alle områder. En egenska
 | `librariesFilter`        | Dokumentbiblioteker unntatt kataloger, applister og skjemamaler                      | OData-filter for bibliotekene som vises.                                                                                                                                                                       |
 | `navigationHeading`      | `Samarbeidsparter`                                                                   | Overskriften i hurtigstartmenyen der lenken til partens bibliotek legges. Opprettes hvis den mangler. Tom betyr ingen lenke.                                                                                   |
 | `guestInvitationUrl`     | tom                                                                                  | Siden med `InviteGuests`. Lenken vises bare når siden finnes. Tom skjuler lenken.                                                                                                                              |
+| `allowSiteAccess`        | på                                                                                   | Viser «Hele området» øverst i treet, slik at en part kan få Lese eller Bidra på området. Tilgangen gjelder alt som arver. Av skjuler valget, men eksisterende tilgang på området vises og kan fjernes.         |
 | `activityLogUrl`         | `Lists/ActivityLog`                                                                  | Områderelativ URL til aktivitetsloggen.                                                                                                                                                                        |
 
 ## 13. Caching og konsistens

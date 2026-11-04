@@ -100,16 +100,68 @@ export const webRoleForPrincipal = (snapshot: IAccessSnapshot, principalId: numb
   return ra ? strongestRole(ra.roles) : { kind: RoleKind.None, name: '' }
 }
 
-/** Targets with unique role assignments, where the principal has no access. */
+/** Libraries and folders with unique role assignments, where the principal has no access. */
 export const brokenTargetsWithoutPrincipal = (
   snapshot: IAccessSnapshot,
   principalId: number
 ): IAccessTarget[] =>
   snapshot.targets.filter(
     (t) =>
+      t.kind !== 'web' &&
       t.hasUniqueRoleAssignments &&
       !(snapshot.assignments[t.key] || []).some((a) => a.principalId === principalId)
   )
+
+/** The target a target inherits from: folder → library, library → site, site → none. */
+export const parentTarget = (
+  snapshot: IAccessSnapshot,
+  target: IAccessTarget
+): IAccessTarget | undefined => {
+  if (target.kind === 'folder') return snapshot.targets.find((t) => t.key === target.parentKey)
+  if (target.kind === 'library') return snapshot.targets.find((t) => t.kind === 'web')
+  return undefined
+}
+
+/**
+ * The chosen target a target gets its access from through inheritance, with
+ * the role, or undefined. Walks up while the target inherits: a folder that
+ * inherits from a chosen library, or a library (and its inheriting folders)
+ * that inherits from the chosen site. Stops at the first parent with unique
+ * role assignments that is not chosen.
+ */
+export const inheritedFrom = (
+  snapshot: IAccessSnapshot,
+  target: IAccessTarget,
+  desired: Record<string, PartyRole | undefined>
+): { target: IAccessTarget; role: PartyRole } | undefined => {
+  let current = target
+  while (!current.hasUniqueRoleAssignments) {
+    const parent = parentTarget(snapshot, current)
+    if (!parent) return undefined
+    const role = desired[parent.key]
+    if (role !== undefined) return { target: parent, role }
+    current = parent
+  }
+  return undefined
+}
+
+/**
+ * Removes choices for targets that inherit from another chosen target. They
+ * get the access through inheritance, so choosing them as well would break
+ * inheritance for nothing.
+ */
+export const pruneInheritedDesired = (
+  snapshot: IAccessSnapshot,
+  desired: Record<string, PartyRole | undefined>
+): Record<string, PartyRole | undefined> => {
+  const result: Record<string, PartyRole | undefined> = { ...desired }
+  for (const target of snapshot.targets) {
+    if (result[target.key] !== undefined && inheritedFrom(snapshot, target, desired)) {
+      delete result[target.key]
+    }
+  }
+  return result
+}
 
 export interface IAccessSummary {
   /** Libraries the principal has access to. */

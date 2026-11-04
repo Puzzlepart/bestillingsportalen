@@ -10,7 +10,7 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
   - **Hva er en part?** En part er en SharePoint-gruppe med markøren `Samarbeidspart: <type>.` i beskrivelsen. Gruppen heter `<områdetittel> – <navn>`.
   - **Oversikten** leses fra SharePoint hver gang. Den viser bibliotekene og mappene på første nivå der hver part har tilgang, antall medlemmer og status. «Åpne gruppen» åpner gruppesiden i klassisk visning.
   - **Ny part** er en veiviser i tre steg: part, tilganger og status. Den oppretter gruppen, eventuelt et eget bibliotek med mappene typen har og en lenke i menyen, og gir tilgangene som er valgt.
-  - **Gi tilgang** viser hva som legges til, endres og fjernes før noe lagres.
+  - **Gi tilgang** viser hva som legges til, endres og fjernes før noe lagres. Parten kan også få tilgang til **hele området** (Lese eller Bidra). Valget kan skjules med `allowSiteAccess`. Mapper og biblioteker som arver fra et valgt bibliotek eller fra området, vises som «Arver fra …», slik at arven ikke brytes unødvendig.
   - **Når en part får tilgang** til et bibliotek eller en mappe som arver, brytes arven med kopi. Eiere og medlemmer beholder da tilgangen. Biblioteker i innstillingen `protectedLibraries` kan aldri deles.
   - **Oppsett fra malen:** En mal kan sette en fast rolle, for eksempel Ekstern prosjektleder, som får Lese der partene får tilgang. Den kan også sette beskyttede biblioteker, typer med mapper og en lenke til siden med Inviter gjester. Standardverdiene er nøytrale. Den faste rollen og lenken vises bare når gruppen og siden finnes.
   - **Steg og feil:** Alle steg kjøres ett om gangen med status for hvert. Et nytt forsøk hopper over det som allerede er gjort.

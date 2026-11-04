@@ -28,6 +28,15 @@ export const accessText = (row: IPartyRow): { primary: string; secondary?: strin
       : ''
   ].filter(Boolean)
 
+  const site = row.access.find((a) => a.target.kind === 'web')
+  if (site) {
+    return {
+      primary: strings.Parties.SiteAccessLabel,
+      secondary: [site.roleName, row.ownLibrary ? strings.Parties.AccessOwnLibrary : '', ...rest]
+        .filter(Boolean)
+        .join(' · ')
+    }
+  }
   if (row.ownLibrary) {
     return {
       primary: strings.Parties.AccessOwnLibrary,

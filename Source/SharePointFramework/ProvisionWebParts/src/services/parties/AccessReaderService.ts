@@ -49,10 +49,17 @@ export class AccessReaderService {
     librariesFilter: string,
     protectedLibraries: string[]
   ): Promise<IAccessSnapshot> {
-    const lists = (await this.sp.web.lists
-      .filter(librariesFilter)
-      .select('Id', 'Title', 'HasUniqueRoleAssignments', 'RootFolder/ServerRelativeUrl')
-      .expand('RootFolder')()) as IRawList[]
+    const [lists, web] = await Promise.all([
+      this.sp.web.lists
+        .filter(librariesFilter)
+        .select('Id', 'Title', 'HasUniqueRoleAssignments', 'RootFolder/ServerRelativeUrl')
+        .expand('RootFolder')() as Promise<IRawList[]>,
+      this.sp.web.select('Title', 'ServerRelativeUrl', 'HasUniqueRoleAssignments')() as Promise<{
+        Title: string
+        ServerRelativeUrl: string
+        HasUniqueRoleAssignments: boolean
+      }>
+    ])
 
     const targets: IAccessTarget[] = lists
       .map((l) => ({
@@ -128,11 +135,27 @@ export class AccessReaderService {
 
     const assignments: IAccessSnapshot['assignments'] = {}
     unique.forEach((t, i) => (assignments[t.key] = toRoleAssignments(uniqueRaw[i] || [])))
+    const webAssignments = toRoleAssignments(webRaw as any[])
+
+    // The site itself, first in the list. A subsite that inherits from its
+    // parent cannot be shared: that would mean breaking inheritance on the site.
+    const webKey = web.ServerRelativeUrl.replace(/\/$/, '') || '/'
+    const webTarget: IAccessTarget = {
+      key: webKey,
+      kind: 'web',
+      listId: '',
+      listTitle: '',
+      listUrl: webKey,
+      title: web.Title,
+      hasUniqueRoleAssignments: web.HasUniqueRoleAssignments,
+      isProtected: !web.HasUniqueRoleAssignments
+    }
+    if (web.HasUniqueRoleAssignments) assignments[webKey] = webAssignments
 
     return {
-      targets: allTargets,
+      targets: [webTarget, ...allTargets],
       assignments,
-      webAssignments: toRoleAssignments(webRaw as any[])
+      webAssignments
     }
   }
 

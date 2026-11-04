@@ -12,7 +12,13 @@ export const changeText = (
   change: IAccessChange,
   roleNames: Record<string, string> = {}
 ): string => {
-  const title = change.target.title
+  const isSite = change.target.kind === 'web'
+  const title = isSite ? strings.Parties.SiteAccessLabel : change.target.title
+  if (isSite) {
+    return change.kind === 'remove'
+      ? strings.Parties.PreviewSiteRemoveText
+      : format(strings.Parties.PreviewSiteText, roleText(change.role))
+  }
   switch (change.kind) {
     case 'add':
       return [

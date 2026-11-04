@@ -5,6 +5,7 @@ import {
   type IPropertyPaneConfiguration,
   type IPropertyPaneField,
   PropertyPaneLabel,
+  PropertyPaneToggle,
   PropertyPaneTextField
 } from '@microsoft/sp-property-pane'
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base'
@@ -37,6 +38,8 @@ export interface IExternalPartiesWebPartProps {
   navigationHeading: string
   activityLogUrl: string
   guestInvitationUrl: string
+  /** Show «Hele området» in the tree. Missing means on. */
+  allowSiteAccess?: boolean
 }
 
 export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExternalPartiesWebPartProps> {
@@ -174,6 +177,15 @@ export default class ExternalPartiesWebPart extends BaseClientSideWebPart<IExter
               groupName: strings.Parties.GroupLibraries,
               isCollapsed: true,
               groupFields: [
+                PropertyPaneToggle('allowSiteAccess', {
+                  label: strings.Parties.AllowSiteAccessLabel,
+                  checked: this.properties.allowSiteAccess !== false,
+                  onText: strings.Parties.AllowSiteAccessOn,
+                  offText: strings.Parties.AllowSiteAccessOff
+                }),
+                PropertyPaneLabel('allowSiteAccessDescription', {
+                  text: strings.Parties.AllowSiteAccessDescription
+                }),
                 PropertyPaneTextField('protectedLibraries', {
                   label: strings.Parties.ProtectedLibrariesLabel,
                   description: strings.Parties.ProtectedLibrariesDescription,

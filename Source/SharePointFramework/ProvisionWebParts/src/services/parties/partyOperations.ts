@@ -9,6 +9,8 @@ import { PARTY_MARKER_PREFIX } from './partyMarker'
 export interface ISecurableRef {
   listId: string
   itemId?: number
+  /** The site itself. listId and itemId are not used. */
+  web?: boolean
 }
 
 /**
@@ -62,13 +64,13 @@ export class PartyOperationError extends Error {
 const hasMarker = (description: string | undefined): boolean =>
   (description || '').startsWith(PARTY_MARKER_PREFIX)
 
-const toRef = (target: IAccessTarget): ISecurableRef => ({
-  listId: target.listId,
-  itemId: target.kind === 'folder' ? target.itemId : undefined
-})
+const toRef = (target: IAccessTarget): ISecurableRef =>
+  target.kind === 'web'
+    ? { listId: '', web: true }
+    : { listId: target.listId, itemId: target.kind === 'folder' ? target.itemId : undefined }
 
-const targetType = (target: IAccessTarget): 'Library' | 'Folder' =>
-  target.kind === 'folder' ? 'Folder' : 'Library'
+const targetType = (target: IAccessTarget): 'Site' | 'Library' | 'Folder' =>
+  target.kind === 'web' ? 'Site' : target.kind === 'folder' ? 'Folder' : 'Library'
 
 export interface INewPartyContext {
   groupId?: number

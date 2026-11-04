@@ -23,7 +23,7 @@ import styles from './ExternalParties.module.scss'
  * happen, and saves. The steps run one at a time with status for each.
  */
 export const GrantDrawer: React.FC<{ partyId?: number }> = ({ partyId }) => {
-  const { data, refresh, services, markNeedsRefresh } = useExternalPartiesContext()
+  const { data, config, refresh, services, markNeedsRefresh } = useExternalPartiesContext()
   const { snapshot, externalProjectManager: epl } = data
   const parties = data.rows.filter((r) => !r.party.isExternalProjectManager).map((r) => r.party)
   const [selectedId, setSelectedId] = React.useState<number | undefined>(partyId ?? parties[0]?.id)
@@ -152,6 +152,7 @@ export const GrantDrawer: React.FC<{ partyId?: number }> = ({ partyId }) => {
             <p className={styles.hint}>{strings.Parties.TreeHint}</p>
           </div>
           <AccessTree
+            allowSiteAccess={config.allowSiteAccess}
             snapshot={snapshot}
             current={current}
             currentNames={currentNames}
