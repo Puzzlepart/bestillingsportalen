@@ -1,5 +1,6 @@
 import {
   DEFAULT_PART_TYPES,
+  guestInvitationLink,
   isProtectedLibrary,
   parsePartTypes,
   resolvePartiesConfig,
@@ -123,5 +124,19 @@ describe('resolvePartiesConfig', () => {
     // Required values fall back to the default when empty.
     expect(c.librariesFilter).toContain('BaseTemplate eq 101')
     expect(c.activityLogUrl).toBe('Lists/ActivityLog')
+  })
+})
+
+describe('guestInvitationLink', () => {
+  it('adds the group to the guest invitation page link', () => {
+    expect(guestInvitationLink('/sites/k/SitePages/Inviter-gjester.aspx', 12)).toBe(
+      '/sites/k/SitePages/Inviter-gjester.aspx?inviteGroup=12'
+    )
+    expect(guestInvitationLink('/sites/k/SitePages/Inviter.aspx?a=1#top', 7)).toBe(
+      '/sites/k/SitePages/Inviter.aspx?a=1&inviteGroup=7#top'
+    )
+    expect(guestInvitationLink('/sites/k/SitePages/Inviter.aspx', undefined)).toBe(
+      '/sites/k/SitePages/Inviter.aspx'
+    )
   })
 })

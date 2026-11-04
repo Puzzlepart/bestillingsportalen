@@ -15,8 +15,32 @@ export interface ISiteGroup {
 // guests to. Filtered out of the SP group dropdown.
 const SYSTEM_GROUP_PREFIXES = ['Limited Access System Group', 'SharingLinks']
 
+export interface IRoleBinding {
+  Name: string
+  Hidden?: boolean
+  RoleTypeKind?: number
+}
+
+/** RoleTypeKind of «Limited Access» / «Begrenset tilgang». */
+const ROLE_TYPE_GUEST = 1
+
+/**
+ * The permission levels to show for a group, e.g. «Lese». Limited Access is
+ * the implicit grant SharePoint adds when a principal has permissions on a
+ * child item, so it says nothing at group level. It is recognised by type and
+ * the Hidden flag, not by name, because the name is localised («Begrenset
+ * tilgang» on Norwegian sites).
+ */
+export const groupPermissionNames = (bindings: IRoleBinding[]): string =>
+  (bindings || [])
+    .filter((b) => !b.Hidden && b.RoleTypeKind !== ROLE_TYPE_GUEST && b.Name !== 'Limited Access')
+    .map((b) => b.Name)
+    .join(', ')
+
 export interface ISiteContext {
   isGroupConnected: boolean
+  /** Title of the site, used to show group names without the site prefix. */
+  webTitle?: string
   groupId?: string
   associatedVisitorGroupId?: number
   associatedVisitorGroupTitle?: string
@@ -34,17 +58,22 @@ export class SiteService {
   public async getSiteContext(): Promise<ISiteContext> {
     // GroupId lives on the Site object (not Web). Selecting it from web returns
     // undefined silently — has bitten us before in the AddGuestToSite runbook.
-    const [site, visitorGroup] = await Promise.all([
+    const [site, visitorGroup, web] = await Promise.all([
       this.sp.site.select('GroupId')() as Promise<{ GroupId?: string }>,
       this.sp.web.associatedVisitorGroup
         .select('Id', 'Title')()
         .then((g) => g as { Id: number; Title: string })
-        .catch(() => undefined)
+        .catch(() => undefined),
+      this.sp.web
+        .select('Title')()
+        .then((w) => w as { Title: string })
+        .catch((): undefined => undefined)
     ])
     const isGroupConnected =
       !!site.GroupId && site.GroupId !== '00000000-0000-0000-0000-000000000000'
     return {
       isGroupConnected,
+      webTitle: web?.Title,
       groupId: isGroupConnected ? site.GroupId : undefined,
       associatedVisitorGroupId: visitorGroup?.Id,
       associatedVisitorGroupTitle: visitorGroup?.Title
@@ -62,18 +91,17 @@ export class SiteService {
         .top(500)() as Promise<ISiteGroup[]>,
       this.sp.web.roleAssignments
         .expand('RoleDefinitionBindings')
-        .select('PrincipalId', 'RoleDefinitionBindings/Name')
-        .top(500)() as Promise<
-        { PrincipalId: number; RoleDefinitionBindings: { Name: string }[] }[]
-      >
+        .select(
+          'PrincipalId',
+          'RoleDefinitionBindings/Name',
+          'RoleDefinitionBindings/Hidden',
+          'RoleDefinitionBindings/RoleTypeKind'
+        )
+        .top(500)() as Promise<{ PrincipalId: number; RoleDefinitionBindings: IRoleBinding[] }[]>
     ])
-    // 'Limited Access' is the implicit grant SP adds when a principal has
-    // permissions on a child item — not meaningful as a group-level role.
     const permissionsByPrincipalId = new Map<number, string>()
     for (const ra of roleAssignments) {
-      const names = ra.RoleDefinitionBindings.map((r) => r.Name)
-        .filter((n) => n !== 'Limited Access')
-        .join(', ')
+      const names = groupPermissionNames(ra.RoleDefinitionBindings)
       if (names) permissionsByPrincipalId.set(ra.PrincipalId, names)
     }
     // Admin-configured allow/hidden terms: a group matches a term when its title

@@ -202,7 +202,7 @@ Tabellen viser partene. Er området satt opp med en fast rolle, for eksempel Eks
 | Ingen medlemmer | Ingen er invitert til gruppen ennå. |
 | Ingen tilgang | Gruppen har medlemmer, men ingen tilgang til biblioteker eller mapper. |
 
-Velg navnet på en part for å se bibliotekene og mappene parten har tilgang til. Velg **Åpne gruppen** for å se og endre medlemmene på gruppesiden i SharePoint.
+Velg navnet på en part for å se bibliotekene og mappene parten har tilgang til. Velg **Åpne gruppen** for å se og endre medlemmene på gruppesiden i SharePoint. Velg **Inviter gjester** i panelet for å invitere personer til partens gruppe. Gjesteinvitasjonen åpnes da med gruppen valgt.
 
 Oversikten viser tilgang på biblioteker og mapper på første nivå, slik den er satt opp i SharePoint nå. Den viser ikke tilgang lenger ned i mappene, på enkeltfiler eller gitt med delingslenker. Oversikten er derfor ikke en fasit.
 

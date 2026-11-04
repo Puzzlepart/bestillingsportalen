@@ -122,6 +122,18 @@ export const toServerRelativeUrl = (webServerRelativeUrl: string, path: string):
   return `${webServerRelativeUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 }
 
+/**
+ * Link to the guest invitation page with the group chosen, e.g.
+ * «/sites/x/SitePages/Inviter-gjester.aspx?inviteGroup=12». Inviter gjester
+ * reads the parameter and opens the panel with the group selected.
+ */
+export const guestInvitationLink = (pageUrl: string, groupId?: number): string => {
+  if (!pageUrl || groupId === undefined) return pageUrl
+  const [path, hash] = pageUrl.split('#')
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}inviteGroup=${groupId}${hash !== undefined ? `#${hash}` : ''}`
+}
+
 /** Returns true when the library title or URL name is in the protected list. */
 export const isProtectedLibrary = (
   title: string,

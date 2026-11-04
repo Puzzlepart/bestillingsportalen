@@ -16,6 +16,7 @@ import {
   buildAccessOperations,
   buildNewPartyOperations,
   defineNewParty,
+  guestInvitationLink,
   type INewPartyContext,
   type IOperation,
   type LibraryCodeError,
@@ -99,6 +100,7 @@ export const NewPartWizard: React.FC = () => {
   const [desired, setDesired] = React.useState<AccessMap>({})
   const { run, start } = useOperationRun()
   const operations = React.useRef<IOperation[]>()
+  const newPartyContext = React.useRef<INewPartyContext>()
 
   const type = types.find((t) => t.key === typeKey) || types[0]
   const effectiveCode = code ?? suggestLibraryCode(name)
@@ -154,6 +156,7 @@ export const NewPartWizard: React.FC = () => {
   const create = async (): Promise<void> => {
     const eplRef = epl ? { id: epl.id, title: epl.title, name: epl.name } : undefined
     const context: INewPartyContext = {}
+    newPartyContext.current = context
     const party = {
       get id(): number {
         return context.groupId
@@ -176,7 +179,10 @@ export const NewPartWizard: React.FC = () => {
     if (operations.current) await runAndRefresh()
   }
 
-  const guestUrl = data.guestInvitationUrl
+  // Opens Inviter gjester with the new party's group chosen.
+  const guestUrl =
+    data.guestInvitationUrl &&
+    guestInvitationLink(data.guestInvitationUrl, newPartyContext.current?.groupId)
   const ownLibraryAccess = definition.library
     ? format(
         strings.Parties.SummaryOwnLibraryAccess,

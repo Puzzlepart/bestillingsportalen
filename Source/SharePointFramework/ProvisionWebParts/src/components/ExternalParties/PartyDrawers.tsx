@@ -16,6 +16,7 @@ import * as strings from 'ProvisionWebPartsStrings'
 import { format } from '../../utils/format'
 import { PartiesService } from '../../services/parties/PartiesService'
 import { webRoleForPrincipal } from '../../services/parties/accessModel'
+import { guestInvitationLink } from '../../services/parties/partyConfig'
 import { RoleKind } from '../../models/IExternalParties'
 import { useExternalPartiesContext } from './context'
 import { membersText } from './accessText'
@@ -90,11 +91,18 @@ export const PartyDrawer: React.FC<{ partyId: number }> = ({ partyId }) => {
     <DrawerShell
       title={party.name}
       footer={
-        <Button
-          appearance='primary'
-          onClick={() => setDrawer({ kind: 'grant', partyId: party.id })}>
-          {strings.Parties.ChangeAccess}
-        </Button>
+        <>
+          <Button
+            appearance='primary'
+            onClick={() => setDrawer({ kind: 'grant', partyId: party.id })}>
+            {strings.Parties.ChangeAccess}
+          </Button>
+          {data.guestInvitationUrl && (
+            <Button as='a' href={guestInvitationLink(data.guestInvitationUrl, party.id)}>
+              {strings.Parties.InviteGuestsLink}
+            </Button>
+          )}
+        </>
       }>
       <div className={styles.groupLine}>
         <Text>{`${party.type} · ${membersText(party.memberCount)}`}</Text>
@@ -153,7 +161,15 @@ export const EplDrawer: React.FC = () => {
   const groupUrl = PartiesService.groupPageUrl(site.absoluteUrl, epl.id)
 
   return (
-    <DrawerShell title={epl.name}>
+    <DrawerShell
+      title={epl.name}
+      footer={
+        data.guestInvitationUrl && (
+          <Button as='a' href={guestInvitationLink(data.guestInvitationUrl, epl.id)}>
+            {strings.Parties.InviteGuestsLink}
+          </Button>
+        )
+      }>
       <div className={styles.groupLine}>
         <Text>{`${strings.Parties.FixedRole} · ${membersText(epl.memberCount)}`}</Text>
         <Link href={groupUrl} onClick={openInNewTab(groupUrl)}>

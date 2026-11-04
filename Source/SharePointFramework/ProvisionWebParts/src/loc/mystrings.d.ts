@@ -100,6 +100,11 @@ declare interface IProvisionWebPartsStrings {
   HiddenSpGroupsFieldDescription: string
   AllowedSpGroupsFieldLabel: string
   AllowedSpGroupsFieldDescription: string
+  SPGroupSectionFixedRoles: string
+  SPGroupSectionParties: string
+  SPGroupSectionOther: string
+  FixedRoleGroupsFieldLabel: string
+  FixedRoleGroupsFieldDescription: string
 
   InviteButton: string
   InviteDrawerHeader: string

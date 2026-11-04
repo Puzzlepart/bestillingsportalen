@@ -532,6 +532,11 @@ Retry oppretter en ny `Pending`-rad og flytter den mislykkede raden til SharePoi
 | `lockSpGroupAction`                       | Hindrer brukerendring.                                         |
 | `showSPGroupSection`                      | Viser eller skjuler SharePoint-gruppevalg.                     |
 | `hiddenSpGroups`, `allowedSpGroups`       | Deny-/allow-lister for tilgjengelige grupper. Skjuling vinner. |
+| `fixedRoleGroups`                         | Faste roller som vises øverst i gruppevalget, f.eks. `Ekstern prosjektleder`. |
+
+Gruppevalget viser navnene uten prefikset «<områdetittel> – ». Når området har faste roller eller parter, deles listen i seksjonene «Faste roller», «Samarbeidsparter» og «Andre grupper». Parter er grupper med markøren `Samarbeidspart: <type>.` fra Samarbeidsparter, og typen vises ved navnet. Rollen «Begrenset tilgang» (Limited Access) vises ikke, uansett språk.
+
+URL-parameteren `?inviteGroup=<gruppe-ID>` åpner panelet med gruppen valgt, hvis den er blant gruppene i valget. Samarbeidsparter bruker den i knappen «Inviter gjester».
 
 ### Status og forhåndsvisning
 

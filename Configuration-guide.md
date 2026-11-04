@@ -271,6 +271,7 @@ Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som 
    - Sett `allowedSpGroups` til gruppeprefikset med tankestrek, f.eks. `Kaiprosjekt – `. Da kan bare partene og den faste rollen velges. Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville derfor også gitt treff på standardgruppene «Kaiprosjekt Owners», «… Members» og «… Visitors».
    - Sett M365-rollen til «Ingen» og lås den (`defaultM365GroupRole: None`, `lockM365GroupRole`), slik at eksterne aldri legges i Microsoft 365-gruppen.
    - Skjul «Opprett ny gruppe» (`showSpActionCreateNew: false`). Parter opprettes i Samarbeidsparter.
+   - Sett «Faste roller» (`fixedRoleGroups`) til den faste rollen, f.eks. `Ekstern prosjektleder`, så den står øverst i gruppevalget. Partene vises under «Samarbeidsparter» med kort navn og type.
 
    I Prosjektportalen-tillegget «Dokumentsamhandling med eksterne» er siden satt opp slik fra før, med `{sitename} – ` som prefiks.
 

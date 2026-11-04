@@ -48,6 +48,8 @@ export interface IInviteGuestsProps {
   showSPGroupSection: boolean
   hiddenSpGroups: string
   allowedSpGroups: string
+  /** Fixed roles shown first in the group picker, e.g. «Ekstern prosjektleder». */
+  fixedRoleGroups: string
   siteUrl: string
   siteTitle: string
   service: GuestRequestService
@@ -87,6 +89,8 @@ export interface IInviteGuestsContext {
   showSPGroupSection: boolean
   hiddenSpGroups: string
   allowedSpGroups: string
+  /** Fixed roles shown first in the group picker, e.g. «Ekstern prosjektleder». */
+  fixedRoleGroups: string
   service: GuestRequestService
   siteService: SiteService
   graphService: GraphService

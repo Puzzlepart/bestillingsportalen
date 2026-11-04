@@ -63,6 +63,7 @@ export interface IInviteGuestsWebPartProps {
   showSPGroupSection: boolean
   hiddenSpGroups: string
   allowedSpGroups: string
+  fixedRoleGroups: string
   guestRequestListTitle: string
   guestRequestSiteUrl: string
 }
@@ -157,6 +158,7 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
       showSPGroupSection: this.properties.showSPGroupSection !== false,
       hiddenSpGroups: this.properties.hiddenSpGroups || '',
       allowedSpGroups: this.properties.allowedSpGroups || '',
+      fixedRoleGroups: this.properties.fixedRoleGroups || '',
       siteUrl: this.context.pageContext.web.absoluteUrl,
       siteTitle: this.context.pageContext.web.title,
       service: this._service,
@@ -508,6 +510,11 @@ export default class InviteGuestsWebPart extends BaseClientSideWebPart<IInviteGu
                 PropertyPaneTextField('allowedSpGroups', {
                   label: strings.AllowedSpGroupsFieldLabel,
                   description: strings.AllowedSpGroupsFieldDescription,
+                  multiline: true
+                }),
+                PropertyPaneTextField('fixedRoleGroups', {
+                  label: strings.FixedRoleGroupsFieldLabel,
+                  description: strings.FixedRoleGroupsFieldDescription,
                   multiline: true
                 }),
                 PropertyPaneTextField('hiddenSpGroups', {
