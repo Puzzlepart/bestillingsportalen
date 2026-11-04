@@ -27,7 +27,11 @@ import { useInviteDrawer } from './useInviteDrawer'
 import { useInviteGuestsContext } from '../context'
 import type { IInviteDrawerProps } from './types'
 
-export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange }) => {
+export const InviteDrawer: React.FC<IInviteDrawerProps> = ({
+  open,
+  onOpenChange,
+  preselectGroupId
+}) => {
   const {
     inviteMode,
     perGuestProfileMode,
@@ -49,6 +53,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     setActiveGuestEmail,
     activeGuest,
     siteGroups,
+    groupSections,
     loadingContext,
     isGroupConnected,
     spActionOptions,
@@ -70,7 +75,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
     submitDisabled,
     submit,
     cancel
-  } = useInviteDrawer({ open, onOpenChange })
+  } = useInviteDrawer({ open, onOpenChange, preselectGroupId })
 
   const guestEmails = React.useMemo(() => guests.map((g) => g.email), [guests])
   // With the guest role the M365 group already grants access (guest → group →
@@ -199,6 +204,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   groupName={activeGuest.spGroupName}
                   permissionLevel={activeGuest.spPermissionLevel}
                   siteGroups={siteGroups}
+                  groupSections={groupSections}
                   loading={loadingContext}
                   disabled={submitting}
                   locked={lockSpGroupAction}
@@ -247,6 +253,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   groupName={sharedSpGroupName}
                   permissionLevel={sharedSpPermissionLevel}
                   siteGroups={siteGroups}
+                  groupSections={groupSections}
                   loading={loadingContext}
                   disabled={submitting}
                   locked={lockSpGroupAction}

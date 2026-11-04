@@ -20,7 +20,7 @@
         "default": "Web parts for Bestillingsportalen"
       },
       "longDescription": {
-        "default": "Web parts that integrate with the Bestillingsportalen provisioning solution. Includes the Bestillingsportalen ordering web part (ProjectProvision) for ordering new collaboration spaces, and the InviteGuests web part for inviting external guests to a SharePoint site."
+        "default": "Web parts that integrate with the Bestillingsportalen provisioning solution. Includes the Bestillingsportalen ordering web part (ProjectProvision) for ordering new collaboration spaces, the InviteGuests web part for inviting external guests to a SharePoint site, and the ExternalParties web part (Samarbeidsparter) for managing partner groups and their access to libraries and folders."
       },
       "screenshotPaths": [],
       "videoUrl": "",
@@ -29,7 +29,7 @@
     "features": [
       {
         "title": "Bestillingsportalen Provision Web Parts feature",
-        "description": "Registers the Bestillingsportalen Provision Web Parts (ProjectProvision and InviteGuests).",
+        "description": "Registers the Bestillingsportalen Provision Web Parts (ProjectProvision, InviteGuests and ExternalParties).",
         "id": "89d45ac4-058c-4d1f-b925-2fe55198e614",
         "version": "1.1.0.0"
       }

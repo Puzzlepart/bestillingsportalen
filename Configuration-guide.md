@@ -254,6 +254,29 @@ Gruppen opprettes **ikke** automatisk — verken av `deploy.ps1` eller av PnP-ma
 
 > **Oppgradering i tenanter med Prosjektportalen 365:** Til og med PP365 1.14 fulgte webdelen med PP365-pakken `pp-portfolio-web-parts`, med samme komponent-id. Appkatalogen tillater ikke to pakker som registrerer samme komponent — oppgrader derfor **først** Prosjektportalen 365 til en versjon uten webdelen, og distribuer **deretter** denne pakken, i samme vedlikeholdsvindu. Eksisterende Bestillingsportalen-sider viser «finner ikke komponenten» i mellomtiden og virker igjen så snart denne pakken er distribuert (komponent-id-en er beholdt). Oppdater til slutt Teams-appen fra denne pakken (se under).
 
+## Merknad: Webdelen Samarbeidsparter
+
+Webdelen **Samarbeidsparter** (`ExternalParties`) følger med i samme pakke som de andre webdelene. Den virker på alle områder der eierne skal styre tilgangen for eksterne parter. Den forutsetter ingen bestemte grupper, biblioteker eller sider. Slik tas den i bruk:
+
+1. Legg webdelen på en side på området, f.eks. `SitePages/Samarbeidsparter.aspx`.
+2. Kontroller innstillingene i property pane. Standardverdiene er nøytrale:
+   - gruppene heter `<områdetittel> – <navn>`
+   - ingen fast rolle og ingen beskyttede biblioteker
+   - lenker til partenes biblioteker legges under overskriften «Samarbeidsparter» i venstremenyen, som opprettes hvis den mangler
+   - ingen lenke til gjesteinvitasjon
+   - typene Konsulent, Leverandør og Intern, uten standardmapper
+
+   En mal for en bestemt tilgangsmodell setter sine egne verdier i webdelens egenskaper. Den kan for eksempel sette en fast rolle (`externalProjectManager`), beskyttede biblioteker (`protectedLibraries`) og typer med mapper (`partTypes`). Gruppen for den faste rollen og de beskyttede bibliotekene må malen opprette selv. Webdelen viser den faste rollen bare når gruppen finnes. Prosjektportalen-tillegget «Dokumentsamhandling med eksterne» er et eksempel på en slik mal.
+3. Skal eierne invitere gjester fra Samarbeidsparter, legg webdelen **Inviter gjester** på en egen side, og sett `guestInvitationUrl` til den siden. Lenken vises bare når siden finnes. Lås Inviter gjester til partene:
+   - Sett `allowedSpGroups` til gruppeprefikset med tankestrek, f.eks. `Kaiprosjekt – `. Da kan bare partene og den faste rollen velges. Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville derfor også gitt treff på standardgruppene «Kaiprosjekt Owners», «… Members» og «… Visitors».
+   - Sett M365-rollen til «Ingen» og lås den (`defaultM365GroupRole: None`, `lockM365GroupRole`), slik at eksterne aldri legges i Microsoft 365-gruppen.
+   - Skjul «Opprett ny gruppe» (`showSpActionCreateNew: false`). Parter opprettes i Samarbeidsparter.
+   - Sett «Faste roller» (`fixedRoleGroups`) til den faste rollen, f.eks. `Ekstern prosjektleder`, så den står øverst i gruppevalget. Partene vises under «Samarbeidsparter» med kort navn og type.
+
+   I Prosjektportalen-tillegget «Dokumentsamhandling med eksterne» er siden satt opp slik fra før, med `{sitename} – ` som prefiks.
+
+Webdelen er bare for eierne av området og bruker deres egne rettigheter. Den trenger ingen ekstra tillatelser, Logic Apps eller innstillinger i Bestillingsportalen-området. Første gang noe endres, oppretter den den skjulte listen `Lists/ActivityLog`, som bare eierne har tilgang til. Se [Teknisk referanse](./App-teknisk-referanse.md#11-externalparties-arkitektur-samarbeidsparter).
+
 ## Merknad: Tenant-registeret `bp_ProvisionUrls`
 
 Webdelene og Teams-appen finner Bestillingsportalen-området via en tenant-omfattende **storage entity** med nøkkel `bp_ProvisionUrls`, som `deploy.ps1` vedlikeholder automatisk ved hver installasjon og oppgradering (Teams-appen har ingen property pane, så uten registeret ville URL-en vært låst til standarden `/sites/bestillingsportalen`). Verdien er enten en ren URL eller et JSON-array av `{title, url}`-objekter der **første element er tenantens standardinstans**:

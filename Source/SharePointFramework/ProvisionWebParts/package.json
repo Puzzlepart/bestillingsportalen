@@ -2,7 +2,7 @@
   "name": "bp-provision-web-parts",
   "version": "0.0.1",
   "private": true,
-  "description": "SPFx web parts for Bestillingsportalen (ProjectProvision and InviteGuests)",
+  "description": "SPFx web parts for Bestillingsportalen (ProjectProvision, InviteGuests and ExternalParties)",
   "license": "MIT",
   "repository": {
     "type": "git",

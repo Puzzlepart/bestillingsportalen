@@ -57,6 +57,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     showSPGroupSection,
     hiddenSpGroups,
     allowedSpGroups,
+    fixedRoleGroups,
     service,
     siteService,
     graphService,
@@ -64,6 +65,16 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
     siteTitle
   } = props
   const [drawerOpen, setDrawerOpen] = React.useState(false)
+  // ?inviteGroup=<group id> opens the panel with that group chosen, e.g. from
+  // the Inviter gjester button in Samarbeidsparter. Used once.
+  const [preselectGroupId, setPreselectGroupId] = React.useState<number | undefined>(() => {
+    try {
+      const id = Number(new URLSearchParams(window.location.search).get('inviteGroup'))
+      return Number.isInteger(id) && id > 0 ? id : undefined
+    } catch {
+      return undefined
+    }
+  })
   const [canInvite, setCanInvite] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
   const [accessChecked, setAccessChecked] = React.useState<boolean>(inviteAccessLevel === 'Anyone')
   const state = useInviteGuests({ service, siteUrl, siteTitle })
@@ -94,6 +105,15 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       cancelled = true
     }
   }, [inviteAccessLevel, siteService])
+
+  React.useEffect(() => {
+    if (preselectGroupId !== undefined && accessChecked && canInvite) setDrawerOpen(true)
+  }, [preselectGroupId, accessChecked, canInvite])
+
+  const onDrawerOpenChange = React.useCallback((open: boolean) => {
+    setDrawerOpen(open)
+    if (!open) setPreselectGroupId(undefined)
+  }, [])
 
   const fluentProviderId = useId('fp-bp-guest-invite')
   const fluentProviderToasterId = useId('fp-bp-guest-invite-toaster')
@@ -157,6 +177,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showSPGroupSection,
       hiddenSpGroups,
       allowedSpGroups,
+      fixedRoleGroups,
       service,
       siteService,
       graphService,
@@ -198,6 +219,7 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
       showSPGroupSection,
       hiddenSpGroups,
       allowedSpGroups,
+      fixedRoleGroups,
       service,
       siteService,
       graphService,
@@ -242,7 +264,11 @@ export const InviteGuests: React.FC<IInviteGuestsProps> = (props) => {
 
             <InviteStatus mode={displayMode} />
 
-            <InviteDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
+            <InviteDrawer
+              open={drawerOpen}
+              onOpenChange={onDrawerOpenChange}
+              preselectGroupId={preselectGroupId}
+            />
           </div>
         </InviteGuestsContext.Provider>
       </FluentProvider>
@@ -287,5 +313,6 @@ InviteGuests.defaultProps = {
   showM365GroupRoleSection: true,
   showSPGroupSection: true,
   hiddenSpGroups: '',
-  allowedSpGroups: ''
+  allowedSpGroups: '',
+  fixedRoleGroups: ''
 } satisfies Partial<IInviteGuestsProps>

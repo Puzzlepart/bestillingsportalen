@@ -6,12 +6,13 @@ Dokumentet er rettet mot utviklere, løsningsforvaltere og tekniske administrato
 
 ## 1. Omfang og kildekode
 
-SPFx-pakken ligger i [`Source/SharePointFramework/ProvisionWebParts`](./Source/SharePointFramework/ProvisionWebParts) og inneholder to webdeler:
+SPFx-pakken ligger i [`Source/SharePointFramework/ProvisionWebParts`](./Source/SharePointFramework/ProvisionWebParts) og inneholder tre webdeler:
 
-| Komponent          | Formål                                               | SharePoint | Teams                                                                                             |
-| ------------------ | ---------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| `ProjectProvision` | Bestille og følge samarbeidsområder                  | Webdel     | Personlig app                                                                                     |
-| `InviteGuests`     | Invitere eksterne gjester til et eksisterende område | Webdel     | Støtter Teams-hosting i SPFx-manifestet, men inngår ikke som egen fane i den leverte Teams-pakken |
+| Komponent          | Formål                                                   | SharePoint | Teams                                                                                             |
+| ------------------ | -------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `ProjectProvision` | Bestille og følge samarbeidsområder                      | Webdel     | Personlig app                                                                                     |
+| `InviteGuests`     | Invitere eksterne gjester til et eksisterende område     | Webdel     | Støtter Teams-hosting i SPFx-manifestet, men inngår ikke som egen fane i den leverte Teams-pakken |
+| `ExternalParties`  | Samarbeidsparter: parter og tilgang på et prosjektområde | Webdel     | Nei. Kan også brukes som fullsidesapp i SharePoint                                                |
 
 Den autoritative implementasjonen ligger under [`src`](./Source/SharePointFramework/ProvisionWebParts/src). Disse mappene er genererte byggartefakter og skal ikke redigeres direkte:
 
@@ -531,6 +532,11 @@ Retry oppretter en ny `Pending`-rad og flytter den mislykkede raden til SharePoi
 | `lockSpGroupAction`                       | Hindrer brukerendring.                                         |
 | `showSPGroupSection`                      | Viser eller skjuler SharePoint-gruppevalg.                     |
 | `hiddenSpGroups`, `allowedSpGroups`       | Deny-/allow-lister for tilgjengelige grupper. Skjuling vinner. |
+| `fixedRoleGroups`                         | Faste roller som vises øverst i gruppevalget, f.eks. `Ekstern prosjektleder`. |
+
+Gruppevalget viser navnene uten prefikset «<områdetittel> – ». Når området har faste roller eller parter, deles listen i seksjonene «Faste roller», «Samarbeidsparter» og «Andre grupper». Parter er grupper med markøren `Samarbeidspart: <type>.` fra Samarbeidsparter, og typen vises ved navnet. Rollen «Begrenset tilgang» (Limited Access) vises ikke, uansett språk.
+
+URL-parameteren `?inviteGroup=<gruppe-ID>` åpner panelet med gruppen valgt, hvis den er blant gruppene i valget. Samarbeidsparter bruker den i knappen «Inviter gjester».
 
 ### Status og forhåndsvisning
 
@@ -545,7 +551,98 @@ Retry oppretter en ny `Pending`-rad og flytter den mislykkede raden til SharePoi
 | `showColumnSPGroupName`       | Viser gruppenavn i status.              |
 | `showColumnSPPermissionLevel` | Viser tillatelsesnivå i status.         |
 
-## 11. Caching og konsistens
+## 11. `ExternalParties`-arkitektur (Samarbeidsparter)
+
+Samarbeidsparter gir eierne av et prosjektområde oversikt over eksterne parter og tilgangen de har. Webdelen lar også eierne opprette parter og gi tilgang. Tilgangsmodellen er beskrevet i [stavanger-havn-pp365](https://github.com/Puzzlepart/stavanger-havn-pp365), og PowerShell-prototypene i `Demo/Tilgangsmodell` gjør de samme operasjonene. Grupper som er laget med prototypene, gjenkjennes av webdelen.
+
+Komponent-ID er `f99f57c7-00f4-4324-9f0b-5c4d81fbdc65`, og bundelen heter `external-parties-web-part`.
+
+### Modell
+
+| Begrep               | I SharePoint                                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Part                 | SharePoint-gruppe `<områdetittel> – <navn>` med beskrivelsen `Samarbeidspart: <type>. …`. Prefikset styres av `groupPrefix`.                                                                                                                              |
+| Fast rolle (valgfri) | Gruppen `<prefiks><externalProjectManager>`, f.eks. Ekstern prosjektleder. Settes av malen. Webdelen viser rollen bare når gruppen finnes, og endrer bare tilgangen ved å gi gruppen Lese der en part gis tilgang og gruppen ellers ville mangle tilgang. |
+| Eget bibliotek       | Dokumentbibliotek med URL fra `libraryUrl` (f.eks. `Lev{code}`), tittel fra `libraryTitle` og mappene typen har (`folders`). Beskrivelsen har samme markør som gruppen.                                                                                   |
+| Tilgang              | Rolle (`Bidra` eller `Lese`) på et bibliotek eller en mappe på første nivå. Aldri på enkeltfiler og aldri til enkeltpersoner.                                                                                                                             |
+| Beskyttet bibliotek  | Bibliotek i `protectedLibraries`. Vises, men kan ikke deles.                                                                                                                                                                                              |
+| Hele området         | Rolletildeling på selve området (`kind: 'web'`). Gjelder alt som arver. Brytes aldri: et område som arver tilgangen (et underområde), kan ikke velges.                                                                                                    |
+
+### Komponenter og tjenester
+
+| Fil                                                                                                           | Ansvar                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`webparts/externalParties`](./Source/SharePointFramework/ProvisionWebParts/src/webparts/externalParties)     | Webdelsklassen: konfigurasjon med standardverdier, tjenester, property pane og Tabster-polyfill.                                                                                                                                             |
+| [`components/ExternalParties`](./Source/SharePointFramework/ProvisionWebParts/src/components/ExternalParties) | `PartsOverview` (tabell), `PartyDrawer` og `EplDrawer` (lesing), `GrantDrawer` (Gi tilgang), `NewPartWizard` (Ny part), `AccessTree`, `AccessPreview` og `OperationProgress`. Alle paneler vises i én `OverlayDrawer` som alltid er montert. |
+| `services/parties/PartiesService`                                                                             | Eiersjekk (`ManagePermissions` og `ManageLists`), områdeinfo og parter med antall medlemmer.                                                                                                                                                 |
+| `services/parties/AccessReaderService`                                                                        | Biblioteker etter `librariesFilter`, mapper på første nivå og rolletildelinger der arven er brutt og på områdenivå. Tildelingene leses i batcher på 50.                                                                                      |
+| `services/parties/accessModel`                                                                                | Rene funksjoner for effektiv tilgang (eget nivå, så biblioteket, så området).                                                                                                                                                                |
+| `services/parties/accessPlanner`                                                                              | Ren funksjon som sammenligner tilgangen i dag med ønsket tilgang og lager endringer og steg.                                                                                                                                                 |
+| `services/parties/partyOperations`                                                                            | Steg for ny part og for en tilgangsplan. Hvert steg sjekker tilstanden først.                                                                                                                                                                |
+| `services/parties/operationRunner`                                                                            | Kjører stegene i rekkefølge, stopper ved første feil og rapporterer status per steg.                                                                                                                                                         |
+| `services/parties/PartiesProvisioningService`                                                                 | SharePoint-kallene som skriver.                                                                                                                                                                                                              |
+| `services/parties/ActivityLogService`                                                                         | Skjult aktivitetslogg.                                                                                                                                                                                                                       |
+
+### Operasjoner
+
+**Ny part:**
+
+1. Navn og adresse kontrolleres: gruppen og biblioteket kan ikke finnes fra før uten markøren, og ingen andre biblioteker kan ha samme tittel.
+2. Gruppen opprettes med `siteGroups.add`. Eiergruppen settes som eier (`SetUserAsOwner`), bare medlemmer ser medlemslisten, og den som oppretter gruppen, tas ut av den.
+3. Hvis parten skal ha eget bibliotek:
+   1. Biblioteket opprettes med `lists.add(<url>, …, 101)`. Deretter settes tittel og beskrivelse, og standardmappene lages.
+   2. Arven brytes med kopi.
+   3. Parten får sin rolle.
+   4. Den faste rollen, hvis den finnes, får Lese hvis gruppen mangler tilgang.
+   5. Lenken legges under `navigationHeading` i hurtigstartmenyen. Overskriften lages uten lenke (`http://linkless.header/`) hvis den mangler.
+4. Tilgangene som er valgt i steg 2 i veiviseren, gis som i Gi tilgang under.
+
+**Gi tilgang:** `planAccessChanges` gir stegene `breakInheritance`, `add`, `change`, `remove` og `ensureExternalProjectManager`.
+
+- **Arv:** Valg på mål som arver fra et annet valgt mål (en mappe under et valgt bibliotek, eller et bibliotek når hele området er valgt), fjernes før planleggingen (`pruneInheritedDesired`). Treet viser dem som «Arver fra …». Arven brytes derfor bare der parten trenger egen tilgang.
+- **Området:** Tilgang på området legges til, endres og fjernes uten brudd på arv og uten steg for den faste rollen.
+
+- **Arv:** Arven brytes alltid med kopi (`breakroleinheritance(true,false)`). Den direkte Full kontroll-tildelingen SharePoint gir den som bryter arven, fjernes, med mindre brukeren har direkte tilgang på nivået over.
+- **Endre:** En endring fjerner partens tildeling og legger til den nye rollen.
+- **Fjerne:** En fjerning fjerner bare partens tildeling. Arven gjenopprettes ikke.
+
+Stegene kan kjøres på nytt: det som allerede er gjort, rapporteres som «Var allerede på plass».
+
+### Aktivitetslogg
+
+`ActivityLogService` oppretter listen `activityLogUrl` (standard `Lists/ActivityLog`, tittel «Aktivitetslogg») første gang noe endres:
+
+- Listen er skjult og indekseres ikke (`Hidden`, `NoCrawl`).
+- Arven er brutt uten kopi, og bare eiergruppen har tilgang (Full kontroll).
+- Feltene er generiske: `LogSource`, `LogAction`, `LogStatus`, `LogTargetUrl`, `LogTargetType`, `LogPrincipal`, `LogRole`, `LogDetails` og `LogCorrelationId`.
+- Hvem som gjorde endringen og når, er elementets Opprettet av og Opprettet.
+
+Feil i loggen stopper aldri operasjonen og vises ikke i webdelen.
+
+### Tillatelser
+
+Alle kall går til SharePoint som innlogget bruker, gjennom SPFx-konteksten. Webdelen trenger ingen API-tillatelser og ingen Azure-ressurser. Brukere som ikke er eiere, får en melding om at webdelen bare er for eiere.
+
+Dette er en annen modell enn `InviteGuests`, som legger forespørsler i `Guest Requests` og lar Logic Apps gjøre arbeidet. Gjester inviteres fortsatt med `InviteGuests`, og det gjøres til partens gruppe. For at bare partenes grupper og Ekstern prosjektleder skal kunne velges i `InviteGuests`, settes `allowedSpGroups` til gruppeprefikset med tankestrek (`<områdetittel> – `). Filteret gir treff når gruppenavnet inneholder teksten. Bare områdets tittel ville også gitt treff på standardgruppene «<område> Owners/Members/Visitors». Se [konfigurasjonsveiledningen](./Configuration-guide.md#merknad-webdelen-samarbeidsparter).
+
+## 12. `ExternalParties`-egenskaper
+
+Standardverdiene er nøytrale, så webdelen virker på alle områder. En egenskap som mangler, får standardverdien. En tom verdi slår av funksjonen der det står «Tom».
+
+| Egenskap                 | Standard                                                                             | Betydning                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`, `description`   | «Samarbeidsparter»                                                                   | Overskrift og introduksjon.                                                                                                                                                                                    |
+| `groupPrefix`            | `{sitename} – `                                                                      | Prefiks for gruppenavn. `{sitename}` byttes med områdets tittel.                                                                                                                                               |
+| `externalProjectManager` | tom                                                                                  | Fast rolle: navnet på en gruppe uten prefiks, f.eks. `Ekstern prosjektleder`. Gruppen får Lese der parter får tilgang. Tom betyr ingen fast rolle. Gruppen opprettes ikke av webdelen.                         |
+| `partTypes`              | Konsulent (`Kon{code}`), Leverandør (`Lev{code}`), Intern (`Int{code}`), uten mapper | JSON med typer: `key`, `label`, `libraryTitle` (`{name}`), `libraryUrl` (`{code}`), `folders` og `ownLibraryRole` (`Contributor` eller `Reader`). Ugyldig JSON gir standardtypene. Redigeres i en JSON-editor. |
+| `protectedLibraries`     | tom                                                                                  | Biblioteker som aldri kan deles, med tittel eller URL-navn, skilt med komma, semikolon eller linjeskift.                                                                                                       |
+| `librariesFilter`        | Dokumentbiblioteker unntatt kataloger, applister og skjemamaler                      | OData-filter for bibliotekene som vises.                                                                                                                                                                       |
+| `navigationHeading`      | `Samarbeidsparter`                                                                   | Overskriften i hurtigstartmenyen der lenken til partens bibliotek legges. Opprettes hvis den mangler. Tom betyr ingen lenke.                                                                                   |
+| `guestInvitationUrl`     | tom                                                                                  | Siden med `InviteGuests`. Lenken vises bare når siden finnes. Tom skjuler lenken.                                                                                                                              |
+| `allowSiteAccess`        | på                                                                                   | Viser «Hele området» øverst i treet, slik at en part kan få Lese eller Bidra på området. Tilgangen gjelder alt som arver. Av skjuler valget, men eksisterende tilgang på området vises og kan fjernes.         |
+| `activityLogUrl`         | `Lists/ActivityLog`                                                                  | Områderelativ URL til aktivitetsloggen.                                                                                                                                                                        |
+
+## 13. Caching og konsistens
 
 | Cache               | Innhold                                                  | Levetid                                |
 | ------------------- | -------------------------------------------------------- | -------------------------------------- |
@@ -558,7 +655,7 @@ Bestillinger og gjesteforespørsler session-caches ikke. De hentes på nytt ved 
 
 Backend bruker polling, normalt med ett minutts intervall. UI og backend er derfor eventual consistent: en ny eller endret rad kan bruke tid før neste prosess starter.
 
-## 12. Feilhåndtering og observabilitet
+## 14. Feilhåndtering og observabilitet
 
 Klienten bruker lokaliserte feiltekster og toast-varsler for tilgangsfeil, navnekonflikt, brukeroppløsning og generell lagringsfeil. Ufullstendige bestillingsrader forsøkes ryddet bort når personfelt ikke kan løses.
 
@@ -568,7 +665,7 @@ Det finnes ingen Application Insights-integrasjon eller strukturert klientteleme
 
 Operativ feilsøking er beskrevet i [Feilhåndtering](./Error-handling.md) og [`Source/Diagnostics/README.md`](./Source/Diagnostics/README.md).
 
-## 13. Bygg, test og pakking
+## 15. Bygg, test og pakking
 
 Kjør fra `Source/SharePointFramework/ProvisionWebParts`:
 
@@ -602,7 +699,7 @@ Testdekningen er begrenset til et lite antall rene hjelpefunksjoner, blant annet
 
 Se [CONTRIBUTING](./CONTRIBUTING.md) for lokal utvikling.
 
-## 14. Distribusjon
+## 16. Distribusjon
 
 [`deploy.ps1`](./Source/Scripts/deploy.ps1) finner SPFx-prosjekter under `Source/SharePointFramework`, kjører produksjonsbygg og publiserer `.sppkg` til tenantens appkatalog med overwrite, publish og tenant-wide deployment.
 
@@ -617,7 +714,7 @@ Viktige forhold:
 
 Full installasjon er beskrevet i [Installasjonsveiledningen](./Deployment-guide.md), og oppsett etter installasjon i [Konfigurasjonsveiledningen](./Configuration-guide.md).
 
-## 15. Tilpasningspunkter
+## 17. Tilpasningspunkter
 
 | Tilpasning                               | Plassering                                                          |
 | ---------------------------------------- | ------------------------------------------------------------------- |
@@ -633,7 +730,7 @@ Full installasjon er beskrevet i [Installasjonsveiledningen](./Deployment-guide.
 
 Rediger alltid TypeScript-kilden under `src`, ikke genererte JavaScript-filer.
 
-## 16. Kjente begrensninger og vedlikeholdspunkter
+## 18. Kjente begrensninger og vedlikeholdspunkter
 
 Følgende punkter beskriver dagens implementasjon, ikke bare planlagt funksjon:
 
@@ -654,7 +751,7 @@ Følgende punkter beskriver dagens implementasjon, ikke bare planlagt funksjon:
 
 Tekniske feil bør vurderes opp mot [Feilhåndtering](./Error-handling.md), mens sikkerhetsendringer alltid må vurderes mot [Datatilgang og sikkerhet](./Data-access-security.md).
 
-## 17. Relatert dokumentasjon
+## 19. Relatert dokumentasjon
 
 - [Brukerveiledning for appen](./App-brukerveiledning.md)
 - [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md)

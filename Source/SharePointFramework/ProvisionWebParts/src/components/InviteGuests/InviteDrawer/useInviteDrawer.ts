@@ -11,11 +11,13 @@ import type {
   SPPermissionLevel
 } from '../../../models/IGuestRequest'
 import type { ISiteGroup } from '../../../services'
+import { buildGroupOptions, type IGroupOptionSection } from './SPGroupSection/groupOptions'
 import { isValidEmail } from '../../../utils'
 
 interface IUseInviteDrawerArgs {
   open: boolean
   onOpenChange: (open: boolean) => void
+  preselectGroupId?: number
 }
 
 interface IUseInviteDrawerResult {
@@ -29,6 +31,8 @@ interface IUseInviteDrawerResult {
   activeGuest: IGuestInput | undefined
 
   siteGroups: ISiteGroup[]
+  /** The groups in sections for the picker: fixed roles, partners, other groups. */
+  groupSections: IGroupOptionSection[]
   loadingContext: boolean
   isGroupConnected: boolean
 
@@ -95,7 +99,8 @@ interface ISharedSettings {
 
 export function useInviteDrawer({
   open,
-  onOpenChange
+  onOpenChange,
+  preselectGroupId
 }: IUseInviteDrawerArgs): IUseInviteDrawerResult {
   const ctx = useInviteGuestsContext()
   const [guests, setGuests] = React.useState<IGuestInput[]>([])
@@ -104,6 +109,7 @@ export function useInviteDrawer({
   const [submitAttempted, setSubmitAttempted] = React.useState(false)
 
   const [siteGroups, setSiteGroups] = React.useState<ISiteGroup[]>([])
+  const [webTitle, setWebTitle] = React.useState<string>()
   const [loadingContext, setLoadingContext] = React.useState(false)
   const [isGroupConnected, setIsGroupConnected] = React.useState(false)
   // Visitors-group fallback resolved from site context (see the load effect).
@@ -204,7 +210,21 @@ export function useInviteDrawer({
         ])
         if (cancelled) return
         setSiteGroups(groups)
+        setWebTitle(siteContext.webTitle)
         setIsGroupConnected(siteContext.isGroupConnected)
+        // A group requested with ?inviteGroup=<id> is chosen when it is one of
+        // the groups the picker shows. Otherwise the panel opens as usual.
+        const preselected =
+          preselectGroupId !== undefined ? groups.find((g) => g.Id === preselectGroupId) : undefined
+        if (preselected && spActionOptions.indexOf('AddToExisting') !== -1) {
+          setFallbackSpGroupName(preselected.Title)
+          setShared((prev) => ({
+            ...prev,
+            spGroupAction: 'AddToExisting',
+            spGroupName: preselected.Title
+          }))
+          return
+        }
         // Explicit defaultSpGroupName takes precedence; otherwise fall back to
         // the site's Visitors group when auto-select is on.
         if (
@@ -234,8 +254,15 @@ export function useInviteDrawer({
     ctx.defaultSpGroupName,
     ctx.hiddenSpGroups,
     ctx.allowedSpGroups,
-    initialShared
+    initialShared,
+    preselectGroupId,
+    spActionOptions
   ])
+
+  const groupSections = React.useMemo(
+    () => buildGroupOptions(siteGroups, webTitle, ctx.fixedRoleGroups),
+    [siteGroups, webTitle, ctx.fixedRoleGroups]
+  )
 
   const guestsRef = React.useRef<IGuestInput[]>([])
   React.useEffect(() => {
@@ -424,6 +451,7 @@ export function useInviteDrawer({
     setActiveGuestEmail,
     activeGuest,
     siteGroups,
+    groupSections,
     loadingContext,
     isGroupConnected,
     spActionOptions,

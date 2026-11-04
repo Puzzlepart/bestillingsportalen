@@ -51,6 +51,7 @@
         "showSPGroupSection": true,
         "hiddenSpGroups": "",
         "allowedSpGroups": "",
+        "fixedRoleGroups": "",
         "guestRequestListTitle": "Guest Requests",
         "guestRequestSiteUrl": ""
       }

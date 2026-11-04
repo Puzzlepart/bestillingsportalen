@@ -3,6 +3,7 @@ import {
   Dropdown,
   Input,
   Option,
+  OptionGroup,
   Radio,
   RadioGroup,
   Spinner,
@@ -14,6 +15,7 @@ import * as strings from 'ProvisionWebPartsStrings'
 import { FieldContainer } from '../../../FieldContainer'
 import type { SPGroupActionUI, SPPermissionLevel } from '../../../../models/IGuestRequest'
 import type { ISiteGroup } from '../../../../services'
+import { groupDisplayName, type GroupSectionKey, type IGroupOptionSection } from './groupOptions'
 import styles from './SPGroupSection.module.scss'
 
 interface ISPGroupSectionProps {
@@ -29,6 +31,8 @@ interface ISPGroupSectionProps {
   groupName?: string
   permissionLevel?: SPPermissionLevel
   siteGroups: ISiteGroup[]
+  /** The groups in sections: fixed roles, partners and other groups, with short names. */
+  groupSections: IGroupOptionSection[]
   loading: boolean
   disabled?: boolean
   locked?: boolean
@@ -39,6 +43,26 @@ interface ISPGroupSectionProps {
   onGroupNameChange: (name: string | undefined) => void
   onPermissionLevelChange: (level: SPPermissionLevel) => void
 }
+
+const SECTION_LABELS: Record<GroupSectionKey, string> = {
+  fixed: strings.SPGroupSectionFixedRoles,
+  parties: strings.SPGroupSectionParties,
+  other: strings.SPGroupSectionOther
+}
+
+/** One group in the picker: the short name, with the party type or permission level. */
+const renderOption = ({
+  group,
+  displayName,
+  secondary
+}: IGroupOptionSection['options'][number]) => (
+  <Option key={group.Id} value={group.Title} text={displayName}>
+    <span className={styles.groupOption}>
+      <span>{displayName}</span>
+      {secondary && <span className={styles.groupPermission}>{secondary}</span>}
+    </span>
+  </Option>
+)
 
 const PERMISSION_OPTIONS: { key: SPPermissionLevel; labelKey: keyof typeof strings }[] = [
   { key: 'Read', labelKey: 'SPPermissionRead' },
@@ -70,6 +94,7 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
   groupName,
   permissionLevel,
   siteGroups,
+  groupSections,
   loading,
   disabled,
   locked,
@@ -103,22 +128,19 @@ export const SPGroupSection: React.FC<ISPGroupSectionProps> = ({
           validationMessage={nameValidationMessage}>
           <Dropdown
             className={styles.groupDropdown}
-            value={groupName ?? ''}
+            value={groupName ? groupDisplayName(groupSections, groupName) : ''}
             selectedOptions={groupName ? [groupName] : []}
             onOptionSelect={(_, data) => onGroupNameChange(data.optionValue)}
             placeholder={strings.SPGroupExistingPickerPlaceholder}
             disabled={disabled}
             listbox={{ className: styles.groupDropdown }}>
-            {siteGroups.map((g) => (
-              <Option key={g.Id} value={g.Title} text={g.Title}>
-                <span className={styles.groupOption}>
-                  <span>{g.Title}</span>
-                  {g.PermissionLevel && (
-                    <span className={styles.groupPermission}>{g.PermissionLevel}</span>
-                  )}
-                </span>
-              </Option>
-            ))}
+            {groupSections.length === 1
+              ? groupSections[0].options.map(renderOption)
+              : groupSections.map((section) => (
+                  <OptionGroup key={section.key} label={SECTION_LABELS[section.key]}>
+                    {section.options.map(renderOption)}
+                  </OptionGroup>
+                ))}
           </Dropdown>
         </FieldContainer>
       )}
