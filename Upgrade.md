@@ -7,7 +7,7 @@ Denne veiledningen forklarer hvordan du oppgraderer en eksisterende Bestillingsp
 Oppgraderingsprosessen lar deg:
 
 - Anvende de nyeste PnP-mal-oppdateringene (feltdefinisjoner, content types, views osv.)
-- Oppdatere Logic App-ene `ProcessProvisionRequest`, `ProcessGuestRequest` og `ProcessApprovalRequest` med de nyeste arbeidsflyt-forbedringene
+- Oppdatere alle Logic App-ene med de nyeste arbeidsflyt-forbedringene, pekt på områdets faktiske URL og liste-ID-er
 - Bygge og publisere SPFx-løsninger (f.eks. `InviteGuests`-webdelen) til tenant app-katalog
 - Registrere installasjonen i tenant-registeret `bp_ProvisionUrls` (storage entity) som webdelene og Teams-appen bruker til å finne området — eksisterende miljøer uten registeret får det opprettet ved første re-deploy; frem til da gjelder standard-URL-en `/sites/bestillingsportalen` som før. Skrivingen krever at NoScript er av på app-katalogen, så `deploy.ps1` slår det midlertidig av og på igjen etterpå. Feiler registreringen likevel, skriver skriptet ut en `WARNING` med kommandoene for manuell registrering
 - Beholde alle eksisterende listedata (provisioning types, innstillinger, bestillinger osv.)
@@ -58,7 +58,7 @@ Bruk oppgraderingsmodus når du vil:
 
 - Oppdatere en eksisterende Bestillingsportalen-installasjon til en nyere versjon
 - Anvende mal-endringer uten å nullstille listedata
-- Oppdatere den sentrale provisjonerings-Logic App-en
+- Oppdatere Logic App-ene
 - Få ny funksjonalitet eller feilrettinger uten en full nyinstallasjon
 
 **IKKE bruk oppgraderingsmodus for:**
@@ -79,11 +79,12 @@ Bruk oppgraderingsmodus når du vil:
    - Web parts og side-layouts
    - **Navigasjon beholdes:** I oppgraderingsmodus brukes ikke `-ClearNavigation`, så egendefinerte nav-lenker bevares
 
-2. **Logic Apps**
+2. **Logic Apps** — alle ti deployes på nytt, ikke bare de som behandler bestillinger
    - `ProcessProvisionRequest` — hovedflyten for områdeprovisjonering
    - `ProcessGuestRequest` — wrapper-flyten som lytter på `Guest Requests`-listen og kaller `ProcessGuests`
    - `ProcessGuests` — selve invitasjonsflyten mot Graph. Oppgraderes sammen med kalleren, siden de to utveksler felter (f.eks. bestilleren som skal registreres som gjestens sponsor)
    - `ProcessApprovalRequest` — godkjenningen av bestillinger. Erstatter Power Automate-flyten fra 2.0.0, se [Oppgradere til 2.0.0](#oppgradere-til-200-godkjenningsflyten-erstattes)
+   - `GetHubSites`, `GetSiteTemplates`, `GetTeamsTemplates`, `SyncGroupSettings`, `SyncLabels` og `CheckSiteExists` — ARM-malene tar områdets URL og liste-ID-ene som parametere, så hver deploy peker dem på det området og de listene kjøringen leste. Tidligere lot oppgraderingen disse stå; etter en rettet `requestsSiteAlias` pekte de da fortsatt på det gamle området
    - Komplett erstatning av arbeidsflytene med nyeste versjon, oppdatert feilhåndtering
 
 3. **Runbooks** — `runbooks.bicep` deployes ALLTID, også med `-SkipBicepDeploy`
@@ -120,7 +121,6 @@ Bruk oppgraderingsmodus når du vil:
    - Azure Automation Account
    - Innholdet i `CustomerSpecific`-runbooken (organisasjonens eget utvidelsespunkt — overskrives aldri; de tre repo-eide runbookene oppdateres derimot alltid fra `Source/Runbooks/`)
    - User-assigned managed identity (app-rollene synkroniseres likevel – `AssignUamiPermissions` kjøres også i oppgraderingsmodus)
-   - Andre Logic Apps (`GetSiteTemplates`, `GetHubSites` osv.)
    - API Connections
 
 ## Manuell opprydding etter oppgradering: Key Vault og Entra ID-appen
@@ -168,6 +168,9 @@ Installatøren ser i tillegg versjonen i konsollen under kjøringen: pre-flight-
 har en `Solution version`-linje som også viser hva miljøet står på fra før, PRE-FLIGHT
 SUMMARY viser `Version: <ny> (installed: <gammel>)` før du bekrefter, og DEPLOYMENT
 SUMMARY bekrefter overgangen med en `Version stamp`-linje.
+
+Alt dette lagres også i en loggfil per kjøring i `Source/Scripts/logs/`, så en tidligere
+oppgraderings pre-flight og summary kan leses igjen i ettertid.
 
 Er begge stedene tomme, er miljøet installert før versjonsstemplingen ble innført
 (1.0.0). Merk at `InstalledVersion` **ikke** oppdateres hvis en kjøring hadde
@@ -295,7 +298,7 @@ Skriptet vil:
 4. **Anvende PnP-mal** – (Hvis valgt) Oppdatere områdestrukturen uten å endre eksisterende listeelementer (manglende standardelementer legges til)
 5. **Hente liste-ID-er** – Hente nødvendige liste-identifikatorer for Logic App-konfigurasjon (inkl. nye `Guest Requests`-listen)
 6. **Oppdatere runbooks og runtime environment** – `runbooks.bicep` oppretter/oppdaterer PowerShell 7.4-runtime-miljøet (`bestillingsportalen-ps74` med PnP.PowerShell 3.2), og runbook-innholdet lastes opp fra `Source/Runbooks/` og publiseres automatisk.
-7. **Installere Logic Apps** – Erstatte `ProcessProvisionRequest` og `ProcessGuestRequest` med nyeste versjoner
+7. **Installere Logic Apps** – Erstatte alle ti Logic App-ene med nyeste versjon, pekt på områdets URL og liste-ID-ene fra steg 5
 8. **Publisere SPFx-pakker** – (Med mindre `-SkipSPFxDeploy`) Last opp den ferdig bygde `.sppkg` til tenant app-katalog. Bygges først (`npm install`/`npm run build`) bare når pakka mangler, som i en klone, eller med `-BuildSPFx`
 9. **Fullføre** – Vise deployment summary
 

@@ -212,9 +212,40 @@ if ($null -eq $resolvedParametersPath) {
 $ParametersPath = $resolvedParametersPath.Path
 $parametersFileName = Split-Path -Leaf $ParametersPath
 
+# Every run is transcribed to Scripts\logs\, so the pre-flight checklist, the prompts
+# and their answers, and the DEPLOYMENT SUMMARY of an earlier run can be read back
+# afterwards - when a run is questioned days later, the console is long gone. The file
+# name carries the time, the mode and the parameter file, so runs against several
+# environments sort apart. The transcript holds what the console showed (tenant ids,
+# UPNs, URLs); sign-ins happen in the browser, so no secret passes through it.
+# Stopped by StopDeployLog in the finally block around the main flow below - a
+# transcript left running outlives the script and keeps recording the caller's session.
+$script:deployLogPath = $null
+$script:deployLogStarted = $false
+function StopDeployLog {
+    if (-not $script:deployLogStarted) { return }
+    $script:deployLogStarted = $false
+    try { Stop-Transcript | Out-Null } catch {}
+    Write-Host "Log saved to $script:deployLogPath" -ForegroundColor DarkGray
+}
+try {
+    $logDir = Join-Path $PSScriptRoot "logs"
+    if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+    $logMode = if ($Preflight) { 'preflight' } elseif ($Upgrade) { 'upgrade' } elseif ($SharePointOnly) { 'sharepointonly' } else { 'deploy' }
+    $logName = "$(Get-Date -Format 'yyyyMMdd-HHmmss')-$logMode-$([System.IO.Path]::GetFileNameWithoutExtension($parametersFileName)).log"
+    $script:deployLogPath = Join-Path $logDir $logName
+    Start-Transcript -LiteralPath $script:deployLogPath | Out-Null
+    $script:deployLogStarted = $true
+    Write-Host "Logging this run to $script:deployLogPath" -ForegroundColor DarkGray
+}
+catch {
+    Write-Host "[WARNING] Could not start the run log ($(($_.Exception.Message -split "`r?`n")[0])) - continuing without it" -ForegroundColor Yellow
+}
+
 # Check for presence of Azure CLI (cross-platform)
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
     Write-Host "AZURE CLI NOT INSTALLED!`nPLEASE INSTALL THE CLI FROM https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest and re-run this script in a new PowerShell session" -ForegroundColor Red
+    StopDeployLog
     exit 1
 }
 
@@ -490,7 +521,7 @@ function GetSiteExistenceState([string]$Url) {
 # Create site and apply provisioning template
 function CreateRequestsSharePointSite {
     try {
-        Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site..." -ForegroundColor Yellow
+        Write-Host "### BESTILLINGSPORTALEN SPO SITE CREATION ###`nCreating Bestillingsportalen SharePoint site at $requestsSiteUrl..." -ForegroundColor Yellow
 
         $siteState = GetSiteExistenceState $requestsSiteUrl
         if ($siteState -eq 'Unknown') {
@@ -672,10 +703,15 @@ function CreateRequestsSharePointSite {
             # which stopped being true with the DataRows migration.
             if ($Force) {
                 $global:skipApplyTemplate = $true
-                Write-Host "Site already exists. -Force: NOT re-applying the PnP template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
+                Write-Host "Site already exists at $requestsSiteUrl. -Force: NOT re-applying the PnP template. Continuing with the rest of the deploy..." -ForegroundColor Yellow
             }
             else {
-                Write-Host "Site already exists. Apply the PnP provisioning template to it?" -ForegroundColor Yellow
+                # The URL is repeated here on purpose: this prompt is the last stop before the
+                # template is written to whatever site the alias resolved to. A run against the
+                # wrong alias once applied the template to a customer's Prosjektportalen site
+                # (30.10.2026), and the prompt gave no hint which site it was about to touch.
+                Write-Host "Site already exists: $requestsSiteUrl" -ForegroundColor Yellow
+                Write-Host "Apply the PnP provisioning template to it?" -ForegroundColor Yellow
                 if ($global:upgrade) {
                     Write-Host "  y = apply the latest template (schema, views, new lists). Existing list items and navigation are preserved; missing default rows are added." -ForegroundColor Cyan
                     Write-Host "  n = skip the template entirely (only reads the list ids), then continue with the rest of the upgrade. Tip: -SkipSharepointSite skips this whole step including the prompt." -ForegroundColor Cyan
@@ -1437,7 +1473,7 @@ function ValidateAzureRbac {
 # A fresh subscription has most resource providers unregistered, and the deployment
 # then fails with MissingSubscriptionRegistration - seen in the wild for
 # Microsoft.Automation, with Microsoft.Logic queued up as the next failure across
-# all nine logic apps. Registration is a SUBSCRIPTION-level action: Owner on the
+# all ten logic apps. Registration is a SUBSCRIPTION-level action: Owner on the
 # resource group gives nothing here, so the RBAC granted for the deployment itself
 # does not cover it.
 #
@@ -2135,7 +2171,7 @@ function ConfirmDeployment {
     }
     WritePlanLine "Runbooks" "ConfigureSpace, AddGuestToSite, GetSiteTemplates (content published from Source/Runbooks/)" $SharePointOnly
     if ($global:upgrade) {
-        WritePlanLine "Logic Apps" "ProcessGuests + ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest (upgrade set)" $SkipDeployARMTemplates
+        WritePlanLine "Logic Apps" "All ten, re-pointed at the site URL and list ids read in this run" $SkipDeployARMTemplates
     }
     else {
         WritePlanLine "API connections" "5 connections (4 require manual authorisation afterwards)" ($SkipDeployARMTemplates -or $SkipDeployAPIConnections)
@@ -2435,6 +2471,70 @@ function RepairAutomationConnection {
     }
 }
 
+# Deploys every Logic App, in full and in upgrade mode alike. The ARM templates take the
+# site URL and the list ids as parameters, so each deployment bakes in whatever the run
+# read from SharePoint. Upgrade mode used to redeploy only the three request-processing
+# apps and leave GetHubSites, GetSiteTemplates, GetTeamsTemplates, SyncGroupSettings,
+# SyncLabels and CheckSiteExists as they were - fine while the site never moves, but a
+# run against a corrected requestsSiteAlias then left those six pointed at the old site
+# and its (deleted) lists, failing on their next schedule (seen 03.11.2026). Ten
+# deployments cost a minute; the alternative is remembering which apps carry which ids.
+function DeployLogicApps {
+    Write-Host "Deploying logic apps..." -ForegroundColor Yellow
+
+    Write-Host "ProcessGuests" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: ProcessGuests" -DeploymentName "processguests"
+
+    Write-Host "CheckSiteExists" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: CheckSiteExists" -DeploymentName "checksiteexists"
+    
+    Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
+    RecordAzResult "Logic App: ProcessProvisionRequest" -DeploymentName "processprovisionrequest"
+
+    Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
+    RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
+
+    Write-Host "ProcessApprovalRequest" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processapprovalrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "requestsSettingsListId=$global:requestsSettingsListId" "businessUnitsListId=$global:businessUnitsListId" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: ProcessApprovalRequest" -DeploymentName "processapprovalrequest"
+
+    Write-Host "SyncGroupSettings" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: SyncGroupSettings" -DeploymentName "syncgroupsettings"
+
+    Write-Host "GetSiteTemplates" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: GetSiteTemplates" -DeploymentName "getsitetemplates"
+    
+    Write-Host "GetHubSites" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
+    RecordAzResult "Logic App: GetHubSites" -DeploymentName "gethubsites"
+    
+    Write-Host "SyncLabels" -ForegroundColor Yellow
+    
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: SyncLabels" -DeploymentName "synclabels"
+
+    Write-Host "GetTeamsTemplates" -ForegroundColor Yellow
+
+    az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName" --output none
+    RecordAzResult "Logic App: GetTeamsTemplates" -DeploymentName "getteamstemplates"
+    
+    Write-Host "Finished deploying logic apps" -ForegroundColor Green
+}
+
 function DeployARMTemplates {
     try {
         # Deploy ARM templates
@@ -2455,59 +2555,7 @@ function DeployARMTemplates {
             RecordDeployStatus -Component "API connections" -Status 'SKIPPED'
         }
        
-        Write-Host "Deploying logic apps..." -ForegroundColor Yellow
-
-        Write-Host "ProcessGuests" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters  "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessGuests" -DeploymentName "processguests"
-
-        Write-Host "CheckSiteExists" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/checksiteexists.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "spoTenantName=$($parameters.spoTenantName.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: CheckSiteExists" -DeploymentName "checksiteexists"
-        
-        Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: ProcessProvisionRequest" -DeploymentName "processprovisionrequest"
-
-        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
-        RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
-
-        Write-Host "ProcessApprovalRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processapprovalrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "requestsSettingsListId=$global:requestsSettingsListId" "businessUnitsListId=$global:businessUnitsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessApprovalRequest" -DeploymentName "processapprovalrequest"
-
-        Write-Host "SyncGroupSettings" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/syncgroupsettings.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: SyncGroupSettings" -DeploymentName "syncgroupsettings"
-
-        Write-Host "GetSiteTemplates" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getsitetemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "siteTemplatesListId=$global:siteTemplatesListId" "automationAccountName=$automationAccountName" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: GetSiteTemplates" -DeploymentName "getsitetemplates"
-        
-        Write-Host "GetHubSites" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/gethubsites.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "tenantName=$($parameters.spoTenantName.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "hubSitesListId=$global:hubSitesListId" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: GetHubSites" -DeploymentName "gethubsites"
-        
-        Write-Host "SyncLabels" -ForegroundColor Yellow
-        
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/synclabels.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "ipLabelsListId=$global:ipLabelsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: SyncLabels" -DeploymentName "synclabels"
-
-        Write-Host "GetTeamsTemplates" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/getteamstemplates.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "requestsSiteUrl=$requestsSiteUrl" "location=$($global:location)" "teamsTemplatesListId=$global:teamsTemplatesListId" "tenantId=$($parameters.tenantId.Value)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: GetTeamsTemplates" -DeploymentName "getteamstemplates"
-        
-        Write-Host "Finished deploying logic apps" -ForegroundColor Green
+        DeployLogicApps
     }
     catch {
         throw('Failed to deploy the Azure resources {0}', $_.Exception.Message)
@@ -2573,8 +2621,6 @@ function VerifyRunbookRuntimeEnvironment {
     Write-Host "  Note: the portal's default Runbooks blade shows 7.2+ runtime environments as 'PowerShell 5.1'. Use Automation account > Runtime environments to see the real value." -ForegroundColor Gray
 }
 
-# Deploy ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest logic apps for upgrade scenarios
-# See Upgrade.md for more details
 function DeployLocalRunbooks {
     Write-Host "Deploying runbooks + PowerShell 7.4 runtime environment (runbooks.bicep)..." -ForegroundColor Yellow
     az deployment group create --subscription $parameters.subscriptionId.Value --resource-group $parameters.resourceGroupName.Value --template-file "../ARMTemplates/runbooks.bicep" --parameters "automationAccountName=$automationAccountName" "location=$($global:location)" --output none
@@ -2639,7 +2685,7 @@ function DeployLocalRunbooks {
 
 function DeployUpgradeLogicApp {
     try {
-        Write-Host "### UPGRADE MODE - DEPLOYING UPGRADE LOGIC APPS ###" -ForegroundColor Yellow
+        Write-Host "### UPGRADE MODE - DEPLOYING LOGIC APPS ###" -ForegroundColor Yellow
         Write-Host "For upgrade documentation, see Upgrade.md" -ForegroundColor Cyan
 
         if ([string]::IsNullOrEmpty($global:requestsListId)) {
@@ -2652,30 +2698,8 @@ function DeployUpgradeLogicApp {
             throw "Business Units list ID not found. Did the PnP template apply succeed?"
         }
 
-        # ProcessGuests is part of the guest chain and must be upgraded alongside its
-        # caller: ProcessGuestRequest passes it RequestedByEmail (the sponsor), which
-        # only an up-to-date ProcessGuests reads.
-        Write-Host "ProcessGuests" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguests.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessGuests" -DeploymentName "processguests"
-
-        Write-Host "ProcessProvisionRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processprovisionrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "automationAccountName=$automationAccountName" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "location=$($global:location)" "requestsSettingsListId=$global:requestsSettingsListId" "tenantName=$($parameters.spoTenantName.Value)" "serviceAccountUPN=$($parameters.serviceAccountUPN.value)" "uamiName=$uamiName" "spoRootSiteUrl=$global:tenantUrl" --output none
-        RecordAzResult "Logic App: ProcessProvisionRequest" -DeploymentName "processprovisionrequest"
-
-        Write-Host "ProcessGuestRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processguestrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "guestRequestsListId=$global:guestRequestsListId" "automationAccountName=$automationAccountName" "tenantName=$($parameters.spoTenantName.Value)" "uamiName=$uamiName" "guestEntraGroup=$($parameters.guestEntraGroup.Value)" --output none
-        RecordAzResult "Logic App: ProcessGuestRequest" -DeploymentName "processguestrequest"
-
-        Write-Host "ProcessApprovalRequest" -ForegroundColor Yellow
-
-        az deployment group create --resource-group $parameters.resourceGroupName.Value --subscription $parameters.subscriptionId.Value --template-file '../ARMTemplates/LogicApps/processapprovalrequest.json' --parameters "resourceGroupName=$($parameters.resourceGroupName.Value)" "subscriptionId=$($parameters.subscriptionId.Value)" "tenantId=$($parameters.tenantId.Value)" "location=$($global:location)" "requestsSiteUrl=$requestsSiteUrl" "requestsListId=$global:requestsListId" "requestsSettingsListId=$global:requestsSettingsListId" "businessUnitsListId=$global:businessUnitsListId" "uamiName=$uamiName" --output none
-        RecordAzResult "Logic App: ProcessApprovalRequest" -DeploymentName "processapprovalrequest"
-
-        Write-Host "Finished deploying upgrade logic apps" -ForegroundColor Green
+        # All of them, not just the request-processing chain - see DeployLogicApps for why.
+        DeployLogicApps
     }
     catch {
         throw('Failed to deploy logic apps in upgrade mode: {0}', $_.Exception.Message)
@@ -3177,6 +3201,12 @@ function StampInstalledVersion {
 
 $ErrorActionPreference = "stop"
 
+# The main flow runs inside try/finally so the run log is closed however the script
+# ends: normal completion, every 'exit' (also from inside a function), an uncaught
+# throw, or Ctrl+C - finally runs on all of them. The body is deliberately not
+# re-indented: it is the whole rest of the file.
+try {
+
 # Print the (partial) deployment summary even when the script stops on a
 # terminating error, so it is clear which components completed before the failure.
 trap {
@@ -3247,7 +3277,7 @@ if ($global:upgrade) {
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "This will:" -ForegroundColor Cyan
     Write-Host "  - Apply PnP template WITHOUT populating list items" -ForegroundColor Cyan
-    Write-Host "  - Deploy the ProcessProvisionRequest, ProcessGuestRequest and ProcessApprovalRequest Logic Apps" -ForegroundColor Cyan
+    Write-Host "  - Deploy all the Logic Apps (their parameters carry the site URL and list ids read in this run)" -ForegroundColor Cyan
     if ($SkipSPFxDeploy) {
         Write-Host "  - Skip SPFx build/publish (-SkipSPFxDeploy was set)" -ForegroundColor Cyan
     }
@@ -3594,10 +3624,10 @@ if ($SharePointOnly) {
     exit 0
 }
 
-# Skip Azure resource deployment in upgrade mode - only deploy Logic App
+# Skip Azure resource deployment in upgrade mode - only runbooks and Logic Apps
 if ($global:upgrade) {
     Write-Host "### UPGRADE MODE - SKIPPING AZURE RESOURCE DEPLOYMENT ###" -ForegroundColor Yellow
-    Write-Host "Only deploying the upgrade Logic App set..." -ForegroundColor Yellow
+    Write-Host "Only deploying the runbooks and the Logic Apps..." -ForegroundColor Yellow
     
     # Get the location from parameters for the logic app deployment
     $global:location = $parameters.region.Value.Replace(" ", "").ToLower()
@@ -3654,10 +3684,10 @@ if ($global:upgrade) {
 
     Write-Host "### UPGRADE COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
     if ($spfxDeployed) {
-        Write-Host "ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest Logic Apps and SPFx packages have been updated." -ForegroundColor Green
+        Write-Host "All Logic Apps and the SPFx packages have been updated." -ForegroundColor Green
     }
     else {
-        Write-Host "ProcessProvisionRequest + ProcessGuestRequest + ProcessApprovalRequest Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
+        Write-Host "All Logic Apps have been updated (SPFx deployment was skipped)." -ForegroundColor Green
     }
 
     exit 0
@@ -3783,3 +3813,8 @@ if ((GetFailedDeployComponents).Count -gt 0) {
 }
 
 Write-Host "### DEPLOYMENT COMPLETED SUCCESSFULLY ###" -ForegroundColor Green
+
+}
+finally {
+    StopDeployLog
+}

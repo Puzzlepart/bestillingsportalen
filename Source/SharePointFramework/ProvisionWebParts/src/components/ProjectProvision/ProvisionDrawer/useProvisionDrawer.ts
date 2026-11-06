@@ -216,7 +216,7 @@ export const useProvisionDrawer = () => {
         context.props.readOnlyGroupLogic && context.column.get('readOnlyGroup')
           ? context.column.get('internalChannel')
           : false,
-      RequestedSource: strings.Provision.RequestedSource,
+      RequestedSource: context.props.requestedSource || strings.Provision.RequestedSource,
       SpaceImage: context.column.get('image')?.split(',')[1],
       SiteURL: {
         Description: `${urlPrefix}${alias}`,
