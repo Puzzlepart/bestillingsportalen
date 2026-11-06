@@ -1499,10 +1499,13 @@ else {
 # PnP.PowerShell 3.2+, as deploy.ps1 requires. Az PowerShell is not used here - if it
 # ever is, import PnP.PowerShell BEFORE the first Az cmdlet (see the assembly-conflict
 # comment in deploy.ps1).
-$pnpModule = Get-Module -Name PnP.PowerShell
+# Import-Module -PassThru also returns PnP's nested RegisterPnPAssemblyResolver script
+# (version 0.0), so keep only PnP.PowerShell itself, and the newest if two are loaded.
+$pnpModule = Get-Module -Name PnP.PowerShell | Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $pnpModule) {
     try {
-        $pnpModule = Import-Module PnP.PowerShell -PassThru -ErrorAction Stop
+        $pnpModule = Import-Module PnP.PowerShell -PassThru -ErrorAction Stop |
+            Where-Object Name -eq 'PnP.PowerShell' | Sort-Object Version -Descending | Select-Object -First 1
     }
     catch {
         Write-Host "PnP.PowerShell could not be loaded ($(FirstLine $_.Exception.Message)). Install it with: Install-Module PnP.PowerShell -Scope CurrentUser" -ForegroundColor Red
