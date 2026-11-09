@@ -2189,6 +2189,7 @@ function ConfirmDeployment {
 
     Write-Host ""
     Write-Host "############################################################" -ForegroundColor Magenta
+    if (ApprovalFlowMayBeActive) { WriteApprovalFlowMigrationNotice -BeforeDeploy }
     $confirm = Read-Host "Continue with this deployment? ( y / n )"
     if ($confirm -ne "y") {
         Write-Host "Deployment cancelled by user - nothing has been changed in the environment." -ForegroundColor Yellow
@@ -2804,17 +2805,46 @@ function PublishTeamsApp {
     }
 }
 
-# Printed at the end of an upgrade, where it won't be scrolled away: before 2.0.0 the
-# approval was a Power Automate flow, which keeps running next to ProcessApprovalRequest
-# until someone turns it off. Many tenants never imported the flow, hence the "if".
+# Before 2.0.0 the approval was a Power Automate flow, which keeps running next to
+# ProcessApprovalRequest until someone turns it off. True when this run deploys over an
+# installation stamped with an older version - in upgrade mode and in a full run over an
+# existing site alike. A stamp that is not a version ('unknown') counts too; a new
+# installation (no stamp) does not.
+function ApprovalFlowMayBeActive {
+    if (-not $script:previousInstalledVersion) { return $false }
+    $parsed = $null
+    if ([version]::TryParse(("$script:previousInstalledVersion" -split '-')[0], [ref]$parsed)) {
+        return $parsed -lt [version]'2.0.0'
+    }
+    return $true
+}
+
+# Shown twice when ApprovalFlowMayBeActive. -BeforeDeploy: right before the confirmation
+# question, which waits - finding the flow needs a Power Automate sign-in as the service
+# account, which takes a while. The flow stays on during the run, so requests submitted
+# meanwhile are still approved; it is turned off as soon as the run completes, when the
+# notice is shown again, where it won't be scrolled away.
+# Many tenants never imported the flow, hence the "if".
 function WriteApprovalFlowMigrationNotice {
+    param([switch]$BeforeDeploy)
+    $serviceAccount = if (IsValidParam($parameters.serviceAccountUPN)) { $parameters.serviceAccountUPN.Value } else { "the service account" }
     Write-Host ""
-    Write-Host "IMPORTANT: The ProcessApprovalRequest Logic App replaces the Power Automate flow 'Provisioning Request Approval'." -ForegroundColor Yellow
-    Write-Host "If this tenant has that flow (solution 'Bestillingsportalen Flows' in the service account's default environment):" -ForegroundColor Yellow
-    Write-Host "  - Turn it OFF now, and delete it once an approval has gone through - both process Status=Submitted, so leaving it on causes duplicate approvals." -ForegroundColor Yellow
-    Write-Host "  - Set requests in 'Pending Approval' back to 'Submitted' - the Logic App then sends new approval requests." -ForegroundColor Yellow
-    Write-Host "  - Customisations made to the flow are NOT carried over to the Logic App - they must be re-implemented." -ForegroundColor Yellow
-    Write-Host "If the flow was never imported, approval starts working now unless EnableAutoApproval is true - check ApproverEmail and the Teams settings." -ForegroundColor Yellow
+    Write-Host "IMPORTANT: The ProcessApprovalRequest Logic App replaces the Power Automate flow 'Provisioning Request Approval' (installed version: $script:previousInstalledVersion)." -ForegroundColor Yellow
+    if ($BeforeDeploy) {
+        Write-Host "The flow must be turned OFF as soon as this deployment completes - until then it keeps approving requests as before." -ForegroundColor Yellow
+        Write-Host "Get ready before you answer y:" -ForegroundColor Yellow
+        Write-Host "  - Sign in to make.powerautomate.com as $serviceAccount." -ForegroundColor Yellow
+        Write-Host "  - Open Solutions -> 'Bestillingsportalen Flows' (default environment) -> 'Provisioning Request Approval', ready to turn it off." -ForegroundColor Yellow
+        Write-Host "  - Note any customisations made to the flow - they are NOT carried over to the Logic App." -ForegroundColor Yellow
+        Write-Host "No such flow? Then there is nothing to prepare. The question below waits - take the time you need." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "If this tenant has that flow (solution 'Bestillingsportalen Flows' in the default environment of $serviceAccount):" -ForegroundColor Yellow
+        Write-Host "  - Turn it OFF now, and delete it once an approval has gone through - both process Status=Submitted, so leaving it on causes duplicate approvals." -ForegroundColor Yellow
+        Write-Host "  - Set requests in 'Pending Approval' back to 'Submitted' - the Logic App then sends new approval requests." -ForegroundColor Yellow
+        Write-Host "  - Customisations made to the flow are NOT carried over to the Logic App - they must be re-implemented." -ForegroundColor Yellow
+        Write-Host "If the flow was never imported, approval starts working now unless EnableAutoApproval is true - check ApproverEmail and the Teams settings." -ForegroundColor Yellow
+    }
     Write-Host "See 'Oppgradere til 2.0.0' in Upgrade.md." -ForegroundColor Yellow
     Write-Host ""
 }
@@ -3675,7 +3705,7 @@ if ($global:upgrade) {
 
     WriteTeamsAppManualUploadNotice
 
-    WriteApprovalFlowMigrationNotice
+    if (ApprovalFlowMayBeActive) { WriteApprovalFlowMigrationNotice }
 
     if ((GetFailedDeployComponents).Count -gt 0) {
         Write-Host "### UPGRADE COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
@@ -3806,6 +3836,8 @@ Write-Host "then follow Configuration-guide.md for approval setup and a verifica
 Write-Host ""
 
 WriteTeamsAppManualUploadNotice
+
+if (ApprovalFlowMayBeActive) { WriteApprovalFlowMigrationNotice }
 
 if ((GetFailedDeployComponents).Count -gt 0) {
     Write-Host "### DEPLOYMENT COMPLETED WITH ERRORS - SEE SUMMARY ABOVE ###" -ForegroundColor Red
