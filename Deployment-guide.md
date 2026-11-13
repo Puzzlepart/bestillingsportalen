@@ -32,7 +32,7 @@ Det meste av denne sjekklisten kan verifiseres automatisk: **kjør `./deploy.ps1
 ### Detaljer
 
 - Fakturerbart Azure-abonnement i samme tenant som du skal installere Bestillingsportalen i.
-- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, blant annet til godkjenningen av bestillinger) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online og Teams — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har dette. Power Automate-lisens trengs ikke fra versjon 2.0.0, der godkjenningsflyten i Power Automate er erstattet av en Logic App.
+- Tjenestekonto (brukes av Logic Apps for å koble til SPO, Outlook og Teams, blant annet til godkjenningen av bestillinger) med en passende Microsoft 365-lisens (denne kontoen skal IKKE være admin). Denne kontoen KAN ha MFA. Lisensen må inkludere SPO, Exchange Online og Teams — både E-lisenser (E1/E3/E5) og frontline-lisenser (F1/F3) har dette. Power Automate-lisens trengs ikke fra versjon 1.2.0, der godkjenningsflyten i Power Automate er erstattet av en Logic App.
 - Sensitivitetsmerker krever **ingen egen tjenestekonto og ingen app-registrering**. Merker settes app-only med Automation-kontoens managed identity. Kravet om en tjenestekonto uten MFA gjaldt en tidligere ROPC-flyt som er fjernet — se [Sensitivitetsmerker](./Sensitivity-labels.md).
 - Windows 10/11-maskin for å kjøre PowerShell-installasjonsskriptet.
 - PowerShell **7.4 eller nyere** lastet ned og installert (kreves av PnP.PowerShell 3.x; versjonen sjekkes av installasjonsskriptet) – <https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.4>.

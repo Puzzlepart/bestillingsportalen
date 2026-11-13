@@ -95,7 +95,7 @@ Dette avviker fra [Microsofts CAF-abbreviasjonsliste](https://learn.microsoft.co
 
 Godkjenningen kjøres av Logic Appen **`ProcessApprovalRequest`**, som deployes av `deploy.ps1` sammen med de andre Logic Appene. Den trigges når en bestilling i `Provisioning Requests`-listen får status `Submitted`, og setter status `Approved` eller `Rejected`, som `ProcessProvisionRequest` plukker opp. Den støtter godkjenning via godkjennings-e-post med Approve/Reject-knapper (Office 365 Outlook-connectoren) eller adaptive cards i en Teams-kanal, og kan slås av med `EnableAutoApproval`. Den bruker de delegerte API-tilkoblingene for SharePoint, Outlook og Teams, og kjører dermed som tjenestekontoen. Se [Godkjenningsflyt](./Approval-flow.md).
 
-Før versjon 2.0.0 lå godkjenningen i Power Automate-flyten `Provisioning Request Approval`, som ble importert manuelt i tjenestekontoens Power Platform-miljø. Løsningen har ingen Power Platform-komponenter fra 2.0.0.
+Før versjon 1.2.0 lå godkjenningen i Power Automate-flyten `Provisioning Request Approval`, som ble importert manuelt i tjenestekontoens Power Platform-miljø. Løsningen har ingen Power Platform-komponenter fra 1.2.0.
 
 ### 2.5 Klient (SPFx)
 

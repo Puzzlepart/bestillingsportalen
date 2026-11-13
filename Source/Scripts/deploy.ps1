@@ -2805,7 +2805,7 @@ function PublishTeamsApp {
     }
 }
 
-# Before 2.0.0 the approval was a Power Automate flow, which keeps running next to
+# Before 1.2.0 the approval was a Power Automate flow, which keeps running next to
 # ProcessApprovalRequest until someone turns it off. True when this run deploys over an
 # installation stamped with an older version - in upgrade mode and in a full run over an
 # existing site alike. A stamp that is not a version ('unknown') counts too; a new
@@ -2814,7 +2814,7 @@ function ApprovalFlowMayBeActive {
     if (-not $script:previousInstalledVersion) { return $false }
     $parsed = $null
     if ([version]::TryParse(("$script:previousInstalledVersion" -split '-')[0], [ref]$parsed)) {
-        return $parsed -lt [version]'2.0.0'
+        return $parsed -lt [version]'1.2.0'
     }
     return $true
 }
@@ -2845,7 +2845,7 @@ function WriteApprovalFlowMigrationNotice {
         Write-Host "  - Customisations made to the flow are NOT carried over to the Logic App - they must be re-implemented." -ForegroundColor Yellow
         Write-Host "If the flow was never imported, approval starts working now unless EnableAutoApproval is true - check ApproverEmail and the Teams settings." -ForegroundColor Yellow
     }
-    Write-Host "See 'Oppgradere til 2.0.0' in Upgrade.md." -ForegroundColor Yellow
+    Write-Host "See 'Oppgradere til 1.2.0' in Upgrade.md." -ForegroundColor Yellow
     Write-Host ""
 }
 

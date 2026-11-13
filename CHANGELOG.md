@@ -4,11 +4,11 @@ Sjekk ut [release notes](https://github.com/Puzzlepart/bestillingsportalen/relea
 
 ## Uutgitt
 
-Planlagt som **2.0.0**: oppgraderingen krever manuelle steg i Power Automate, så den er ikke en ren `-Upgrade`.
+Planlagt som **1.2.0**. Oppgraderingen krever manuelle steg i Power Automate, se under.
 
 ### Viktig før oppgradering
 
-- **Godkjenningsflyten i Power Automate erstattes, og egne tilpasninger av den blir ikke med**: Flyten `Provisioning Request Approval` erstattes av den nye Logic Appen `ProcessApprovalRequest`, som er bygd på nytt fra standardflyten. Har kunden endret flyten selv, for eksempel e-posttekster, godkjennerlogikk, ekstra steg eller integrasjoner, overføres ingenting av dette. Tilpasningene må kartlegges før oppgraderingen og eventuelt bygges inn i Logic Appen etterpå. Standardflyten finnes i [1.1.0-releasen](https://github.com/Puzzlepart/bestillingsportalen/releases/tag/v1.1.0) til sammenligning. Flyten må skrus av straks oppgraderingen er ferdig, og bestillinger som står i `Pending Approval`, må settes tilbake til `Submitted` etterpå. `deploy.ps1` minner om forberedelsene før bekreftelsen og om å skru av flyten til slutt. Se [Oppgradere til 2.0.0](./Upgrade.md#oppgradere-til-200-godkjenningsflyten-erstattes).
+- **Godkjenningsflyten i Power Automate erstattes, og egne tilpasninger av den blir ikke med**: Flyten `Provisioning Request Approval` erstattes av den nye Logic Appen `ProcessApprovalRequest`, som er bygd på nytt fra standardflyten. Har kunden endret flyten selv, for eksempel e-posttekster, godkjennerlogikk, ekstra steg eller integrasjoner, overføres ingenting av dette. Tilpasningene må kartlegges før oppgraderingen og eventuelt bygges inn i Logic Appen etterpå. Standardflyten finnes i [1.1.0-releasen](https://github.com/Puzzlepart/bestillingsportalen/releases/tag/v1.1.0) til sammenligning. Flyten må skrus av straks oppgraderingen er ferdig, og bestillinger som står i `Pending Approval`, må settes tilbake til `Submitted` etterpå. `deploy.ps1` minner om forberedelsene før bekreftelsen og om å skru av flyten til slutt. Se [Oppgradere til 1.2.0](./Upgrade.md#oppgradere-til-120-godkjenningsflyten-erstattes).
 
 ### Ny funksjonalitet
 

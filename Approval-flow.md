@@ -1,9 +1,9 @@
 # Godkjenningsflyt
 
-Bestillingsportalen godkjenner bestillinger med Azure Logic Appen **`ProcessApprovalRequest`**. Den deployes av `deploy.ps1` sammen med de øvrige Logic Appene. Fra versjon 2.0.0 erstatter den Power Automate-flyten `Provisioning Request Approval`, som ble brukt i tidligere versjoner. Se [Upgrade.md](/Upgrade.md#oppgradere-til-200-godkjenningsflyten-erstattes) for migrering.
+Bestillingsportalen godkjenner bestillinger med Azure Logic Appen **`ProcessApprovalRequest`**. Den deployes av `deploy.ps1` sammen med de øvrige Logic Appene. Fra versjon 1.2.0 erstatter den Power Automate-flyten `Provisioning Request Approval`, som ble brukt i tidligere versjoner. Se [Upgrade.md](/Upgrade.md#oppgradere-til-120-godkjenningsflyten-erstattes) for migrering.
 
 > [!IMPORTANT]
-> Logic Appen er bygd på nytt fra standardflyten. Har dere tilpasset Power Automate-flyten selv, er ingen av tilpasningene med i Logic Appen. Se [Upgrade.md](/Upgrade.md#oppgradere-til-200-godkjenningsflyten-erstattes) før dere oppgraderer.
+> Logic Appen er bygd på nytt fra standardflyten. Har dere tilpasset Power Automate-flyten selv, er ingen av tilpasningene med i Logic Appen. Se [Upgrade.md](/Upgrade.md#oppgradere-til-120-godkjenningsflyten-erstattes) før dere oppgraderer.
 
 Godkjenningen kan konfigureres på tre måter:
 

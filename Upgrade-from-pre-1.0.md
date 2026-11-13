@@ -91,7 +91,7 @@ Gjenta for `GetSiteTemplates`, diff mot `Source/Runbooks/`, og flytt eventuelle 
 - Standardelementer som bevisst er **slettet** kommer tilbake ved oppgradering (sett heller `Allowed`/`Enabled` til `false`).
 - Standardelementer som er **omdøpt** blir duplikater, fordi `Title` er nøkkelen (`TimeZoneId` for Time Zones).
 
-**7. Godkjenningsflyten.** Fra 2.0.0 erstattes Power Automate-flyten `Provisioning Request Approval` av Logic Appen `ProcessApprovalRequest`, som den fulle deployen oppretter. **Egne tilpasninger av flyten blir ikke med.** Ta en eksportkopi av flyten, kartlegg tilpasningene, og skru av flyten rett før deployen. Følg [Oppgradere til 2.0.0](Upgrade.md#oppgradere-til-200-godkjenningsflyten-erstattes) for resten av migreringen.
+**7. Godkjenningsflyten.** Fra 1.2.0 erstattes Power Automate-flyten `Provisioning Request Approval` av Logic Appen `ProcessApprovalRequest`, som den fulle deployen oppretter. **Egne tilpasninger av flyten blir ikke med.** Ta en eksportkopi av flyten, kartlegg tilpasningene, og skru av flyten rett før deployen. Følg [Oppgradere til 1.2.0](Upgrade.md#oppgradere-til-120-godkjenningsflyten-erstattes) for resten av migreringen.
 
 ## 2. Tilganger
 
