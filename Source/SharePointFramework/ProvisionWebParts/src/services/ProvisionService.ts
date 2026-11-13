@@ -23,6 +23,7 @@ import { IProvisionRequestItem } from '../models/IProvisionRequestItem'
 import { getTenantProvisionInstances, IProvisionInstance } from './provisionInstances'
 import { format } from '../utils/format'
 import { normalizeHubSiteId } from '../utils/normalizeHubSiteId'
+import { deferRequestStatus } from '../utils/deferRequestStatus'
 
 /**
  * Title of the project data list on hub sites ("Prosjektdata"). Previously
@@ -331,7 +332,8 @@ export class ProvisionService {
    * are stripped from the item body and applied afterwards with
    * `validateUpdateListItem`, which resolves users server-side — client-side
    * `ensureUser` requires more than read access on the ordering site and
-   * failed for ordinary users.
+   * failed for ordinary users. The status is set in that same second write,
+   * so the Logic Apps trigger once, on the complete request.
    */
   public async addProvisionRequests(
     properties: IProvisionRequestItem,
@@ -340,11 +342,17 @@ export class ProvisionService {
     try {
       const provisionRequestsList =
         this._spfi(provisionUrl).web.lists.getByTitle('Provisioning Requests')
-      const { itemProperties, userFieldUpdates } = this._extractProvisionUserFields(properties)
+      const extracted = this._extractProvisionUserFields(properties)
+      // The status goes in the second write, so the Logic Apps only see the
+      // complete request - see deferRequestStatus
+      const { itemProperties, fieldUpdates } = deferRequestStatus(
+        extracted.itemProperties,
+        extracted.userFieldUpdates
+      )
       const added = (await provisionRequestsList.items.add(itemProperties)) as { Id?: number }
-      if (userFieldUpdates.length > 0 && added?.Id) {
+      if (fieldUpdates.length > 0 && added?.Id) {
         const item = provisionRequestsList.items.getById(added.Id)
-        const updateResults = await item.validateUpdateListItem(userFieldUpdates)
+        const updateResults = await item.validateUpdateListItem(fieldUpdates)
         const failedUpdates = (updateResults ?? []).filter(
           (updateResult) => updateResult.HasException
         )

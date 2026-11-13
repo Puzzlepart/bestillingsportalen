@@ -129,7 +129,7 @@ Statuslisten oppdateres ikke nødvendigvis umiddelbart. Bakgrunnsprosessene lese
 | Space Already Exists  | Aliaset eller URL-en var allerede i bruk.                                                                                   |
 | Space Creation Failed | Ett eller flere opprettings- eller konfigurasjonssteg feilet. Kontakt administrator med navn og tidspunkt for bestillingen. |
 
-Godkjenning utføres ikke inne i Bestillingsportalen-appen. Godkjenneren bruker Power Automate Approvals eller et godkjenningskort i Teams, avhengig av organisasjonens oppsett.
+Godkjenning utføres ikke inne i Bestillingsportalen-appen. Godkjenneren svarer i en godkjennings-e-post eller på et godkjenningskort i Teams, avhengig av organisasjonens oppsett.
 
 ## Invitere eksterne gjester
 
@@ -183,7 +183,7 @@ Når du prøver på nytt, opprettes en ny forespørsel. Den gamle mislykkede for
 
 ## Viktige avgrensninger
 
-- Appen oppretter en forespørsel. Power Automate, Logic Apps og Azure Automation utfører godkjenning og provisjonering i bakgrunnen.
+- Appen oppretter en forespørsel. Logic Apps og Azure Automation utfører godkjenning og provisjonering i bakgrunnen.
 - Valg og hjelpetekster kan være tilpasset av organisasjonen. Lokal praksis går foran generelle eksempler i denne veiledningen.
 - Innstillingsvisningen i appen er eksperimentell og i praksis skrivebeskyttet. Administratorer vedlikeholder normalt innstillinger i SharePoint-listene eller webdelens egenskaper.
 - Feltet **Intern kanal** kan registrere et valg på bestillingen, men standardløsningen oppretter eller fjerner ikke en Teams-kanal basert på dette feltet. En organisasjonsspesifikk utvidelse må implementere selve kanalhandlingen.
@@ -197,7 +197,7 @@ Når du prøver på nytt, opprettes en ny forespørsel. Den gamle mislykkede for
 | Navnet eller URL-en er opptatt                | Velg et annet navn. Et nylig slettet område kan holde på aliaset en stund.                                          |
 | En person kan ikke legges til                 | Kontroller skrivemåte og at personen finnes i organisasjonen. Kontakt administrator hvis oppslaget fortsatt feiler. |
 | Jeg ser ikke ønsket områdetype eller felt     | Administrator har ikke aktivert typen, du mangler målgruppetilgang, eller feltet er skjult for typen.               |
-| Status står lenge på Submitted eller Approved | Oppdater status. Ved langvarig venting må administrator kontrollere godkjenningsflyten og Logic App-kjøringene.     |
+| Status står lenge på Submitted eller Approved | Oppdater status. Ved langvarig venting må administrator kontrollere Logic App-kjøringene, blant annet `ProcessApprovalRequest`.     |
 | Bestillingen har status Space Creation Failed | Hold musepekeren over statusen for å se årsaken. Oppgi bestillingens navn, tidspunkt og årsaken til administrator. |
 | Gjesteinvitasjonen står på Pending            | Oppdater status etter noen minutter. Ved langvarig venting må administrator kontrollere `ProcessGuestRequest`.      |
 | Gjesteinvitasjonen har status Failed          | Les feilmeldingen i statusvisningen og prøv på nytt dersom knappen er tilgjengelig.                                 |
