@@ -3842,7 +3842,10 @@ if ($global:upgrade) {
     # automation account's system-assigned managed identity if not already
     # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
     # Pre-1.0.0 deploys may have skipped this in upgrade mode.
-    AssignManagedIdentityPermissions
+    # -SkipAppRoles: no role is assigned here; the handover command below covers both identities.
+    if (-not $SkipAppRoles) {
+        AssignManagedIdentityPermissions
+    }
 
     # The logic apps reference the user-assigned managed identity, which is created by
     # azureresources.bicep (skipped in upgrade mode). Installations deployed before the
@@ -3852,8 +3855,13 @@ if ($global:upgrade) {
     if ([string]::IsNullOrEmpty($uamiExists)) {
         throw "User-assigned managed identity '$uamiName' was not found in resource group '$($parameters.resourceGroupName.Value)'. Run a full deployment (without -Upgrade) once to migrate to managed identity before using upgrade mode. See Upgrade.md."
     }
-    # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
-    AssignUamiPermissions
+    if ($SkipAppRoles) {
+        EmitAppRoleHandover
+    }
+    else {
+        # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
+        AssignUamiPermissions
+    }
 
     DeployUpgradeLogicApp
 
