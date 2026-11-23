@@ -126,6 +126,7 @@ declare interface IProvisionWebPartsStrings {
   AccessOneNotePlannerCalendar: string
   AccessNotGroupConnectedNote: string
   AccessSpGroupAddTemplate: string
+  AccessSpGroupNoSiteAccessNote: string
   AccessSpGroupCreateTemplate: string
   CancelButton: string
   ClearFieldLabel: string

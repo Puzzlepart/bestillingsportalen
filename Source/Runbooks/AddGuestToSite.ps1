@@ -3,6 +3,13 @@
     Adds an invited guest to a SharePoint site after the tenant invitation has succeeded.
     Called by the ProcessGuestRequest Logic App. Authenticates via system-assigned
     managed identity.
+
+    Output: the last output line is '##RESULT##' followed by JSON describing what
+    this request lets the guest open, so the Logic App can send an e-mail that
+    matches the access actually granted:
+      siteAccess  true when the guest can open the site itself (its home page)
+      links       libraries/lists the guest can open when siteAccess is false,
+                  as { title, url } — empty when nothing was shared
 #>
 [CmdletBinding()]
 Param
@@ -54,46 +61,56 @@ function Resolve-GuestObjectId {
     return $script:guestObjectId
 }
 
+# What this request lets the guest open — reported to the Logic App at the end
+# (see STEP 4). Membership in the M365 group always includes the site itself;
+# a SharePoint group only does when the group holds a role on the web, so the
+# groups the guest is put in are collected here and inspected afterwards.
+$siteAccess = $false
+$grantedSpGroupIds = [System.Collections.Generic.List[int]]::new()
+
 # Guests get access through the standard Microsoft 365 guest model: membership
 # in the M365 group ('Member', shown as "Gjest" in the web part), which grants
 # the team, site and group resources (Teams/Planner/OneNote). Guests can never
 # OWN a group, so 'Owner' is rejected as defense in depth even if a list item
 # says otherwise. 'Visitor' is honored for items created before the role lock
 # (read access via the associated Visitors group).
-Write-Output "[STEP 1/3] Applying site role '$m365GroupRole'..."
+Write-Output "[STEP 1/4] Applying site role '$m365GroupRole'..."
 switch ($m365GroupRole) {
     'None' {
-        Write-Output '[STEP 1/3] Skipped — no site role requested'
+        Write-Output '[STEP 1/4] Skipped — no site role requested'
     }
     'Member' {
         if ($isGroupConnected) {
             $guestId = Resolve-GuestObjectId
             try {
                 Add-PnPMicrosoft365GroupMember -Identity $site.GroupId -Users $guestId
-                Write-Output "[STEP 1/3] Added guest '$guestId' as member of M365 group $($site.GroupId)"
+                Write-Output "[STEP 1/4] Added guest '$guestId' as member of M365 group $($site.GroupId)"
             }
             catch {
                 # Re-inviting an existing member returns Graph 400
                 # 'One or more added object references already exist' — that is
                 # the desired end state, not a failure.
                 if ("$_" -match 'already exist') {
-                    Write-Output "[STEP 1/3] Guest '$guestId' is already a member of M365 group $($site.GroupId) — skipped"
+                    Write-Output "[STEP 1/4] Guest '$guestId' is already a member of M365 group $($site.GroupId) — skipped"
                 }
                 else {
                     throw
                 }
             }
+            $siteAccess = $true
         }
         else {
             $group = Get-PnPGroup -AssociatedMemberGroup
             Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-            Write-Output "[STEP 1/3] Added '$guestLoginName' as Member to '$($group.Title)'"
+            $grantedSpGroupIds.Add($group.Id)
+            Write-Output "[STEP 1/4] Added '$guestLoginName' as Member to '$($group.Title)'"
         }
     }
     'Visitor' {
         $group = Get-PnPGroup -AssociatedVisitorGroup
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-        Write-Output "[STEP 1/3] Added '$guestLoginName' as Visitor to '$($group.Title)'"
+        $grantedSpGroupIds.Add($group.Id)
+        Write-Output "[STEP 1/4] Added '$guestLoginName' as Visitor to '$($group.Title)'"
     }
     'Owner' {
         throw "m365GroupRole 'Owner' is not allowed — external guests cannot own a Microsoft 365 group. Use 'Member' (guest membership) or a SharePoint group (spGroupAction) instead."
@@ -103,10 +120,10 @@ switch ($m365GroupRole) {
     }
 }
 
-Write-Output "[STEP 2/3] Applying SP group action '$spGroupAction'..."
+Write-Output "[STEP 2/4] Applying SP group action '$spGroupAction'..."
 switch ($spGroupAction) {
     'None' {
-        Write-Output '[STEP 2/3] Skipped — no SP group action requested'
+        Write-Output '[STEP 2/4] Skipped — no SP group action requested'
     }
     'AddToExisting' {
         if ([string]::IsNullOrWhiteSpace($spGroupName)) {
@@ -114,7 +131,8 @@ switch ($spGroupAction) {
         }
         $group = Get-PnPGroup -Identity $spGroupName
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-        Write-Output "[STEP 2/3] Added '$guestLoginName' to '$($group.Title)'"
+        $grantedSpGroupIds.Add($group.Id)
+        Write-Output "[STEP 2/4] Added '$guestLoginName' to '$($group.Title)'"
     }
     'CreateNew' {
         if ([string]::IsNullOrWhiteSpace($spGroupName)) {
@@ -149,10 +167,11 @@ switch ($spGroupAction) {
         if (-not $group) {
             $group = New-PnPGroup -Title $spGroupName
             Set-PnPGroupPermissions -Identity $group.Title -AddRole $roleDef.Name
-            Write-Output "[STEP 2/3] Created group '$($group.Title)' with permission '$($roleDef.Name)' (requested '$spPermissionLevel')"
+            Write-Output "[STEP 2/4] Created group '$($group.Title)' with permission '$($roleDef.Name)' (requested '$spPermissionLevel')"
         }
         Add-PnPGroupMember -LoginName $guestLoginName -Identity $group
-        Write-Output "[STEP 2/3] Added '$guestLoginName' to '$($group.Title)'"
+        $grantedSpGroupIds.Add($group.Id)
+        Write-Output "[STEP 2/4] Added '$guestLoginName' to '$($group.Title)'"
     }
     default {
         throw "Unknown spGroupAction '$spGroupAction'"
@@ -165,9 +184,9 @@ switch ($spGroupAction) {
 # access to the hub site and the app catalog. Works for security groups and M365
 # groups (Group.ReadWrite.All); role-assignable and on-premises-synced groups are
 # not writable through Graph and will fail here.
-Write-Output "[STEP 3/3] Applying Entra guest group membership..."
+Write-Output "[STEP 3/4] Applying Entra guest group membership..."
 if ([string]::IsNullOrWhiteSpace($guestEntraGroup)) {
-    Write-Output '[STEP 3/3] Skipped — no Entra guest group configured'
+    Write-Output '[STEP 3/4] Skipped — no Entra guest group configured'
 }
 else {
     if ($guestEntraGroup -match '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$') {
@@ -192,13 +211,13 @@ else {
     $guestId = Resolve-GuestObjectId
     try {
         Invoke-PnPGraphMethod -Url "v1.0/groups/$entraGroupId/members/`$ref" -Method Post -Content @{ '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$guestId" }
-        Write-Output "[STEP 3/3] Added guest '$guestId' to Entra group '$guestEntraGroup' ($entraGroupId)"
+        Write-Output "[STEP 3/4] Added guest '$guestId' to Entra group '$guestEntraGroup' ($entraGroupId)"
     }
     catch {
         # Same idempotency contract as step 1: an existing member is the desired
         # end state, not a failure.
         if ("$_" -match 'already exist') {
-            Write-Output "[STEP 3/3] Guest '$guestId' is already a member of Entra group '$guestEntraGroup' ($entraGroupId) — skipped"
+            Write-Output "[STEP 3/4] Guest '$guestId' is already a member of Entra group '$guestEntraGroup' ($entraGroupId) — skipped"
         }
         else {
             throw
@@ -206,4 +225,77 @@ else {
     }
 }
 
+# The e-mail to the guest must match what the guest can actually open. A
+# SharePoint group does not necessarily hold a role on the site itself: it may
+# only be granted on individual libraries, and then a link to the site's home
+# page ends in "access denied". So work out where the groups the guest was just
+# put in hold a real role, and report that to the Logic App:
+#   - on the web        -> siteAccess (the e-mail links to the site)
+#   - only on libraries -> links      (the e-mail links to those libraries)
+#   - nowhere           -> neither    (no e-mail: there is nothing to open)
+# 'Limited Access' (RoleTypeKind Guest = 1) and 'Web-Only Limited Access'
+# (RestrictedGuest = 9) are the implicit grants SharePoint adds on parents of
+# shared content. They open nothing by themselves, so they do not count.
+# RoleTypeKind is used because role NAMES are localized per site language.
+# Content shared below library level (a single folder or file) is not listed.
+Write-Output '[STEP 4/4] Resolving what the guest can open...'
+$implicitRoleKinds = @(1, 9)
+function Test-GrantsAccess {
+    param($RoleAssignments)
+    foreach ($assignment in @($RoleAssignments)) {
+        if ($grantedSpGroupIds -notcontains [int]$assignment.PrincipalId) { continue }
+        foreach ($role in @($assignment.RoleDefinitionBindings)) {
+            if ($implicitRoleKinds -notcontains [int]$role.RoleTypeKind) { return $true }
+        }
+    }
+    return $false
+}
+$roleAssignmentQuery = 'roleassignments?$select=PrincipalId,RoleDefinitionBindings/RoleTypeKind&$expand=RoleDefinitionBindings&$top=5000'
+
+$links = @()
+if ($siteAccess) {
+    Write-Output '[STEP 4/4] Guest is a member of the M365 group — site access'
+}
+elseif ($grantedSpGroupIds.Count -eq 0) {
+    Write-Output '[STEP 4/4] No site role and no SharePoint group — nothing to open on this site'
+}
+else {
+    $webAssignments = Invoke-PnPSPRestMethod -Url "/_api/web/$roleAssignmentQuery"
+    $siteAccess = Test-GrantsAccess -RoleAssignments $webAssignments.value
+    if ($siteAccess) {
+        Write-Output '[STEP 4/4] The SharePoint group holds a role on the site — site access'
+    }
+    else {
+        # Only lists with their own permissions can grant more than the web does.
+        $listQuery = 'lists?$select=Id,Title,Hidden,HasUniqueRoleAssignments,RootFolder/ServerRelativeUrl&$expand=RootFolder&$top=5000'
+        $lists = Invoke-PnPSPRestMethod -Url "/_api/web/$listQuery"
+        $origin = ([System.Uri]$siteUrl).GetLeftPart([System.UriPartial]::Authority)
+        $found = [System.Collections.Generic.List[object]]::new()
+        foreach ($list in @($lists.value)) {
+            if ($list.Hidden -or -not $list.HasUniqueRoleAssignments) { continue }
+            $listPath = "$($list.RootFolder.ServerRelativeUrl)"
+            if ($listPath -match '/_catalogs/') { continue }
+            $listAssignments = Invoke-PnPSPRestMethod -Url "/_api/web/lists(guid'$($list.Id)')/$roleAssignmentQuery"
+            if (-not (Test-GrantsAccess -RoleAssignments $listAssignments.value)) { continue }
+            $encodedPath = ($listPath.Split('/') | ForEach-Object { [System.Uri]::EscapeDataString($_) }) -join '/'
+            $found.Add([pscustomobject]@{ title = "$($list.Title)"; url = "$origin$encodedPath" })
+        }
+        $links = @($found | Sort-Object -Property title)
+        if ($links.Count -gt 0) {
+            Write-Output "[STEP 4/4] No role on the site itself. Libraries the guest can open: $(($links | ForEach-Object { $_.title }) -join ', ')"
+        }
+        else {
+            Write-Output '[STEP 4/4] The SharePoint group holds no role on the site or on any library — nothing to open'
+        }
+    }
+}
+
 Write-Output '[DONE] AddGuestToSite completed successfully'
+
+# Must stay the last output line — the Logic App reads it from the job output.
+# Non-ASCII is escaped so library titles (æøå) survive the job output stream.
+$result = [ordered]@{
+    siteAccess = $siteAccess
+    links      = @($links)
+}
+Write-Output ('##RESULT##' + ($result | ConvertTo-Json -Depth 5 -Compress -EscapeHandling EscapeNonAscii))

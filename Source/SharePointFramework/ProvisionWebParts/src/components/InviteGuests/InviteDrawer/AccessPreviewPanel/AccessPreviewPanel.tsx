@@ -20,6 +20,9 @@ interface IAccessPreviewProps {
   spGroupName?: string
   spPermissionLevel?: SPPermissionLevel
   isGroupConnected: boolean
+  /** Whether the chosen existing group holds a role on the site itself.
+   * Undefined when unknown (group not among the loaded site groups). */
+  spGroupHasSiteAccess?: boolean
 }
 
 const PERMISSION_LABEL_KEYS: Record<SPPermissionLevel, keyof typeof strings> = {
@@ -35,11 +38,24 @@ const formatTemplate = (template: string, ...values: string[]): string =>
 const computePreview = (
   props: IAccessPreviewProps
 ): { items: string[]; intent: MessageBarIntent } => {
-  const { role, spGroupAction, spGroupName, spPermissionLevel, isGroupConnected } = props
+  const {
+    role,
+    spGroupAction,
+    spGroupName,
+    spPermissionLevel,
+    isGroupConnected,
+    spGroupHasSiteAccess
+  } = props
 
   const spItems: string[] = []
   if ((spGroupAction === 'AddToExisting' || spGroupAction === 'Preset') && spGroupName) {
     spItems.push(formatTemplate(strings.AccessSpGroupAddTemplate, spGroupName))
+    // Without the guest role the group is the guest's only way in. A group
+    // that holds no role on the site itself cannot open the site's home page,
+    // so the e-mail links to the libraries the group is granted on instead.
+    if (role !== 'Member' && spGroupHasSiteAccess === false) {
+      spItems.push(strings.AccessSpGroupNoSiteAccessNote)
+    }
   } else if (spGroupAction === 'CreateNew' && spGroupName && spPermissionLevel) {
     const permLabel = strings[PERMISSION_LABEL_KEYS[spPermissionLevel]] as string
     spItems.push(formatTemplate(strings.AccessSpGroupCreateTemplate, spGroupName, permLabel))
