@@ -8,12 +8,18 @@ export interface ISiteGroup {
   LoginName: string
   Description?: string
   PrincipalType?: number
+  /** Roles the group holds on the site itself. Undefined when it holds none —
+   * the group may still be granted on individual libraries. */
   PermissionLevel?: string
 }
 
 // System-managed groups SharePoint auto-creates that admins should never assign
 // guests to. Filtered out of the SP group dropdown.
 const SYSTEM_GROUP_PREFIXES = ['Limited Access System Group', 'SharingLinks']
+
+// RoleTypeKind of 'Limited Access' (Guest = 1) and 'Web-Only Limited Access'
+// (RestrictedGuest = 9): implicit grants that open nothing by themselves.
+const IMPLICIT_ROLE_TYPE_KINDS = [1, 9]
 
 export interface ISiteContext {
   isGroupConnected: boolean
@@ -62,17 +68,23 @@ export class SiteService {
         .top(500)() as Promise<ISiteGroup[]>,
       this.sp.web.roleAssignments
         .expand('RoleDefinitionBindings')
-        .select('PrincipalId', 'RoleDefinitionBindings/Name')
+        .select('PrincipalId', 'RoleDefinitionBindings/Name', 'RoleDefinitionBindings/RoleTypeKind')
         .top(500)() as Promise<
-        { PrincipalId: number; RoleDefinitionBindings: { Name: string }[] }[]
+        { PrincipalId: number; RoleDefinitionBindings: { Name: string; RoleTypeKind: number }[] }[]
       >
     ])
     // 'Limited Access' is the implicit grant SP adds when a principal has
     // permissions on a child item — not meaningful as a group-level role.
+    // Matched on RoleTypeKind because the role NAME is localized per site
+    // language ('Begrenset tilgang' on a Norwegian site). A group left without
+    // a PermissionLevel therefore holds no role on the site itself — the access
+    // preview relies on that (see AccessPreviewPanel).
     const permissionsByPrincipalId = new Map<number, string>()
     for (const ra of roleAssignments) {
-      const names = ra.RoleDefinitionBindings.map((r) => r.Name)
-        .filter((n) => n !== 'Limited Access')
+      const names = ra.RoleDefinitionBindings.filter(
+        (r) => IMPLICIT_ROLE_TYPE_KINDS.indexOf(r.RoleTypeKind) === -1
+      )
+        .map((r) => r.Name)
         .join(', ')
       if (names) permissionsByPrincipalId.set(ra.PrincipalId, names)
     }

@@ -73,6 +73,17 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
   } = useInviteDrawer({ open, onOpenChange })
 
   const guestEmails = React.useMemo(() => guests.map((g) => g.email), [guests])
+
+  // Undefined when the group is not among the loaded site groups (still
+  // loading, or filtered out by the admin's group terms) — then the access
+  // preview says nothing about it rather than guessing.
+  const groupHasSiteAccess = React.useCallback(
+    (groupName: string | undefined): boolean | undefined => {
+      const group = groupName ? siteGroups.find((g) => g.Title === groupName) : undefined
+      return group ? !!group.PermissionLevel : undefined
+    },
+    [siteGroups]
+  )
   // With the guest role the M365 group already grants access (guest → group →
   // the site's member group), so the SP section is a pure add-on; without it,
   // an SP group is the only way the invite grants access to this site.
@@ -224,6 +235,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   spGroupName={activeGuest.spGroupName}
                   spPermissionLevel={activeGuest.spPermissionLevel}
                   isGroupConnected={isGroupConnected}
+                  spGroupHasSiteAccess={groupHasSiteAccess(activeGuest.spGroupName)}
                 />
               )}
             </>
@@ -265,6 +277,7 @@ export const InviteDrawer: React.FC<IInviteDrawerProps> = ({ open, onOpenChange 
                   spGroupName={sharedSpGroupName}
                   spPermissionLevel={sharedSpPermissionLevel}
                   isGroupConnected={isGroupConnected}
+                  spGroupHasSiteAccess={groupHasSiteAccess(sharedSpGroupName)}
                 />
               )}
             </>

@@ -164,6 +164,16 @@ Kontroller sammendraget og send inn. Appen oppretter én forespørsel per gjest 
 
 En bekreftelse betyr at forespørslene er registrert, ikke at gjestene allerede har mottatt invitasjonen. Bakgrunnsprosessen inviterer eller finner brukeren, registrerer deg som sponsor i Entra ID og tildeler den valgte tilgangen.
 
+Når tilgangen er tildelt, får gjesten en e-post. Innholdet følger tilgangen gjesten faktisk har fått:
+
+| Tilgangen gjesten har fått                                         | E-posten                                                        |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Området (rollen **Gjest**, eller en gruppe med tilgang til området) | Lenke til området.                                              |
+| Bare enkelte bibliotek eller lister, via en SharePoint-gruppe      | Lenke til hvert bibliotek og hver liste gruppen har tilgang til. |
+| Ingenting på området                                               | Ingen e-post.                                                   |
+
+Innhold som er delt på mappe- eller filnivå, kommer ikke med i e-posten. Del slikt innhold med gjesten direkte, så sender SharePoint en egen e-post med lenke.
+
 ### 4. Følg status
 
 | Status  | Betydning                                                               |

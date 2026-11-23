@@ -482,13 +482,42 @@ sequenceDiagram
     Logic->>Guests: Inviter eller finn gjest
     Guests->>List: GuestId og InviteRedeemUrl
     Logic->>Runbook: Tildel valgt tilgang
-    Runbook-->>Logic: Jobbstatus
+    Runbook-->>Logic: Jobbstatus og hva gjesten kan åpne
     Logic->>List: Invited eller Failed
+    Logic->>User: E-post til gjesten, tilpasset tilgangen
 ```
 
 [`ProcessGuestRequest`](./Source/ARMTemplates/LogicApps/processguestrequest.json) poller nye elementer, kaller [`ProcessGuests`](./Source/ARMTemplates/LogicApps/processguests.json) og starter [`AddGuestToSite.ps1`](./Source/Runbooks/AddGuestToSite.ps1). Bestilleren registreres som sponsor i Entra ID.
 
 Dersom deployment-parameteren `guestEntraGroup` er satt, legger `AddGuestToSite` hver invitert gjest til i den angitte Entra ID-gruppen. Verdien kan være gruppens objekt-ID eller et entydig visningsnavn. Feil ved gruppeoppslag eller medlemskap gjør gjesteforespørselen mislykket.
+
+#### E-posten til gjesten
+
+E-posten skal stemme med tilgangen gjesten har fått. `AddGuestToSite` avslutter derfor med å finne ut hva gjesten kan åpne, og skriver resultatet som JSON etter `##RESULT##` på siste utdatalinje:
+
+```json
+{ "siteAccess": false, "links": [{ "title": "Tegninger", "url": "https://contoso.sharepoint.com/sites/prosjekt/Tegninger" }] }
+```
+
+| Felt         | Betydning                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| `siteAccess` | `true` når gjesten kan åpne selve området: medlemskap i Microsoft 365-gruppen, eller en SharePoint-gruppe med rettigheter på området. |
+| `links`      | Bibliotek og lister med egne rettigheter der gruppen har en rettighet. Fylles bare ut når `siteAccess` er `false`. |
+
+«Begrenset tilgang» (`RoleTypeKind` 1 og 9) teller ikke som tilgang, fordi SharePoint legger den til automatisk på overordnede nivåer. Skjulte lister og `_catalogs` tas ikke med. Innhold som er delt på mappe- eller filnivå, listes ikke.
+
+`ProcessGuestRequest` henter jobbens utdata og velger e-post:
+
+| Resultat                              | Handling                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `siteAccess` er `true`, ny gjest      | `Send_guest_invitation_email` med innløsningslenken, som sender gjesten videre til området. |
+| `siteAccess` er `true`, kjent gjest   | `Send_site_access_email` med lenke til området.                                            |
+| `siteAccess` er `false`, `links` fylt | `Send_library_access_email` med lenke til hvert bibliotek.                                 |
+| `siteAccess` er `false`, `links` tom  | Ingen e-post.                                                                              |
+
+I e-posten med biblioteklenker brukes ikke innløsningslenken, fordi den sender gjesten til områdets forside. En ny gjest godtar i stedet gjestetilgangen ved første innlogging via en av biblioteklenkene. Innløsningslenken ligger fortsatt i `InviteRedeemUrl` og kan kopieres fra statuslisten.
+
+Finner ikke Logic Appen `##RESULT##` i utdataene, for eksempel fordi runbooken er eldre enn Logic Appen, lenker e-posten til området som før.
 
 Retry oppretter en ny `Pending`-rad og flytter den mislykkede raden til SharePoint-papirkurven. Dette er nødvendig fordi Logic App-triggeren reagerer på nye elementer, men betyr at den opprinnelige raden ikke blir liggende i aktiv listehistorikk.
 
