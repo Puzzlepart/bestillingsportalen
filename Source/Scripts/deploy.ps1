@@ -1398,24 +1398,218 @@ function TestActionMatch([string[]]$patterns, [string]$action) {
     return $false
 }
 
-# Returns whether the signed-in account's EFFECTIVE permissions at $Scope include
-# $Action. $null when the permissions endpoint cannot be read - the caller decides
-# whether unknown blocks or not.
-function TestAzureAction([string]$Scope, [string]$Action) {
+# The signed-in account's EFFECTIVE permission entries (actions/notActions) at $Scope,
+# inherited roles included. Read once per scope and run. $null when the permissions
+# endpoint cannot be read - the caller decides whether unknown blocks or not.
+$script:azurePermissionsCache = @{}
+
+function GetAzurePermissions([string]$Scope) {
+    if ($script:azurePermissionsCache.ContainsKey($Scope)) {
+        return , $script:azurePermissionsCache[$Scope]
+    }
     try {
         $permsJson = az rest --method get --url "https://management.azure.com$Scope/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" 2>$null
         if (-not $permsJson) { return $null }
         $perms = @(($permsJson | ConvertFrom-Json).value)
-        foreach ($entry in $perms) {
-            if ((TestActionMatch @($entry.actions) $Action) -and -not (TestActionMatch @($entry.notActions) $Action)) {
-                return $true
-            }
-        }
-        return $false
+        $script:azurePermissionsCache[$Scope] = $perms
+        return , $perms
     }
     catch {
         return $null
     }
+}
+
+# Whether the permission entries from GetAzurePermissions include $Action.
+function TestActionAllowed([object[]]$Permissions, [string]$Action) {
+    foreach ($entry in $Permissions) {
+        if ((TestActionMatch @($entry.actions) $Action) -and -not (TestActionMatch @($entry.notActions) $Action)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+# Returns whether the signed-in account's effective permissions at $Scope include
+# $Action. $null when the permissions endpoint cannot be read.
+function TestAzureAction([string]$Scope, [string]$Action) {
+    $perms = GetAzurePermissions $Scope
+    if ($null -eq $perms) { return $null }
+    return TestActionAllowed $perms $Action
+}
+
+# Where the RBAC pre-flight checks look: the resource group when it exists (rights may
+# be granted there only), else the subscription - a group that does not exist yet can
+# only be reached through rights inherited from the subscription. Resolved once per run.
+#
+# ResourceGroupState: Exists, NotFound, or Unreadable. Unreadable covers
+# AuthorizationFailed, which ARM also answers for a group that does not exist when the
+# account has no role on the subscription - the two cannot be told apart from here.
+$script:azureRbacTarget = $null
+
+function GetAzureRbacTarget {
+    if ($null -ne $script:azureRbacTarget) { return $script:azureRbacTarget }
+
+    $subId = $parameters.subscriptionId.Value
+    $rgName = $parameters.resourceGroupName.Value.Replace(" ", "")
+    $target = [pscustomobject]@{
+        SubscriptionId     = $subId
+        ResourceGroupName  = $rgName
+        ResourceGroupState = 'Unreadable'
+        Scope              = "/subscriptions/$subId"
+        Label              = "subscription $subId"
+    }
+    try {
+        $output = @(az group show --name $rgName --subscription $subId --output none 2>&1 | ForEach-Object { "$_" }) -join "`n"
+        if ($LASTEXITCODE -eq 0) {
+            $target.ResourceGroupState = 'Exists'
+            $target.Scope = "/subscriptions/$subId/resourceGroups/$rgName"
+            $target.Label = "resource group $rgName"
+        }
+        elseif ($output -match 'ResourceGroupNotFound') {
+            $target.ResourceGroupState = 'NotFound'
+        }
+    }
+    catch {}
+
+    $script:azureRbacTarget = $target
+    return $target
+}
+
+# The ARM actions this run performs, by the step that needs them. Follows the same
+# switches as the main flow: upgrade mode deploys runbooks.bicep and the logic apps only;
+# a full run creates the resource group when it is missing, then azureresources.bicep,
+# runbooks.bicep, the API connections and the logic apps.
+#
+# Deliberately the write actions of the resource types the templates and the runbook
+# upload touch - not a role name. Rights arrive as Owner, Contributor, a combination of
+# narrower built-in roles or a customer's own role, and the permissions endpoint answers
+# for all of them alike.
+function GetRequiredAzureActions([bool]$CreatesResourceGroup) {
+    $deploysBicep = -not $Upgrade -and -not $SkipBicepDeploy
+    $deploysRunbooks = $Upgrade -or -not $SkipBicepDeploy
+    $deploysLogicApps = $Upgrade -or -not $SkipDeployARMTemplates
+    $deploysConnections = -not $Upgrade -and -not $SkipDeployARMTemplates -and -not $SkipDeployAPIConnections
+
+    $required = @()
+    if ($CreatesResourceGroup) {
+        $required += [pscustomobject]@{ Step = 'create the resource group'; Actions = @('Microsoft.Resources/subscriptions/resourceGroups/write') }
+    }
+    if ($deploysBicep -or $deploysRunbooks -or $deploysLogicApps) {
+        $required += [pscustomobject]@{ Step = 'run deployments'; Actions = @('Microsoft.Resources/deployments/write') }
+    }
+    if ($deploysBicep) {
+        $required += [pscustomobject]@{ Step = 'deploy the automation account and managed identity'; Actions = @(
+                'Microsoft.ManagedIdentity/userAssignedIdentities/write'
+                'Microsoft.Automation/automationAccounts/write'
+                'Microsoft.Automation/automationAccounts/variables/write'
+            )
+        }
+    }
+    if ($deploysRunbooks) {
+        $required += [pscustomobject]@{ Step = 'deploy the runbooks'; Actions = @(
+                'Microsoft.Automation/automationAccounts/runtimeEnvironments/write'
+                'Microsoft.Automation/automationAccounts/runbooks/write'
+                'Microsoft.Automation/automationAccounts/runbooks/draft/write'
+                'Microsoft.Automation/automationAccounts/runbooks/publish/action'
+            )
+        }
+    }
+    if ($deploysConnections) {
+        $required += [pscustomobject]@{ Step = 'deploy the API connections'; Actions = @('Microsoft.Web/connections/write') }
+    }
+    if ($deploysLogicApps) {
+        # A logic app that runs as the user-assigned identity and goes through the API
+        # connections needs assign/action on the identity and join/action on the
+        # connections, on top of the write on the workflow itself.
+        $required += [pscustomobject]@{ Step = 'deploy the logic apps'; Actions = @(
+                'Microsoft.Logic/workflows/write'
+                'Microsoft.ManagedIdentity/userAssignedIdentities/assign/action'
+                'Microsoft.Web/connections/join/action'
+            )
+        }
+    }
+    return $required
+}
+
+# Fails the deployment early when the deploying account cannot create or update the
+# Azure resources. Without this, a missing role surfaces at the first deployment - after
+# the SharePoint site, the template and the SPFx packages are done - as AuthorizationFailed
+# on one resource, and the next missing right only shows on the run after that.
+#
+# Covers the resource group too: one that does not exist is created by a full run, which
+# takes resourceGroups/write on the subscription. Upgrade mode and -SkipCreateResourceGroup
+# create nothing, so there a missing group is a wrong name or subscription in the
+# parameter file, or an account that cannot see it.
+function ValidateAzureDeployRights {
+    $checkName = "RBAC: deployment rights"
+    $target = GetAzureRbacTarget
+    $rgName = $target.ResourceGroupName
+    $rgExists = $target.ResourceGroupState -eq 'Exists'
+    $createsResourceGroup = -not $rgExists -and -not $Upgrade -and -not $SkipCreateResourceGroup
+
+    if (-not $rgExists -and -not $createsResourceGroup) {
+        $whyNotCreated = if ($Upgrade) { "upgrade mode never creates it" } else { "-SkipCreateResourceGroup" }
+        $what = if ($target.ResourceGroupState -eq 'NotFound') { "does not exist" } else { "cannot be read by the deploying account (it does not exist, or the account has no role on it)" }
+        RecordPreflightCheck -Name $checkName -Status MISSING -Detail "Resource group '$rgName' in subscription $($target.SubscriptionId) $what, and this run does not create it ($whyNotCreated)" -Fix "Check resourceGroupName and subscriptionId in $parametersFileName. If they are right, have the account granted Contributor on the resource group (a PIM role must be activated first)."
+        return
+    }
+
+    $required = @(GetRequiredAzureActions -CreatesResourceGroup $createsResourceGroup)
+    if ($required.Count -eq 0) {
+        RecordPreflightCheck -Name $checkName -Status SKIPPED -Detail "This run deploys nothing to Azure (-SkipBicepDeploy -SkipDeployARMTemplates)"
+        return
+    }
+
+    $perms = GetAzurePermissions $target.Scope
+    if ($null -eq $perms) {
+        # A failed CHECK must not block a deployment that might work - only a
+        # confirmed missing permission should.
+        RecordPreflightCheck -Name $checkName -Status UNKNOWN -Detail "Could not read the permissions endpoint for $($target.Label) - the first deployment will surface a missing role"
+        return
+    }
+
+    $missingSteps = @()
+    foreach ($step in $required) {
+        $missingActions = @($step.Actions | Where-Object { -not (TestActionAllowed $perms $_) })
+        if ($missingActions.Count -gt 0) {
+            $missingSteps += "$($step.Step): $($missingActions -join ', ')"
+        }
+    }
+
+    $stepNames = @($required | ForEach-Object Step) -join ', '
+    if ($missingSteps.Count -eq 0) {
+        $detail = "Can $stepNames on $($target.Label)"
+        if ($createsResourceGroup) {
+            $detail = "Resource group '$rgName' does not exist yet and will be created. $detail"
+            # The resource group is the one thing created with Az PowerShell rather than the
+            # Azure CLI, and the two are separate sign-ins. The rights above are the CLI
+            # account's - say so when the Az session is someone else.
+            $azAccount = "$((Get-AzContext -ErrorAction SilentlyContinue).Account.Id)"
+            $cliAccount = "$(az account show --query user.name --output tsv 2>$null)"
+            if ($azAccount -and $cliAccount -and $azAccount -ne $cliAccount) {
+                RecordPreflightCheck -Name $checkName -Status WARNING -Detail "$detail - checked for the Azure CLI account ($cliAccount), but the resource group is created by the Az PowerShell session, which is signed in as $azAccount" -Fix "Sign in with the same account in both (answer 'n' to 'Reuse this session?' for Az PowerShell), or make sure $azAccount can create resource groups in the subscription."
+                return
+            }
+        }
+        RecordPreflightCheck -Name $checkName -Status OK -Detail $detail
+        return
+    }
+
+    $detail = if ($perms.Count -eq 0) {
+        "The deploying account has no role on $($target.Label) - it needs rights to $stepNames"
+    }
+    else {
+        "The deploying account lacks rights on $($target.Label) to $($missingSteps -join ' | ')"
+    }
+    if ($rgExists) {
+        $fix = "Have the account granted Contributor on resource group '$rgName' (Owner, or Contributor + User Access Administrator, for a full installation). A PIM role must be activated before the run."
+    }
+    else {
+        $rgWhat = if ($target.ResourceGroupState -eq 'NotFound') { "does not exist yet" } else { "does not exist, or the account cannot read it" }
+        $detail = "Resource group '$rgName' $rgWhat, so the rights must come from the subscription. $detail"
+        $fix = "Have the account granted Owner on the subscription - or have a subscription administrator create resource group '$rgName' in $($parameters.region.Value) and grant the account Owner on it (the run then finds the group and deploys into it). A PIM role must be activated before the run. If the group should already exist, check resourceGroupName and subscriptionId in $parametersFileName."
+    }
+    RecordPreflightCheck -Name $checkName -Status MISSING -Detail $detail -Fix $fix
 }
 
 # Fails the deployment early when the deploying account cannot create RBAC role
@@ -1427,7 +1621,7 @@ function TestAzureAction([string]$Scope, [string]$Action) {
 # check turns that dead end into a clear message before anything runs.
 #
 # Checked against the RG when it exists (rights may be granted there), else the
-# subscription. The permissions endpoint returns the caller's effective actions.
+# subscription - see GetAzureRbacTarget.
 function ValidateAzureRbac {
     # Only azureresources.bicep needs roleAssignments/write (ARM authorizes its two
     # RBAC role assignments at submit). Upgrade mode never deploys that template, and
@@ -1439,21 +1633,10 @@ function ValidateAzureRbac {
         return
     }
 
-    $subId = $parameters.subscriptionId.Value
-    $rgName = $parameters.resourceGroupName.Value
-    $scope = "/subscriptions/$subId"
-    $scopeLabel = "subscription $subId"
-    try {
-        az group show --name $rgName --subscription $subId --output none 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            $scope = "/subscriptions/$subId/resourceGroups/$rgName"
-            $scopeLabel = "resource group $rgName"
-        }
-
-        $hasWrite = TestAzureAction -Scope $scope -Action 'Microsoft.Authorization/roleAssignments/write'
-        if ($null -eq $hasWrite) { throw "the permissions endpoint could not be read" }
-    }
-    catch {
+    $target = GetAzureRbacTarget
+    $scopeLabel = $target.Label
+    $hasWrite = TestAzureAction -Scope $target.Scope -Action 'Microsoft.Authorization/roleAssignments/write'
+    if ($null -eq $hasWrite) {
         # A failed CHECK must not block a deployment that might work - only a
         # confirmed missing permission should.
         RecordPreflightCheck -Name "RBAC: role assignment rights" -Status UNKNOWN -Detail "Could not read the permissions endpoint - the bicep deployment will surface it if the permission is missing"
@@ -1466,6 +1649,48 @@ function ValidateAzureRbac {
     }
 
     RecordPreflightCheck -Name "RBAC: role assignment rights" -Status MISSING -Detail "The deploying account lacks Microsoft.Authorization/roleAssignments/write on $scopeLabel - azureresources.bicep creates two role assignments, and ARM rejects the whole deployment at submit without it" -Fix "Grant the account Owner or User Access Administrator on the subscription or the resource group."
+}
+
+# Things that refuse writes whatever roles the account holds: a subscription that is not
+# active, and ReadOnly locks. A ReadOnly lock on the subscription, the resource group or
+# a resource in it makes the deployments fail with ScopeLocked - and Owner does not help.
+# CanNotDelete locks are fine: the run deletes nothing in the normal case.
+function CheckAzureWriteBlockers {
+    $checkName = "Azure subscription"
+    $target = GetAzureRbacTarget
+    $subId = $target.SubscriptionId
+
+    $state = "$(az account show --subscription $subId --query state --output tsv 2>$null)"
+    if ($state -and $state -notin @('Enabled', 'Warned', 'PastDue')) {
+        RecordPreflightCheck -Name $checkName -Status MISSING -Detail "Subscription $subId is '$state' - it accepts no new or changed resources" -Fix "Have the subscription reactivated (billing), or deploy to another subscription: set subscriptionId in $parametersFileName."
+        return
+    }
+
+    $locks = $null
+    try {
+        $locksJson = az lock list --subscription $subId --query "[?level=='ReadOnly'].{name:name, id:id}" --output json 2>$null
+        if ($LASTEXITCODE -eq 0 -and $locksJson) { $locks = @($locksJson | ConvertFrom-Json) }
+    }
+    catch {}
+
+    $stateText = if ($state) { $state } else { "state unreadable" }
+    if ($null -eq $locks) {
+        RecordPreflightCheck -Name $checkName -Status OK -Detail "$stateText (resource locks could not be read - a ReadOnly lock shows as ScopeLocked on the first deployment)"
+        return
+    }
+
+    # A lock's id starts with the scope it sits on. Blocking: on the subscription itself,
+    # or on the resource group or anything inside it.
+    $subLockPrefix = "/subscriptions/$subId/providers/Microsoft.Authorization/locks/"
+    $rgPrefix = "/subscriptions/$subId/resourceGroups/$($target.ResourceGroupName)/"
+    $blocking = @($locks | Where-Object { $_.id -like "$subLockPrefix*" -or $_.id -like "$rgPrefix*" })
+    if ($blocking.Count -gt 0) {
+        $lockList = @($blocking | ForEach-Object { "'$($_.name)' on $(($_.id -split '/providers/Microsoft.Authorization/locks/')[0])" }) -join ', '
+        RecordPreflightCheck -Name $checkName -Status MISSING -Detail "ReadOnly lock(s) block the deployments: $lockList" -Fix "Have the lock(s) removed for the duration of the run (az lock delete --ids <lock id>) and put back afterwards. A ReadOnly lock on the resource group also disturbs the daily operation of the logic apps and runbooks - CanNotDelete protects against deletion without that."
+        return
+    }
+
+    RecordPreflightCheck -Name $checkName -Status OK -Detail "$stateText, no ReadOnly locks on the subscription or resource group $($target.ResourceGroupName)"
 }
 
 # ---------------------------------------------------------------------------
@@ -3490,12 +3715,12 @@ catch {
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, RBAC, resource providers, app roles, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, subscription, RBAC, resource providers, app roles, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
 CheckSpoAdminAccess
 if ($SharePointOnly) {
     # Every one of these reads the subscription or concerns a step this run does not take
-    RecordPreflightCheck -Name "Azure checks" -Status SKIPPED -Detail "-SharePointOnly: MFA, ARM/bicep templates, RBAC, resource providers and app role rights are checked by the full run"
+    RecordPreflightCheck -Name "Azure checks" -Status SKIPPED -Detail "-SharePointOnly: MFA, ARM/bicep templates, subscription, RBAC, resource providers and app role rights are checked by the full run"
 }
 else {
     CheckAzureWriteMfa
@@ -3504,6 +3729,8 @@ else {
 ValidateServiceAccount
 ValidateSiteAlias
 if (-not $SharePointOnly) {
+    CheckAzureWriteBlockers
+    ValidateAzureDeployRights
     ValidateAzureRbac
     ValidateResourceProviders
     CheckAppRoleRights
@@ -3670,7 +3897,10 @@ if ($global:upgrade) {
     # automation account's system-assigned managed identity if not already
     # present. Needed by AddGuestToSite for Add-PnPMicrosoft365GroupMember/Owner.
     # Pre-1.0.0 deploys may have skipped this in upgrade mode.
-    AssignManagedIdentityPermissions
+    # -SkipAppRoles: no role is assigned here; the handover command below covers both identities.
+    if (-not $SkipAppRoles) {
+        AssignManagedIdentityPermissions
+    }
 
     # The logic apps reference the user-assigned managed identity, which is created by
     # azureresources.bicep (skipped in upgrade mode). Installations deployed before the
@@ -3680,8 +3910,13 @@ if ($global:upgrade) {
     if ([string]::IsNullOrEmpty($uamiExists)) {
         throw "User-assigned managed identity '$uamiName' was not found in resource group '$($parameters.resourceGroupName.Value)'. Run a full deployment (without -Upgrade) once to migrate to managed identity before using upgrade mode. See Upgrade.md."
     }
-    # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
-    AssignUamiPermissions
+    if ($SkipAppRoles) {
+        EmitAppRoleHandover
+    }
+    else {
+        # Idempotent - keeps the UAMI app roles in sync as the logic apps evolve.
+        AssignUamiPermissions
+    }
 
     DeployUpgradeLogicApp
 
