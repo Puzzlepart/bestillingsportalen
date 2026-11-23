@@ -6,9 +6,9 @@
   Styrt selvbetjening av samarbeidsområder i Microsoft 365
 </p>
 
-> **English summary.** Bestillingsportalen ("the ordering portal") is an open-source, Azure-based governance solution for Microsoft 365. Users order Teams, Microsoft 365 groups, SharePoint sites and Viva Engage communities from a SharePoint Framework (SPFx) web part or Teams app. Each request goes through a configurable Power Automate approval and is then provisioned automatically by Azure Logic Apps and Azure Automation, authenticating with managed identities only. It is a Norwegian-language derivative of Microsoft's [Provision Assist](https://github.com/pnp/provision-assist-m365). The user interface and all documentation are in Norwegian.
+> **English summary.** Bestillingsportalen ("the ordering portal") is an open-source, Azure-based governance solution for Microsoft 365. Users order Teams, Microsoft 365 groups, SharePoint sites and Viva Engage communities from a SharePoint Framework (SPFx) web part or Teams app. Each request goes through a configurable approval and is then provisioned automatically by Azure Logic Apps and Azure Automation, authenticating with managed identities only. It is a Norwegian-language derivative of Microsoft's [Provision Assist](https://github.com/pnp/provision-assist-m365). The user interface and all documentation are in Norwegian.
 
-Bestillingsportalen er en Azure-basert løsning som gir et styrt alternativ til selvbetjent opprettelse av samarbeidsområder i Microsoft 365. Brukere bestiller Teams, Microsoft 365-grupper, SharePoint Online-områder og Viva Engage-fellesskap fra en webdel eller Teams-app bygget på SharePoint Framework (SPFx). Bestillingen godkjennes i en konfigurerbar Power Automate-flyt, og bakenforliggende Azure-komponenter provisjonerer området automatisk med navnekonvensjoner, maler, merker og innstillinger organisasjonen har bestemt. Bestillingsportalen kan brukes som del av en Copilot for Microsoft 365-utrulling for å etablere styring over selvbetjening.
+Bestillingsportalen er en Azure-basert løsning som gir et styrt alternativ til selvbetjent opprettelse av samarbeidsområder i Microsoft 365. Brukere bestiller Teams, Microsoft 365-grupper, SharePoint Online-områder og Viva Engage-fellesskap fra en webdel eller Teams-app bygget på SharePoint Framework (SPFx). Bestillingen går gjennom en konfigurerbar godkjenning, og bakenforliggende Azure-komponenter provisjonerer området automatisk med navnekonvensjoner, maler, merker og innstillinger organisasjonen har bestemt. Bestillingsportalen kan brukes som del av en Copilot for Microsoft 365-utrulling for å etablere styring over selvbetjening.
 
 ![Bestillingsportalen](./Images/bp_app.png)
 
@@ -16,13 +16,13 @@ Bestillingsportalen er en Azure-basert løsning som gir et styrt alternativ til 
 
 - **Organisasjoner** som vil la ansatte opprette samarbeidsområder selv, men med godkjenning, navnekonvensjoner og standardoppsett – uten å åpne fri gruppeopprettelse i tenanten.
 - **Bestillere** møter løsningen som en app i Teams eller en webdel i SharePoint, og ser status på egne bestillinger i et dashbord.
-- **Godkjennere** behandler bestillinger i en Teams-kanal via Approvals.
+- **Godkjennere** behandler bestillinger i en Teams-kanal eller per e-post.
 - **Administratorer** installerer løsningen med et PowerShell-skript i egen Azure-subscription og Microsoft 365-tenant, og konfigurerer den gjennom SharePoint-lister. Ingenting kjører utenfor din egen tenant. Installasjonsskriptet sender én installasjonsmelding til Prosjektportalen-teamet med adressen til bestillingsområdet, versjon og tidspunkt, uten brukernavn og parameterverdier; `-SkipPingback` slår den av.
 
 ## Funksjonalitet
 
 - SPFx-basert webdel og Teams-app (`ProjectProvision`) som lar brukere bestille samarbeidsområder. Fra og med 1.0.0 inngår webdelen i dette repoets pakke `bp-provision-web-parts` (SPFx 1.23, Fluent UI v9) – tidligere fulgte den med [Prosjektportalen 365](https://github.com/Puzzlepart/prosjektportalen365).
-- Konfigurerbar godkjenningsprosess via Power Automate.
+- Konfigurerbar godkjenningsprosess i en Logic App: godkjennings-e-post, Teams-kanal eller ingen godkjenning.
 - SharePoint-område med støttelister som utgjør backenden for løsningen: områdetyper, maler, navnekonvensjoner, merker, forretningsenheter og innstillinger.
 - Dashbord for bestillere som viser tidligere og pågående bestillinger med godkjenningsstatus.
 - Automatisert provisjonering via Azure Logic Apps og Azure Automation (PnP PowerShell), inkludert hub-tilknytning, PnP-maler, sensitivitets- og oppbevaringsmerker.
@@ -49,7 +49,7 @@ Logic Apps autentiserer mot Microsoft Graph, SharePoint REST og Azure Automation
 
 > **Om tilganger:** Løsningen tildeles et minimert sett API-tillatelser der hver tillatelse er knyttet til konkrete kjøretidskall – se [Datatilgang og sikkerhet](./Data-access-security.md) for den fulle koblingen. Merk at noen av tillatelsene kun er i bruk av **valgfri funksjonalitet**: gjesteinvitasjon (`User.Invite.All`, `User.ReadWrite.All`), Viva Engage-fellesskap (`Community.ReadWrite.All`) og sensitivitetsmerker (`InformationProtectionPolicy.Read.All`). Organisasjoner som ikke bruker disse funksjonene kan stramme inn ytterligere – se merknaden om funksjonsbundne tillatelser i sikkerhetsdokumentet.
 
-Provisjonering og andre automatiseringsoppgaver løses gjennom Azure Logic Apps (forbruksplan), som gir lav kjøretidskostnad. Godkjenningsflyten bruker seeded Power Automate-lisenser og krever ikke premium-lisensiering.
+Provisjonering og andre automatiseringsoppgaver løses gjennom Azure Logic Apps (forbruksplan), som gir lav kjøretidskostnad. Løsningen krever ingen Power Platform-lisenser.
 
 For arkitekturdiagrammer og en samlet oversikt over hva som installeres og hvilke tilganger som kreves – både for installasjon og for løsningen i drift – se [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md).
 
@@ -59,10 +59,10 @@ Installasjonen gjøres av en administrator med et PowerShell-skript, etterfulgt 
 
 **Dette trenger du**
 
-- En Microsoft 365-tenant med tenant app-katalog i SharePoint og Power Automate (seeded-lisenser) aktivert.
+- En Microsoft 365-tenant med tenant app-katalog i SharePoint.
 - Et fakturerbart Azure-abonnement i samme tenant, der du er Owner (eller Contributor + User Access Administrator på ressursgruppen).
 - En konto som er SharePoint Administrator og kan tildele app-roller til managed identities (Global Administrator – eller kjør med `-SkipAppRoles` og la en Global Administrator fullføre det steget).
-- En tjenestekonto med Microsoft 365-lisens (E- eller F-lisens) som eier godkjenningsflyten og API-tilkoblingene.
+- En tjenestekonto med Microsoft 365-lisens (E- eller F-lisens) som de delegerte API-tilkoblingene kjører som.
 - En app-registrering for PnP PowerShell i tenanten (interaktiv pålogging, ingen sertifikater).
 - En Windows-maskin med PowerShell 7.4+, Azure CLI, PnP.PowerShell 3.2+ og Az-modulen. Node.js 22 trengs kun hvis SPFx-pakken skal bygges lokalt.
 
@@ -71,7 +71,7 @@ Installasjonen gjøres av en administrator med et PowerShell-skript, etterfulgt 
 1. **Les [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md).** Den beskriver hva som installeres, hvilke tilganger installasjonen og driften krever, og kan brukes som underlag for sikkerhetsvurdering før dere begynner.
 2. **Hent installasjonspakken.** Last ned `bestillingsportalen-<versjon>.zip` fra [nyeste release](https://github.com/Puzzlepart/bestillingsportalen/releases) og pakk den ut. Den har alt installasjonen trenger, med SPFx-pakken ferdig bygd. Skriptene ligger i `Source/Scripts/`. En klone av repoet går også, men bygger SPFx-pakken selv og krever Node.js.
 3. **Følg [Installasjonsveiledningen](./Deployment-guide.md).** `GenerateParameters.ps1` lager parameterfila fra tenanten du er logget inn i, `deploy.ps1 -Preflight` sjekker alle forutsetningene uten å installere noe, og `deploy.ps1` oppretter Azure-ressursene, SharePoint-området og SPFx-pakken.
-4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningskanal, import av Power Automate-flyten, deling, aktivering av Teams-appen og en verifiserende testbestilling. Før testbestillingen sjekker `Test-Installation.ps1` installasjonen punkt for punkt uten å endre noe.
+4. **Fortsett i [Konfigurasjonsveiledningen](./Configuration-guide.md).** Den tar over med godkjenningsoppsett, deling, aktivering av Teams-appen og en verifiserende testbestilling. Før testbestillingen sjekker `Test-Installation.ps1` installasjonen punkt for punkt uten å endre noe.
 
 Løsningen er ikke i drift før både steg 3 og 4 er gjennomført. Merk at Bestillingsportalen-appen i Teams normalt må lastes opp manuelt i Teams admin center (zip-pakken produseres av deploy-skriptet) – se [Teams-appen](./Deployment-guide.md#teams-appen) i installasjonsveiledningen.
 
@@ -91,7 +91,7 @@ Bestillingsportalen bygger på [Provision Assist](https://github.com/pnp/provisi
 - All autentisering i drift går via managed identities. Client secret, Key Vault og Entra ID-app-registreringen fra upstream er fjernet.
 - Gjesteinvitasjon (`InviteGuests`-webdelen) med sponsor-registrering og valgfri felles gjestegruppe.
 - Installasjonsskriptet har pre-flight-sjekker, oppgraderingsmodus og støtte for flere installasjoner i samme tenant.
-- Power Automate-pakken er trimmet til godkjenningsflyten – se [Source/Flows/README.md](./Source/Flows/README.md) for hvordan pakken avledes fra upstream.
+- Godkjenningsflyten er flyttet fra Power Automate til en Logic App, så løsningen ikke har noen Power Platform-komponenter.
 - Brukergrensesnitt og dokumentasjon er på norsk.
 
 ## Status og vedlikehold
@@ -124,7 +124,7 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Brukerveiledning for Bestillingsportalen-appen](./App-brukerveiledning.md) – bestilling, status og gjesteinvitasjon
 - [Teknisk løsningsbeskrivelse](./Teknisk-losningsbeskrivelse.md) – komponenter, arkitektur og tilganger
 - [Installasjonsveiledning](./Deployment-guide.md) – forutsetninger og den skriptede installasjonen
-- [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenning, flyt-import, deling og Teams-app
+- [Konfigurasjonsveiledning](./Configuration-guide.md) – godkjenning, deling og Teams-app
 - [E-postmal for overlevering](./Overlevering-e-postmal.md) – til kunden når installasjonen er ferdig
 
 **Drift**
@@ -149,4 +149,4 @@ Bestillingsportalen er lisensiert under [MIT-lisensen](./LICENSE) © SoftwareOne
 - [Teknisk referanse for Bestillingsportalen-appen](./App-teknisk-referanse.md) – SPFx-komponenter, dataflyt, konfigurasjon, bygg og kjente begrensninger
 - [Datalagre](./Data-stores.md) – alle lister og felter
 - [Datatilgang og sikkerhet](./Data-access-security.md) – hver tillatelse koblet til kjøretidskallene som bruker den
-- [Power Automate-pakken](./Source/Flows/README.md) og [diagnoseskript](./Source/Diagnostics/README.md)
+- [Diagnoseskript](./Source/Diagnostics/README.md)

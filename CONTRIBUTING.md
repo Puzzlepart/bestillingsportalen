@@ -119,7 +119,7 @@ filene på nytt for en eksisterende tag: **Actions → Release → Run workflow*
 Pakken kan også bygges lokalt med `.github/scripts/build-release-assets.ps1 -Version 1.0.1`
 (PowerShell 7 og Node.js; `-SkipSPFxBuild` pakker en allerede bygd `.sppkg`). Den havner i
 `release-assets/`. Pakken inneholder det en installasjon trenger: skriptene, malene,
-ARM-malene, runbookene, ressursene, Power Automate-løsningen og dokumentasjonen, med den
+ARM-malene, runbookene, ressursene og dokumentasjonen, med den
 bygde `.sppkg`-fila og Teams-app-zipen på plass under `sharepoint/solution/`. SPFx-kildekoden,
 bildene til dokumentasjonen og GitHub-innstillingene er ikke med.
 

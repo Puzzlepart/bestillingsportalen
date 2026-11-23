@@ -15,8 +15,8 @@
 
         bestillingsportalen-<version>.zip   What an installation needs, and nothing else:
                                             the scripts, templates, ARM templates, runbooks,
-                                            assets, the Power Automate solution and the
-                                            documentation, with the built .sppkg and the
+                                            assets and the documentation, with the
+                                            built .sppkg and the
                                             Teams app zip in place under
                                             Source/SharePointFramework/<solution>/sharepoint/solution/,
                                             where deploy.ps1 looks for them. Unpack it and

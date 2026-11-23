@@ -39,7 +39,7 @@ Pakkedefinisjonen finnes i [`package.json`](./Source/SharePointFramework/Provisi
 
 ## 2. Overordnet arkitektur
 
-Klientappen oppretter ikke områder eller gjester direkte. Den validerer input og skriver forespørsler til SharePoint. Godkjenning og provisjonering utføres asynkront av Power Automate, Azure Logic Apps og Azure Automation.
+Klientappen oppretter ikke områder eller gjester direkte. Den validerer input og skriver forespørsler til SharePoint. Godkjenning og provisjonering utføres asynkront av Azure Logic Apps og Azure Automation.
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,7 @@ flowchart LR
     SPFX -->|Ny gjesteforespørsel| GR[(Guest Requests)]
     SPFX -->|Delegert User.ReadBasic.All| GRAPHLOOKUP[Microsoft Graph brukeroppslag]
 
-    PR --> PA[Power Automate godkjenning]
+    PR --> PA[ProcessApprovalRequest]
     PA --> PPR[ProcessProvisionRequest]
     PPR -->|User-assigned managed identity| GRAPH[Microsoft Graph og SharePoint REST]
     PPR --> AUTO[Azure Automation]
@@ -69,7 +69,7 @@ flowchart LR
 | ------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
 | SPFx mot SharePoint                   | Innlogget bruker via SPFx/PnPjs                     | Brukeren kan bare lese og skrive det SharePoint-tillatelsene gir adgang til.    |
 | SPFx mot Microsoft Graph              | Innlogget bruker, delegert `User.ReadBasic.All`     | Brukes bare til å finne eksisterende brukere ved gjesteinvitasjon.              |
-| Godkjenningsflyt og connector-varsler | Tjenestekonto                                       | Power Automate, e-post og Teams-connectorer kjører som den autoriserte kontoen. |
+| Godkjenning og connector-varsler      | Tjenestekonto                                       | SharePoint-, e-post- og Teams-connectorene kjører som den autoriserte kontoen.  |
 | Logic Apps mot Graph og SharePoint    | User-assigned managed identity                      | Utfører tenantoperasjoner uten secret eller sertifikat.                         |
 | Automation-runbooks                   | Automation-kontoens systemtildelte managed identity | Utfører PnP PowerShell-operasjoner mot tenant og målområder.                    |
 
@@ -221,7 +221,7 @@ Payloaden omfatter blant annet:
 
 Personfeltene fjernes fra det første `add`-kallet og skrives etterpå med `validateUpdateListItem`, slik at SharePoint løser principalene. Feiler dette, forsøker tjenesten å slette det ufullstendige elementet og returnerer en egen brukeroppløsningsfeil.
 
-Når `EnableAutoApproval` er aktivert, settes `Status` og `Stage` direkte til `Approved`. Ellers settes de til `Submitted`.
+Når `EnableAutoApproval` er aktivert, settes `Status` og `Stage` direkte til `Approved`. Ellers settes de til `Submitted`. `ProcessApprovalRequest` leser samme innstilling og godkjenner automatisk `Submitted`-bestillinger som kommer inn utenom appen.
 
 ## 5. Innstillinger brukt av bestillingsflaten
 
@@ -290,7 +290,7 @@ Synlighet i klienten er ikke tilgangskontroll. Beskytt innstillingslistene med S
 
 ### Tillatelser for sluttbrukere
 
-Klienten kjører som innlogget bruker, så bestilleren trenger SharePoint-tillatelser på Bestillingsportalen-området. Ingen Entra ID- eller Graph-roller er nødvendige utover det SPFx gir; provisjoneringen utføres av managed identity og tjenestekontoen (se [Datatilgang og sikkerhet](./Data-access-security.md)). Oppsettet er beskrevet i Steg 3 i [Konfigurasjonsveiledningen](./Configuration-guide.md).
+Klienten kjører som innlogget bruker, så bestilleren trenger SharePoint-tillatelser på Bestillingsportalen-området. Ingen Entra ID- eller Graph-roller er nødvendige utover det SPFx gir; provisjoneringen utføres av managed identity og tjenestekontoen (se [Datatilgang og sikkerhet](./Data-access-security.md)). Oppsettet er beskrevet i Steg 2 i [Konfigurasjonsveiledningen](./Configuration-guide.md).
 
 | Hvor                                                     | Minste tillatelse | Hvorfor                                                                                                                                                                                                                             |
 | -------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -310,7 +310,7 @@ sequenceDiagram
     participant User as Bruker
     participant App as ProjectProvision
     participant List as Provisioning Requests
-    participant Flow as Power Automate
+    participant Flow as ProcessApprovalRequest
     participant Logic as ProcessProvisionRequest
     participant Auto as ConfigureSpace
     participant Custom as CustomerSpecific
@@ -329,7 +329,7 @@ sequenceDiagram
     Logic->>List: Space Created eller feilstilling
 ```
 
-Godkjenningsflyten er ikke en del av React-appen. Den leveres som Power Automate-løsning og er beskrevet i [Godkjenningsflyt](./Approval-flow.md).
+Godkjenningen er ikke en del av React-appen. Den utføres av Logic Appen `ProcessApprovalRequest` og er beskrevet i [Godkjenningsflyt](./Approval-flow.md).
 
 [`ProcessProvisionRequest`](./Source/ARMTemplates/LogicApps/processprovisionrequest.json) poller etter godkjente bestillinger. Den oppretter grupper, team, områder eller fellesskap, oppdaterer status og kaller [`ConfigureSpace.ps1`](./Source/Runbooks/ConfigureSpace.ps1) for PnP-baserte ettersteg. Automation-jobbens faktiske status kontrolleres eksplisitt fordi connectoren kan returnere HTTP 200 selv om runbook-jobben feilet.
 

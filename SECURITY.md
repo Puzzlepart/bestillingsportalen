@@ -8,7 +8,7 @@ Har du funnet en sårbarhet i Bestillingsportalen, **ikke opprett et offentlig i
 
 Ta med det som trengs for å reprodusere funnet:
 
-- Hvilken komponent det gjelder (installasjonsskript, Logic App, runbook, SPFx-webdel, Power Automate-flyt, PnP-mal)
+- Hvilken komponent det gjelder (installasjonsskript, Logic App, runbook, SPFx-webdel, PnP-mal)
 - Hvilken versjon (`VERSION` i repo-rot, eller versjonen som vises i miljøet – se [Upgrade.md](./Upgrade.md#hvilken-versjon-kjører-miljøet))
 - Steg for å reprodusere, og hva konsekvensen er
 - Eventuelt forslag til utbedring
