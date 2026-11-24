@@ -2963,9 +2963,8 @@ function DeployUpgradeLogicApp {
 # actually forces a fresh account choice - Connect-PnPOnline -ForceAuthentication did
 # not, when tested. The pre-flight site lookup surfaces the command when it matters.
 #
-# -Tenant anchors the sign-in to the target tenant. Without it the token is issued by
-# the account's home tenant, and SharePoint answers 401 Unauthorized to an account
-# whose home tenant is another one (a guest, or a consultant's customer account).
+# -Tenant anchors the sign-in to the tenant in the parameter file, so that an account
+# that exists in several tenants is signed in to the one being installed.
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
