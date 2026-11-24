@@ -1955,6 +1955,11 @@ function ValidateSiteAlias {
     # URL but NOT the group's mailNickname), requestsSiteAlias must be set to the new
     # URL segment, which may well be the service account's name - the very collision
     # this check exists for on fresh installs.
+    if ($script:siteOwnerMode) {
+        # The sign-in probe read the site directly; the tenant admin lookup below would fail
+        RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl"
+        return
+    }
     $siteState = GetSiteExistenceState $requestsSiteUrl
     if ($siteState -eq 'Exists') {
         RecordPreflightCheck -Name "Site alias '$requestsSiteAlias'" -Status OK -Detail "The site already exists at $requestsSiteUrl"
@@ -2042,7 +2047,18 @@ function CheckSpoAdminAccess {
         RecordPreflightCheck -Name "SharePoint admin access" -Status OK -Detail "$script:pnpIdentity"
         return
     }
-    RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, but the tenant admin API returned: $script:spoAdminAccessError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
+    if ($script:siteOwnerMode) {
+        # -Upgrade -SkipSharepointSite -SkipSPFxDeploy: every SharePoint step left in the
+        # run works on the site itself, which the sign-in probe has just read.
+        RecordPreflightCheck -Name "SharePoint admin access" -Status WARNING -Detail "$script:pnpIdentity is not a SharePoint Administrator. Not needed for this run: -Upgrade -SkipSharepointSite -SkipSPFxDeploy only reads the list ids from $requestsSiteUrl and deploys the runbooks and the Logic Apps. The instance registry (bp_ProvisionUrls) is left as it is"
+        return
+    }
+    if ($azureOnlyUpgrade) {
+        RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, who is not a SharePoint Administrator (tenant admin API: $script:spoAdminAccessError) and could not read '$requestsListName' on $requestsSiteUrl either: $script:siteProbeError" -Fix "This run needs either the SharePoint Administrator role or access to the site. Check requestsSiteAlias and managedPath in $parametersFileName, and that the account is an owner of the site. A wrong cached account is cleared with: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force"
+        return
+    }
+    $siteOwnerHint = if ($Upgrade) { " Without that role, an owner of the site can still upgrade the runbooks and the Logic Apps: re-run with -Upgrade -SkipSharepointSite -SkipSPFxDeploy." } else { "" }
+    RecordPreflightCheck -Name "SharePoint admin access" -Status MISSING -Detail "Signed in as $script:pnpIdentity, but the tenant admin API returned: $script:spoAdminAccessError" -Fix "That account must be a SharePoint Administrator in THIS tenant. Signing in again does not help: PnP.PowerShell caches the account on disk and -Interactive then completes silently as that account. Clear it, then re-run: Remove-Item `"`$env:LOCALAPPDATA\.m365pnppowershell\pnp.msal.cache`" -Force.$siteOwnerHint"
 }
 
 # Decodes the payload of a JWT. Callers read single claims out of it - the token itself
@@ -2299,7 +2315,9 @@ function GetInstalledVersion {
         # Same existence check ValidateSiteAlias uses, on the -admin connection the
         # pre-flight already holds: on a new installation there is nothing to read, and
         # connecting to a site that does not exist is slow and noisy for no reason.
-        if ($null -eq (Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue)) { return $null }
+        # A site owner without the admin role cannot ask the tenant, and has already
+        # read the site in the sign-in probe.
+        if (-not $script:siteOwnerMode -and $null -eq (Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue)) { return $null }
 
         $siteConnection = Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
         $item = @(Get-PnPListItem -List $requestSettingsListName -Query (SettingQuery $installedVersionSettingName) -Connection $siteConnection -ErrorAction Stop)
@@ -3278,6 +3296,13 @@ function SetSettingValue {
 # finally, the same pattern as DisableNoScript/EnableNoScript in ConfigureSpace.ps1.
 function RegisterProvisionInstance {
     $componentName = "Instance registry (bp_ProvisionUrls)"
+    if ($script:siteOwnerMode) {
+        # Writing the storage entity needs the tenant app catalog and the admin API. The
+        # site was registered when it was installed, and this run does not move it.
+        Write-Host "Skipping the instance registry (bp_ProvisionUrls) - no SharePoint Administrator role, and the site is already registered from the installation." -ForegroundColor Yellow
+        RecordDeployStatus -Component $componentName -Status 'SKIPPED' -Detail "Not a SharePoint Administrator - left as it is"
+        return
+    }
     $adminUrl = "https://$($parameters.spoTenantName.Value)-admin.sharepoint.com"
     $appCatalogUrl = $null
     $restoreNoScript = $false
@@ -3699,13 +3724,34 @@ ConnectPnP $adminSiteUrl
 # Probing the tenant admin API here, with the identity named, turns that into one line.
 $script:pnpIdentity = GetPnPSignedInUser
 $script:spoAdminAccessError = $null
+$script:siteOwnerMode = $false
+$script:siteProbeError = $null
+$azureOnlyUpgrade = $Upgrade -and $SkipSharepointSite -and $SkipSPFxDeploy
 try {
     Get-PnPTenantSite -Url $global:tenantUrl -ErrorAction Stop | Out-Null
     Write-Host "Connected to SPO: $adminSiteUrl as $script:pnpIdentity" -ForegroundColor Green
 }
 catch {
     $script:spoAdminAccessError = ($_.Exception.Message -split "`r?`n")[0]
-    Write-Host "Signed in to $adminSiteUrl as $script:pnpIdentity, but the tenant admin API did not answer - NOT usable yet, see the checklist below." -ForegroundColor Yellow
+
+    # An upgrade that leaves the site and the SPFx packages alone only reads the list ids
+    # from the site and deploys the runbooks and the Logic Apps. A site owner can do that
+    # without the SharePoint Administrator role, so probe the site itself before giving up.
+    if ($azureOnlyUpgrade) {
+        try {
+            ConnectPnP $requestsSiteUrl
+            Get-PnPList -Identity $requestsListName -ErrorAction Stop | Out-Null
+            $script:siteOwnerMode = $true
+            $script:pnpIdentity = GetPnPSignedInUser
+            Write-Host "Not a SharePoint Administrator - continuing as $script:pnpIdentity on $requestsSiteUrl, which is all this upgrade needs (see the checklist below)." -ForegroundColor Yellow
+        }
+        catch {
+            $script:siteProbeError = ($_.Exception.Message -split "`r?`n")[0]
+        }
+    }
+    if (-not $script:siteOwnerMode) {
+        Write-Host "Signed in to $adminSiteUrl as $script:pnpIdentity, but the tenant admin API did not answer - NOT usable yet, see the checklist below." -ForegroundColor Yellow
+    }
 }
 
 # All sign-ins are done and nothing has been changed yet - validate the templates and

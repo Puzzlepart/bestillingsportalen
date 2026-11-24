@@ -360,6 +360,25 @@ Når ny funksjonalitet legges til i malen:
 2. Du må kanskje konfigurere nye provisioning types manuelt
 3. Oppdater Bestillingsportalen webdel eller Teams app hvis grensesnitt-endringer er nødvendig
 
+### Oppgradere runbooker og Logic App-er uten SharePoint-administrator
+
+Har du ikke rollen SharePoint-administrator, kan du likevel oppgradere Azure-delen. Du må være eier av Bestillingsportalen-området og ha Owner eller Contributor på ressursgruppen.
+
+```powershell
+./deploy.ps1 -ParametersPath ./parameters-<kunde>.json -Upgrade -SkipSharepointSite -SkipSPFxDeploy -SkipAppRoles
+```
+
+Med `-Upgrade -SkipSharepointSite -SkipSPFxDeploy` leser skriptet bare liste-ID-ene fra området og deployer runbookene og Logic App-ene. Svarer ikke tenant-admin-API-et, prøver skriptet å lese området direkte. Går det, står «SharePoint admin access» som `WARNING` i sjekklista, og kjøringen fortsetter.
+
+Dette blir ikke gjort i en slik kjøring:
+
+- PnP-malen anvendes ikke, så nye lister og felt kommer ikke med.
+- SPFx-pakken og Teams-appen publiseres ikke.
+- Instansregisteret `bp_ProvisionUrls` røres ikke.
+- App-roller tildeles ikke med `-SkipAppRoles`. Skriptet skriver ut kommandoen en Global Administrator kan kjøre.
+
+Krever versjonen du oppgraderer til endringer i malen eller webdelen, må en SharePoint-administrator kjøre en vanlig `-Upgrade` etterpå.
+
 ## Feilsøking
 
 ### Problem: «List not found»-feil
