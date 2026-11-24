@@ -2272,7 +2272,7 @@ function GetPnPSignedInUser {
 
 function GetRootSiteLanguage {
     try {
-        $rootConnection = Connect-PnPOnline -Url $global:tenantUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
+        $rootConnection = Connect-PnPOnline -Url $global:tenantUrl -ClientId $parameters.pnpAppId.Value -Tenant $parameters.tenantId.Value -Interactive -ReturnConnection -ErrorAction Stop
         $rootWeb = Get-PnPWeb -Includes Language -Connection $rootConnection -ErrorAction Stop
         $lcid = [int]$rootWeb.Language
         if ($lcid -le 0) {
@@ -2319,7 +2319,7 @@ function GetInstalledVersion {
         # read the site in the sign-in probe.
         if (-not $script:siteOwnerMode -and $null -eq (Get-PnPTenantSite -Url $requestsSiteUrl -ErrorAction SilentlyContinue)) { return $null }
 
-        $siteConnection = Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Interactive -ReturnConnection -ErrorAction Stop
+        $siteConnection = Connect-PnPOnline -Url $requestsSiteUrl -ClientId $parameters.pnpAppId.Value -Tenant $parameters.tenantId.Value -Interactive -ReturnConnection -ErrorAction Stop
         $item = @(Get-PnPListItem -List $requestSettingsListName -Query (SettingQuery $installedVersionSettingName) -Connection $siteConnection -ErrorAction Stop)
         if ($item.Count -eq 0) { return $null }
         $value = "$($item[0].FieldValues['Value'])".Trim()
@@ -2962,10 +2962,14 @@ function DeployUpgradeLogicApp {
 # right account" is not something the script can ask for. Deleting that file is what
 # actually forces a fresh account choice - Connect-PnPOnline -ForceAuthentication did
 # not, when tested. The pre-flight site lookup surfaces the command when it matters.
+#
+# -Tenant anchors the sign-in to the target tenant. Without it the token is issued by
+# the account's home tenant, and SharePoint answers 401 Unauthorized to an account
+# whose home tenant is another one (a guest, or a consultant's customer account).
 function ConnectPnP {
     param([Parameter(Mandatory = $true)][string]$Url)
 
-    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Interactive
+    Connect-PnPOnline -Url $Url -ClientId $parameters.pnpAppId.Value -Tenant $parameters.tenantId.Value -Interactive
 }
 
 # Packages the solution's Teams app (teams/manifest.json + icons) and publishes it to the
