@@ -1893,6 +1893,85 @@ function CheckAppRoleRights {
     }
 }
 
+# Returns the reasons why AddGuestToSite cannot add members to the group, as a list of
+# strings. An empty list means the group is usable. Graph refuses to add a member to a
+# group that is mastered on-premises, has dynamic membership or is role-assignable (the
+# runbook holds Group.ReadWrite.All, not RoleManagement.ReadWrite.Directory), and it
+# cannot manage a distribution list or a mail-enabled security group at all.
+function GetGuestEntraGroupProblems($Group) {
+    $problems = @()
+    $groupTypes = @($Group.groupTypes)
+    if ($Group.onPremisesSyncEnabled -eq $true) {
+        $problems += "it is synchronized from on-premises Active Directory, so its members cannot be changed in Entra ID"
+    }
+    if ($groupTypes -contains 'DynamicMembership') {
+        $problems += "it has dynamic membership, so members cannot be added to it"
+    }
+    if ($Group.isAssignableToRole -eq $true) {
+        $problems += "it is role-assignable, and the runbook does not have the permission that takes"
+    }
+    if ($Group.mailEnabled -eq $true -and $groupTypes -notcontains 'Unified') {
+        $problems += "it is a distribution list or a mail-enabled security group, which Microsoft Graph cannot manage"
+    }
+    return , $problems
+}
+
+# guestEntraGroup is optional, but when it is set EVERY guest invitation ends by adding
+# the guest to that group - and a group Graph cannot write to fails the invitation after
+# the guest has already been given access to the site. Check the group here instead.
+function CheckGuestEntraGroup {
+    $checkName = "Guest group (guestEntraGroup)"
+    if (-not (IsValidParam($parameters.guestEntraGroup))) {
+        RecordPreflightCheck -Name $checkName -Status SKIPPED -Detail "Not configured - guests are not added to a shared Entra ID group"
+        return
+    }
+    $configured = "$($parameters.guestEntraGroup.Value)".Trim()
+    $select = "id,displayName,onPremisesSyncEnabled,groupTypes,isAssignableToRole,mailEnabled,securityEnabled"
+    $fix = "Use a security group or Microsoft 365 group that is created in Entra ID with assigned membership, and set guestEntraGroup in $parametersFileName to its object id. Leave guestEntraGroup blank to turn the feature off."
+    try {
+        $byId = $configured -match '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$'
+        if ($byId) {
+            $response = az rest --method get --url "https://graph.microsoft.com/v1.0/groups/$($configured)?`$select=$select" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                if ("$response" -match 'Request_ResourceNotFound|does not exist') {
+                    RecordPreflightCheck -Name $checkName -Status MISSING -Detail "No Entra ID group has the object id '$configured'" -Fix $fix
+                    return
+                }
+                throw "the group lookup failed"
+            }
+            # 2>&1 is only there to read the error text above: keep stderr out of the JSON
+            $group = ($response | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String) | ConvertFrom-Json
+        }
+        else {
+            $filter = [System.Uri]::EscapeDataString("displayName eq '$($configured.Replace("'", "''"))'")
+            $response = az rest --method get --url "https://graph.microsoft.com/v1.0/groups?`$filter=$filter&`$select=$select" 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $response) { throw "the group lookup failed" }
+            $candidates = @((($response | Out-String) | ConvertFrom-Json).value)
+            if ($candidates.Count -eq 0) {
+                RecordPreflightCheck -Name $checkName -Status MISSING -Detail "No Entra ID group has the display name '$configured'" -Fix $fix
+                return
+            }
+            if ($candidates.Count -gt 1) {
+                RecordPreflightCheck -Name $checkName -Status MISSING -Detail "$($candidates.Count) Entra ID groups share the display name '$configured'" -Fix "Set guestEntraGroup in $parametersFileName to the object id of the intended group."
+                return
+            }
+            $group = $candidates[0]
+        }
+
+        $problems = GetGuestEntraGroupProblems $group
+        if ($problems.Count -gt 0) {
+            RecordPreflightCheck -Name $checkName -Status MISSING -Detail "'$($group.displayName)' ($($group.id)) cannot be used: $($problems -join '; '). Every guest invitation would fail" -Fix $fix
+            return
+        }
+        $detail = "'$($group.displayName)' ($($group.id))"
+        if (-not $byId) { $detail += " - found by display name; the object id is safer, because a display name can be changed or reused" }
+        RecordPreflightCheck -Name $checkName -Status OK -Detail $detail
+    }
+    catch {
+        RecordPreflightCheck -Name $checkName -Status UNKNOWN -Detail "Could not look up '$configured' in Entra ID - a guest invitation will show whether the group works" -Fix "Check by hand that the group is created in Entra ID (not synchronized from on-premises), has assigned membership and is not role-assignable."
+    }
+}
+
 # Kicks off the registrations queued by ValidateResourceProviders. Deliberately
 # WITHOUT --wait: registration takes minutes, and the site creation that follows
 # takes minutes anyway - WaitForResourceProviders picks up the result right before
@@ -3764,12 +3843,12 @@ catch {
 # shows everything that is missing at once - permissions and prerequisites tend to
 # need ordering from customer admins, and finding them one re-run at a time is slow.
 # The checks themselves are quiet on success; the checklist below is the output.
-Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, subscription, RBAC, resource providers, app roles, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
+Write-Host "Running pre-deployment checks (version, SharePoint admin access, MFA, templates, service account, site alias, subscription, RBAC, resource providers, app roles, guest group, app catalog, Teams app publish, Node.js - takes ~30 seconds)..." -ForegroundColor Yellow
 CheckVersionFile
 CheckSpoAdminAccess
 if ($SharePointOnly) {
     # Every one of these reads the subscription or concerns a step this run does not take
-    RecordPreflightCheck -Name "Azure checks" -Status SKIPPED -Detail "-SharePointOnly: MFA, ARM/bicep templates, subscription, RBAC, resource providers and app role rights are checked by the full run"
+    RecordPreflightCheck -Name "Azure checks" -Status SKIPPED -Detail "-SharePointOnly: MFA, ARM/bicep templates, subscription, RBAC, resource providers, app role rights and the guest group are checked by the full run"
 }
 else {
     CheckAzureWriteMfa
@@ -3783,6 +3862,7 @@ if (-not $SharePointOnly) {
     ValidateAzureRbac
     ValidateResourceProviders
     CheckAppRoleRights
+    CheckGuestEntraGroup
 }
 CheckAppCatalog
 CheckTeamsAppPublish
